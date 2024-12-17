@@ -6,9 +6,10 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 import locale
 from datetime import datetime
-from itertools import compress
+from itertools import compress, islice
 from multiprocessing import Pool
 
+import cartopy
 import cartopy.crs as ccrs
 import geopandas as gpd
 import matplotlib.dates as mdates
@@ -389,6 +390,7 @@ def plot_nodal_elec_balance(
     plot_loads=True,
     resample=None,
     nice_names=False,
+    german_carriers=False,
     threshold=1e-3,  # in GWh
     condense_groups=None,
     condense_names=None,
@@ -772,7 +774,10 @@ def plot_nodal_heat_balance(
             network.buses[network.buses.carrier.isin(carriers)].index
         ].mean(axis=1)[period]
         ax2 = lmps.plot(
-            style="--", color="black", label="lmp (mean over buses)", secondary_y=True
+            style="--",
+            color="black",
+            label="Knotenpreise (gemittelt)",
+            secondary_y=True,
         )
         ax2.grid(False)
         # set limits of secondary y-axis
@@ -785,12 +790,12 @@ def plot_nodal_heat_balance(
                 1.5 * lmps.max(),
             ]
         )
-        ax2.legend(title="Legend for right y-axis", loc="upper right")
-        ax2.set_ylabel("lmp [€/MWh]")
+        ax2.legend(title="Legende für y-Ache (rechts)", loc="upper right")
+        ax2.set_ylabel("Knotenpreise [€/MWh]")
 
     # plot loads
     if plot_loads:
-        df_loads.plot(style=":", color="black", label="loads")
+        df_loads.plot(style=":", color="black", label="Elektrizitätslast")
 
     # explicitly filter out duplicate labels
     handles, labels = ax.get_legend_handles_labels()
@@ -799,9 +804,13 @@ def plot_nodal_heat_balance(
     ]
     handles, labels = zip(*filtered_handles_labels)
 
-    if nice_names:
+    if nice_names & (not german_carriers):
         nice_names_dict = network.carriers.nice_name.to_dict()
         labels = [nice_names_dict.get(l, l) for l in labels]
+
+    if german_carriers:
+        german_carriers
+        labels = [carriers_in_german.get(l, l) for l in labels]
 
     # rescale the y-axis
     ax.set_ylim([1.05 * df_neg.sum(axis=1).min(), 1.05 * df_pos.sum(axis=1).max()])
@@ -811,13 +820,13 @@ def plot_nodal_heat_balance(
         ncol=1,
         loc="upper center",
         bbox_to_anchor=(1.22 if plot_lmps else 1.13, 1.01),
-        title="Legend for left y-axis" if plot_lmps else "Legend",
+        title="Legende y-Achse (links)" if plot_lmps else "Legende",
     )
 
     ax.set_ylabel(ylabel)
     ax.set_xlabel("")
     ax.set_title(
-        f"{title} ({model_run}; {datetime.strptime(start_date, date_format).strftime(reduced_date_format)} - {datetime.strptime(end_date, date_format).strftime(reduced_date_format)})",
+        f"{title} ({model_run})",
         fontsize=16,
         pad=15,
     )
@@ -1110,6 +1119,12 @@ def plot_price_duration_curve(
     y_lim_values=[-50, 300],
     language="english",
 ):
+
+    # only plot 2030 onwards
+    years = years[2:]
+    networks = dict(islice(networks.items(), 2, None))
+    year_colors = year_colors[2:]
+
     fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(8, 6))
 
     for i, n in enumerate(networks.values()):
@@ -1861,7 +1876,7 @@ def plot_h2_map(n, regions, savepath, only_de=False):
         vmax=6,
         vmin=0,
         legend_kwds={
-            "label": "Hydrogen Storage [TWh]",
+            "label": "Wasserstoffspeicher [TWh]",
             "shrink": 0.7,
             "extend": "max",
         },
@@ -1914,11 +1929,14 @@ def plot_h2_map(n, regions, savepath, only_de=False):
         color_retrofit,
         color_kern,
     ]
+
     labels = carriers + [
         "H2 pipeline (new)",
         "H2 pipeline (repurposed)",
         "H2 pipeline (Kernnetz)",
     ]
+
+    labels = [carriers_in_german.get(c, c) for c in labels]
 
     legend_kw = dict(
         loc="upper left",
@@ -2172,7 +2190,7 @@ def plot_h2_map_de(n, regions, tech_colors, savepath, specify_buses=None):
         vmax=6,
         vmin=0,
         legend_kwds={
-            "label": "Hydrogen Storage [TWh]",
+            "label": "Wasserstoffspeicher [TWh]",
             "shrink": 0.7,
             "extend": "max",
         },
@@ -2396,7 +2414,7 @@ def plot_elec_map_de(
         linewidths=0,
         legend=True,
         legend_kwds={
-            "label": "Battery Storage [GWh]",
+            "label": "Batteriespeicher [GWh]",
             "shrink": 0.7,
             "extend": "max",
         },
@@ -3250,10 +3268,17 @@ if __name__ == "__main__":
         for n, my, c in zip(_networks, modelyears, costs)
     ]
     del _networks
-    ###
+
+    # # for running with explicit networks not within repo structur (comment out load data and load regions)
+    # diry = "postnetworks-folder"
+    # file_list = os.listdir(diry)
+    # file_list.sort()
+    # networks = [pypsa.Network(diry+"/"+fn) for fn in file_list]
+    # modelyears = [fn[-7:-3] for fn in snakemake.input.networks]
+    # regions = gpd.read_file("path-to-file/regions_onshore_base_s_49.geojson").set_index("name")
 
     # ensure output directory exist
-    for dir in snakemake.output[2:]:
+    for dir in snakemake.output[5:]:
         if not os.path.exists(dir):
             os.makedirs(dir)
 
@@ -3327,11 +3352,12 @@ if __name__ == "__main__":
             resample="D",
             plot_lmps=False,
             plot_loads=False,
-            nice_names=True,
+            german_carriers=True,
             threshold=1e2,  # in GWh as sum over period
             condense_groups=c_g,
             condense_names=c_n,
             title="Strombilanz",
+            ylabel="Stromerzeugung/ -verbrauch [GW]",
         )
 
         plot_nodal_elec_balance(
@@ -3342,11 +3368,12 @@ if __name__ == "__main__":
             end_date="2019-01-31 00:00:00",
             savepath=f"{snakemake.output.elec_balances}/elec-Jan-DE-{year}.png",
             model_run=snakemake.wildcards.run,
-            nice_names=True,
+            german_carriers=True,
             threshold=1e2,
             condense_groups=[electricity_load, electricity_imports],
             condense_names=["Electricity load", "Electricity trade"],
             title="Strombilanz",
+            ylabel="Stromerzeugung/ -verbrauch [GW]",
         )
 
         plot_nodal_elec_balance(
@@ -3357,11 +3384,12 @@ if __name__ == "__main__":
             end_date="2019-05-31 00:00:00",
             savepath=f"{snakemake.output.elec_balances}/elec-May-DE-{year}.png",
             model_run=snakemake.wildcards.run,
-            nice_names=True,
+            german_carriers=True,
             threshold=1e2,
             condense_groups=[electricity_load, electricity_imports],
             condense_names=["Electricity load", "Electricity trade"],
             title="Strombilanz",
+            ylabel="Stromerzeugung/ -verbrauch [GW]",
         )
 
         # heat supply and demand
@@ -3383,7 +3411,7 @@ if __name__ == "__main__":
                 condense_groups=c_g,
                 condense_names=c_n,
                 carriers=[carriers],
-                ylabel="Heat [GW]",
+                ylabel="Wärme [GW]",
                 title=f"{carriers} balance",
             )
 
@@ -3488,7 +3516,6 @@ if __name__ == "__main__":
     map_opts = snakemake.params.plotting["map"]
     snakemake.params.plotting["projection"] = {"name": "EqualEarth"}
     proj = load_projection(snakemake.params.plotting)
-    regions = gpd.read_file(snakemake.input.regions_onshore_clustered).set_index("name")
 
     for year in planning_horizons:
         network = networks[planning_horizons.index(year)].copy()
