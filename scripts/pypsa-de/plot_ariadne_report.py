@@ -1475,6 +1475,7 @@ def plot_elec_prices_spatial(
     df = onshore_regions
     df["elec_price"] = n.buses_t.marginal_price[buses].mean()
 
+
     # Netzentgelte, Annuität NEP 2045 - Annuität PyPSA 2045 / Stromverbrauch Pypsa 2045
     pypsa_netzentgelt = (15.82 - 6.53) / 1.237
     elec_price_de = df["elec_price"][df.index.str.contains("DE")]
