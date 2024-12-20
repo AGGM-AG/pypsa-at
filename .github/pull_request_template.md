@@ -1,14 +1,8 @@
-Closes # (if applicable).
+Before asking for a review for this PR make sure to complete the following checklist:
 
-## Changes proposed in this Pull Request
-
-
-## Checklist
-
-- [ ] I tested my contribution locally and it works as intended.
-- [ ] Code and workflow changes are sufficiently documented.
-- [ ] Changed dependencies are added to `envs/environment.yaml`.
-- [ ] Changes in configuration options are added in `config/config.default.yaml`.
-- [ ] Changes in configuration options are documented in `doc/configtables/*.csv`.
-- [ ] Sources of newly added data are documented in `doc/data_sources.rst`.
-- [ ] A release note `doc/release_notes.rst` is added.
+- [ ] Workflow with target rule `ariadne_all` completes without errors
+- [ ] The logic of `export_ariadne_variables` has been adapted to the changes
+- [ ] One or several figures that validate the changes in the PR have been posted as a comment
+- [ ] A brief description of the changes has been added to `Changelog.md`
+- [ ] The latest `main` has been merged into the PR
+- [ ] The config has a new prefix of the format `YYYYMMDDdescriptive_title`

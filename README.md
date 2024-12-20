@@ -1,108 +1,93 @@
-<!--
-SPDX-FileCopyrightText: 2017-2024 The PyPSA-Eur Authors
-SPDX-License-Identifier: CC-BY-4.0
--->
+# Kopernikus-Projekt Ariadne - Gesamtsystemmodell PyPSA-DE
 
-![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/pypsa/pypsa-eur?include_prereleases)
-[![Test workflows](https://github.com/pypsa/pypsa-eur/actions/workflows/test.yaml/badge.svg)](https://github.com/pypsa/pypsa-eur/actions/workflows/test.yaml)
-[![Documentation](https://readthedocs.org/projects/pypsa-eur/badge/?version=latest)](https://pypsa-eur.readthedocs.io/en/latest/?badge=latest)
-![Size](https://img.shields.io/github/repo-size/pypsa/pypsa-eur)
-[![Zenodo PyPSA-Eur](https://zenodo.org/badge/DOI/10.5281/zenodo.3520874.svg)](https://doi.org/10.5281/zenodo.3520874)
-[![Zenodo PyPSA-Eur-Sec](https://zenodo.org/badge/DOI/10.5281/zenodo.3938042.svg)](https://doi.org/10.5281/zenodo.3938042)
-[![Snakemake](https://img.shields.io/badge/snakemake-≥8.14.0-brightgreen.svg?style=flat)](https://snakemake.readthedocs.io)
-[![REUSE status](https://api.reuse.software/badge/github.com/pypsa/pypsa-eur)](https://api.reuse.software/info/github.com/pypsa/pypsa-eur)
-[![Stack Exchange questions](https://img.shields.io/stackexchange/stackoverflow/t/pypsa)](https://stackoverflow.com/questions/tagged/pypsa)
+Dieses Repository enthält das Gesamtsystemmodell PyPSA-DE für das Kopernikus-Projekt Ariadne, basierend auf der predecessor PyPSA und dem Datensatz PyPSA-Eur. Das Modell bildet Deutschland mit hoher geographischer Auflösung, mit voller Sektorenkopplung und mit Integration in das europäische Energiesystem ab.
 
-# PyPSA-Eur: A Sector-Coupled Open Optimisation Model of the European Energy System
+This repository contains the entire scientific project, including data sources and code. The philosophy behind this repository is that no intermediary results are included, but all results are computed from raw data and code.
 
-PyPSA-Eur is an open model dataset of the European energy system at the
-transmission network level that covers the full ENTSO-E area. The model is suitable both for operational studies and generation and transmission expansion planning studies.
-The continental scope and highly resolved spatial scale enables a proper description of the long-range
-smoothing effects for renewable power generation and their varying resource availability.
+## Getting ready
 
+You need conda or [mamba](https://mamba.readthedocs.io/en/latest/) to run the analysis. Using mamba, you can create an environment from within you can run it:
 
+    mamba env create -f environment.yaml
 
+## For external users: Use config.public.yaml
 
-The model is described in the [documentation](https://pypsa-eur.readthedocs.io)
-and in the paper
-[PyPSA-Eur: An Open Optimisation Model of the European Transmission
-System](https://arxiv.org/abs/1806.01613), 2018,
-[arXiv:1806.01613](https://arxiv.org/abs/1806.01613).
-The model building routines are defined through a snakemake workflow.
-Please see the [documentation](https://pypsa-eur.readthedocs.io/)
-for installation instructions and other useful information about the snakemake workflow.
-The model is designed to be imported into the open predecessor
-[PyPSA](https://github.com/PyPSA/PyPSA).
+The default workflow configured for this repository assumes access to the internal Ariadne2 database. Users that do not have the required login details can run the analysis based on the data published during the [first phase of the Ariadne project](https://data.ece.iiasa.ac.at/ariadne/).
 
-**WARNING**: PyPSA-Eur is under active development and has several
-[limitations](https://pypsa-eur.readthedocs.io/en/latest/limitations.html) which
-you should understand before using the model. The github repository
-[issues](https://github.com/PyPSA/pypsa-eur/issues) collect known topics we are
-working on (please feel free to help or make suggestions). The
-[documentation](https://pypsa-eur.readthedocs.io/) remains somewhat patchy. You
-can find showcases of the model's capabilities in the Joule paper [The potential
-role of a hydrogen network in
-Europe](https://doi.org/10.1016/j.joule.2023.06.016), another [paper in Joule
-with a description of the industry
-sector](https://doi.org/10.1016/j.joule.2022.04.016), or in [a 2021 presentation
-at EMP-E](https://nworbmot.org/energy/brown-empe.pdf). We do not recommend to
-use the full resolution network model for simulations. At high granularity the
-assignment of loads and generators to the nearest network node may not be a
-correct assumption, depending on the topology of the underlying distribution
-grid, and local grid bottlenecks may cause unrealistic load-shedding or
-generator curtailment. We recommend to cluster the network to a couple of
-hundred nodes to remove these local inconsistencies. See the discussion in
-Section 3.4 "Model validation" of the paper.
+This is possible by providing an additional config to the snakemake workflow. For every `snakemake COMMAND` specified in the instructions below, public users should use:
 
+```
+snakemake --configfile=config/config.public.yaml COMMAND
+```
 
-![PyPSA-Eur Grid Model](doc/img/elec.png)
+The additional config file specifies the required database, model, and scenario names for Ariadne1. If public users wish to edit the default scenario specifications, they should change `scenarios.public.yaml` instead of `scenarios.manual.yaml`. More details on using scenarios are given below.
 
-The dataset consists of:
+## For internal users: Provide login details
 
-- A grid model based on a modified [GridKit](https://github.com/bdw/GridKit)
-  extraction of the [ENTSO-E Transmission System
-  Map](https://www.entsoe.eu/data/map/). The grid model contains 7072 lines
-  (alternating current lines at and above 220kV voltage level and all high
-  voltage direct current lines) and 3803 substations.
-- The open power plant database
-  [powerplantmatching](https://github.com/PyPSA/powerplantmatching).
-- Electrical demand time series from the
-  [OPSD project](https://open-power-system-data.org/).
-- Renewable time series based on ERA5 and SARAH, assembled using the [atlite tool](https://github.com/PyPSA/atlite).
-- Geographical potentials for wind and solar generators based on land use (CORINE) and excluding nature reserves (Natura2000) are computed with the [atlite library](https://github.com/PyPSA/atlite).
+The snakemake rule `retrieve_ariadne_database` logs into the interal Ariadne IIASA Database via the [`pyam`](https://pyam-iamc.readthedocs.io/en/stable/tutorials/iiasa.html) package. The credentials for logging into this database have to be stored locally on your machine with `ixmp4`. To do this activate the project environment and run
 
-A sector-coupled extension adds demand
-and supply for the following sectors: transport, space and water
-heating, biomass, industry and industrial feedstocks, agriculture,
-forestry and fishing. This completes the energy system and includes
-all greenhouse gas emitters except waste management and land use.
+```
+ixmp4 login <username>
+```
 
-This diagram gives an overview of the sectors and the links between
-them:
+You will be prompted to enter your `<password>`.
 
-![sector diagram](doc/img/multisector_figure.png)
+Caveat: These credentials are stored on your machine in plain text.
 
-Each of these sectors is built up on the transmission network nodes
-from [PyPSA-Eur](https://github.com/PyPSA/pypsa-eur):
+To switch between internal and public use, the command `ixmp4 logout` may be necessary.
 
-![network diagram](https://github.com/PyPSA/pypsa-eur/blob/master/doc/img/base.png?raw=true)
+## Run the analysis
 
-For computational reasons the model is usually clustered down
-to 50-200 nodes.
+Before running any analysis with scenarios, the rule `build_scenarios` must be executed. This will create the file `config/scenarios.automated.yaml` which includes input data and CO2 targets from the IIASA Ariadne database as well as the specifications from the manual scenario file. [This file is specified in the default config.yaml via they key `run:scenarios:manual_file` (by default located at `config/scenarios.manual.yaml`)].
 
-Already-built versions of the model can be found in the accompanying [Zenodo
-repository](https://doi.org/10.5281/zenodo.3601881).
+    snakemake -call build_scenarios -f
 
-# Contributing and Support
-We strongly welcome anyone interested in contributing to this project. If you have any ideas, suggestions or encounter problems, feel invited to file issues or make pull requests on GitHub.
--   In case of code-related **questions**, please post on [stack overflow](https://stackoverflow.com/questions/tagged/pypsa).
--   For non-programming related and more general questions please refer to the [mailing list](https://groups.google.com/group/pypsa).
--   To **discuss** with other PyPSA users, organise projects, share news, and get in touch with the community you can use the [discord server](https://discord.com/invite/AnuJBk23FU).
--   For **bugs and feature requests**, please use the [PyPSA-Eur Github Issues page](https://github.com/PyPSA/pypsa-eur/issues).
+Note that the hierarchy of scenario files is the following: `scenarios.automated.yaml` > (any `explicitly specified --configfiles`) > `config.yaml `> `config.default.yaml `Changes in the file `scenarios.manual.yaml `are only taken into account if the rule `build_scenarios` is executed.
 
-# Licence
+For the first run, open config.yaml and set
 
-The code in PyPSA-Eur is released as free software under the
-[MIT License](https://opensource.org/licenses/MIT), see [`doc/licenses.rst`](doc/licenses.rst).
-However, different licenses and terms of use may apply to the various
-input data, see [`doc/data_sources.rst`](doc/data_sources.rst).
+    enable:
+        retrieve: true # set to false once initial data is retrieved
+        retrieve_cutout: true # set to false once initial data is retrieved
+
+and then run from main repository
+
+    snakemake -call
+
+This will run all analysis steps to reproduce results.
+
+To generate a PDF of the dependency graph of all steps `build/dag.pdf` run:
+
+    snakemake -c1 --use-conda -f dag
+
+## Repo structure
+
+* `config`: configuration files
+* `ariadne-data`: Germany specific data from the Ariadne project
+* `workflow`: contains the Snakemake workflow, including the submodule PyPSA-Eur and specific scripts for Germany
+* `cutouts`: very large weather data cutouts supplied by atlite library (does not exist initially)
+* `data`: place for raw data (does not exist initially)
+* `resources`: place for intermediate/processing data for the workflow (does not exist initially)
+* `results`: will contain all results (does not exist initially)
+
+## Differences to PyPSA-EUR
+
+- Specific cost assumption for Germany:
+  - Gas, Oil, Coal prices
+  - electrolysis and heat-pump costs
+  - Infrastructure costs according to the Netzentwicklungsplan 23 (NEP23)
+  - option for pessimstic, mean and optimistic cost development
+- Transport and Industry demands as well as heating stock imported from the sectoral models in the Ariadne consortium
+- More detailed data on CHPs in Germany
+- Option for building the German Wasserstoffkernnetz
+- The model has been validated against 2020 electricity data for Germany
+- National CO2-Targets according to the Klimaschutzgesetz
+- Additional constraints that limit maximum capacity of specific technologies
+- Import constraints
+- Renewable build out according to the Wind-an-Land, Wind-auf-See and Solarstrategie laws
+- A comprehensive reporting  module that exports Capacity Expansion, Primary/Secondary/Final Energy, CO2 Emissions per Sector, Trade, Investments, ...
+- Plotting functionality to compare different scenarios
+
+## License
+
+The code in this repo is MIT licensed, see `./LICENSE.md`.
