@@ -27,6 +27,7 @@ rule add_existing_baseyear:
         ),
         existing_heating="data/existing_infrastructure/existing_heating_raw.csv",
         heating_efficiencies=resources("heating_efficiencies.csv"),
+        custom_powerplants=resources("german_chp_{clusters}.csv"),
     output:
         RESULTS
         + "prenetworks-brownfield/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.nc",

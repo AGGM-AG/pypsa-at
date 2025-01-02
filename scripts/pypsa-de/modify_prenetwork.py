@@ -11,6 +11,8 @@ from shapely.geometry import Point
 
 logger = logging.getLogger(__name__)
 
+sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
+
 paths = ["workflow/submodules/pypsa-eur/scripts", "../submodules/pypsa-eur/scripts"]
 for path in paths:
     sys.path.insert(0, os.path.abspath(path))
@@ -33,7 +35,6 @@ def first_technology_occurrence(n):
 
 
 def fix_new_boiler_profiles(n):
-
     logger.info("Forcing boiler profiles for new ones")
 
     decentral_boilers = n.links.index[
@@ -80,7 +81,6 @@ def remove_old_boiler_profiles(n):
 
 
 def new_boiler_ban(n):
-
     year = int(snakemake.wildcards.planning_horizons)
 
     for ct in snakemake.params.fossil_boiler_ban:
@@ -103,7 +103,6 @@ def new_boiler_ban(n):
 
 
 def coal_generation_ban(n):
-
     year = int(snakemake.wildcards.planning_horizons)
 
     for ct in snakemake.params.coal_ban:
@@ -121,7 +120,6 @@ def coal_generation_ban(n):
 
 
 def nuclear_generation_ban(n):
-
     year = int(snakemake.wildcards.planning_horizons)
 
     for ct in snakemake.params.nuclear_ban:
@@ -187,7 +185,6 @@ def reduce_capacity(
 
 
 def add_wasserstoff_kernnetz(n, wkn, costs):
-
     logger.info("adding wasserstoff kernnetz")
 
     investment_year = int(snakemake.wildcards.planning_horizons)
@@ -203,7 +200,6 @@ def add_wasserstoff_kernnetz(n, wkn, costs):
     )
 
     if not wkn_new.empty:
-
         names = wkn_new.index + f"-kernnetz-{investment_year}"
 
         capital_costs = np.where(
@@ -274,7 +270,6 @@ def add_wasserstoff_kernnetz(n, wkn, costs):
     # reduce H2 retrofitting potential from gas network for all kernnetz
     # pipelines which are being build in total (more conservative approach)
     if not wkn.empty and snakemake.params.H2_retrofit:
-
         retrofitted_b = (
             n.links.carrier == "H2 pipeline retrofitted"
         ) & n.links.index.str.contains(str(investment_year))
@@ -1002,7 +997,6 @@ def force_retrofit(n, params):
 
 
 def enforce_transmission_project_build_years(n, current_year):
-
     # this step is necessary for any links w/
     # current year >= build_year > previous year
     # it undoes the p_nom_min = p_nom_opt from add_brownfield
@@ -1031,7 +1025,7 @@ def enforce_transmission_project_build_years(n, current_year):
 def force_connection_nep_offshore(n, current_year):
     # WARNING this code adds a new generator for the offwind connection
     # at an onshore locations. These extra capacities are not accounted
-    # for in the land use contraint
+    # for in the land use constraint
 
     # Load costs
     nep23_costs = (
@@ -1112,11 +1106,9 @@ def force_connection_nep_offshore(n, current_year):
     if (current_year >= int(snakemake.params.offshore_nep_force["cutin_year"])) and (
         current_year <= int(snakemake.params.offshore_nep_force["cutout_year"])
     ):
-
         logger.info(f"Forcing in NEP offshore DC projects with capacity:\n {dc_power}")
 
         for node in dc_power.index:
-
             node_off = f"{node} offwind-dc-{current_year}"
 
             if not node_off in n.generators.index:
@@ -1183,11 +1175,9 @@ def force_connection_nep_offshore(n, current_year):
     if (current_year >= int(snakemake.params.offshore_nep_force["cutin_year"])) and (
         current_year <= int(snakemake.params.offshore_nep_force["cutout_year"])
     ):
-
         logger.info(f"Forcing in NEP offshore AC projects with capacity:\n {ac_power}")
 
         for node in ac_power.index:
-
             node_off = f"{node} offwind-ac-{current_year}"
 
             if not node_off in n.generators.index:
@@ -1202,7 +1192,6 @@ def force_connection_nep_offshore(n, current_year):
 
 
 def drop_duplicate_transmission_projects(n):
-
     year = 2024
 
     logger.info(

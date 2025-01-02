@@ -25,7 +25,7 @@ for path in paths:
 from _helpers import configure_logging, mute_print
 from prepare_sector_network import prepare_costs
 
-# Defining global varibales
+# Defining global variables
 
 TWh2PJ = 3.6
 MWh2TJ = 3.6e-3
@@ -1065,7 +1065,7 @@ def get_primary_energy(n, region):
 
     var["Primary Energy|Oil"] = oil_usage.sum() / primary_oil_factor
 
-    # At the moment, everyting that is not electricity or heat is counted as liquid fuel
+    # At the moment, everything that is not electricity or heat is counted as liquid fuel
     var["Primary Energy|Oil|Liquids"] = (
         var["Primary Energy|Oil"]
         - var["Primary Energy|Oil|Electricity"]
@@ -2338,7 +2338,7 @@ def get_final_energy(
     # )
     # It's nice to do these double checks, but it's less
     # straightforward for the other categories
-    # !!! TODO this assert is temporarily disbaled because of https://github.com/PyPSA/pypsa-eur/issues/985
+    # !!! TODO this assert is temporarily disabled because of https://github.com/PyPSA/pypsa-eur/issues/985
 
     var["Final Energy|Electricity"] = (
         var["Final Energy|Agriculture|Electricity"]
@@ -2506,7 +2506,7 @@ def get_emissions(n, region, _energy_totals, industry_demand):
         .multiply(t2Mt)
     )
 
-    # Assert neglible numerical errors / leakage in stored CO2
+    # Assert negligible numerical errors / leakage in stored CO2
     assert co2_storage.get("co2 stored", 0) < 1.0
     co2_storage.drop("co2 stored", inplace=True, errors="ignore")
 
@@ -4993,7 +4993,7 @@ def hack_AC_projects(n, s_nom_start, model_year, snakemake):
         logger.warning("Switching AC projects to NEP23 costs post-optimization")
         n.lines.loc[current_projects, "overnight_cost"] *= 772 / 472
 
-    # Eventhough the lines are available to the model from the start,
+    # Even though the lines are available to the model from the start,
     # we pretend that the lines were expanded in the current year
     # s_nom_start is used, because the model may expand lines
     # endogenously before that or after that

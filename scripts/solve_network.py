@@ -26,10 +26,10 @@ Additionally, some extra constraints specified in :mod:`solve_network` are added
     the workflow for all scenarios in the configuration file (``scenario:``)
     based on the rule :mod:`solve_network`.
 """
-
 import importlib
 import logging
 import os
+import pathlib
 import re
 import sys
 
@@ -977,8 +977,8 @@ def extra_functionality(n, snapshots):
         add_flexible_egs_constraint(n)
 
     if n.params.custom_extra_functionality:
-        source_path = n.params.custom_extra_functionality
-        assert os.path.exists(source_path), f"{source_path} does not exist"
+        source_path = pathlib.Path(n.params.custom_extra_functionality).resolve()
+        assert source_path.exists(), f"{source_path} does not exist"
         sys.path.append(os.path.dirname(source_path))
         module_name = os.path.splitext(os.path.basename(source_path))[0]
         module = importlib.import_module(module_name)

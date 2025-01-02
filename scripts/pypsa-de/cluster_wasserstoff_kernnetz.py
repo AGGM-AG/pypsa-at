@@ -234,7 +234,7 @@ if __name__ == "__main__":
     if kernnetz_cf["divide_pipes"] & (not kernnetz_cf["aggregate_parallel_pipes"]):
         # Set length to 0 for duplicates from the 2nd occurrence onwards and make name unique
         logger.info(
-            f"Setting length to 0 for splitted pipes as Kernnetz pipes are segmented (divide pipes: {kernnetz_cf["divide_pipes"]}) and paralle pipes not aggregated (aggregate_parallel_pipes: {kernnetz_cf["aggregate_parallel_pipes"]})."
+            f"Setting length to 0 for split pipes as Kernnetz pipes are segmented (divide pipes: {kernnetz_cf["divide_pipes"]}) and parallel pipes not aggregated (aggregate_parallel_pipes: {kernnetz_cf["aggregate_parallel_pipes"]})."
         )
         wasserstoff_kernnetz["occurrence"] = (
             wasserstoff_kernnetz.groupby("name").cumcount() + 1

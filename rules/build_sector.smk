@@ -666,7 +666,7 @@ rule build_industrial_production_per_node:
             "industrial_distribution_key_base_s_{clusters}.csv"
         ),
         industrial_production_per_country_tomorrow=resources(
-            "industrial_production_per_country_tomorrow_{planning_horizons}.csv"
+            "industrial_production_per_country_tomorrow_{planning_horizons}-modified.csv"
         ),
     output:
         industrial_production_per_node=resources(
@@ -905,7 +905,7 @@ rule build_existing_heating_distribution:
         sector=config_provider("sector"),
         existing_capacities=config_provider("existing_capacities"),
     input:
-        existing_heating="data/existing_infrastructure/existing_heating_raw.csv",
+        existing_heating=resources("existing_heating.csv"),
         clustered_pop_layout=resources("pop_layout_base_s_{clusters}.csv"),
         clustered_pop_energy_layout=resources(
             "pop_weighted_energy_totals_s_{clusters}.csv"
@@ -917,6 +917,8 @@ rule build_existing_heating_distribution:
         existing_heating_distribution=resources(
             "existing_heating_distribution_base_s_{clusters}_{planning_horizons}.csv"
         ),
+    wildcard_constraints:
+        planning_horizons=config["scenario"]["planning_horizons"][0],  #only applies to baseyear
     threads: 1
     resources:
         mem_mb=2000,
@@ -1098,7 +1100,7 @@ rule prepare_sector_network:
             "industrial_production_base_s_{clusters}_{planning_horizons}.csv"
         ),
         district_heat_share=resources(
-            "district_heat_share_base_s_{clusters}_{planning_horizons}.csv"
+            "district_heat_share_base_s_{clusters}_{planning_horizons}-modified.csv"
         ),
         heating_efficiencies=resources("heating_efficiencies.csv"),
         temp_soil_total=resources("temp_soil_total_base_s_{clusters}.nc"),

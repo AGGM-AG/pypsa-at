@@ -169,7 +169,7 @@ def get_condense_sum(df, groups, groups_name, return_original=False):
     return condensed df, that has been groupeb by condense groups
     Arguments:
         df: df you want to condense (carriers have to be in the columns)
-        groups: group lables you want to condense on
+        groups: group labels you want to condense on
         groups_name: name of the new grouped column
         return_original: boolean to specify if the original df should also be returned
     Returns:
@@ -240,7 +240,7 @@ def plot_nodal_balance(
     if condense_groups is not None:
         nb = get_condense_sum(nb, condense_groups, condense_names)
 
-    ## summaris low contributing carriers acccording to their sum over the period (threshold in GWh)
+    ## summaris low contributing carriers according to their sum over the period (threshold in GWh)
     techs_below_threshold = nb.columns[nb.abs().sum() < threshold].tolist()
     if techs_below_threshold:
         other = {tech: "other" for tech in techs_below_threshold}
@@ -597,7 +597,7 @@ def plot_price_duration_curve(
     model_run="Model run",
     regions=["DE"],
     y_lim_values=[-50, 300],
-    languange="english",
+    language="english",
 ):
 
     fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(8, 6))
@@ -625,16 +625,16 @@ def plot_price_duration_curve(
 
         ax.set_ylabel(
             "Strompreis [$€/MWh_{el}$]"
-            if languange == "german"
+            if language == "german"
             else "Electricity Price [$€/MWh_{el}$]"
         )
         ax.set_xlabel(
-            "Zeitanteil [%]" if languange == "german" else "Fraction of time [%]"
+            "Zeitanteil [%]" if language == "german" else "Fraction of time [%]"
         )
         ax.set_title(
             (
                 f"Strompreisdauerlinien (Modell: {model_run})"
-                if languange == "german"
+                if language == "german"
                 else f"Electricity price duration curves {model_run}"
             ),
             fontsize=16,
@@ -1481,7 +1481,7 @@ if __name__ == "__main__":
 
     configure_logging(snakemake)
 
-    ### Modify postnetworks (this might be moved to a seperate script)
+    ### Modify postnetworks (this might be moved to a separate script)
 
     # Load costs (needed for modification)
     nhours = int(snakemake.params.hours[:-1])
@@ -1697,7 +1697,7 @@ if __name__ == "__main__":
         savepath=snakemake.output.elec_price_duration_curve,
         model_run=snakemake.wildcards.run,
         years=planning_horizons,
-        languange="german",
+        language="german",
     )
 
     plot_price_duration_hist(

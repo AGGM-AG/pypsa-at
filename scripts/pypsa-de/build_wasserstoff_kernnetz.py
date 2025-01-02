@@ -23,9 +23,8 @@ from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon
 from shapely.ops import nearest_points
 
-paths = ["workflow/submodules/pypsa-eur/scripts", "../submodules/pypsa-eur/scripts"]
-for path in paths:
-    sys.path.insert(0, os.path.abspath(path))
+sys.path.insert(0, os.path.abspath("../"))
+
 from _helpers import configure_logging
 from build_gas_network import diameter_to_capacity
 
@@ -184,7 +183,6 @@ def load_and_merge_raw(fn1, fn2, fn3):
 
 
 def prepare_dataset(df):
-
     df = df.copy()
 
     # clean length
@@ -256,7 +254,6 @@ def prepare_dataset(df):
 
 
 def geocode_locations(df):
-
     df = df.copy()
 
     try:
@@ -317,10 +314,13 @@ def geocode_locations(df):
         df[["Anfangspunkt(Ort)", "BL1"]],
         df[["Endpunkt(Ort)", "BL2"]],
     )
-    locations1.columns, locations2.columns = ["location", "state"], [
-        "location",
-        "state",
-    ]
+    locations1.columns, locations2.columns = (
+        ["location", "state"],
+        [
+            "location",
+            "state",
+        ],
+    )
     locations = pd.concat([locations1, locations2], axis=0)
     locations.drop_duplicates(inplace=True)
 
@@ -341,7 +341,6 @@ def geocode_locations(df):
 
 
 def assign_locations(df, locations):
-
     df = df.copy()
 
     # manual cleaning
@@ -430,7 +429,6 @@ def find_point_across_ring(point, ring, distance=1000):
 
 
 def create_border_crossing(wkn, regions_onshore, regions_offshore):
-
     # get shapes
     regions = load_bus_regions(regions_onshore, regions_offshore)
 
@@ -458,7 +456,7 @@ def create_border_crossing(wkn, regions_onshore, regions_offshore):
     wkn_proj["point0_in"] = wkn_proj.point0.within(de_polygon)
     wkn_proj["point1_in"] = wkn_proj.point1.within(de_polygon)
 
-    # flter border points
+    # filter border points
     border_distance = 3  # km
     wkn_proj_sub = wkn_proj[
         (

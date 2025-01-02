@@ -3,43 +3,6 @@
 # SPDX-License-Identifier: MIT
 
 
-rule build_existing_heating_distribution:
-    params:
-        baseyear=config["scenario"]["planning_horizons"][0],
-        sector=config["sector"],
-        existing_capacities=config["existing_capacities"],
-    input:
-        existing_heating="data/existing_infrastructure/existing_heating_raw.csv",
-        clustered_pop_layout=resources("pop_layout_base_s_{clusters}.csv"),
-        clustered_pop_energy_layout=resources(
-            "pop_weighted_energy_totals_s_{clusters}.csv"
-        ),
-        district_heat_share=resources(
-            "district_heat_share_base_s_{clusters}_{planning_horizons}.csv"
-        ),
-    output:
-        existing_heating_distribution=resources(
-            "existing_heating_distribution_base_s_{clusters}_{planning_horizons}.csv"
-        ),
-    wildcard_constraints:
-        planning_horizons=config["scenario"]["planning_horizons"][0],  #only applies to baseyear
-    threads: 1
-    resources:
-        mem_mb=2000,
-    log:
-        logs(
-            "build_existing_heating_distribution_base_s_{clusters}_{planning_horizons}.log"
-        ),
-    benchmark:
-        benchmarks(
-            "build_existing_heating_distribution/base_s_{clusters}_{planning_horizons}"
-        )
-    conda:
-        "../envs/environment.yaml"
-    script:
-        "../scripts/build_existing_heating_distribution.py"
-
-
 rule add_existing_baseyear:
     params:
         baseyear=config_provider("scenario", "planning_horizons", 0),
@@ -65,6 +28,7 @@ rule add_existing_baseyear:
             "existing_heating_distribution_base_s_{clusters}_{planning_horizons}.csv"
         ),
         heating_efficiencies=resources("heating_efficiencies.csv"),
+        custom_powerplants=resources("german_chp_{clusters}.csv"),
     output:
         RESULTS
         + "prenetworks-brownfield/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.nc",
@@ -150,10 +114,15 @@ rule solve_sector_network_myopic:
             "sector", "co2_sequestration_potential", default=200
         ),
         custom_extra_functionality=input_custom_extra_functionality,
+        # custom_extra_functionality=os.path.join(
+        #     os.path.dirname(workflow.snakefile), "scripts/pypsa-de/additional_functionality.py"
+        # ),
+        energy_year=config_provider("energy", "energy_totals_year"),
     input:
         network=RESULTS
-        + "prenetworks-brownfield/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.nc",
-        costs=resources("costs_{planning_horizons}.csv"),
+        + "prenetworks-final/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.nc",
+        co2_totals_name=resources("co2_totals.csv"),
+        energy_totals=resources("energy_totals.csv"),
     output:
         network=RESULTS
         + "postnetworks/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.nc",

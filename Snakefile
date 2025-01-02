@@ -44,8 +44,6 @@ CDIR = "" if run["shared_cutouts"] else RDIR
 RESULTS = "results/" + RDIR
 
 
-data_dir = Path("data")
-
 localrules:
     purge,
 
@@ -151,23 +149,6 @@ rule sync:
         rsync -uvarh --no-g {params.cluster}/logs . || echo "No logs directory, skipping rsync"
         """
 
-data_dir = Path("data")
-
-rule get_data:
-    input:
-        [p for p in data_dir.rglob("*") if p.is_file()],
-    output:
-        [
-            str(Path("data") / p.relative_to(data_dir))
-            for p in data_dir.rglob("*")
-            if p.is_file()
-        ],
-    shell:
-        """
-        mkdir -p data
-        cp -nR {data_dir}/. data/
-        """
-
 
 rule clean:
     message:
@@ -199,24 +180,11 @@ rule retrieve_ariadne_database:
     output:
         data=resources("ariadne_database.csv"),
     log:
-        "logs/retrieve_ariadne_database.log",
+        "logs/pypsa-de/retrieve_ariadne_database.log",
     resources:
         mem_mb=1000,
     script:
-        "scripts/retrieve_ariadne_database.py"
-
-
-use rule prepare_sector_network from pypsaeur with:
-    input:
-        unpack(pypsaeur.input_profile_offwind),
-        **{
-            k: v
-            for k, v in rules.prepare_sector_network.input.items()
-            if k != "district_heat_share"
-        },
-        district_heat_share=resources(
-            "district_heat_share_base_s_{clusters}_{planning_horizons}-modified.csv"
-        ),
+        "scripts/pypsa-de/retrieve_ariadne_database.py"
 
 
 rule modify_cost_data:
@@ -241,7 +209,7 @@ rule modify_cost_data:
     log:
         logs("modify_cost_data_{planning_horizons}.log"),
     script:
-        "scripts/modify_cost_data.py"
+        "scripts/pypsa-de/modify_cost_data.py"
 
 
 if config["enable"]["retrieve"] and config["enable"].get("retrieve_cost_data", True):
@@ -267,7 +235,7 @@ rule build_mobility_demand:
     log:
         logs("build_mobility_demand_{clusters}_{planning_horizons}.log"),
     script:
-        "scripts/build_mobility_demand.py"
+        "scripts/pypsa-de/build_mobility_demand.py"
 
 
 rule build_egon_data:
@@ -284,7 +252,7 @@ rule build_egon_data:
     log:
         logs("build_egon_data.log"),
     script:
-        "scripts/build_egon_data.py"
+        "scripts/pypsa-de/build_egon_data.py"
 
 
 ruleorder: modify_district_heat_share > build_district_heat_share
@@ -308,7 +276,7 @@ rule modify_district_heat_share:
     log:
         logs("modify_district_heat_share_{clusters}_{planning_horizons}.log"),
     script:
-        "scripts/modify_district_heat_share.py"
+        "scripts/pypsa-de/modify_district_heat_share.py"
 
 
 rule modify_prenetwork:
@@ -380,33 +348,10 @@ rule modify_prenetwork:
         RESULTS
         + "logs/modify_prenetwork_base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.log",
     script:
-        "scripts/modify_prenetwork.py"
+        "scripts/pypsa-de/modify_prenetwork.py"
 
 
 ruleorder: modify_industry_demand > build_industrial_production_per_country_tomorrow
-
-
-use rule solve_sector_network_myopic from pypsaeur with:
-    params:
-        **{
-            k: v
-            for k, v in rules.solve_sector_network_myopic.params.items()
-            if k != "custom_extra_functionality"
-        },
-        custom_extra_functionality=os.path.join(
-            os.path.dirname(workflow.snakefile), "scripts/additional_functionality.py"
-        ),
-        energy_year=config_provider("energy", "energy_totals_year"),
-    input:
-        **{
-            k: v
-            for k, v in rules.solve_sector_network_myopic.input.items()
-            if k != "network"
-        },
-        network=RESULTS
-        + "prenetworks-final/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.nc",
-        co2_totals_name=resources("co2_totals.csv"),
-        energy_totals=resources("energy_totals.csv"),
 
 
 rule modify_existing_heating:
@@ -426,7 +371,7 @@ rule modify_existing_heating:
     log:
         logs("modify_existing_heating.log"),
     script:
-        "scripts/modify_existing_heating.py"
+        "scripts/pypsa-de/modify_existing_heating.py"
 
 
 rule retrieve_mastr:
@@ -458,23 +403,7 @@ rule build_existing_chp_de:
     log:
         logs("build_existing_chp_de_{clusters}.log"),
     script:
-        "scripts/build_existing_chp_de.py"
-
-
-use rule add_existing_baseyear from pypsaeur with:
-    input:
-        **rules.add_existing_baseyear.input,
-        custom_powerplants=resources("german_chp_{clusters}.csv"),
-
-
-use rule build_existing_heating_distribution from pypsaeur with:
-    input:
-        **{
-            k: v
-            for k, v in rules.build_existing_heating_distribution.input.items()
-            if k != "existing_heating"
-        },
-        existing_heating=resources("existing_heating.csv"),
+        "scripts/pypsa-de/build_existing_chp_de.py"
 
 
 rule modify_industry_demand:
@@ -494,19 +423,7 @@ rule modify_industry_demand:
     log:
         logs("modify_industry_demand_{planning_horizons}.log"),
     script:
-        "scripts/modify_industry_demand.py"
-
-
-use rule build_industrial_production_per_node from pypsaeur with:
-    input:
-        **{
-            k: v
-            for k, v in rules.build_industrial_production_per_node.input.items()
-            if k != "industrial_production_per_country_tomorrow"
-        },
-        industrial_production_per_country_tomorrow=resources(
-            "industrial_production_per_country_tomorrow_{planning_horizons}-modified.csv"
-        ),
+        "scripts/pypsa-de/modify_industry_demand.py"
 
 
 rule build_wasserstoff_kernnetz:
@@ -537,7 +454,7 @@ rule build_wasserstoff_kernnetz:
     log:
         logs("build_wasserstoff_kernnetz.log"),
     script:
-        "scripts/build_wasserstoff_kernnetz.py"
+        "scripts/pypsa-de/build_wasserstoff_kernnetz.py"
 
 
 rule cluster_wasserstoff_kernnetz:
@@ -552,7 +469,7 @@ rule cluster_wasserstoff_kernnetz:
     log:
         logs("cluster_wasserstoff_kernnetz_{clusters}.log"),
     script:
-        "scripts/cluster_wasserstoff_kernnetz.py"
+        "scripts/pypsa-de/cluster_wasserstoff_kernnetz.py"
 
 
 rule download_ariadne_template:
@@ -622,7 +539,7 @@ rule export_ariadne_variables:
     log:
         RESULTS + "logs/export_ariadne_variables.log",
     script:
-        "scripts/export_ariadne_variables.py"
+        "scripts/pypsa-de/export_ariadne_variables.py"
 
 
 rule plot_ariadne_variables:
@@ -667,7 +584,7 @@ rule plot_ariadne_variables:
     log:
         RESULTS + "logs/plot_ariadne_variables.log",
     script:
-        "scripts/plot_ariadne_variables.py"
+        "scripts/pypsa-de/plot_ariadne_variables.py"
 
 
 rule ariadne_all:
@@ -689,7 +606,7 @@ rule ariadne_all:
             run=config_provider("run", "name"),
         ),
     script:
-        "scripts/plot_ariadne_scenario_comparison.py"
+        "scripts/pypsa-de/plot_ariadne_scenario_comparison.py"
 
 
 rule build_scenarios:
@@ -705,7 +622,7 @@ rule build_scenarios:
     log:
         "logs/build_scenarios.log",
     script:
-        "scripts/build_scenarios.py"
+        "scripts/pypsa-de/build_scenarios.py"
 
 
 rule plot_hydrogen_network_incl_kernnetz:
@@ -731,7 +648,7 @@ rule plot_hydrogen_network_incl_kernnetz:
             + "benchmarks/plot_hydrogen_network_incl_kernnetz/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}"
         )
     script:
-        "scripts/plot_hydrogen_network_incl_kernnetz.py"
+        "scripts/pypsa-de/plot_hydrogen_network_incl_kernnetz.py"
 
 
 rule plot_ariadne_report:
@@ -779,7 +696,7 @@ rule plot_ariadne_report:
     log:
         RESULTS + "logs/plot_ariadne_report.log",
     script:
-        "scripts/plot_ariadne_report.py"
+        "scripts/pypsa-de/plot_ariadne_report.py"
 
 
 rule ariadne_report_only:
