@@ -27,7 +27,7 @@ iiasa_database:
   leitmodelle:
     general: REMIND-EU v1.1
     buildings: REMod v1.0
-    transport: DLR
+    transport: REMIND-EU v1.1
     transport_stock: DLR-VECTOR21
     industry: FORECAST v1.0
   scenarios:
