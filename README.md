@@ -17,7 +17,7 @@ The default workflow configured for this repository assumes access to the intern
 This is possible by providing an additional config to the snakemake workflow. For every `snakemake COMMAND` specified in the instructions below, public users should use:
 
 ```
-snakemake --configfile=config/config.public.yaml COMMAND
+snakemake COMMAND --configfile=config/config.public.yaml
 ```
 
 The additional config file specifies the required database, model, and scenario names for Ariadne1. If public users wish to edit the default scenario specifications, they should change `scenarios.public.yaml` instead of `scenarios.manual.yaml`. More details on using scenarios are given below.
@@ -41,6 +41,9 @@ To switch between internal and public use, the command `ixmp4 logout` may be nec
 Before running any analysis with scenarios, the rule `build_scenarios` must be executed. This will create the file `config/scenarios.automated.yaml` which includes input data and CO2 targets from the IIASA Ariadne database as well as the specifications from the manual scenario file. [This file is specified in the default config.yaml via they key `run:scenarios:manual_file` (by default located at `config/scenarios.manual.yaml`)].
 
     snakemake -call build_scenarios -f
+or in case of using the public database
+    
+    snakemake -call build_scenarios --configfile=config/config.public.yaml -f
 
 Note that the hierarchy of scenario files is the following: `scenarios.automated.yaml` > (any `explicitly specified --configfiles`) > `config.yaml `> `config.default.yaml `Changes in the file `scenarios.manual.yaml `are only taken into account if the rule `build_scenarios` is executed.
 
