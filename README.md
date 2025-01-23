@@ -6,9 +6,9 @@ This repository contains the entire scientific project, including data sources a
 
 ## Getting ready
 
-You need conda or [mamba](https://mamba.readthedocs.io/en/latest/) to run the analysis. Using mamba, you can create an environment from within you can run it:
+You need `conda` or `mamba` to run the analysis. Using conda, you can create an environment from within which you can run the analysis:
 
-    mamba env create -f environment.yaml
+    conda env create -f envs/environment.yaml
 
 ## For external users: Use config.public.yaml
 
@@ -40,40 +40,33 @@ To switch between internal and public use, the command `ixmp4 logout` may be nec
 
 Before running any analysis with scenarios, the rule `build_scenarios` must be executed. This will create the file `config/scenarios.automated.yaml` which includes input data and CO2 targets from the IIASA Ariadne database as well as the specifications from the manual scenario file. [This file is specified in the default config.yaml via they key `run:scenarios:manual_file` (by default located at `config/scenarios.manual.yaml`)].
 
-    snakemake -call build_scenarios -f
+    snakemake build_scenarios -f
 or in case of using the public database
 
-    snakemake -call build_scenarios --configfile=config/config.public.yaml -f
+    snakemake build_scenarios --configfile=config/config.public.yaml -f
 
 Note that the hierarchy of scenario files is the following: `scenarios.automated.yaml` > (any `explicitly specified --configfiles`) > `config.yaml `> `config.default.yaml `Changes in the file `scenarios.manual.yaml `are only taken into account if the rule `build_scenarios` is executed.
 
-For the first run, open config.yaml and set
+To run the analysis use
 
-    enable:
-        retrieve: true # set to false once initial data is retrieved
-        retrieve_cutout: true # set to false once initial data is retrieved
+    snakemake ariadne_all
 
-and then run from main repository
+This will run all analysis steps to reproduce results. If computational resources on your local machine are limit you may decrease the number of cores by adding, e.g. `-c4` to the call.
 
-    snakemake -call
-
-This will run all analysis steps to reproduce results.
-
-To generate a PDF of the dependency graph of all steps `build/dag.pdf` run:
-
-    snakemake -c1 --use-conda -f dag
 
 ## Repo structure
 
 * `config`: configuration files
 * `ariadne-data`: Germany specific data from the Ariadne project
-* `workflow`: contains the Snakemake workflow, including the submodule PyPSA-Eur and specific scripts for Germany
+* `scripts`: contains the Python scripts for the workflow, the Germany specific code needed to run this repo is contained in `scripts/pypsa-de`
 * `cutouts`: very large weather data cutouts supplied by atlite library (does not exist initially)
 * `data`: place for raw data (does not exist initially)
 * `resources`: place for intermediate/processing data for the workflow (does not exist initially)
 * `results`: will contain all results (does not exist initially)
+* `logs` and `benchmarks`
+* The `Snakefile` contains the snakemake workflow
 
-## Differences to PyPSA-EUR
+## Some notable differences to PyPSA-EUR
 
 - Specific cost assumption for Germany:
   - Gas, Oil, Coal prices
@@ -90,6 +83,9 @@ To generate a PDF of the dependency graph of all steps `build/dag.pdf` run:
 - Renewable build out according to the Wind-an-Land, Wind-auf-See and Solarstrategie laws
 - A comprehensive reporting  module that exports Capacity Expansion, Primary/Secondary/Final Energy, CO2 Emissions per Sector, Trade, Investments, ...
 - Plotting functionality to compare different scenarios
+- Electricity Network development until 2030 (and for AC beyond) according to the Netzentwicklungsplan
+- Offshore development until 2030 according to the Offshore Netzentwicklungsplan
+- Hydrogen network development until 2028 according to the Wasserstoffkernnetz. PCI / IPCEI projects for later years are included as well.
 
 ## License
 
