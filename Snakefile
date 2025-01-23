@@ -409,6 +409,7 @@ rule build_existing_chp_de:
 rule modify_industry_demand:
     params:
         db_name=config_provider("iiasa_database", "db_name"),
+        reference_scenario=config_provider("iiasa_database", "reference_scenario"),
     input:
         ariadne=resources("ariadne_database.csv"),
         industrial_production_per_country_tomorrow=resources(
