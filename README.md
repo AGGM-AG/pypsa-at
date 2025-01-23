@@ -42,7 +42,7 @@ Before running any analysis with scenarios, the rule `build_scenarios` must be e
 
     snakemake -call build_scenarios -f
 or in case of using the public database
-    
+
     snakemake -call build_scenarios --configfile=config/config.public.yaml -f
 
 Note that the hierarchy of scenario files is the following: `scenarios.automated.yaml` > (any `explicitly specified --configfiles`) > `config.yaml `> `config.default.yaml `Changes in the file `scenarios.manual.yaml `are only taken into account if the rule `build_scenarios` is executed.

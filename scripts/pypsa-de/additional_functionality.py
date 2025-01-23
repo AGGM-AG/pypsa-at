@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
 import logging
+import sys
 
 import pandas as pd
 from xarray import DataArray
@@ -51,7 +51,7 @@ def add_capacity_limits(n, investment_year, limits_capacity, sense="maximum"):
 
                 lhs = nom.sum()
 
-                cname = f"capacity_{sense}-{ct}-{c.name}-{carrier.replace(' ','-')}"
+                cname = f"capacity_{sense}-{ct}-{c.name}-{carrier.replace(' ', '-')}"
 
                 if cname in n.global_constraints.index:
                     logger.warning(
@@ -163,7 +163,7 @@ def h2_import_limits(n, investment_year, limits_volume_max):
     for ct in limits_volume_max["h2_import"]:
         limit = limits_volume_max["h2_import"][ct][investment_year] * 1e6
 
-        logger.info(f"limiting H2 imports in {ct} to {limit/1e6} TWh/a")
+        logger.info(f"limiting H2 imports in {ct} to {limit / 1e6} TWh/a")
         pipeline_carrier = [
             "H2 pipeline",
             "H2 pipeline (Kernnetz)",
@@ -222,7 +222,7 @@ def h2_production_limits(n, investment_year, limits_volume_min, limits_volume_ma
         limit_upper = limits_volume_max["electrolysis"][ct][investment_year] * 1e6
 
         logger.info(
-            f"limiting H2 electrolysis in DE between {limit_lower/1e6} and {limit_upper/1e6} TWh/a"
+            f"limiting H2 electrolysis in DE between {limit_lower / 1e6} and {limit_upper / 1e6} TWh/a"
         )
 
         production = n.links[
@@ -271,7 +271,7 @@ def electricity_import_limits(n, investment_year, limits_volume_max):
     for ct in limits_volume_max["electricity_import"]:
         limit = limits_volume_max["electricity_import"][ct][investment_year] * 1e6
 
-        logger.info(f"limiting electricity imports in {ct} to {limit/1e6} TWh/a")
+        logger.info(f"limiting electricity imports in {ct} to {limit / 1e6} TWh/a")
 
         incoming_line = n.lines.index[
             (n.lines.carrier == "AC")
@@ -374,7 +374,7 @@ def add_co2limit_country(n, limit_countries, snakemake, debug=False):
             ]
 
             logger.info(
-                f"For {ct} adding following link carriers to port {port} CO2 constraint: {n.links.loc[links,'carrier'].unique()}"
+                f"For {ct} adding following link carriers to port {port} CO2 constraint: {n.links.loc[links, 'carrier'].unique()}"
             )
 
             if port == "0":
@@ -602,7 +602,7 @@ def add_h2_derivate_limit(n, investment_year, limits_volume_max):
     for ct in limits_volume_max["h2_derivate_import"]:
         limit = limits_volume_max["h2_derivate_import"][ct][investment_year] * 1e6
 
-        logger.info(f"limiting H2 derivate imports in {ct} to {limit/1e6} TWh/a")
+        logger.info(f"limiting H2 derivate imports in {ct} to {limit / 1e6} TWh/a")
 
         incoming = n.links.loc[
             [

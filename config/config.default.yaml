@@ -909,7 +909,7 @@ solving:
     skip_iterations: true
     rolling_horizon: false
     seed: 123
-    custom_extra_functionality: "../data/custom_extra_functionality.py"
+    custom_extra_functionality: "../scripts/pypsa-de/additional_functionality.py"
     # io_api: "direct"  # Increases performance but only supported for the highs and gurobi solvers
     # options that go into the optimize function
     track_iterations: false
