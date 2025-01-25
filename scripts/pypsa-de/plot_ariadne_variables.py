@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from scripts._helpers import mock_snakemake
+
 TWh2PJ = 3.6
 
 
