@@ -17,20 +17,9 @@ from numpy import isclose
 
 from scripts._helpers import configure_logging, mock_snakemake
 from scripts.prepare_sector_network import prepare_costs
+from scripts.add_electricity import calculate_annuity
 
 logger = logging.getLogger(__name__)
-
-paths = [
-    "workflow/submodules/pypsa-eur/scripts",
-    "../submodules/pypsa-eur/scripts",
-    "../submodules/pypsa-eur/",
-]
-for path in paths:
-    sys.path.insert(0, os.path.abspath(path))
-
-from _helpers import configure_logging, mute_print
-from add_electricity import calculate_annuity
-from prepare_sector_network import prepare_costs
 
 # Defining global variables
 
