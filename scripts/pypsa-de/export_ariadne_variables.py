@@ -16,8 +16,8 @@ import pypsa
 from numpy import isclose
 
 from scripts._helpers import configure_logging, mock_snakemake
-from scripts.prepare_sector_network import prepare_costs
 from scripts.add_electricity import calculate_annuity
+from scripts.prepare_sector_network import prepare_costs
 
 logger = logging.getLogger(__name__)
 

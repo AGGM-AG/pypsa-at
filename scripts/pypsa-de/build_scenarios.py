@@ -178,9 +178,7 @@ def write_to_scenario_yaml(input, output, scenarios, df):
         #         f"For CO2 budget: Using {fallback_reference_scenario} as fallback reference scenario for {scenario}."
         #     )
         co2_budget_fractions = get_co2_budget(
-            df.loc[
-                snakemake.params.leitmodelle["general"], reference_scenario
-            ],
+            df.loc[snakemake.params.leitmodelle["general"], reference_scenario],
             co2_budget_source,
         )
 

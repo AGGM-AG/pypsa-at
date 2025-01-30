@@ -281,6 +281,7 @@ rule modify_district_heat_share:
 
 rule modify_prenetwork:
     params:
+        efuel_export_ban=config_provider("solving", "constraints", "efuel_export_ban"),
         enable_kernnetz=config_provider("wasserstoff_kernnetz", "enable"),
         costs=config_provider("costs"),
         max_hours=config_provider("electricity", "max_hours"),
@@ -476,7 +477,7 @@ rule cluster_wasserstoff_kernnetz:
 rule download_ariadne_template:
     input:
         storage(
-            "https://github.com/iiasa/ariadne-intern-workflow/raw/main/attachments/2024-11-28_template_Ariadne.xlsx",
+            "https://github.com/iiasa/ariadne-intern-workflow/raw/main/attachments/2025-01-27_template_Ariadne.xlsx",
             keep_local=True,
         ),
     output:

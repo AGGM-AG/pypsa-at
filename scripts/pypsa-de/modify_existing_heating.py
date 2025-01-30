@@ -17,23 +17,9 @@ if __name__ == "__main__":
 
     configure_logging(snakemake)
 
-    leitmodell = snakemake.params.leitmodelle["buildings"]
-    logger.info(f"Using {leitmodell} for heating demand modification.")
-
     existing_heating = pd.read_csv(snakemake.input.existing_heating, index_col=0)
 
-    ariadne = pd.read_csv(
-        snakemake.input.ariadne,
-        index_col=["model", "scenario", "region", "variable", "unit"],
-    ).loc[
-        leitmodell,
-        snakemake.params.fallback_reference_scenario,
-        "Deutschland",
-        :,
-        "million",
-    ]
-
-    logger.info("Heating demand before modification:{existing_heating.loc['Germany']}")
+    logger.info(f"Heating demand before modification:{existing_heating.loc['Germany']}")
 
     mapping = {
         "gas boiler": "Gas Boiler",
@@ -43,22 +29,26 @@ if __name__ == "__main__":
         "biomass boiler": "Biomass Boiler",
     }
 
-    year = "2020"
-    for tech in mapping:
-        stock = ariadne.at[
-            f"Stock|Space Heating|{mapping[tech]}",
-            year,
-        ]
+    new_values = pd.Series()
 
-        peak = (
-            stock
-            * existing_heating.loc["Germany"].sum()
-            / ariadne.at[f"Stock|Space Heating", year]
-        )
+    logger.warning(
+        f"Adjusting heating stock towards hard coded values from a previous REMod run. This is only a hotfix."
+    )  # Because REMod is not consistent and a better solution takes too long.
+
+    new_values["gas boiler"] = 11.44  # million
+    new_values["oil boiler"] = 5.99
+    new_values["air heat pump"] = 0.38
+    new_values["ground heat pump"] = 0.38
+    new_values["biomass boiler"] = 2.8
+
+    total_stock = new_values.sum()
+    existing_factor = existing_heating.loc["Germany"].sum() / total_stock
+
+    new_values *= existing_factor
+
+    for tech, peak in new_values.items():
         existing_heating.at["Germany", tech] = peak
 
-    logger.info(
-        f"Heating demand after modification with {leitmodell}: {existing_heating.loc['Germany']}"
-    )
+    logger.info(f"Heating demand after modification: {existing_heating.loc['Germany']}")
 
     existing_heating.to_csv(snakemake.output.existing_heating)
