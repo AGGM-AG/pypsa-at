@@ -1159,7 +1159,7 @@ def plot_price_duration_curve(
         ax.set_title(
             (
                 f"Strompreisdauerlinien"
-                if languange == "german"
+                if language == "german"
                 else f"Electricity price duration curves"
             ),
             fontsize=16,
