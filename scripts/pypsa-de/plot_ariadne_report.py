@@ -959,7 +959,7 @@ def plot_energy_balance_timeseries(
         resample = f"native-{time}"
     fn = f"ts-balance-{ylabel.replace(' ', '_')}-{resample}"
     # plt.savefig(dir + "/" + fn + ".pdf")
-    plt.savefig(dir + "/" + fn + ".png")
+    plt.savefig(dir + "/" + fn + ".pdf")
     plt.close()
 
 
@@ -2281,7 +2281,7 @@ def plot_elec_map_de(
     if expansion_case == "total-expansion":
         line_widths = total_exp_linew / linew_factor
         link_widths = total_exp_linkw / linkw_factor
-        title = "Stromnetzausbau (gesamt)"
+        title = "Stromnetzausbau [GW]"
     elif expansion_case == "startnetz":
         line_widths = startnetz_linew / linew_factor
         link_widths = startnetz_linkw / linkw_factor
@@ -2357,13 +2357,13 @@ def plot_elec_map_de(
 
     # AC
     sizes_ac = [10, 5]
-    labels_ac = [f"HVAC ({s} GW)" for s in sizes_ac]
+    labels_ac = [f"HVAC [{s} GW]" for s in sizes_ac]
     scale = 1e3 / linew_factor
     sizes_ac = [s * scale for s in sizes_ac]
 
     # DC
     sizes_dc = [5, 2]
-    labels_dc = [f"HVDC ({s} GW)" for s in sizes_dc]
+    labels_dc = [f"HVDC [{s} GW]" for s in sizes_dc]
     scale = 1e3 / linkw_factor
     sizes_dc = [s * scale for s in sizes_dc]
 
@@ -2693,166 +2693,6 @@ def plot_h2_trade(
     fig.savefig(savepath, bbox_inches="tight")
 
 
-# electricity capacity map
-def plot_cap_map_de(
-    network,
-    tech_colors,
-    regions_de,
-    savepath,
-):
-
-    m = network.copy()
-    m.mremove("Bus", m.buses[m.buses.x == 0].index)
-    m.buses.drop(m.buses.index[m.buses.carrier != "AC"], inplace=True)
-
-    # storage as cmap on map
-    battery_storage = m.stores[m.stores.carrier.isin(["battery"])]
-    regions_de["battery"] = (
-        battery_storage.rename(
-            index=battery_storage.bus.str.replace(" battery", "").map(m.buses.location)
-        )
-        .e_nom_opt.groupby(level=0)
-        .sum()
-        .div(1e3)
-    )  # GWh
-    regions_de["battery"] = regions_de["battery"].where(regions_de["battery"] > 0.1)
-
-    # buses
-    bus_size_factor = 0.5e6
-    carriers = ["onwind", "offwind-ac", "offwind-dc", "solar", "solar-hsat"]
-    carriers_links = [
-        "H2 Fuel Cell",
-        "urban central H2 CHP",
-        "H2 OCGT",
-        "urban central solid biomass CHP",
-        "urban central solid biomass CHP CC",
-        "waste CHP",
-        "waste CHP CC",
-        "CCGT",
-        "urban central gas CHP",
-        "urban central gas CHP CC",
-        "OCGT",
-    ]
-    elec = m.generators[
-        (m.generators.carrier.isin(carriers)) & (m.generators.bus.str.contains("DE"))
-    ].index
-    elec_links = m.links[
-        (m.links.carrier.isin(carriers_links)) & (m.links.index.str.contains("DE"))
-    ].index
-    bus_sizes = (
-        m.generators.loc[elec, "p_nom_opt"]
-        .groupby([m.generators.bus, m.generators.carrier])
-        .sum()
-        / bus_size_factor
-    )
-    bus_sizes_links = (
-        m.links.loc[elec_links, "p_nom_opt"]
-        .groupby([m.links.bus1, m.links.carrier])
-        .sum()
-        / bus_size_factor
-    )
-    bus_sizes = pd.concat([bus_sizes, bus_sizes_links])
-    replacement_dict = {
-        "onwind": "Onshore Wind",
-        "offwind-ac": "Offshore Wind",
-        "offwind-dc": "Offshore Wind",
-        "solar": "Solar",
-        "solar-hsat": "Solar",
-        "H2 Fuel Cell": "H2",
-        "urban central H2 CHP": "H2",
-        "H2 OCGT": "H2",
-        "urban central solid biomass CHP": "Biomasse",
-        "urban central solid biomass CHP CC": "Biomasse",
-        "waste CHP": "Abfall",
-        "waste CHP CC": "Abfall",
-        "CCGT": "Gas",
-        "urban central gas CHP": "Gas",
-        "urban central gas CHP CC": "Gas",
-        "OCGT": "Gas",
-    }
-    tech_colors["Biomasse"] = tech_colors["biomass"]
-    tech_colors["Abfall"] = tech_colors["waste"]
-    tech_colors["Gas"] = tech_colors["gas"]
-    bus_sizes = bus_sizes.rename(index=replacement_dict, level=1)
-    bus_sizes = bus_sizes.groupby(level=[0, 1]).sum()
-    carriers = bus_sizes.index.get_level_values(1).unique().tolist()
-
-    regions_de = regions_de.to_crs(proj.proj4_init)
-    fig, ax = plt.subplots(figsize=(10, 8), subplot_kw={"projection": proj})
-
-    m.plot(
-        ax=ax,
-        margin=0.06,
-        bus_sizes=bus_sizes,
-        bus_colors=tech_colors,
-        line_alpha=0,
-        link_alpha=0,
-    )
-
-    regions_de.plot(
-        ax=ax,
-        column="battery",
-        cmap="Oranges",
-        linewidths=0,
-        legend=True,
-        legend_kwds={
-            "label": "Batteriespeicher [GWh]",
-            "shrink": 0.7,
-            "extend": "max",
-        },
-    )
-
-    # Set geographic extent for Germany
-    ax.set_extent([5.5, 15.5, 47, 56], crs=ccrs.PlateCarree())
-
-    sizes = [10, 5]
-    labels = [f"{s} GW" for s in sizes]
-    sizes = [s / bus_size_factor * 1e3 for s in sizes]
-
-    legend_kw = dict(
-        loc="upper left",
-        bbox_to_anchor=(0, 1),
-        labelspacing=0.8,
-        handletextpad=0,
-        frameon=True,
-        facecolor="white",
-    )
-
-    add_legend_circles(
-        ax,
-        sizes,
-        labels,
-        srid=m.srid,
-        patch_kw=dict(facecolor="lightgrey"),
-        legend_kw=legend_kw,
-    )
-
-    legend_kw = dict(
-        loc=[0.2, 0.9],
-        frameon=True,
-        labelspacing=0.5,
-        handletextpad=1,
-        fontsize=13,
-        ncol=2,
-        facecolor="white",
-    )
-
-    colors = [tech_colors[c] for c in carriers]
-    labels = carriers
-    legend_kw = dict(
-        loc="upper left",
-        bbox_to_anchor=(0.5, 0),
-        ncol=3,
-        frameon=True,
-        facecolor="white",
-    )
-
-    add_legend_patches(ax, colors, labels, legend_kw=legend_kw)
-    ax.set_title(f"Installierte Leistung Stromsektor {year}")
-    fig.savefig(savepath, bbox_inches="tight")
-    plt.close()
-
-
 def plot_elec_trade(
     networks,
     planning_horizons,
@@ -2973,165 +2813,6 @@ def plot_h2_trade(
 
     plt.tight_layout()
     fig.savefig(savepath, bbox_inches="tight")
-
-
-# electricity capacity map
-def plot_cap_map_de(
-    network,
-    tech_colors,
-    regions_de,
-    savepath,
-):
-
-    m = network.copy()
-    m.mremove("Bus", m.buses[m.buses.x == 0].index)
-    m.buses.drop(m.buses.index[m.buses.carrier != "AC"], inplace=True)
-
-    # storage as cmap on map
-    battery_storage = m.stores[m.stores.carrier.isin(["battery"])]
-    regions_de["battery"] = (
-        battery_storage.rename(
-            index=battery_storage.bus.str.replace(" battery", "").map(m.buses.location)
-        )
-        .e_nom_opt.groupby(level=0)
-        .sum()
-        .div(1e3)
-    )  # GWh
-    regions_de["battery"] = regions_de["battery"].where(regions_de["battery"] > 0.1)
-
-    # buses
-    bus_size_factor = 0.5e6
-    carriers = ["onwind", "offwind-ac", "offwind-dc", "solar", "solar-hsat"]
-    carriers_links = [
-        "H2 Fuel Cell",
-        "urban central H2 CHP",
-        "H2 OCGT",
-        "urban central solid biomass CHP",
-        "urban central solid biomass CHP CC",
-        "waste CHP",
-        "waste CHP CC",
-        "CCGT",
-        "urban central gas CHP",
-        "urban central gas CHP CC",
-        "OCGT",
-    ]
-    elec = m.generators[
-        (m.generators.carrier.isin(carriers)) & (m.generators.bus.str.contains("DE"))
-    ].index
-    elec_links = m.links[
-        (m.links.carrier.isin(carriers_links)) & (m.links.index.str.contains("DE"))
-    ].index
-    bus_sizes = (
-        m.generators.loc[elec, "p_nom_opt"]
-        .groupby([m.generators.bus, m.generators.carrier])
-        .sum()
-        / bus_size_factor
-    )
-    bus_sizes_links = (
-        m.links.loc[elec_links, "p_nom_opt"]
-        .groupby([m.links.bus1, m.links.carrier])
-        .sum()
-        / bus_size_factor
-    )
-    bus_sizes = pd.concat([bus_sizes, bus_sizes_links])
-    replacement_dict = {
-        "onwind": "Onshore Wind",
-        "offwind-ac": "Offshore Wind",
-        "offwind-dc": "Offshore Wind",
-        "solar": "Solar",
-        "solar-hsat": "Solar",
-        "H2 Fuel Cell": "H2",
-        "urban central H2 CHP": "H2",
-        "H2 OCGT": "H2",
-        "urban central solid biomass CHP": "Biomasse",
-        "urban central solid biomass CHP CC": "Biomasse",
-        "waste CHP": "Abfall",
-        "waste CHP CC": "Abfall",
-        "CCGT": "Gas",
-        "urban central gas CHP": "Gas",
-        "urban central gas CHP CC": "Gas",
-        "OCGT": "Gas",
-    }
-    tech_colors["Biomasse"] = tech_colors["biomass"]
-    tech_colors["Abfall"] = tech_colors["waste"]
-    tech_colors["Gas"] = tech_colors["gas"]
-    bus_sizes = bus_sizes.rename(index=replacement_dict, level=1)
-    bus_sizes = bus_sizes.groupby(level=[0, 1]).sum()
-    carriers = bus_sizes.index.get_level_values(1).unique().tolist()
-
-    regions_de = regions_de.to_crs(proj.proj4_init)
-    fig, ax = plt.subplots(figsize=(10, 8), subplot_kw={"projection": proj})
-
-    m.plot(
-        ax=ax,
-        margin=0.06,
-        bus_sizes=bus_sizes,
-        bus_colors=tech_colors,
-        line_alpha=0,
-        link_alpha=0,
-    )
-
-    regions_de.plot(
-        ax=ax,
-        column="battery",
-        cmap="Oranges",
-        linewidths=0,
-        legend=True,
-        legend_kwds={
-            "label": "Batteriespeicher [GWh]",
-            "shrink": 0.7,
-            "extend": "max",
-        },
-    )
-
-    # Set geographic extent for Germany
-    ax.set_extent([5.5, 15.5, 47, 56], crs=ccrs.PlateCarree())
-
-    sizes = [10, 5]
-    labels = [f"{s} GW" for s in sizes]
-    sizes = [s / bus_size_factor * 1e3 for s in sizes]
-
-    legend_kw = dict(
-        loc="upper left",
-        bbox_to_anchor=(0, 1),
-        labelspacing=0.8,
-        handletextpad=0,
-        frameon=True,
-        facecolor="white",
-    )
-
-    add_legend_circles(
-        ax,
-        sizes,
-        labels,
-        srid=m.srid,
-        patch_kw=dict(facecolor="lightgrey"),
-        legend_kw=legend_kw,
-    )
-
-    legend_kw = dict(
-        loc=[0.2, 0.9],
-        frameon=True,
-        labelspacing=0.5,
-        handletextpad=1,
-        fontsize=13,
-        ncol=2,
-        facecolor="white",
-    )
-
-    colors = [tech_colors[c] for c in carriers]
-    labels = carriers
-    legend_kw = dict(
-        loc="upper left",
-        bbox_to_anchor=(0.5, 0),
-        ncol=3,
-        frameon=True,
-        facecolor="white",
-    )
-
-    add_legend_patches(ax, colors, labels, legend_kw=legend_kw)
-    fig.savefig(savepath, bbox_inches="tight")
-    plt.close()
 
 
 if __name__ == "__main__":
@@ -3256,7 +2937,7 @@ if __name__ == "__main__":
             tech_colors=tech_colors,
             start_date="2019-01-01 00:00:00",
             end_date="2019-12-31 00:00:00",
-            savepath=f"{snakemake.output.elec_balances}/elec-all-year-DE-{year}.png",
+            savepath=f"{snakemake.output.elec_balances}/elec-all-year-DE-{year}.pdf",
             model_run=snakemake.wildcards.run,
             resample="D",
             plot_lmps=False,
@@ -3275,7 +2956,7 @@ if __name__ == "__main__":
             tech_colors=tech_colors,
             start_date="2019-01-01 00:00:00",
             end_date="2019-01-31 00:00:00",
-            savepath=f"{snakemake.output.elec_balances}/elec-Jan-DE-{year}.png",
+            savepath=f"{snakemake.output.elec_balances}/elec-Jan-DE-{year}.pdf",
             model_run=snakemake.wildcards.run,
             german_carriers=True,
             threshold=1e2,
@@ -3291,7 +2972,7 @@ if __name__ == "__main__":
             tech_colors=tech_colors,
             start_date="2019-05-01 00:00:00",
             end_date="2019-05-31 00:00:00",
-            savepath=f"{snakemake.output.elec_balances}/elec-May-DE-{year}.png",
+            savepath=f"{snakemake.output.elec_balances}/elec-May-DE-{year}.pdf",
             model_run=snakemake.wildcards.run,
             german_carriers=True,
             threshold=1e2,
@@ -3310,7 +2991,7 @@ if __name__ == "__main__":
                 tech_colors=tech_colors,
                 start_date="2019-01-01 00:00:00",
                 end_date="2019-12-31 00:00:00",
-                savepath=f"{snakemake.output.heat_balances}/heat-all-year-DE-{carriers}-{year}.png",
+                savepath=f"{snakemake.output.heat_balances}/heat-all-year-DE-{carriers}-{year}.pdf",
                 model_run=snakemake.wildcards.run,
                 resample="D",
                 plot_lmps=False,
@@ -3330,7 +3011,7 @@ if __name__ == "__main__":
                 tech_colors=tech_colors,
                 start_date="2019-01-01 00:00:00",
                 end_date="2019-01-31 00:00:00",
-                savepath=f"{snakemake.output.heat_balances}/heat-Jan-DE-{carriers}-{year}.png",
+                savepath=f"{snakemake.output.heat_balances}/heat-Jan-DE-{carriers}-{year}.pdf",
                 model_run=snakemake.wildcards.run,
                 plot_lmps=False,
                 plot_loads=False,
@@ -3347,7 +3028,7 @@ if __name__ == "__main__":
                 tech_colors=tech_colors,
                 start_date="2019-05-01 00:00:00",
                 end_date="2019-05-31 00:00:00",
-                savepath=f"{snakemake.output.heat_balances}/heat-May-DE-{carriers}-{year}.png",
+                savepath=f"{snakemake.output.heat_balances}/heat-May-DE-{carriers}-{year}.pdf",
                 model_run=snakemake.wildcards.run,
                 plot_lmps=False,
                 plot_loads=False,
@@ -3365,7 +3046,7 @@ if __name__ == "__main__":
             tech_colors=tech_colors,
             start_date="2019-01-01 00:00:00",
             end_date="2019-12-31 00:00:00",
-            savepath=f"{snakemake.output.results}/storage-DE-{year}.png",
+            savepath=f"{snakemake.output.results}/storage-DE-{year}.pdf",
             model_run=snakemake.wildcards.run,
         )
 
@@ -3430,7 +3111,7 @@ if __name__ == "__main__":
         plot_h2_map(
             network,
             regions,
-            savepath=f"{snakemake.output.h2_transmission}/h2_transmission_all-regions_{year}.png",
+            savepath=f"{snakemake.output.h2_transmission}/h2_transmission_all-regions_{year}.pdf",
         )
 
         regions_de = regions[regions.index.str.startswith("DE")]
@@ -3443,7 +3124,7 @@ if __name__ == "__main__":
                 regions_de,
                 tech_colors=tech_colors,
                 specify_buses=sb,
-                savepath=f"{snakemake.output.h2_transmission}/h2_transmission_DE_{sb}_{year}.png",
+                savepath=f"{snakemake.output.h2_transmission}/h2_transmission_DE_{sb}_{year}.pdf",
             )
             del network
 
@@ -3451,7 +3132,7 @@ if __name__ == "__main__":
         networks,
         planning_horizons,
         tech_colors,
-        savepath=f"{snakemake.output.h2_transmission}/h2-trade-DE.png",
+        savepath=f"{snakemake.output.h2_transmission}/h2-trade-DE.pdf",
     )
 
     ## electricity transmission
@@ -3464,21 +3145,21 @@ if __name__ == "__main__":
                 networks[planning_horizons.index(2020)],
                 tech_colors,
                 regions_de,
-                savepath=f"{snakemake.output.elec_transmission}/elec-transmission-DE-{s}-{year}.png",
+                savepath=f"{snakemake.output.elec_transmission}/elec-transmission-DE-{s}-{year}.pdf",
                 expansion_case=s,
             )
         plot_cap_map_de(
             networks[planning_horizons.index(year)],
             tech_colors,
             regions_de,
-            savepath=f"{snakemake.output.elec_transmission}/elec-cap-DE-{year}.png",
+            savepath=f"{snakemake.output.elec_transmission}/elec-cap-DE-{year}.pdf",
         )
 
     plot_elec_trade(
         networks,
         planning_horizons,
         tech_colors,
-        savepath=f"{snakemake.output.elec_transmission}/elec-trade-DE.png",
+        savepath=f"{snakemake.output.elec_transmission}/elec-trade-DE.pdf",
     )
 
     ## nodal balances general (might not be very robust)
