@@ -1,17 +1,23 @@
-# SPDX-FileCopyrightText: : 2017-2024 The PyPSA-Eur Authors
+# SPDX-FileCopyrightText: Contributors to PyPSA-Eur <https://github.com/pypsa/pypsa-eur>
 #
 # SPDX-License-Identifier: MIT
 
 from pathlib import Path
 import yaml
 import sys
-from os.path import normpath, exists
+from os.path import normpath, exists, join
 from shutil import copyfile, move, rmtree, unpack_archive
 from snakemake.utils import min_version
 
 min_version("8.11")
 
-from scripts._helpers import path_provider, copy_default_files, get_scenarios, get_rdir
+from scripts._helpers import (
+    path_provider,
+    copy_default_files,
+    get_scenarios,
+    get_rdir,
+    get_shadow,
+)
 
 
 copy_default_files(workflow)
@@ -25,6 +31,7 @@ configfile: "config/config.personal.yaml"
 run = config["run"]
 scenarios = get_scenarios(run)
 RDIR = get_rdir(run)
+shadow_config = get_shadow(run)
 
 policy = run["shared_resources"]["policy"]
 exclude = run["shared_resources"]["exclude"]
@@ -35,12 +42,8 @@ logs = path_provider("logs/", RDIR, shared_resources, exclude_from_shared)
 benchmarks = path_provider("benchmarks/", RDIR, shared_resources, exclude_from_shared)
 resources = path_provider("resources/", RDIR, shared_resources, exclude_from_shared)
 
-# logs = path_provider("logs/", RDIR, policy, exclude)
-# benchmarks = path_provider("benc€€hmarks/", RDIR, policy, exclude)
-# resources = path_provider("resources/", RDIR, policy, exclude)
-
-
-CDIR = "" if run["shared_cutouts"] else RDIR
+cutout_dir = config["atlite"]["cutout_directory"]
+CDIR = join(cutout_dir, ("" if run["shared_cutouts"] else RDIR))
 RESULTS = "results/" + RDIR
 
 
@@ -49,10 +52,11 @@ localrules:
 
 
 wildcard_constraints:
-    clusters="[0-9]+(m|c)?|all",
+    clusters="[0-9]+(m|c)?|all|adm",
     ll=r"(v|c)([0-9\.]+|opt)",
     opts=r"[-+a-zA-Z0-9\.]*",
     sector_opts=r"[-+a-zA-Z0-9\.\s]*",
+    planning_horizons=r"[0-9]{4}",
 
 
 include: "rules/common.smk"
@@ -91,7 +95,7 @@ rule create_scenarios:
     output:
         config["run"]["scenarios"]["file"],
     conda:
-        "envs/retrieve.yaml"
+        "envs/environment.yaml"
     script:
         "config/create_scenarios.py"
 
@@ -147,6 +151,18 @@ rule sync:
         rsync -uvarh --no-g {params.cluster}/resources . || echo "No resources directory, skipping rsync"
         rsync -uvarh --no-g {params.cluster}/results . || echo "No results directory, skipping rsync"
         rsync -uvarh --no-g {params.cluster}/logs . || echo "No logs directory, skipping rsync"
+        """
+
+
+rule sync_dry:
+    params:
+        cluster=f"{config['remote']['ssh']}:{config['remote']['path']}",
+    shell:
+        """
+        rsync -uvarh --ignore-missing-args --files-from=.sync-send . {params.cluster} -n
+        rsync -uvarh --no-g {params.cluster}/resources . -n || echo "No resources directory, skipping rsync"
+        rsync -uvarh --no-g {params.cluster}/results . -n || echo "No results directory, skipping rsync"
+        rsync -uvarh --no-g {params.cluster}/logs . -n || echo "No logs directory, skipping rsync"
         """
 
 
