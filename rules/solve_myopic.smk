@@ -120,7 +120,7 @@ rule solve_sector_network_myopic:
         energy_year=config_provider("energy", "energy_totals_year"),
     input:
         network=RESULTS
-        + "prenetworks-final/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.nc",
+        + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_final.nc",
         co2_totals_name=resources("co2_totals.csv"),
         energy_totals=resources("energy_totals.csv"),
     output:

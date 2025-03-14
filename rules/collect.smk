@@ -97,7 +97,7 @@ rule plot_statistics:
             ),
             expand(
                 RESULTS
-                + "statistics/figures/single/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}/country_{country}/.statistics_{carrier}_plots",
+                + "statistics/figures/single/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}/country_{country}/.statistics_{carrier}_plots",
                 **config["scenario"],
                 country=config["plotting"].get("countries", "all"),
                 carrier=config["plotting"].get("carriers", ["all"]),

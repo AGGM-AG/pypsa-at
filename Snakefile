@@ -331,8 +331,7 @@ rule modify_prenetwork:
         scale_capacity=config_provider("scale_capacity"),
     input:
         costs_modifications="ariadne-data/costs_{planning_horizons}-modifications.csv",
-        network=RESULTS
-        + "prenetworks-brownfield/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.nc",
+        network=resources("networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_brownfield.nc"),
         wkn=(
             resources("wasserstoff_kernnetz_base_s_{clusters}.csv")
             if config_provider("wasserstoff_kernnetz", "enable")
@@ -358,12 +357,12 @@ rule modify_prenetwork:
         offshore_connection_points="ariadne-data/offshore_connection_points.csv",
     output:
         network=RESULTS
-        + "prenetworks-final/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.nc",
+        + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_final.nc",
     resources:
         mem_mb=4000,
     log:
         RESULTS
-        + "logs/modify_prenetwork_base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.log",
+        + "logs/modify_prenetwork_base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.log",
     script:
         "scripts/pypsa-de/modify_prenetwork.py"
 
@@ -525,7 +524,7 @@ rule export_ariadne_variables:
         ),
         networks=expand(
             RESULTS
-            + "postnetworks/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.nc",
+            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
             **config["scenario"],
             allow_missing=True,
         ),
@@ -617,7 +616,7 @@ rule ariadne_all:
         ),
         expand(
             RESULTS
-            + "maps/base_s_{clusters}_l{ll}_{opts}_{sector_opts}-h2_network_incl_kernnetz_{planning_horizons}.pdf",
+            + "maps/base_s_{clusters}_{opts}_{sector_opts}-h2_network_incl_kernnetz_{planning_horizons}.pdf",
             run=config_provider("run", "name"),
             **config["scenario"],
             allow_missing=True,
@@ -652,21 +651,21 @@ rule plot_hydrogen_network_incl_kernnetz:
         foresight=config_provider("foresight"),
     input:
         network=RESULTS
-        + "postnetworks/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.nc",
+        + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
         regions=resources("regions_onshore_base_s_{clusters}.geojson"),
     output:
         map=RESULTS
-        + "maps/base_s_{clusters}_l{ll}_{opts}_{sector_opts}-h2_network_incl_kernnetz_{planning_horizons}.pdf",
+        + "maps/base_s_{clusters}_{opts}_{sector_opts}-h2_network_incl_kernnetz_{planning_horizons}.pdf",
     threads: 2
     resources:
         mem_mb=10000,
     log:
         RESULTS
-        + "logs/plot_hydrogen_network_incl_kernnetz/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.log",
+        + "logs/plot_hydrogen_network_incl_kernnetz/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.log",
     benchmark:
         (
             RESULTS
-            + "benchmarks/plot_hydrogen_network_incl_kernnetz/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}"
+            + "benchmarks/plot_hydrogen_network_incl_kernnetz/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}"
         )
     script:
         "scripts/pypsa-de/plot_hydrogen_network_incl_kernnetz.py"
@@ -686,7 +685,7 @@ rule plot_ariadne_report:
     input:
         networks=expand(
             RESULTS
-            + "postnetworks/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.nc",
+            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
             **config["scenario"],
             allow_missing=True,
         ),
