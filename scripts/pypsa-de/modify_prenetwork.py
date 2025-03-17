@@ -1324,11 +1324,9 @@ if __name__ == "__main__":
 
     first_technology_occurrence(n)
 
-    if not snakemake.config["run"]["debug_unravel_oilbus"]:
-        unravel_carbonaceous_fuels(n)
+    unravel_carbonaceous_fuels(n)
 
-    if not snakemake.config["run"]["debug_unravel_gasbus"]:
-        unravel_gasbus(n, costs)
+    unravel_gasbus(n, costs)
 
     if snakemake.params.enable_kernnetz:
         fn = snakemake.input.wkn
