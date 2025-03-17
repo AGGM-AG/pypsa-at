@@ -668,7 +668,7 @@ def add_chp_plants(n, grouping_years, costs, baseyear):
     if options["central_heat_vent"]:
         missing_uch_buses = pd.Series(
             {
-                bus: " ".join(bus.split()[:2])
+                bus: " ".join(bus.split()[:1])
                 for bus in set(chp.bus.unique() + " urban central heat")
                 - set(n.buses.index)
             }
