@@ -4327,8 +4327,7 @@ def get_economy(n, region):
     var = pd.Series()
 
     s = n.statistics
-    g = s.groupers
-    grouper = g.get_country_and_carrier
+    grouper = ["country", "carrier"]
     system_cost = s.capex(groupby=grouper).add(s.opex(groupby=grouper))
 
     # Cost|Total Energy System Cost in billion EUR2020/yr
@@ -5489,7 +5488,7 @@ if __name__ == "__main__":
         cap_func = n.statistics.optimal_capacity
         cap_string = "Optimal Capacity|"
         kwargs = {
-            "groupby": n.statistics.groupers.get_bus_and_carrier,
+            "groupby": ["bus", "carrier"],
             "at_port": True,
             "nice_names": False,
         }
