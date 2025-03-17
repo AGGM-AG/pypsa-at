@@ -4752,12 +4752,12 @@ def get_operational_and_capital_costs(year):
         "urban decentral water tanks charger": "water tank charger",
         "urban decentral water tanks discharger": "water tank discharger",
         # Other capacities
-        # 'Sabatier': 'methanation',costs.at["methanation", "fixed"]
+        # 'Sabatier': 'methanation',costs.at["methanation", "capital_cost"]
         # * costs.at["methanation", "efficiency"]
         "biogas to gas": None,  # TODO biogas + biogas upgrading
-        "biogas to gas CC": None,  # TODO costs.at["biogas CC", "fixed"]
-        # + costs.at["biogas upgrading", "fixed"]
-        # + costs.at["biomass CHP capture", "fixed"]
+        "biogas to gas CC": None,  # TODO costs.at["biogas CC", "capital_cost"]
+        # + costs.at["biogas upgrading", "capital_cost"]
+        # + costs.at["biomass CHP capture", "capital_cost"]
         # * costs.at["biogas CC", "CO2 stored"],
     }
 
@@ -4859,12 +4859,12 @@ def get_operational_and_capital_costs(year):
         VOM = "OM Cost|Variable" + "|" + sector + "|" + tech
         capital = "Capital Cost" + "|" + sector + "|" + tech
 
-        var[FOM] = costs.at[tech, "fixed"] / 1e3  # EUR/MW -> EUR/kW
+        var[FOM] = costs.at[tech, "capital_cost"] / 1e3  # EUR/MW -> EUR/kW
         var[VOM] = costs.at[tech, "VOM"] / MWh2GJ  # EUR/MWh -> EUR/GJ
         var[capital] = costs.at[tech, "investment"] / 1e3  # EUR/MW -> EUR/kW
 
         if key in grid_connection:
-            var[FOM] += costs.at["electricity grid connection", "fixed"] / 1e3
+            var[FOM] += costs.at["electricity grid connection", "capital_cost"] / 1e3
             var[capital] += costs.at["electricity grid connection", "investment"] / 1e3
 
     return var
@@ -5145,13 +5145,13 @@ def hack_DC_projects(n, p_nom_start, p_nom_planned, model_year, snakemake, costs
                 n.links.loc[current_projects, "length"]
                 * (
                     (1.0 - n.links.loc[current_projects, "underwater_fraction"])
-                    * costs.at["HVDC underground", "fixed"]
+                    * costs.at["HVDC underground", "capital_cost"]
                     / 1e-9
                     + n.links.loc[current_projects, "underwater_fraction"]
-                    * costs.at["HVDC submarine", "fixed"]
+                    * costs.at["HVDC submarine", "capital_cost"]
                     / 1e-9
                 )
-                + costs.at["HVDC inverter pair", "fixed"] / 1e-9
+                + costs.at["HVDC inverter pair", "capital_cost"] / 1e-9
             )
     else:
         n.links.loc[current_projects, "p_nom"] = n.links.loc[
@@ -5210,8 +5210,8 @@ def process_postnetworks(n, n_start, model_year, snakemake, costs):
     logger.info("Adding average Kernnetz cost to carrier H2 pipeline (Kernnetz)")
     h2_links_kern = n.links.query("carrier == 'H2 pipeline (Kernnetz))'").index
     capital_costs = (
-        0.7 * costs.at["H2 (g) pipeline", "fixed"]
-        + 0.3 * costs.at["H2 (g) pipeline repurposed", "fixed"]
+        0.7 * costs.at["H2 (g) pipeline", "capital_cost"]
+        + 0.3 * costs.at["H2 (g) pipeline repurposed", "capital_cost"]
     ) * n.links.loc[h2_links_kern, "length"]
     overnight_costs = (
         0.7 * costs.at["H2 (g) pipeline", "investment"]
