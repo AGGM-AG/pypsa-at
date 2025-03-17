@@ -215,8 +215,9 @@ def add_power_capacities_installed_before_baseyear(
         df_agg.query("not Industry", inplace=True)
 
     # Replace Fueltype "Natural Gas" with the respective technology (OCGT or CCGT)
-    df_agg.loc[df_agg["Fueltype"] == "Natural Gas", "Fueltype"] = df_agg.loc[
-        df_agg["Fueltype"] == "Natural Gas", "Technology"
+    natural_gas_mask = df_agg["Fueltype"] == "Natural Gas"
+    df_agg.loc[natural_gas_mask, "Fueltype"] = df_agg.loc[
+        natural_gas_mask, "Technology"
     ]
 
     fueltype_to_drop = [
@@ -232,9 +233,9 @@ def add_power_capacities_installed_before_baseyear(
     technology_to_drop = ["Pv", "Storage Technologies"]
 
     # drop unused fueltypes and technologies
-    df_agg.drop(df_agg.index[df_agg.Fueltype.isin(fueltype_to_drop)], inplace=True)
-    df_agg.drop(df_agg.index[df_agg.Technology.isin(technology_to_drop)], inplace=True)
-    df_agg.Fueltype = df_agg.Fueltype.map(rename_fuel)
+    df_agg = df_agg[~df_agg["Fueltype"].isin(fueltype_to_drop)]
+    df_agg = df_agg[~df_agg["Technology"].isin(technology_to_drop)]
+    df_agg["Fueltype"] = df_agg["Fueltype"].map(rename_fuel)
 
     # Intermediate fix for DateIn & DateOut
     # Fill missing DateIn
