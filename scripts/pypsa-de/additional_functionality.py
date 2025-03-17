@@ -733,7 +733,7 @@ def additional_functionality(n, snapshots, snakemake):
 
     add_power_limits(n, investment_year, constraints["limits_power_max"])
 
-    if snakemake.wildcards.clusters != 1:
+    if snakemake.wildcards.clusters != "1":
         h2_import_limits(n, investment_year, constraints["limits_volume_max"])
 
         electricity_import_limits(n, investment_year, constraints["limits_volume_max"])

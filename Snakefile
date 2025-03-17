@@ -551,8 +551,7 @@ rule export_ariadne_variables:
         exported_variables=RESULTS + "ariadne/exported_variables.xlsx",
         exported_variables_full=RESULTS + "ariadne/exported_variables_full.xlsx",
     resources:
-        # A heuristic to assign more memory for larger networks. Should probably be quadratic??
-        mem_mb=(lambda w: 400 * int(config_provider("scenario", "clusters")(w)[0])),
+        mem_mb=16000,
     log:
         RESULTS + "logs/export_ariadne_variables.log",
     script:
