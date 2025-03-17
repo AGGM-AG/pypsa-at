@@ -3182,7 +3182,7 @@ if __name__ == "__main__":
     balance = (
         n.statistics.energy_balance(
             aggregate_time=False,
-            groupby=n.statistics.groupers.get_bus_and_carrier_and_bus_carrier,
+            groupby=["bus", "carrier"]_and_bus_carrier,
         )
         .loc[:, buses, :, :]
         .droplevel("bus")
