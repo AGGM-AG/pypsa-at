@@ -318,20 +318,18 @@ def unravel_carbonaceous_fuels(n):
     n.add("Carrier", "renewable oil")
 
     n.add("Bus", "DE", x=10.5, y=51.2, carrier="none")
-    n.add("Bus", "DE oil", x=10.5, y=51.2, carrier="oil")
-    n.add("Bus", "DE oil primary", x=10.5, y=51.2, carrier="oil primary")
+    n.add("Bus", "DE oil", location="DE", carrier="oil")
+    n.add("Bus", "DE oil primary", location="DE", carrier="oil primary")
     n.add(
         "Bus",
         "DE renewable oil",
-        x=10.5,
-        y=51.2,
+        location="DE",
         carrier="renewable oil",
     )
     n.add(
         "Bus",
         "EU renewable oil",
-        x=n.buses.loc["EU", "x"],
-        y=n.buses.loc["EU", "y"],
+        location="EU",
         carrier="renewable oil",
     )
 
