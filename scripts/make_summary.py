@@ -11,6 +11,8 @@ import sys
 
 import numpy as np
 import pandas as pd
+pd.set_option("future.no_silent_downcasting", True)
+
 import pypsa
 
 from scripts._helpers import configure_logging, get_snapshots, set_scenario_config
