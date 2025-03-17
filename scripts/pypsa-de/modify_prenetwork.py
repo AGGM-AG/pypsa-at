@@ -461,8 +461,7 @@ def unravel_carbonaceous_fuels(n):
     n.add(
         "Bus",
         "DE methanol",
-        x=n.buses.loc["DE", "x"],
-        y=n.buses.loc["DE", "y"],
+        location="DE",
         carrier="methanol",
     )
 
@@ -514,8 +513,7 @@ def unravel_carbonaceous_fuels(n):
             "Bus",
             "DE industry methanol",
             carrier="industry methanol",
-            x=n.buses.loc["DE", "x"],
-            y=n.buses.loc["DE", "y"],
+            location="DE",
             unit="MWh_LHV",
         )
         industrial_demand = (
@@ -593,8 +591,7 @@ def unravel_carbonaceous_fuels(n):
             "Bus",
             "DE shipping methanol",
             carrier="shipping methanol",
-            x=n.buses.loc["DE", "x"],
-            y=n.buses.loc["DE", "y"],
+            location="DE",
             unit="MWh_LHV",
         )
         n.add(
@@ -616,20 +613,21 @@ def unravel_gasbus(n, costs):
     """
     logger.info("Unraveling gas bus")
 
+    if not "DE" in n.buses:
+        n.add("Bus", "DE", location="DE", x=10.5, y=51.2, carrier="none")
+
     ### create DE gas bus/generator/store
     n.add(
         "Bus",
         "DE gas",
-        x=10.5,
-        y=51.2,
+        location="DE",
         carrier="gas",
     )
 
     n.add(
         "Bus",
         "DE gas primary",
-        x=10.5,
-        y=51.2,
+        location="DE",
         carrier="gas primary",
     )
 
@@ -675,14 +673,12 @@ def unravel_gasbus(n, costs):
         "Bus",
         "DE renewable gas",
         carrier="renewable gas",
-        x=10.5,
-        y=51.2,
+        location="DE",
     )
     n.add(
         "Bus",
         "EU renewable gas",
-        x=n.buses.loc["EU", "x"],
-        y=n.buses.loc["EU", "y"],
+        location="EU",
         carrier="renewable gas",
     )
 
