@@ -9,7 +9,11 @@ import pandas as pd
 import pypsa
 from shapely.geometry import Point
 
-from scripts._helpers import configure_logging, mock_snakemake
+from scripts._helpers import (
+    configure_logging, 
+    mock_snakemake,
+    sanitize_custom_columns
+)
 from scripts.add_electricity import load_costs
 from scripts.prepare_sector_network import lossy_bidirectional_links, prepare_costs
 
@@ -199,8 +203,8 @@ def add_wasserstoff_kernnetz(n, wkn, costs):
 
         # capital_costs = np.where(
         #     wkn_new.retrofitted == False,
-        #     costs.at["H2 (g) pipeline", "fixed"] * wkn_new.length.values,
-        #     costs.at["H2 (g) pipeline repurposed", "fixed"] * wkn_new.length.values,
+        #     costs.at["H2 (g) pipeline", "capital_cost"] * wkn_new.length.values,
+        #     costs.at["H2 (g) pipeline repurposed", "capital_cost"] * wkn_new.length.values,
         # )
 
         # overnight_costs = np.where(
@@ -215,8 +219,8 @@ def add_wasserstoff_kernnetz(n, wkn, costs):
         # reconstruct average Kernnetz invest (250€/MW*km) from our costs data
 
         capital_costs = (
-            0.7 * costs.at["H2 (g) pipeline", "fixed"]
-            + 0.3 * costs.at["H2 (g) pipeline repurposed", "fixed"]
+            0.7 * costs.at["H2 (g) pipeline", "capital_cost"]
+            + 0.3 * costs.at["H2 (g) pipeline repurposed", "capital_cost"]
         ) * wkn_new.length.values
         overnight_costs = (
             0.7 * costs.at["H2 (g) pipeline", "investment"]
@@ -636,7 +640,7 @@ def unravel_gasbus(n, costs):
         carrier="gas",
         e_nom_extendable=True,
         e_cyclic=True,
-        capital_cost=costs.at["gas storage", "fixed"],
+        capital_cost=costs.at["gas storage", "capital_cost"],
         overnight_cost=costs.at["gas storage", "investment"],
         lifetime=costs.at["gas storage", "lifetime"],
     )
@@ -1330,7 +1334,6 @@ if __name__ == "__main__":
         fn = snakemake.input.wkn
         wkn = pd.read_csv(fn, index_col=0)
         add_wasserstoff_kernnetz(n, wkn, costs)
-        n.links.reversed = n.links.reversed.astype(float)
 
     costs_loaded = load_costs(
         snakemake.input.costs,
@@ -1368,5 +1371,7 @@ if __name__ == "__main__":
     force_connection_nep_offshore(n, current_year)
 
     scale_capacity(n, snakemake.params.scale_capacity)
+
+    sanitize_custom_columns(n)
 
     n.export_to_netcdf(snakemake.output.network)

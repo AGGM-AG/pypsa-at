@@ -38,12 +38,12 @@ from scripts.build_energy_totals import (
     build_eurostat,
     build_eurostat_co2,
 )
-from build_transport_demand import transport_degree_factor
-from definitions.heat_sector import HeatSector
-from definitions.heat_system import HeatSystem
+from scripts.build_transport_demand import transport_degree_factor
+from scripts.definitions.heat_sector import HeatSector
+from scripts.definitions.heat_system import HeatSystem
 from networkx.algorithms import complement
 from networkx.algorithms.connectivity.edge_augmentation import k_edge_augmentation
-from prepare_network import maybe_adjust_costs_and_potentials
+from scripts.prepare_network import maybe_adjust_costs_and_potentials
 from pypsa.geo import haversine_pts
 from scipy.stats import beta
 
@@ -114,7 +114,7 @@ def define_spatial(nodes, options):
     # check if biogas potential should be spatially resolved
     if (
         options["gas_network"]
-        or options.get("co2_spatial", options["co2network"])
+        or options.get("co2_spatial", options["co2_network"])
         or options.get("biomass_spatial", options["biomass_transport"])
     ):
         spatial.biogas.nodes = nodes + " biogas"
@@ -128,7 +128,7 @@ def define_spatial(nodes, options):
         spatial.biogas.biogas_to_gas_cc = ["EU biogas to gas CC"]
 
     if options.get("regional_gas_demand", options["gas_network"]) or options.get(
-        "co2_spatial", options["co2network"]
+        "co2_spatial", options["co2_network"]
     ):
         spatial.gas.industry = nodes + " gas for industry"
         spatial.gas.industry_cc = nodes + " gas for industry CC"
@@ -3260,7 +3260,7 @@ def add_biomass(
     # need to aggregate potentials if gas not nodally resolved
     if (
         options["gas_network"]
-        or options.get("co2_spatial", options["co2network"])
+        or options.get("co2_spatial", options["co2_network"])
         or options.get("biomass_spatial", options["biomass_transport"])
     ):
         biogas_potentials_spatial = biomass_potentials["biogas"].rename(
@@ -3355,8 +3355,8 @@ def add_biomass(
 
     n.add(
         "Generator",
-        spatial.gas.biogas,
-        bus=spatial.gas.biogas,
+        spatial.biogas.nodes,
+        bus=spatial.biogas.nodes,
         carrier="biogas",
         p_nom=biogas_potentials_spatial,
         marginal_cost=costs.at["biogas", "fuel"],
@@ -3426,7 +3426,7 @@ def add_biomass(
     if biomass_potentials.filter(like="unsustainable").sum().sum() > 0:
         n.add(
             "Generator",
-            spatial.gas.biogas,
+            spatial.biogas.nodes,
             suffix=" unsustainable",
             bus=spatial.biogas.nodes,
             carrier="unsustainable biogas",

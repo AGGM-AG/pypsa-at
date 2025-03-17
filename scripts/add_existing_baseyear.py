@@ -629,7 +629,7 @@ def add_chp_plants(n, grouping_years, costs, baseyear):
                         bus3="co2 atmosphere",
                         carrier=f"urban central {generator} CHP",
                         p_nom=p_nom[bus],
-                        capital_cost=costs.at[key, "fixed"]
+                        capital_cost=costs.at[key, "capital_cost"]
                         * costs.at[key, "efficiency"],
                         overnight_cost=costs.at[key, "investment"]
                         * costs.at[key, "efficiency"],
@@ -651,7 +651,7 @@ def add_chp_plants(n, grouping_years, costs, baseyear):
                         bus2=bus + " urban central heat",
                         carrier=generator,
                         p_nom=p_nom[bus],
-                        capital_cost=costs.at[key, "fixed"]
+                        capital_cost=costs.at[key, "capital_cost"]
                         * costs.at[key, "efficiency"],
                         overnight_cost=costs.at[key, "investment"]
                         * costs.at[key, "efficiency"],
@@ -735,7 +735,7 @@ def add_chp_plants(n, grouping_years, costs, baseyear):
                     bus3="co2 atmosphere",
                     carrier=f"urban central {generator} CHP",
                     p_nom=p_nom[bus] / costs.at[key, "efficiency"],
-                    capital_cost=costs.at[key, "fixed"] * costs.at[key, "efficiency"],
+                    capital_cost=costs.at[key, "capital_cost"] * costs.at[key, "efficiency"],
                     overnight_cost=costs.at[key, "investment"]
                     * costs.at[key, "efficiency"],
                     marginal_cost=costs.at[key, "VOM"],
@@ -756,7 +756,7 @@ def add_chp_plants(n, grouping_years, costs, baseyear):
                     bus2=bus + " urban central heat",
                     carrier=generator,
                     p_nom=p_nom[bus] / costs.at[key, "efficiency"],
-                    capital_cost=costs.at[key, "fixed"] * costs.at[key, "efficiency"],
+                    capital_cost=costs.at[key, "capital_cost"] * costs.at[key, "efficiency"],
                     overnight_cost=costs.at[key, "investment"]
                     * costs.at[key, "efficiency"],
                     marginal_cost=costs.at[key, "VOM"],
@@ -917,7 +917,7 @@ def add_chp_plants(n, grouping_years, costs, baseyear):
                         bus3="co2 atmosphere",
                         carrier=f"urban central {generator} CHP",
                         p_nom=p_nom[bus],
-                        capital_cost=costs.at[key, "fixed"]
+                        capital_cost=costs.at[key, "capital_cost"]
                         * costs.at[key, "efficiency"],
                         overnight_cost=costs.at[key, "investment"]
                         * costs.at[key, "efficiency"],
@@ -939,7 +939,7 @@ def add_chp_plants(n, grouping_years, costs, baseyear):
                         bus2=bus + " urban central heat",
                         carrier=generator,
                         p_nom=p_nom[bus],
-                        capital_cost=costs.at[key, "fixed"]
+                        capital_cost=costs.at[key, "capital_cost"]
                         * costs.at[key, "efficiency"],
                         overnight_cost=costs.at[key, "investment"]
                         * costs.at[key, "efficiency"],
@@ -1023,7 +1023,7 @@ def add_chp_plants(n, grouping_years, costs, baseyear):
                     bus3="co2 atmosphere",
                     carrier=f"urban central {generator} CHP",
                     p_nom=p_nom[bus] / costs.at[key, "efficiency"],
-                    capital_cost=costs.at[key, "fixed"] * costs.at[key, "efficiency"],
+                    capital_cost=costs.at[key, "capital_cost"] * costs.at[key, "efficiency"],
                     overnight_cost=costs.at[key, "investment"]
                     * costs.at[key, "efficiency"],
                     marginal_cost=costs.at[key, "VOM"],
@@ -1044,7 +1044,7 @@ def add_chp_plants(n, grouping_years, costs, baseyear):
                     bus2=bus + " urban central heat",
                     carrier=generator,
                     p_nom=p_nom[bus] / costs.at[key, "efficiency"],
-                    capital_cost=costs.at[key, "fixed"] * costs.at[key, "efficiency"],
+                    capital_cost=costs.at[key, "capital_cost"] * costs.at[key, "efficiency"],
                     overnight_cost=costs.at[key, "investment"]
                     * costs.at[key, "efficiency"],
                     marginal_cost=costs.at[key, "VOM"],
@@ -1335,11 +1335,11 @@ def add_heating_capacities_installed_before_baseyear(
                 carrier=heat_system.value + " biomass boiler",
                 efficiency=costs.at["biomass boiler", "efficiency"],
                 capital_cost=costs.at["biomass boiler", "efficiency"]
-                * costs.at["biomass boiler", "fixed"],
+                * costs.at["biomass boiler", "capital_cost"],
                 overnight_cost=costs.at["biomass boiler", "efficiency"]
                 * costs.at["biomass boiler", "investment"],
                 p_nom=(
-                    existing_heating.loc[nodes, (heat_system.value, "biomass boiler")]
+                    existing_capacities.loc[nodes, (heat_system.value, "biomass boiler")]
                     * ratio
                     / costs.at["biomass boiler", "efficiency"]
                 ),
