@@ -580,9 +580,10 @@ def plot_nodal_elec_balance(
         ax2.set_ylim(
             [
                 -1.5
-                * lmps.max()
-                * abs(df_neg.sum(axis=1).min())
-                / df_pos.sum(axis=1).max(),
+                * lmps.max(),
+                # TODO rescale
+                # * abs(df_neg.sum(axis=1).min())
+                # / df_pos.sum(axis=1).max(),
                 1.5 * lmps.max(),
             ]
         )
