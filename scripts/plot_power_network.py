@@ -54,7 +54,8 @@ def assign_location(n):
                 continue
             names = ifind.index[ifind == i]
             c.df.loc[names, "location"] = names.str[:i]
-
+        if "location" not in c.df.columns:
+            c.df["location"] = None
 
 def load_projection(plotting_params):
     proj_kwargs = plotting_params.get("projection", dict(name="EqualEarth"))

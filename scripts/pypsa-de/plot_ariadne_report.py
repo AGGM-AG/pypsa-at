@@ -24,7 +24,7 @@ from matplotlib.ticker import FuncFormatter
 from pypsa.plot import add_legend_circles, add_legend_lines, add_legend_patches
 
 from scripts._helpers import configure_logging, mock_snakemake, set_scenario_config
-from scripts.plot_power_network import load_projection
+from scripts.plot_power_network import load_projection, assign_location
 from scripts.plot_summary import preferred_order, rename_techs
 from scripts.prepare_sector_network import prepare_costs
 
@@ -1585,17 +1585,6 @@ def plot_elec_prices_spatial(
     # plt.show()
 
     fig.savefig(savepath, bbox_inches="tight")
-
-
-def assign_location(n):
-    for c in n.iterate_components(n.one_port_components | n.branch_components):
-        ifind = pd.Series(c.df.index.str.find(" ", start=4), c.df.index)
-        for i in ifind.value_counts().index:
-            # these have already been assigned defaults
-            if i == -1:
-                continue
-            names = ifind.index[ifind == i]
-            c.df.loc[names, "location"] = names.str[:i]
 
 
 def group_pipes(df, drop_direction=False):
