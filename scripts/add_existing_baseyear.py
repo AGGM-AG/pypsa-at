@@ -666,11 +666,12 @@ def add_chp_plants(n, grouping_years, costs, baseyear):
     # CHPs that are not from MaStR
 
     if options["central_heat_vent"]:
+        uch_buses = n.buses.index[n.buses.carrier == "urban central heat"]
         missing_uch_buses = pd.Series(
             {
-                bus: " ".join(bus.split()[:1])
-                for bus in set(chp.bus.unique() + " urban central heat")
-                - set(n.buses.index)
+                bus + " urban central heat": bus
+                for bus in set(chp.bus.unique())
+                if bus + " urban central heat" not in uch_buses
             }
         )
         if not missing_uch_buses.empty:
@@ -915,7 +916,6 @@ def add_heating_capacities_installed_before_baseyear(
             # Add heat pumps
             for heat_source in heat_pump_source_types[heat_system.system_type.value]:
                 costs_name = heat_system.heat_pump_costs_name(heat_source)
-
                 efficiency = (
                     heat_pump_cop.sel(
                         heat_system=heat_system.system_type.value,
