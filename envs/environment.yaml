@@ -20,7 +20,7 @@ dependencies:
 - pypsa>= 0.32.1
 - atlite>=0.3
 - linopy>=0.4.4
-- powerplantmatching>=0.5.15,<0.6
+- powerplantmatching>=0.5.15
 
 # Dependencies of the workflow itself
 - dask
