@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 
-from esmtools.constants import COLOUR_SCHEME_BMK, DataModel
+from constants import COLOUR_SCHEME_BMK, DataModel
 
 
 @dataclass()

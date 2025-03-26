@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pandas as pd
 
-from esmtools.configs import MetricConfig
-from esmtools.constants import NOW, DataModel, Group
-from esmtools.fileio import (
+from configs import MetricConfig
+from constants import NOW, DataModel, Group
+from fileio import (
     export_excel_countries,
     export_excel_regions_at,
 )
-from esmtools.utils import (
+from utils import (
     add_dummy_rows,
     aggregate_locations,
     get_mapping,
@@ -218,7 +218,7 @@ class Metric:
         file_path = output_path / "CSV" / f"{file_name}_{NOW}.csv"
         self.df.to_csv(file_path, encoding="utf-8")
 
-    def export(self, output_path: Path, config: dict) -> None:
+    def export(self, output_path: Path, export_config: dict) -> None:
         """Export the metric to formats specified in the config.
 
         Parameters
@@ -226,18 +226,18 @@ class Metric:
         output_path
             The path to the CSV folder with all the csv files are
             stored.
-        config
-            The metric configuration.
+        export_config
+            The export configuration from the TOML file for this view.
 
         Returns
         -------
         :
         """
-        if config["export_plotly"]:
+        if export_config["plotly"]:
             self.export_plotly(output_path)
-        if config["export_excel"]:
+        if export_config["excel"]:
             self.export_excel(output_path)
-        if config["export_csv"]:
+        if export_config["csv"]:
             self.export_csv(output_path)
 
     def assert_all_technologies_mapped(self) -> None:

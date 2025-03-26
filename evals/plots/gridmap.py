@@ -11,9 +11,9 @@ import geopandas as gpd
 import pandas as pd
 from folium import GeoJson, plugins
 
-from esmtools.constants import ALIAS_COUNTRY, ALIAS_REGION, DataModel
-from esmtools.data.icons import RIGHT_TO_BRACKET_SOLID
-from esmtools.utils import filter_by, prettify_number
+from constants import ALIAS_COUNTRY, ALIAS_REGION, DataModel
+from data.icons import RIGHT_TO_BRACKET_SOLID
+from utils import filter_by, prettify_number
 
 
 @dataclass

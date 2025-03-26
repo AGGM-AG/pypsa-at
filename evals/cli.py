@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
     "-s",
     type=str,
     required=False,
-    default="esm_run/postnetworks",
+    default="networks",
 )
 @click.option("--names", "-n", multiple=True, required=False, default=[])
 @click.option("--config", "-c", type=str, multiple=False, required=False, default="")
@@ -71,7 +71,7 @@ def run_eval(
     names
         A list of evaluation name, e.g. "eval_electricity_amounts",
         optional. Defaults to running all evaluations from
-        esmtools.evals.__all__.
+        evals.__all__.
     config
         A path to a config.toml file with the same section as
         the config.defaults.toml used to override configurations
@@ -83,11 +83,11 @@ def run_eval(
         Exits the program with the number of failed evaluations as exit
         code.
     """
-    import esmtools.evals as evals
-    from esmtools.fileio import read_networks
+    import views
+    from fileio import read_networks, read_views_config
 
     eval_functions = [
-        getattr(evals, fn) for fn in evals.__all__ if (not names or fn in names)
+        getattr(views, fn) for fn in views.__all__ if (not names or fn in names)
     ]
     n_evals = len(eval_functions)
 
@@ -103,7 +103,8 @@ def run_eval(
         logger.info(f"({i}/{n_evals}) Start {func.__name__}...")
         eval_start = time()
         try:
-            func(result_path=result_path, networks=networks)
+            cfg = read_views_config(func, config)
+            func(result_path=result_path, networks=networks, config=cfg)
         except Exception:  # noqa
             logger.exception(f"Exception during {func.__name__}.", exc_info=True)
             fails.append(func.__name__)
@@ -133,6 +134,8 @@ def run_tests() -> None:
 
 if __name__ == "__main__":
     # useful for debugging. Use run_eval command for production.
-    args = ["/mnt/storage/pypsa-eur-sec/results"]
+    args = ["../results/evals-dev"]  # this is the copied folder in local repo results
+    # cp -r /mnt/storage/pypsa-at-AT10-365H results/
+    args = ["/mnt/storage/pypsa-at-AT10-365H"]  # This is the folder on the file share
     args.extend(["-n", "view_heat_capacity"])
     run_eval(args)

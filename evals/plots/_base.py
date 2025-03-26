@@ -8,8 +8,8 @@ from jinja2 import Template
 from plotly import express as px
 from plotly import graph_objects as go
 
-from esmtools.configs import PlotConfig
-from esmtools.constants import ALIAS_LOCATION_REV, RUN_META_DATA
+from configs import PlotConfig
+from constants import ALIAS_LOCATION_REV, RUN_META_DATA
 
 
 class ESMChart:

@@ -17,7 +17,7 @@ from pypsa.statistics import (
     port_efficiency,
 )
 
-from esmtools.constants import (
+from constants import (
     TRANSMISSION_CARRIER,
     UNITS,
     BusCarrier,
@@ -26,9 +26,9 @@ from esmtools.constants import (
     Group,
     Regex,
 )
-from esmtools.fileio import read_csv_files
-from esmtools.metric import logger
-from esmtools.utils import (
+from fileio import read_csv_files
+from metric import logger
+from utils import (
     filter_by,
     get_trade_type,
     insert_index_level,
@@ -222,7 +222,7 @@ class ESMStatistics(StatisticsAccessor):
 
     The actual patching is done directly after reading in the
     network files in read_networks(). This means, that
-    esmtools.io.read_networks() must be used to load networks, or the
+    io.read_networks() must be used to load networks, or the
     statistics will not be available under n.statistics().
 
     Parameters
@@ -619,7 +619,7 @@ class ESMStatistics(StatisticsAccessor):
         ----------
         scope
             The scope of energy exchange. Must be one of
-            esmtools.constants.TRADE_TYPES.
+            constants.TRADE_TYPES.
         bus_carrier
             The bus carrier for which to calculate the energy exchange.
             Defaults to using all bus carrier.
@@ -873,7 +873,7 @@ class ESMStatistics(StatisticsAccessor):
             The bus carrier to consider.
         carrier
             The carrier to consider, defaults to all
-            esmtools.constants.TRANSMISSION_CARRIER.
+            constants.TRANSMISSION_CARRIER.
         append_grid
             Whether to add the grid lines to the result.
         align_edges
@@ -935,7 +935,7 @@ class ESMStatistics(StatisticsAccessor):
             The bus carrier to consider.
         carrier
             The carrier to consider, defaults to all
-            esmtools.constants.TRANSMISSION_CARRIER.
+            constants.TRANSMISSION_CARRIER.
         aggregate_time
             The aggregation function aggregate by.
         append_grid

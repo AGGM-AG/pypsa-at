@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from esmtools.constants import (
+from constants import (
     ALIAS_COUNTRY,
     ALIAS_LOCATION,
     ALIAS_REGION,
@@ -170,7 +170,7 @@ def get_trade_type(bus_a: str, bus_b: str) -> str:
     Returns
     -------
     :
-        The trade type. One of esmtools.constants.TRADE_TYPES.
+        The trade type. One of constants.TRADE_TYPES.
     """
     loc_a = re.findall(Regex.region, bus_a)[:1]
     loc_b = re.findall(Regex.region, bus_b)[:1]
@@ -612,7 +612,7 @@ def scale(df: pd.DataFrame, to_unit: str) -> pd.DataFrame:
     df
         The input data frame with valid units in the column labels.
     to_unit
-        The target unit. See esmtools.constants.UNITS for possible
+        The target unit. See constants.UNITS for possible
         units.
 
     Returns

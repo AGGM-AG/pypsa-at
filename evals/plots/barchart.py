@@ -7,9 +7,9 @@ import pandas as pd
 from plotly import express as px
 from plotly import graph_objects as go
 
-from esmtools.constants import DataModel
-from esmtools.plots._base import ESMChart, empty_figure
-from esmtools.utils import apply_cutoff, prettify_number
+from constants import DataModel
+from plots._base import ESMChart, empty_figure
+from utils import apply_cutoff, prettify_number
 
 
 class ESMBarChart(ESMChart):

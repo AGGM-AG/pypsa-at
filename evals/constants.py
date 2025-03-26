@@ -11,7 +11,7 @@ from subprocess import CalledProcessError, check_output
 
 from frozendict import frozendict
 
-# represents esmtools.constants import time
+# represents constants import time
 NOW: str = dt.now().strftime("%Y%m%d%H%M%S")
 
 
@@ -416,12 +416,13 @@ class Regex:
     # ends with 4 digits
     year: re.Pattern = re.compile(r"\d{4}$")
 
-    # startswith 2 capital letters, followed by 1 digit, 1 space, and
-    # any number of digits
-    region: re.Pattern = re.compile(r"^[A-Z]{2}\d\s\d*")
+    # matches: startswith 2 capital letters, followed by up to 3 digits,
+    # 1 space, and any number of digits for optional subnets.
+    region: re.Pattern = re.compile(r"^[A-Z]{2}\d{0,3}\s\d*")
 
-    # startswith 2 capital letters, followed by 1 digit
-    country: re.Pattern = re.compile(r"^[A-Z]{2}\d")
+    # matches: startswith 2 capital letters, followed by up to 3 digits,
+    # groups: only the first 2 letters that are the country code
+    country: re.Pattern = re.compile(r"^([A-Z]{2})\d{0,3}")
 
     # match anything inside parenthesis.
     unit: re.Pattern = re.compile(r"\([^()]*\)")

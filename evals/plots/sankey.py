@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 from plotly.graph_objs import Figure, Sankey
 
-from esmtools.constants import DataModel
-from esmtools.utils import insert_index_level
+from constants import DataModel
+from utils import insert_index_level
 
 
 class ProtoSankey:

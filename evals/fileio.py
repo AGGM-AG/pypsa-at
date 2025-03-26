@@ -18,9 +18,10 @@ from openpyxl.chart.marker import DataPoint
 from openpyxl.worksheet.worksheet import Worksheet
 from pandas import ExcelWriter
 from xlsxwriter.utility import xl_col_to_name, xl_rowcol_to_cell
+from pydantic.v1.utils import deep_update
 
-from esmtools.configs import ExcelConfig, MetricConfig
-from esmtools.constants import (
+from configs import ExcelConfig, MetricConfig
+from constants import (
     ALIAS_COUNTRY_REV,
     ALIAS_LOCATION,
     ALIAS_REGION_REV,
@@ -28,7 +29,7 @@ from esmtools.constants import (
     DataModel,
     Regex,
 )
-from esmtools.utils import (
+from utils import (
     calculate_cost_annuity,
     filter_by,
     get_mapping,
@@ -38,7 +39,7 @@ from esmtools.utils import (
 
 
 def read_networks(
-    result_path: str | Path, sub_directory: str = "esm_run/postnetworks"
+    result_path: str | Path, sub_directory: str = "networks"
 ) -> dict:
     """Read postnetwork results from NetCDF (.nc) files.
 
@@ -71,9 +72,7 @@ def read_networks(
         year from the end of the file name as keys.
     """
     # delayed import to prevent circular dependency error
-    from esmtools.statistic import ESMStatistics
-
-    config = read_model_config(result_path)
+    from statistic import ESMStatistics
 
     input_path = Path(result_path) / sub_directory
     networks = {}
@@ -81,14 +80,6 @@ def read_networks(
         year = re.search(r"\d{4}$", file_path.stem).group()
         n = pypsa.Network(file_path)
         n.statistics = ESMStatistics(n, result_path)
-        if not n.meta:
-            n.meta = config.copy()  # separate reference to mutable object
-            # wildcards are missing in config-customize.yaml, but we
-            # need the planning_horizon to hold the networks current
-            # year. This is consistent with meta dictionaries generated
-            # by newish PyPSA versions where networks contain their
-            # wildcards.
-            n.meta.setdefault("wildcards", {"planning_horizon": year})
         networks[year] = n
 
     assert networks, f"No networks found in {input_path}."
@@ -119,7 +110,7 @@ def read_model_config(result_path: str | Path, sub_directory: str = "configs") -
         return yaml.safe_load(config)
 
 
-def read_views_config(func: Callable, config_override: str = "") -> dict:
+def read_views_config(func: Callable, config_override: str = "config.override.toml") -> dict:
     """Return the configuration for a view function.
 
     The function reads the default configuration from the
@@ -133,7 +124,7 @@ def read_views_config(func: Callable, config_override: str = "") -> dict:
     func
         The view function to be called by the CLI module.
     config_override
-        A file_path as a string as passed to the CLI module.
+        A file name as a string as passed to the CLI module.
 
     Returns
     -------
@@ -144,22 +135,22 @@ def read_views_config(func: Callable, config_override: str = "") -> dict:
     func_fp = Path(inspect.getmodule(func).__file__)
     func_name = func_fp.stem
     func_module = func_fp.parent.stem
-    defaults_fp = resources.files("esmtools") / "config.default.toml"
+    defaults_fp = resources.files("evals") / "config.default.toml"
     default = tomllib.load(defaults_fp.open("rb"))
     default_global = default["global"]
     default_view = default["view"][func_module][func_name]
 
     if config_override:
-        override_fp = Path(config_override).resolve()
+        override_fp = Path(resources.files("evals")) / config_override
         override = tomllib.load(override_fp.open("rb"))
-        default_global.update(override["global"])
+        default_global = deep_update(default_global, override["global"])
 
         if (
             override_view := override.get("view", {})
             .get(func_module, {})
             .get(func_name)
         ):
-            default_view.update(override_view)
+            default_view = deep_update(default_view, override_view)
 
     config = {"global": default_global, "view": default_view}
 
@@ -403,7 +394,7 @@ def prepare_industry_demand(
         The industry demand by year, country, and sector group in MWh.
     """
     # delayed import to prevent circular import error
-    from esmtools.statistic import collect_myopic_statistics
+    from statistic import collect_myopic_statistics
 
     config = read_model_config(result_path)
     simpl = config["scenario"]["simpl"][0]
