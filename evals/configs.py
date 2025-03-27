@@ -76,7 +76,7 @@ class ExcelConfig:
 
 
 @dataclass()
-class MetricConfig:
+class ViewDefaults:
     """Holds all configuration items needed to export Metrics.
 
     The 'excel' and 'plotly' fields are processed by the export_excel
@@ -84,6 +84,5 @@ class MetricConfig:
     are kept separate to keep the variable space small during export.
     """
 
-    mapping: str | dict = "default"
     excel: ExcelConfig = field(default_factory=lambda: ExcelConfig())
     plotly: PlotConfig = field(default_factory=lambda: PlotConfig())
