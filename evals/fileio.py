@@ -710,7 +710,8 @@ def prepare_nodal_energy(
 
 
 class Metric:
-    """A class to build metrics from statistics.
+    """
+    A class to build metrics from statistics.
 
     The metric data frame consists of multiple joined statistics,
     aggregated to countries and scaled to a specified unit. The
@@ -757,7 +758,8 @@ class Metric:
 
     @cached_property
     def df(self) -> pd.DataFrame:
-        """Build the metric and store it as a cached property.
+        """
+        Build the metric and store it as a cached property.
 
         (This is useful, because users do not need to remember
         building the metric data frame. It will be built once if needed)
@@ -777,7 +779,8 @@ class Metric:
         )
 
     def export_plotly(self, output_path: Path) -> None:
-        """Create the plotly figure and export it as HTML and JSON.
+        """
+        Create the plotly figure and export it as HTML and JSON.
 
         Parameters
         ----------
@@ -797,14 +800,11 @@ class Metric:
         df_plot = add_dummy_rows(df_plot, self.keep_regions)
         df_plot = df_plot.drop(cfg.drop_years, level=DataModel.YEAR, errors="ignore")
 
-        json_file_paths = []
         for idx, data in df_plot.groupby(cfg.plotby):
             chart = cfg.chart(data, cfg)
             chart.plot()
             chart.to_html(output_path, cfg.plotby, idx)
-            json_file_path = chart.to_json(output_path, cfg.plotby, idx)
-            json_file_paths.append(json_file_path)
-
+            chart.to_json(output_path, cfg.plotby, idx)
 
     def export_excel(self, output_path: Path) -> None:
         """Export metrics to Excel files for countries and regions.
@@ -870,8 +870,9 @@ class Metric:
         if export_config["csv"]:
             self.export_csv(output_path)
 
-    def consistency_checks(self, config_checks: dict) -> None:
-        """Assert all categories are assigned to a group.
+    def consistency_checks(self, view_config: dict) -> None:
+        """
+        Run plausibility and consistency checks on a metric.
 
         The method typically is called after exporting the metric.
         Unmapped categories do not cause evaluations to fail, but
@@ -890,14 +891,14 @@ class Metric:
         Raises
         ------
         AssertionError
-            If not all technologies or bus_carrier are
-            assigned to a group.
+            In case one of the checks fails.
         """
         # todo: refactor mapping to categories in a new multiindex level used in plots package
+        checks = view_config["checks"]
         category = self.defaults.plotly.plot_category
         categories = self.view_config["categories"]
 
-        if config_checks["all_categories_mapped"]:
+        if checks["all_categories_mapped"]:
             assert self.df.index.unique(category).isin(categories.keys()).all(), (
                 f"Incomplete categories detected. There are technologies in the metric "
                 f"data frame, that are not assigned to a group (nice name)."
@@ -905,7 +906,7 @@ class Metric:
                 f"{self.df.index.unique(category).difference(categories.keys())}"
             )
 
-        if config_checks["no_superfluous_categories"]:
+        if checks["no_superfluous_categories"]:
             superfluous_categories = self.df.index.unique(category).difference(
                 categories.keys()
             )
@@ -913,7 +914,7 @@ class Metric:
                 len(superfluous_categories) == 0
             ), f"Superfluous categories found: {superfluous_categories}"
 
-        if config_checks["legend_entry_order"]:
+        if checks["legend_entry_order"]:
             a = set(self.view_config["legend_order"])
             b = set(categories.values())
             additional = a.difference(b)
@@ -924,3 +925,18 @@ class Metric:
             assert (
                 not missing
             ), f"Some categories are not defined in legend order: {missing}"
+
+        if checks["yearly_balances_almost_zero"]:
+            yearly_sum = (
+                self.df.groupby([DataModel.YEAR, DataModel.LOCATION]).sum().abs()
+            )
+            balanced = yearly_sum < view_config["cutoff"]
+            assert (
+                balanced.all().item()
+            ), f"Imabalances detected: {yearly_sum[balanced.squeeze() == False].squeeze().sort_values().tail()}"
+
+            self.df.groupby(
+                [DataModel.YEAR, DataModel.LOCATION]
+            ).sum().abs().sort_values(by="Hydrogen Energy Balance (TWh)") > view_config[
+                "cutoff"
+            ]
