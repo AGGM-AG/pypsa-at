@@ -663,7 +663,7 @@ def add_chp_plants(n, grouping_years, costs, baseyear):
 
     # CHPs that are not from MaStR
 
-    if options["central_heat_vent"]:
+    if options["heat_vent"]["urban central"]:
         uch_buses = n.buses.index[n.buses.carrier == "urban central heat"]
         missing_uch_buses = pd.Series(
             {

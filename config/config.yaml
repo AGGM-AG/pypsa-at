@@ -291,7 +291,10 @@ sector:
       2040: 0.6
       2045: 0.8
       2050: 1.0
-  central_heat_vent: true
+  heat_vent:
+    urban central: true
+    urban decentral: true
+    rural: true
   co2_spatial: true
   biomass_spatial: true
   #TBD what to include in config

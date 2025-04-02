@@ -2661,7 +2661,6 @@ def add_heat(
             unit="MWh_th",
         )
 
-        # if heat_system == HeatSystem.URBAN_CENTRAL and options["central_heat_vent"]:
         if options["heat_vent"][heat_system.system_type.value]:
             n.add(
                 "Generator",
