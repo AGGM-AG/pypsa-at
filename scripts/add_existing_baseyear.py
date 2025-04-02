@@ -39,9 +39,7 @@ cc = coco.CountryConverter()
 idx = pd.IndexSlice
 spatial = SimpleNamespace()
 
-from build_powerplants import add_custom_powerplants
-
-from build_powerplants import add_custom_powerplants
+from scripts.build_powerplants import add_custom_powerplants
 
 def add_build_year_to_new_assets(n: pypsa.Network, baseyear: int) -> None:
     """
@@ -1090,8 +1088,8 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "add_existing_baseyear",
-            configfiles="config/config.yaml",
-            clusters="27",
+            configfiles=["config/test/config.dach.yaml"],
+            clusters="5",
             ll="vopt",
             opts="",
             sector_opts="none",
