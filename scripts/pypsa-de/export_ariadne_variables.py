@@ -1546,8 +1546,8 @@ def get_secondary_energy(n, region, _industry_demand):
 
     var["Secondary Energy|Electricity|Hydro"] = electricity_supply.reindex(
         [
-            "PHS",
             "hydro",
+            "ror",
         ]
     ).sum()
     # ! Neglecting PHS here because it is storage infrastructure
