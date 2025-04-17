@@ -1,4 +1,4 @@
-# PyPSA-DE - Hochaufgelöstes, sektorengekoppeltes Modell des deutschen Energiesystems
+# nPyPSA-DE - Hochaufgelöstes, sektorengekoppeltes Modell des deutschen Energiesystems
 
 PyPSA-DE ist ein sektorengekoppeltes Energiesystem-Modell auf Basis der predecessor [PyPSA](https://github.com/PyPSA/pypsa) und des europäischen Modells [PyPSA-Eur](https://github.com/PyPSA/pypsa-eur). Der PyPSA-DE Workflow modelliert das deutsche Energiesystem mit deutschlandspezifischen Datensätzen (MaStR, Netzentwicklungsplan,...) im Verbund mit den direkten Stromnachbarn sowie Spanien und Italien. Der Ausbau und der Betrieb von Kraftwerken, des  Strom- und Wasserstoffübertragunsnetzes und die Energieversorgung aller Sektoren werden dann in einem linearen Optimierungsproblem gelöst, mit hoher zeitlicher und räumlicher Auflösung. PyPSA-DE wurde im Rahmen des Kopernikus-Projekts [Ariadne](https://ariadneprojekt.de/) entwickelt in dem Szenarien für ein klimaneutrales Deutschland untersucht werden, und spielt eine zentrale Rolle im [Ariadne Szenarienreport](https://ariadneprojekt.de/publikation/report-szenarien-zur-klimaneutralitat-2045/), als Leitmodell für den [Sektor Energiewirtschaft und Infrastruktur](https://ariadneprojekt.de/publikation/report-szenarien-zur-klimaneutralitat-2045/#6-sektorale-perspektive-energiewirtschaft) und als eines von drei Gesamtsystemmodellen. Die Ergebnisse aus der Modellierung mit PyPSA-DE werden auch im [Ariadne-Webinar zu den Kernaussagen des Berichts](https://youtu.be/UL3KAH7e0zs) ([Folien](https://ariadneprojekt.de/media/2025/03/Ariadne_Szen2025_Webinar_Folien_Kernaussagen.pdf)) und im [Ariadne-Webinar zur Energiewirtschaft](https://youtu.be/FcmHBL1MKQA) ([Folien](https://ariadneprojekt.de/media/2025/03/Ariadne_Szen2025_Webinar_Folien_Energiewirtschaft.pdf)) vorgestellt
 
@@ -8,7 +8,7 @@ PyPSA-DE is a sector-coupled energy system model based on the predecessor [PyPSA
 
 This repository contains the entire scientific project, including data sources and code. The philosophy behind this repository is that no intermediary results are included, but all results are computed from raw data and code.
 
-[<img src="https://ariadneprojekt.de/media/2025/03/Abb-7.3.png" width="400"/>](https://ariadneprojekt.de/media/2025/03/Abb-7.3.png)
+[`<img src="https://ariadneprojekt.de/media/2025/03/Abb-7.3.png" width="400"/>`](https://ariadneprojekt.de/media/2025/03/Abb-7.3.png)
 
 ## Getting ready
 
@@ -54,14 +54,14 @@ To switch between internal and public use, the command `ixmp4 logout` may be nec
 
 ## Run the analysis
 
-Before running any analysis with scenarios, the rule `build_scenarios` must be executed. This will create the file `config/scenarios.automated.yaml` which includes input data and CO2 targets from the IIASA Ariadne database as well as the specifications from the manual scenario file. [This file is specified in the default config.yaml via they key `run:scenarios:manual_file` (by default located at `config/scenarios.manual.yaml`)].
+Before running any analysis with scenarios, the rule `build_scenarios` must be executed. This will create the file `config/scenarios.automated.yaml` which includes input data and CO2 targets from the IIASA Ariadne database as well as the specifications from the manual scenario file. [This file is specified in the  config.de.yaml via they key `run:scenarios:manual_file` and located at `config/scenarios.manual.yaml` by default].
 
     snakemake build_scenarios -f
 or in case of using the public database
 
     snakemake build_scenarios --configfile=config/config.public.yaml -f
 
-Note that the hierarchy of scenario files is the following: `scenarios.automated.yaml` > (any `explicitly specified --configfiles`) > `config.yaml `> `config.default.yaml `Changes in the file `scenarios.manual.yaml `are only taken into account if the rule `build_scenarios` is executed.
+Note that the hierarchy of scenario files is the following: `scenarios.automated.yaml` > (any `explicitly specified --configfiles`) > `config.de.yaml `> `config.default.yaml `Changes in the file `scenarios.manual.yaml `are only taken into account if the rule `build_scenarios` is executed.
 
 To run the analysis use
 
@@ -123,7 +123,7 @@ PyPSA-DE is a softfork of PyPSA-EUR. As such, large parts of the functionality a
 
 The code in this repo is MIT licensed, see `./LICENSE.md`.
 
-> [!NOTE]  
+> [!NOTE]
 > Find below the original `README.md` from [PyPSA-Eur](https://github.com/PyPSA/PyPSA-Eur)
 
 <!--
@@ -147,9 +147,6 @@ PyPSA-Eur is an open model dataset of the European energy system at the
 transmission network level that covers the full ENTSO-E area. The model is suitable both for operational studies and generation and transmission expansion planning studies.
 The continental scope and highly resolved spatial scale enables a proper description of the long-range
 smoothing effects for renewable power generation and their varying resource availability.
-
-
-
 
 The model is described in the [documentation](https://pypsa-eur.readthedocs.io)
 and in the paper
@@ -181,7 +178,6 @@ grid, and local grid bottlenecks may cause unrealistic load-shedding or
 generator curtailment. We recommend to cluster the network to a couple of
 hundred nodes to remove these local inconsistencies. See the discussion in
 Section 3.4 "Model validation" of the paper.
-
 
 ![PyPSA-Eur Grid Model](doc/img/elec.png)
 
@@ -222,9 +218,11 @@ Already-built versions of the model can be found in the accompanying [Zenodo
 repository](https://doi.org/10.5281/zenodo.3601881).
 
 # Contributing and Support
+
 We strongly welcome anyone interested in contributing to this project. If you have any ideas, suggestions or encounter problems, feel invited to file issues or make pull requests on GitHub.
--   To **discuss** with other PyPSA users, organise projects, share news, and get in touch with the community you can use the [Discord server](https://discord.gg/AnuJBk23FU).
--   For **bugs and feature requests**, please use the [PyPSA-Eur Github Issues page](https://github.com/PyPSA/pypsa-eur/issues).
+
+- To **discuss** with other PyPSA users, organise projects, share news, and get in touch with the community you can use the [Discord server](https://discord.gg/AnuJBk23FU).
+- For **bugs and feature requests**, please use the [PyPSA-Eur Github Issues page](https://github.com/PyPSA/pypsa-eur/issues).
 
 # Licence
 
