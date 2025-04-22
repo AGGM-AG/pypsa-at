@@ -1901,7 +1901,7 @@ def plot_h2_map(n, regions, savepath, only_de=False):
 def plot_h2_map_de(
     n, regions, tech_colors, savepath, specify_buses=None, german_carriers=True
 ):
-    assign_location(n)
+    assign_locations(n)
 
     legend_label = "hydrogen storage [TWh]"
     production_title = "Hydrogen infrastructure (production)"
