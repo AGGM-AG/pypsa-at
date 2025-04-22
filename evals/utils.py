@@ -645,6 +645,10 @@ def scale(df: pd.DataFrame, to_unit: str) -> pd.DataFrame:
         If input units are inconsistent, i.e. mixed power and energy
         columns.
     """
+    suffix = ""
+    if to_unit.endswith("_LHV"):
+        to_unit, suffix = to_unit.split("_")
+
     if df.columns.name == DataModel.SNAPSHOTS:
         is_unit = df.attrs["unit"]
         scaling_factor = is_unit / to_unit
@@ -664,7 +668,10 @@ def scale(df: pd.DataFrame, to_unit: str) -> pd.DataFrame:
             "|".join(units_in), to_unit, regex=True
         )
 
-    result.attrs["unit"] = to_unit
+    if suffix:
+        result.attrs["unit"] = f"{to_unit}_{suffix}"
+    else:
+        result.attrs["unit"] = to_unit
 
     return result
 
