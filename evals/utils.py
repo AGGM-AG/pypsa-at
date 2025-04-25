@@ -646,7 +646,7 @@ def scale(df: pd.DataFrame, to_unit: str) -> pd.DataFrame:
         columns.
     """
     suffix = ""
-    if to_unit.endswith("_LHV"):
+    if to_unit.endswith(("_LHV", "_th", "_el")):
         to_unit, suffix = to_unit.split("_")
 
     if df.columns.name == DataModel.SNAPSHOTS:
