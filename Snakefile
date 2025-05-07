@@ -311,7 +311,6 @@ if config["enable"]["retrieve"] and config["enable"].get("retrieve_cost_data", T
 
 rule build_mobility_demand:
     params:
-        db_name=config_provider("iiasa_database", "db_name"),
         reference_scenario=config_provider("iiasa_database", "reference_scenario"),
         planning_horizons=config_provider("scenario", "planning_horizons"),
         leitmodelle=config_provider("iiasa_database", "leitmodelle"),
@@ -500,7 +499,6 @@ rule build_existing_chp_de:
 
 rule modify_industry_demand:
     params:
-        db_name=config_provider("iiasa_database", "db_name"),
         reference_scenario=config_provider("iiasa_database", "reference_scenario"),
     input:
         ariadne=resources("ariadne_database.csv"),
@@ -706,7 +704,6 @@ rule ariadne_all:
 rule build_scenarios:
     params:
         scenarios=config_provider("run", "name"),
-        db_name=config_provider("iiasa_database", "db_name"),
         leitmodelle=config_provider("iiasa_database", "leitmodelle"),
     input:
         ariadne_database=resources("ariadne_database.csv"),
