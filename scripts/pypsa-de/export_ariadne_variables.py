@@ -1026,7 +1026,7 @@ def _get_capacities(n, region, cap_func, cap_string="Capacity|"):
         capacities_h2.get("H2 Electrolysis", 0) + var[cap_string + "Hydrogen|Gas"]
     )
 
-    var[cap_string + "Hydrogen|Reservoir"] = storage_capacities.get("H2", 0)
+    var[cap_string + "Hydrogen|Reservoir"] = storage_capacities.get("H2 Store", 0)
 
     capacities_gas = (
         cap_func(
