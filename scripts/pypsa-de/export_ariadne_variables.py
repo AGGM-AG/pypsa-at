@@ -945,13 +945,13 @@ def _get_capacities(n, region, cap_func, cap_string="Capacity|"):
         like="oil boiler"
     ).sum()
 
-    var[cap_string + "Heat|Storage Converter"] = capacities_central_heat.filter(
-        like="water tanks discharger"
-    ).sum()
+    var[cap_string + "Heat|Storage Converter"] = capacities_central_heat[
+        capacities_central_heat.index.str.contains("water (?:tanks|pits) discharger")
+    ].sum()
 
-    var[cap_string + "Heat|Storage Reservoir"] = storage_capacities.filter(
-        like="water tanks"
-    ).sum()
+    var[cap_string + "Heat|Storage Reservoir"] = storage_capacities[
+        storage_capacities.index.str.contains("water (?:tanks|pits)")
+    ].sum()
 
     var[cap_string + "Heat"] = (
         var[cap_string + "Heat|Solar thermal"]
@@ -2177,7 +2177,9 @@ def get_final_energy(
         .drop(
             [  # chargers affect all sectors equally
                 "urban decentral water tanks charger",
+                "urban decentral water pits charger",
                 "rural water tanks charger",
+                "rural water pits charger",
             ],
             errors="ignore",
         )
