@@ -5244,7 +5244,7 @@ def add_industry(
             )
             n.add(
                 "Link",
-                spatial.nodes + " urban central waste CHP",
+                spatial.nodes + " waste CHP",
                 bus0=spatial.oil.non_sequestered_hvc,
                 bus1=spatial.nodes,
                 bus2=urban_central_nodes,
