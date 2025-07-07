@@ -11,7 +11,7 @@ env:
   BASE_ENV: envs/environment.yaml
 
 jobs:
-  update-pinned-environment:
+  update-locked-environment:
     if: ${{ github.ref == 'refs/heads/main' }}
     name: Update pinned envs
     runs-on: ubuntu-latest
