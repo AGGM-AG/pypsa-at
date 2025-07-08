@@ -5,7 +5,7 @@
 # platform: win-64
 # input_hash: 6243ce1171ad668433201ba3cec88cdfc75c6ea03c518bec8b0cd18da6e89e20
 
-name: pypsa-eur
+name: pypsa-de
 channels:
   - conda-forge
   - bioconda

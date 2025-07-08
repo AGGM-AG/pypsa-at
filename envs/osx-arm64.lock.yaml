@@ -5,7 +5,7 @@
 # platform: osx-arm64
 # input_hash: 1eed48396e0f63c9bd29a03966d85452f5fcc4cfc872eea8aece72fd24d714ab
 
-name: pypsa-eur
+name: pypsa-de
 channels:
   - conda-forge
   - bioconda
