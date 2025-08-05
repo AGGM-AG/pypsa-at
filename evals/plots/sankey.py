@@ -4,48 +4,106 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Module for Sankey diagram."""
 
+import re
+
 import pandas as pd
 import plotly
 import pyam
 from plotly.graph_objs import Figure, Sankey
+from pyam.index import get_index_levels
 
+from evals.constants import COLOUR
 from evals.utils import filter_by, rename_aggregate
 
 pd.set_option("display.width", 250)
 pd.set_option("display.max_columns", 20)
 
 
-def read_iamc_data_frame():
+def sankey(df: pyam.IamDataFrame, mapping: dict) -> Figure:
+    """
+    Plot a sankey diagram.
+
+    It is currently only possible to create this diagram for single years.
+
+    Parameters
+    ----------
+    df
+        Data to be plotted
+    mapping
+        Assigns the source and target component of a variable
+
+        .. code-block:: python
+
+            {
+                variable: (source, target),
+            }
+
+    Returns
+    -------
+    :
+        The generated plotly figure.
+    """
+
+    # Check for duplicates
+    for col in [name for name in df.dimensions if name != "variable"]:
+        levels = get_index_levels(df._data, col)
+        if len(levels) > 1:
+            raise ValueError(f"Non-unique values in column {col}: {levels}")
+
+    # Concatenate the data with source and target columns
+    _df = pd.DataFrame.from_dict(
+        mapping, orient="index", columns=["source", "target"]
+    ).merge(df._data, how="left", left_index=True, right_on="variable")
+    label_mapping = {
+        label: i
+        for i, label in enumerate(set(pd.concat([_df["source"], _df["target"]])))
+    }
+    _df = _df.replace(label_mapping)
+
+    def get_carrier_color(s) -> str:
+        carrier = re.findall(r"\|AC", s)[0].strip("|")
+        color_map = {"AC": COLOUR.red}
+        return color_map[carrier]
+
+    _df["color"] = _df.index.get_level_values("variable").map(get_carrier_color)
+
+    region = get_index_levels(_df, "region")[0]
+    unit = " " + get_index_levels(_df, "unit")[0]
+    year = get_index_levels(_df, "year")[0]
+    fig = Figure(
+        data=[
+            Sankey(
+                valuesuffix=unit,
+                node=dict(
+                    # pad=15,
+                    # thickness=10,
+                    line=dict(color="black", width=0.5),
+                    label=pd.Series(list(label_mapping)),
+                    hovertemplate="%{label}: %{value}<extra></extra>",
+                    color=_df.color,
+                ),
+                link=dict(
+                    # arrowlen=15,
+                    source=_df.source,
+                    target=_df.target,
+                    value=_df.value,
+                    color=_df.color,
+                    hovertemplate='"%{source.label}" to "%{target.label}": %{value}<extra></extra> ',
+                ),
+            )
+        ]
+    )
+    fig.update_layout(title_text=f"region: {region}, year: {year}", font_size=10)
+    return fig
+
+
+def read_iamc_data_frame(filepath):
     xls = pd.read_excel(
-        "/IdeaProjects/pypsa-at/results/v2025.02/KN2045_Mix/evaluation/exported_iamc_variables.xlsx",
+        filepath,
         index_col=[0, 1, 2, 3, 4],
     )
     xls.columns.name = "Year"
     return xls.stack()
-
-
-def main():
-    year = "2050"
-    region = "GB0"
-
-    df = read_iamc_data_frame()
-    df = rename_aggregate(df, "TWh", level="Unit").div(1e6)
-    df = filter_by(df, Year=year, Region=region)
-
-    raw_mapping = get_mapping(df)
-    variables = df.index.unique("Variable")
-    for k, v in raw_mapping.items():
-        if k in variables:
-            clean_mapping[k] = v
-        else:
-            print(f"Skipping '{k}' because it does not exist in {region} {year}.")
-
-    iamc = pyam.IamDataFrame(df)
-    fig = iamc.plot.sankey(mapping=clean_mapping)
-
-    fig.update_layout(height=600)
-
-    plotly.io.show(fig)
 
 
 def get_mapping(df) -> (dict, set):
@@ -92,6 +150,17 @@ def sort_mapping(k):
         return 2
     else:
         raise ValueError(f"Unexpected key '{k}'")
+
+
+def remove_missing_variables(m: dict) -> dict:
+    clean_mapping = {}
+    variables = df.index.unique("Variable")
+    for k, v in m.items():
+        if k in variables:
+            clean_mapping[k] = v
+        else:
+            print(f"Skipping '{k}' because it does not exist in AT {year}.")
+    return clean_mapping
 
 
 def get_xmap(nodes) -> dict:
@@ -147,43 +216,124 @@ def get_xmap(nodes) -> dict:
 
 
 if __name__ == "__main__":
-    FILEPATH = "/IdeaProjects/pypsa-at/results/v2025.02/KN2045_Mix/evaluation/exported_iamc_variables.xlsx"
-    df = read_iamc_data_frame()
+    df = read_iamc_data_frame(
+        filepath="/IdeaProjects/pypsa-at/results/v2025.03/AT10_KN2040/evaluation/exported_iamc_variables.xlsx"
+    )
     mapping, nodes = get_mapping(df)
     mapping_sorted = {k: mapping[k] for k in sorted(mapping, key=sort_mapping)}
     xmap = get_xmap(nodes)
     df = rename_aggregate(df, "TWh", level="Unit").div(1e6)
     year = "2050"
-    region = "GB0"
-    df = filter_by(df, Year=year, Region=region)
 
-    clean_mapping = {}
-    variables = df.index.unique("Variable")
-    for k, v in mapping_sorted.items():
-        if k in variables:
-            clean_mapping[k] = v
-        else:
-            print(f"Skipping '{k}' because it does not exist in {region} {year}.")
+    at_regions = [s for s in df.index.unique("Region") if s.startswith("AT")]
+    df = filter_by(df, Year=year, Region=at_regions)
+    df = rename_aggregate(df, "AT", level="Region")
+
+    # AC
+    variable_mapper_ac = {
+        # "Primary Energy|AC|Import Domestic": "Primary Energy|AC|Total Import",
+        "Primary Energy|AC|Import Foreign": "Primary Energy|AC|Total Import",
+        "Primary Energy|AC|Reservoir": "Primary Energy|AC|Hydro Power",
+        "Primary Energy|AC|Run-of-River": "Primary Energy|AC|Hydro Power",
+        "Primary Energy|AC|Solar HSAT": "Primary Energy|AC|Solar Power",
+        "Primary Energy|AC|Solar Rooftop": "Primary Energy|AC|Solar Power",
+        "Primary Energy|AC|Solar Utility": "Primary Energy|AC|Solar Power",
+        "Primary Energy|AC|Wind Onshore": "Primary Energy|AC|Wind Power",
+        "Primary Energy|AC|Wind Offshore": "Primary Energy|AC|Wind Power",
+        "Secondary Energy|AC|Biomass|CHP": "Secondary Energy|AC|CHP",
+        "Secondary Energy|AC|Biomass|CHP CC": "Secondary Energy|AC|CHP",
+        "Secondary Energy|AC|Gas|CHP": "Secondary Energy|AC|CHP",
+        "Secondary Energy|AC|Gas|CHP CC": "Secondary Energy|AC|CHP",
+        "Secondary Energy|AC|Waste|CHP": "Secondary Energy|AC|CHP",
+        "Secondary Energy|AC|Waste|CHP CC": "Secondary Energy|AC|CHP",
+        "Secondary Energy|AC|Gas|Powerplant": "Secondary Energy|AC|Power Plant",
+        "Secondary Energy|AC|H2|Powerplant": "Secondary Energy|AC|Power Plant",
+        "Secondary Energy|AC|Methanol|Powerplant": "Secondary Energy|AC|Power Plant",
+        # "Final Energy|AC|Export Domestic": "Final Energy|AC|Total Export",
+        "Final Energy|AC|Export Foreign": "Final Energy|AC|Total Export",
+        "Secondary Energy|Losses|AC|BEV charger": "Secondary Energy|Losses|AC",
+        "Secondary Energy|Losses|AC|Battery storage": "Secondary Energy|Losses|AC",
+        "Secondary Energy|Losses|AC|Distribution Grid": "Secondary Energy|Losses|AC",
+        "Secondary Energy|Losses|AC|Electrolysis": "Secondary Energy|Losses|AC",
+        "Secondary Energy|Losses|AC|Haber-Bosch": "Secondary Energy|Losses|AC",
+        "Secondary Energy|Losses|AC|Home Battery storage": "Secondary Energy|Losses|AC",
+        "Secondary Energy|Losses|AC|Methanolisation": "Secondary Energy|Losses|AC",
+        "Secondary Energy|Losses|AC|Resistive Heater": "Secondary Energy|Losses|AC",
+        "Secondary Energy|Losses|AC|V2G": "Secondary Energy|Losses|AC",
+    }
+    df = rename_aggregate(df, variable_mapper_ac, level="Variable")
+
+    # _idx = list(df.index[0])
+    # _idx[3] = "Primary Energy|AC"
+    # df.loc[_idx] = df.query("Variable.str.startswith('Primary Energy|AC|') & 'Domestic' not in Variable")
+
+    mapping = {
+        "Primary Energy|AC|Total Import": ("Import", "AC"),
+        "Primary Energy|AC|Hydro Power": ("Hydro Power", "AC"),
+        "Primary Energy|AC|Solar Power": ("Solar Power", "AC"),
+        "Primary Energy|AC|Wind Power": ("Wind Power", "AC"),
+        # "Primary Energy|AC": ("AC", "AC"),
+        # supply
+        "Secondary Energy|AC|CHP": ("CHP", "AC"),
+        "Secondary Energy|AC|Power Plant": ("Power Plant", "AC"),
+        # demand
+        "Secondary Energy|Demand|AC|Air Heat Pump": ("AC", "Heat Pump"),
+        "Secondary Energy|Demand|AC|Ground Heat Pump": ("AC", "Heat Pump"),
+        "Secondary Energy|Demand|AC|DAC": ("AC", "DAC"),
+        "Secondary Energy|Demand|AC|Electrolysis": ("AC", "Electrolysis"),
+        "Secondary Energy|Demand|AC|Gas Compressing": (
+            "AC",
+            "Gas Compressing",
+        ),
+        "Secondary Energy|Demand|AC|H2 Compressing": ("AC", "H2 Compressing"),
+        "Secondary Energy|Demand|AC|Haber-Bosch": ("AC", "Haber-Bosch"),
+        "Secondary Energy|Demand|AC|Methanolisation": (
+            "AC",
+            "Methanolisation",
+        ),
+        "Secondary Energy|Demand|AC|Resistive Heater": (
+            "AC",
+            "Heat Secondary",
+        ),
+        "Secondary Energy|Losses|AC": ("AC", "Losses"),
+        # Load
+        # "Final Energy|AC": ("AC", "AC Final"),
+        "Final Energy|AC|Agriculture": ("AC", "Agriculture"),
+        "Final Energy|AC|Base Load": ("AC", "Base Load"),
+        "Final Energy|AC|Total Export": ("AC", "Export"),
+        "Final Energy|AC|Industry": ("AC", "Industry"),
+        "Final Energy|AC|Transport": ("AC", "Transport"),
+        # Secondary Energy|Losses|AC|BEV charger
+        # Secondary Energy|Losses|AC|Battery storage
+        # Secondary Energy|Losses|AC|Distribution Grid
+        # Secondary Energy|Losses|AC|Electrolysis
+        # Secondary Energy|Losses|AC|Haber-Bosch
+        # Secondary Energy|Losses|AC|Home Battery storage
+        # Secondary Energy|Losses|AC|Methanolisation
+        # Secondary Energy|Losses|AC|Resistive Heater
+        # Secondary Energy|Losses|AC|V2G
+    }
+
+    # clean_mapping = remove_missing_variables(mapping_sorted)
 
     iamc = pyam.IamDataFrame(df)
 
-    iamc_fig = iamc.plot.sankey(mapping=clean_mapping)
-    node = iamc_fig.data[0].node.to_plotly_json()
-    link = iamc_fig.data[0].link.to_plotly_json()
+    iamc_fig = sankey(iamc, mapping=mapping)
+    iamc_fig.update_layout(height=800)
+    # node = iamc_fig.data[0].node.to_plotly_json()
+    # link = iamc_fig.data[0].link.to_plotly_json()
+    #
+    # node["x"] = [xmap.get(label, 0.2) for label in node["label"]]
+    # node["y"] = [xmap.get(label, 0.4) for label in node["label"]]
+    #
+    # new_sankey = Sankey(
+    #     node=node,
+    #     link=link,
+    #     arrangement="fixed",  # necessary for x/y positions
+    # )
+    #
+    # fig = Figure(data=[new_sankey])
+    #
+    # fig.update_layout(height=800)
 
-    node["x"] = [xmap.get(label, 0.2) for label in node["label"]]
-    node["y"] = [xmap.get(label, 0.4) for label in node["label"]]
-    # node["y"] = [ymap[label] for label in node["label"]]
-    # node["color"] = [colormap[label] for label in node["label"]]
-
-    new_sankey = Sankey(
-        node=node,
-        link=link,
-        arrangement="fixed",  # necessary for x/y positions
-    )
-
-    fig = Figure(data=[new_sankey])
-
-    fig.update_layout(height=600)
-
-    plotly.io.show(fig)
+    plotly.io.show(iamc_fig)
