@@ -313,6 +313,7 @@ sector:
     rural: true
   co2_spatial: true
   biomass_spatial: true
+  ammonia: false
   methanol:
     methanol_to_power:
       ocgt: false
@@ -367,7 +368,6 @@ sector:
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#industry
 industry:
-  ammonia: false
   steam_biomass_fraction: 0.4
   steam_hydrogen_fraction: 0.3
   steam_electricity_fraction: 0.3
