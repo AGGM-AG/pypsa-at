@@ -4296,7 +4296,7 @@ def get_economy(n, region):
     var = pd.Series()
 
     def get_tsc(n, country):
-        n.statistics.set_parameters(drop_zero=False)
+        pypsa.options.params.statistics.drop_zero = False
         capex = n.statistics.capex(
             groupby=pypsa.statistics.groupers["name", "carrier"], nice_names=False
         )
