@@ -20,7 +20,7 @@ from evals.configs import ViewDefaults
 from evals.constants import (
     ALIAS_COUNTRY,
     ALIAS_REGION,
-    COLOUR_SCHEME_BMK,
+    COLOUR_SCHEME,
     NOW,
     TITLE_SUFFIX,
     DataModel,
@@ -284,7 +284,7 @@ class Exporter:
             "IT",
         ),  # todo: move to global config
         region_nice_names: bool = True,
-    ) -> None:
+    ):
         self.statistics = statistics
         units = {stat.attrs["unit"] for stat in statistics}
         assert len(units) == 1, f"Mixed units cannot be exported: {units}."
@@ -415,9 +415,10 @@ class Exporter:
 
         self.export_plotly(output_path)
 
-        if "excel" in self.view_config.get("exports", []):
+        export_formats = self.view_config.get("exports", [])
+        if "excel" in export_formats:
             self.export_excel(output_path)
-        if "csv" in self.view_config.get("exports", []):
+        if "csv" in export_formats:
             self.export_csv(output_path)
 
         # always run tests after the export
@@ -491,7 +492,7 @@ class Exporter:
             f"Some categories are not defined in legend order: {missing}"
         )
 
-        no_color = [c for c in categories.values() if c not in COLOUR_SCHEME_BMK]
+        no_color = [c for c in categories.values() if c not in COLOUR_SCHEME]
         assert len(no_color) == 0, (
             f"Some categories used in the view do not have a color assigned: {no_color}"
         )

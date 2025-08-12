@@ -220,9 +220,7 @@ def transform_link(carrier: str | list, technology: str) -> None:
         for bus_carrier_demand in bc_in:
             demand_bc = filter_by(demand, bus_carrier=bus_carrier_demand)
             demand_share = demand_bc.sum() / demand.sum()
-            # scaling takes into account that Link inputs and outputs are not equally large
-            # scaling = abs(supply.sum() / demand.sum())
-            supply_bc = supply * demand_share  # * scaling
+            supply_bc = supply * demand_share
             _process_single_input_link(
                 supply_bc,
                 demand_bc,
@@ -842,12 +840,15 @@ def collect_storage_imbalances():
         "urban central water tanks": "Water Tank",
         "urban decentral water tanks": "Water Tank",
         "rural water tanks": "Water Tank",
-        "coal": "Coal",  # FixMe: small unexplained imbalance accepted for now
+        "coal": "Coal",  # FixMe: small unexplained imbalances
         "PHS": "PHS",  # Pump efficiency
         "non-sequestered HVC": "Waste",
     }
 
-    for carrier in filter_by(SUPPLY, component=comps).index.unique("carrier"):
+    carrier_supply = filter_by(SUPPLY, component=comps).index.unique("carrier")
+    carrier_demand = filter_by(DEMAND, component=comps).index.unique("carrier")
+
+    for carrier in carrier_supply.union(carrier_demand):
         supply = filter_by(SUPPLY, component=comps, carrier=carrier)
         demand = filter_by(DEMAND, component=comps, carrier=carrier)
         balance = supply.add(demand, fill_value=0).mul(-1)
@@ -1254,8 +1255,8 @@ if __name__ == "__main__":
     # they are tracken in separate IMPORT/EXPORT statistics
     drop_transmission_technologies()
 
-    # collect transformed energy system variables. Note, that the order of
-    # collection is relevant for assertions statements.
+    # collect transformed energy system variables. Note that the
+    # collection order is relevant for assertion statements.
     var = SeriesCollector()
 
     collect_primary_energy()
