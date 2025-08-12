@@ -158,6 +158,7 @@ solving:
   solver:
     name: highs
     options: highs-default
+    random_seed: 0
 
 solver_options:
   # https://ergo-code.github.io/HiGHS/dev/options/definitions/
