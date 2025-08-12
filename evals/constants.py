@@ -8,10 +8,8 @@ Collect constant values and identifiers used for evaluations.
 Values in this module do not need to be changed during runtime.
 """
 
-import importlib
 import re
 from datetime import datetime as dt
-from importlib.metadata import PackageNotFoundError
 from subprocess import CalledProcessError
 
 import git
@@ -604,7 +602,7 @@ ALIAS_COUNTRY: frozendict = frozendict(
     }
 )
 ALIAS_COUNTRY_REV: frozendict = frozendict({v: k for k, v in ALIAS_COUNTRY.items()})
-COLOUR_SCHEME_BMK: dict = {
+COLOUR_SCHEME: dict = {
     # dark blue - coal
     Group.coal: COLOUR.blue_dark,
     Group.pp_coal: COLOUR.blue_dark,
@@ -647,6 +645,7 @@ COLOUR_SCHEME_BMK: dict = {
     "OCGT": COLOUR.brown,
     # light grey - hydrogen
     "Hydrogen": COLOUR.blue_pastel,
+    "H2": COLOUR.blue_pastel,
     "Electrolysis": COLOUR.blue_pastel,
     "SMR": COLOUR.yellow_bright,
     "Hydrogen Tube Storage": COLOUR.blue_pastel,
@@ -679,6 +678,7 @@ COLOUR_SCHEME_BMK: dict = {
     "Nuclear Power": COLOUR.orange,
     # light blue - electricity
     "Electricity": COLOUR.blue_celestial,
+    "AC": COLOUR.blue_celestial,
     "Electricity CHP": COLOUR.blue_celestial,
     "Battery Storage": COLOUR.coral,
     "Car Battery": COLOUR.coral,
@@ -792,17 +792,14 @@ ALIAS_LOCATION_REV: frozendict = frozendict({v: k for k, v in ALIAS_LOCATION.ite
 
 
 try:
-    esmtools_version = importlib.metadata.version("esmtools")
-except PackageNotFoundError:
-    esmtools_version = "esmtools not installed."
-
-try:
     repo = git.Repo(search_parent_directories=True)
     branch = repo.active_branch.name
     repo_name = repo.remotes.origin.url.split(".git")[0].split("/")[-1]
     git_hash = repo.head.object.hexsha
 except (CalledProcessError, FileNotFoundError):
     repo_name = branch = git_hash = "Not a git repo."
+except TypeError:
+    repo_name = branch = git_hash = "Detached HEAD"
 
 RUN_META_DATA = {
     "repo_name": repo_name,
