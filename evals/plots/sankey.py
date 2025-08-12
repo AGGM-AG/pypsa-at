@@ -763,26 +763,26 @@ class SankeyChart(ESMChart):
         self.year = self._df.index.unique(DM.YEAR).item()
         self._df = self._df.droplevel(DM.YEAR).droplevel(DM.LOCATION)
         self._df.columns = ["value"]
-        # self._df = self._df.abs()
 
-    def get_labels(self, label_mapping):
-        labels = pd.Series(list(label_mapping)).to_frame("id")
-        labels["x"] = [self.get_label_position(lbl) for lbl in labels["id"]]
+    def get_labels_data_frame(self, node_ids):
+        nodes = pd.Series(list(node_ids)).to_frame("label")
+        nodes["x"] = [self.get_node_x_value(label) for label in nodes["label"]]
         # must map y values
+        # node colors
+
+        return nodes
 
     def plot(self):
         # Concatenate the data with source and target columns
-        df_agg = self.add_source_target_columns()
-        df_agg = self.add_jumpers(df_agg)
-        label_mapping = self.get_label_mapping(df_agg)
-        df_agg = self.add_id_source_target_columns(df_agg, label_mapping)
-        df_agg = self.add_customdata(df_agg, self.unit)
-        df_agg = self.combine_duplicates(df_agg)
-        df_agg = self.map_colors_from_bus_carrier(df_agg)
+        links = self.add_source_target_columns_to_links()
+        links = self.add_jumpers(links)
+        node_ids = self.get_node_ids(links)
+        links = self.add_id_source_target_columns(links, node_ids)
+        links = self.add_customdata(links, self.unit)
+        links = self.combine_duplicates(links)
+        links = self.map_colors_from_bus_carrier(links)
 
-        labels = list(label_mapping)
-        label_positions_x = [self.get_label_position(lbl) for lbl in labels]
-        # labels = self.get_labels(label_mapping)
+        nodes = self.get_labels_data_frame(node_ids)
 
         self.fig = Figure(
             data=[
@@ -791,10 +791,10 @@ class SankeyChart(ESMChart):
                     valuesuffix=self.unit,
                     node=dict(
                         line=dict(color="black", width=0.5),
-                        label=labels,
+                        label=nodes["label"],
                         hovertemplate="%{label}: %{value}<extra></extra>",
-                        x=label_positions_x,
-                        y=[None] * len(labels),  # must include y, or x is ignored
+                        x=nodes["x"],
+                        y=[None] * len(nodes),  # must include y, or x is ignored
                         pad=20,
                         thickness=20,
                         # color=df_agg.color,
@@ -802,11 +802,11 @@ class SankeyChart(ESMChart):
                     ),
                     link=dict(
                         # arrowlen=15,
-                        source=df_agg.source_id,
-                        target=df_agg.target_id,
-                        value=df_agg.value.abs(),
-                        color=df_agg.color,
-                        customdata=df_agg.link_customdata,
+                        source=links.source_id,
+                        target=links.target_id,
+                        value=links.value.abs(),
+                        color=links.color,
+                        customdata=links.link_customdata,
                         hovertemplate="%{customdata} <extra></extra>",
                     ),
                 )
@@ -820,7 +820,7 @@ class SankeyChart(ESMChart):
         # pio.show(self.fig)  # todo: remove debugging
 
     @staticmethod
-    def get_label_position(lbl: str) -> float:
+    def get_node_x_value(lbl: str) -> float:
         if lbl.startswith("Primary"):
             return 0.15
         elif lbl.startswith("Secondary") and lbl.endswith("In"):
@@ -872,54 +872,56 @@ class SankeyChart(ESMChart):
         self.fig.update_layout(meta=[RUN_META_DATA])
 
     @staticmethod
-    def add_jumpers(df_agg):
+    def add_jumpers(links):
         for bus_carrier in ("AC", "H2", "Gas", "Liquids", "Solids", "Heat", "Biomass"):
-            primary_to_secondary = filter_by(df_agg, target=f"Primary {bus_carrier}")
+            primary_to_secondary = filter_by(links, target=f"Primary {bus_carrier}")
             row_idx = ("Jumper", "primary to secondary", bus_carrier)
-            df_agg.loc[row_idx, ["value", "source", "target"]] = [
+            links.loc[row_idx, ["value", "source", "target"]] = [
                 primary_to_secondary.value.sum(),
                 f"Primary {bus_carrier}",
                 f"Secondary {bus_carrier} In",
             ]
 
-            secondary_demand = filter_by(df_agg, source=f"Secondary {bus_carrier} In")[
+            secondary_demand = filter_by(links, source=f"Secondary {bus_carrier} In")[
                 "value"
             ].sum()
-            primary_supply = filter_by(df_agg, target=f"Secondary {bus_carrier} In")[
+            primary_supply = filter_by(links, target=f"Secondary {bus_carrier} In")[
                 "value"
             ].sum()
             row_idx = ("Jumper", "secondary forwarding", bus_carrier)
-            df_agg.loc[row_idx, ["value", "source", "target"]] = [
+            links.loc[row_idx, ["value", "source", "target"]] = [
                 primary_supply - secondary_demand,
                 f"Secondary {bus_carrier} In",
                 f"Secondary {bus_carrier} Out",
             ]
-        return df_agg
+
+        return links
 
     @staticmethod
     def _source_target_mapping(idx: tuple) -> pd.Series:
         return pd.Series(LINK_MAPPING.get(idx, ""))
 
-    def add_source_target_columns(self):
-        _df = self._df.copy()
-        _df["index"] = _df.index  # convert to tuples
-        _df[["source", "target"]] = _df["index"].apply(self._source_target_mapping)
-        _df = _df.drop(columns=["index"])
-        return _df.query("source != '' and target != ''")
+    def add_source_target_columns_to_links(self):
+        df = self._df.copy()
+        df["index"] = df.index  # convert to tuples
+        df[["source", "target"]] = df["index"].apply(self._source_target_mapping)
+        df = df.drop(columns=["index"])
+
+        return df.query("source != '' and target != ''")
 
     @staticmethod
-    def get_label_mapping(df_agg):
+    def get_node_ids(links):
         return {
             label: i
             for i, label in enumerate(
-                set(pd.concat([df_agg["source"], df_agg["target"]]))
+                set(pd.concat([links["source"], links["target"]]))
             )
         }
 
     @staticmethod
-    def add_customdata(df_agg, unit):
+    def add_customdata(links, unit):
         to_concat = []
-        for _, data in df_agg.groupby(["source", "target"]):
+        for _, data in links.groupby(["source", "target"]):
             data = data.reset_index()
             carrier_values = [
                 f"{c}: {prettify_number(v)} {unit}"
@@ -931,22 +933,22 @@ class SankeyChart(ESMChart):
         return pd.concat(to_concat)
 
     @staticmethod
-    def add_id_source_target_columns(df_agg, label_mapping):
-        df_agg["source_id"] = df_agg["source"].map(label_mapping)
-        df_agg["target_id"] = df_agg["target"].map(label_mapping)
-        return df_agg
+    def add_id_source_target_columns(links, label_mapping):
+        links["source_id"] = links["source"].map(label_mapping)
+        links["target_id"] = links["target"].map(label_mapping)
+        return links
 
     @staticmethod
-    def map_colors_from_bus_carrier(df_agg):
-        df_agg["color"] = (
-            df_agg["bus_carrier"].map(BUS_CARRIER_COLORS).fillna(COLOUR.grey_neutral)
+    def map_colors_from_bus_carrier(links):
+        links["color"] = (
+            links["bus_carrier"].map(BUS_CARRIER_COLORS).fillna(COLOUR.grey_neutral)
         )
-        return df_agg
+        return links
 
     @staticmethod
-    def combine_duplicates(df_agg):
+    def combine_duplicates(links):
         return (
-            df_agg.groupby(["source", "target"])
+            links.groupby(["source", "target"])
             .agg(
                 {
                     "value": "sum",
