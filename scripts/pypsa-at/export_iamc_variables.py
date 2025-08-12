@@ -994,7 +994,9 @@ def collect_secondary_energy():
     transform_link(technology="CHP CC", carrier="urban central solid biomass CHP CC")
 
     transform_link(technology="Powerplant", carrier=["CCGT", "OCGT"])
-    transform_link(technology="Powerplant", carrier="H2 OCGT")
+    transform_link(
+        technology="Powerplant", carrier=["H2 OCGT", "H2 CCGT", "H2 turbine"]
+    )
     transform_link(technology="Powerplant", carrier="H2 Fuel Cell")
     transform_link(
         technology="Powerplant",
