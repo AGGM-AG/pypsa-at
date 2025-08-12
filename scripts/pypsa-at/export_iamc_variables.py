@@ -220,9 +220,7 @@ def transform_link(carrier: str | list, technology: str) -> None:
         for bus_carrier_demand in bc_in:
             demand_bc = filter_by(demand, bus_carrier=bus_carrier_demand)
             demand_share = demand_bc.sum() / demand.sum()
-            # scaling takes into account that Link inputs and outputs are not equally large
-            # scaling = abs(supply.sum() / demand.sum())
-            supply_bc = supply * demand_share  # * scaling
+            supply_bc = supply * demand_share
             _process_single_input_link(
                 supply_bc,
                 demand_bc,
@@ -996,7 +994,9 @@ def collect_secondary_energy():
     transform_link(technology="CHP CC", carrier="urban central solid biomass CHP CC")
 
     transform_link(technology="Powerplant", carrier=["CCGT", "OCGT"])
-    transform_link(technology="Powerplant", carrier="H2 OCGT")
+    transform_link(
+        technology="Powerplant", carrier=["H2 OCGT", "H2 CCGT", "H2 turbine"]
+    )
     transform_link(technology="Powerplant", carrier="H2 Fuel Cell")
     transform_link(
         technology="Powerplant",
@@ -1257,8 +1257,8 @@ if __name__ == "__main__":
     # they are tracken in separate IMPORT/EXPORT statistics
     drop_transmission_technologies()
 
-    # collect transformed energy system variables. Note, that the order of
-    # collection is relevant for assertions statements.
+    # collect transformed energy system variables. Note that the
+    # collection order is relevant for assertion statements.
     var = SeriesCollector()
 
     collect_primary_energy()
