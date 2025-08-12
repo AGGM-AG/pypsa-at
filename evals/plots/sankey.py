@@ -767,12 +767,25 @@ class SankeyChart(ESMChart):
     def get_labels_data_frame(self, node_ids):
         nodes = pd.Series(list(node_ids)).to_frame("label")
         nodes["x"] = [self.get_node_x_value(label) for label in nodes["label"]]
-        # must map y values
-        # node colors
+        nodes["y"] = None
+        nodes["color"] = "#ff0000"
 
         return nodes
 
+    @staticmethod
+    def get_node_groups(ids):
+        return [
+            [ids.get("Wind Power"), ids.get("Solar Power"), ids.get("Hydro Power")],
+            [
+                ids.get("Biogas"),
+                ids.get("LNG"),
+                ids.get("Green Gas"),
+                ids.get("Pipeline"),
+            ],
+        ]
+
     def plot(self):
+        # fixme: secondary forwarding in EU 2050 H2 wrong?
         # Concatenate the data with source and target columns
         links = self.add_source_target_columns_to_links()
         links = self.add_jumpers(links)
@@ -794,11 +807,11 @@ class SankeyChart(ESMChart):
                         label=nodes["label"],
                         hovertemplate="%{label}: %{value}<extra></extra>",
                         x=nodes["x"],
-                        y=[None] * len(nodes),  # must include y, or x is ignored
-                        pad=20,
+                        y=nodes["y"],  # must include y, or x is ignored
+                        pad=10,
                         thickness=20,
-                        # color=df_agg.color,
-                        # groups=[[1, 2], [3, 4]],
+                        color=nodes["color"],
+                        # groups=self.get_node_groups(node_ids),  #
                     ),
                     link=dict(
                         # arrowlen=15,
