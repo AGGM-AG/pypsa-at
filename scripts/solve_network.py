@@ -1413,7 +1413,7 @@ if __name__ == "__main__":
 
     solve_opts = snakemake.params.solving["options"]
 
-    np.random.seed(solve_opts.get("seed", os.getenv("PYPSA_RANDOM_SEED") or 123))
+    np.random.seed(os.getenv("PYPSA_RANDOM_SEED") or solve_opts.get("seed", 123))
 
     n = pypsa.Network(snakemake.input.network)
     planning_horizons = snakemake.wildcards.get("planning_horizons", None)
