@@ -209,7 +209,7 @@ LINK_MAPPING = {
         "Secondary AC Out",
         "Agriculture",
     ),
-    ("Load", "agriculture heat", "rural heat"): ("", ""),
+    ("Load", "agriculture heat", "rural heat"): ("Decentral Heat", "Agriculture"),
     # prefer Load for tests to find unexpected losses in Links
     # ("Link", "agriculture machinery oil", "agriculture machinery oil"): ("Secondary Liquids Out", "Agriculture"),
     # ("Link", "agriculture machinery oil", "oil"): ("", ""),
@@ -707,7 +707,10 @@ LINK_MAPPING = {
         "Secondary Gas In",
         "Decentral Heat",
     ),
-    ("Load", "urban decentral heat", "urban decentral heat"): ("", ""),
+    ("Load", "urban decentral heat", "urban decentral heat"): (
+        "Decentral Heat",
+        "HH & Services",
+    ),
     ("Generator", "urban decentral heat vent", "urban decentral heat"): (
         "Decentral Heat",
         "HH & Services",
@@ -764,18 +767,22 @@ class SankeyChart(ESMChart):
         self._df = self._df.droplevel(DM.YEAR).droplevel(DM.LOCATION)
         self._df.columns = ["value"]
 
-    def get_labels_data_frame(self, node_ids):
+    def get_nodes_data_frame(self, node_ids):
         nodes = pd.Series(list(node_ids)).to_frame("label")
         nodes["x"] = [self.get_node_x_value(label) for label in nodes["label"]]
-        nodes["y"] = None
-        nodes["color"] = "#ff0000"
+        nodes["y"] = None  # todo:
+        nodes["color"] = "#000000"
 
         return nodes
 
     @staticmethod
     def get_node_groups(ids):
         return [
-            [ids.get("Wind Power"), ids.get("Solar Power"), ids.get("Hydro Power")],
+            [
+                ids.get("Wind Power"),
+                ids.get("Solar Power"),
+                ids.get("Hydro Power"),
+            ],
             [
                 ids.get("Biogas"),
                 ids.get("LNG"),
@@ -788,6 +795,7 @@ class SankeyChart(ESMChart):
         # fixme: secondary forwarding in EU 2050 H2 wrong?
         # Concatenate the data with source and target columns
         links = self.add_source_target_columns_to_links()
+        links["value"] = links["value"].abs()
         links = self.add_jumpers(links)
         node_ids = self.get_node_ids(links)
         links = self.add_id_source_target_columns(links, node_ids)
@@ -795,7 +803,7 @@ class SankeyChart(ESMChart):
         links = self.combine_duplicates(links)
         links = self.map_colors_from_bus_carrier(links)
 
-        nodes = self.get_labels_data_frame(node_ids)
+        nodes = self.get_nodes_data_frame(node_ids)
 
         self.fig = Figure(
             data=[
@@ -886,10 +894,11 @@ class SankeyChart(ESMChart):
 
     @staticmethod
     def add_jumpers(links):
+        cols = links.columns
         for bus_carrier in ("AC", "H2", "Gas", "Liquids", "Solids", "Heat", "Biomass"):
             primary_to_secondary = filter_by(links, target=f"Primary {bus_carrier}")
             row_idx = ("Jumper", "primary to secondary", bus_carrier)
-            links.loc[row_idx, ["value", "source", "target"]] = [
+            links.loc[row_idx, cols] = [
                 primary_to_secondary.value.sum(),
                 f"Primary {bus_carrier}",
                 f"Secondary {bus_carrier} In",
@@ -902,11 +911,20 @@ class SankeyChart(ESMChart):
                 "value"
             ].sum()
             row_idx = ("Jumper", "secondary forwarding", bus_carrier)
-            links.loc[row_idx, ["value", "source", "target"]] = [
-                primary_supply - secondary_demand,
-                f"Secondary {bus_carrier} In",
-                f"Secondary {bus_carrier} Out",
-            ]
+            secondary_forwarding = primary_supply - secondary_demand
+            if secondary_forwarding < 0:
+                # amounts are produced during transformation
+                links.loc[row_idx, cols] = [
+                    abs(secondary_forwarding),
+                    f"Secondary {bus_carrier} Out",
+                    f"Secondary {bus_carrier} In",
+                ]
+            else:
+                links.loc[row_idx, ["value", "source", "target"]] = [
+                    abs(secondary_forwarding),
+                    f"Secondary {bus_carrier} In",
+                    f"Secondary {bus_carrier} Out",
+                ]
 
         return links
 
