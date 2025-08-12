@@ -775,8 +775,9 @@ class SankeyChart(ESMChart):
         df_agg = self.add_source_target_columns()
         df_agg = self.add_jumpers(df_agg)
         label_mapping = self.get_label_mapping(df_agg)
-        df_agg = self.add_id_source_target_columns(df_agg, label_mapping)
+        df_agg = self.add_node_id_for_source_target_columns(df_agg, label_mapping)
         df_agg = self.add_customdata(df_agg, self.unit)
+        df_agg = df_agg.abs()  # prevent errors from mixed signs before aggregation
         df_agg = self.combine_duplicates(df_agg)
         df_agg = self.map_colors_from_bus_carrier(df_agg)
 
@@ -804,7 +805,7 @@ class SankeyChart(ESMChart):
                         # arrowlen=15,
                         source=df_agg.source_id,
                         target=df_agg.target_id,
-                        value=df_agg.value.abs(),
+                        value=df_agg.value,
                         color=df_agg.color,
                         customdata=df_agg.link_customdata,
                         hovertemplate="%{customdata} <extra></extra>",
@@ -931,7 +932,7 @@ class SankeyChart(ESMChart):
         return pd.concat(to_concat)
 
     @staticmethod
-    def add_id_source_target_columns(df_agg, label_mapping):
+    def add_node_id_for_source_target_columns(df_agg, label_mapping):
         df_agg["source_id"] = df_agg["source"].map(label_mapping)
         df_agg["target_id"] = df_agg["target"].map(label_mapping)
         return df_agg
