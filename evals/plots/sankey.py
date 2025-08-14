@@ -4,6 +4,8 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Module for Sankey diagram."""
 
+from functools import partial
+
 import pandas as pd
 from plotly.graph_objs import Figure, Sankey
 
@@ -65,7 +67,7 @@ BUS_CARRIER_COLORS = {
 
 LINK_MAPPING = {
     # ("Link", "BEV charger", "EV battery"): ("Secondary AC Out", "Transport"),
-    ("Link", "BEV charger", "low voltage losses"): ("Transport", "Losses Transport"),
+    # ("Link", "BEV charger", "low voltage losses"): ("Transport", "Losses Transport"),   # todo: activate
     # Wood gasification treated as primary energy to simplify energy flows
     ("Link", "BioSNG", "gas"): ("Solid Biomass", "Primary Gas"),
     ("Link", "BioSNG CC", "gas"): ("Solid Biomass", "Primary Gas"),
@@ -131,7 +133,7 @@ LINK_MAPPING = {
     # ("Link", "H2 OCGT", "H2"): ("", ""),
     ("Link", "H2 OCGT", "H2 losses"): ("Secondary H2 In", "Transformation Losses"),
     # ("Store", "H2 Store", "H2"): ("", ""),
-    ("Store", "H2 Store supply", "H2"): ("Secondary H2 Out", "Secondary H2 In"),
+    # ("Store", "H2 Store supply", "H2"): ("Secondary H2 Out", "Secondary H2 In"),  # todo: activate
     # ("Store", "H2 Store demand", "H2"): ("Secondary H2 In", "Secondary H2 Out"),
     ("Load", "H2 for industry", "H2"): ("Secondary H2 Out", "Industry"),
     ("Link", "HVC to air", "non-sequestered HVC"): ("", ""),
@@ -180,13 +182,13 @@ LINK_MAPPING = {
     # ("Link", "OCGT", "gas"): ("", ""),
     ("Link", "OCGT", "gas losses"): ("Secondary Gas In", "Transformation Losses"),
     ("Link", "OCGT methanol", "AC"): ("Secondary Liquids In", "Secondary AC Out"),
-    ("Link", "OCGT methanol", "methanol"): ("", ""),
+    # ("Link", "OCGT methanol", "methanol"): ("", ""),
     ("Link", "OCGT methanol", "methanol losses"): (
         "Secondary Liquids In",
         "Transformation Losses",
     ),
-    ("StorageUnit", "PHS demand", "AC"): ("Secondary AC In", "AC Storage"),
-    ("StorageUnit", "PHS supply", "AC"): ("AC Storage", "Secondary AC Out"),
+    # ("StorageUnit", "PHS demand", "AC"): ("Secondary AC In", "AC Storage"),  # todo: activate
+    # ("StorageUnit", "PHS supply", "AC"): ("AC Storage", "Secondary AC Out"),  # todo: activate
     # todo: PHS losses
     ("Link", "SMR", "H2"): ("Secondary Gas In", "Secondary H2 Out"),
     # ("Link", "SMR", "gas"): ("", ""),
@@ -232,30 +234,30 @@ LINK_MAPPING = {
     # ("Store", "ammonia store", "NH3"): ("", ""),
     # ("Store", "battery", "battery"): ("", ""),
     # ("Store", "home battery", "home battery"): ("", ""),
-    ("Link", "battery charger", "AC"): (
-        "Secondary AC In",
-        "AC Storage",
-    ),  # including losses
-    ("Link", "home battery charger", "low voltage"): ("Secondary AC In", "AC Storage"),
-    ("Link", "battery charger", "AC losses"): ("AC Storage", "Storage Losses"),
-    ("Link", "home battery charger", "low voltage losses"): (
-        "AC Storage",
-        "Storage Losses",
-    ),
-    # ("Link", "battery charger", "battery"): ("Secondary AC In", "AC Storage"),
-    # ("Link", "home battery charger", "home battery"): ("", ""),
-    ("Link", "battery discharger", "AC"): ("AC Storage", "Secondary AC Out"),
-    ("Link", "home battery discharger", "low voltage"): (
-        "AC Storage",
-        "Secondary AC Out",
-    ),
-    # ("Link", "battery discharger", "battery"): ("", ""),
-    # ("Link", "home battery discharger", "home battery"): ("", ""),
-    ("Link", "battery discharger", "battery losses"): ("AC Storage", "Storage Losses"),
-    ("Link", "home battery discharger", "home battery losses"): (
-        "AC Storage",
-        "Storage Losses",
-    ),
+    # ("Link", "battery charger", "AC"): (
+    #     "Secondary AC In",
+    #     "AC Storage",
+    # ),  # todo: activate
+    # ("Link", "home battery charger", "low voltage"): ("Secondary AC In", "AC Storage"),  # todo: activate
+    # ("Link", "battery charger", "AC losses"): ("AC Storage", "Storage Losses"),  # todo: activate
+    # ("Link", "home battery charger", "low voltage losses"): (  # todo: activate
+    #     "AC Storage",
+    #     "Storage Losses",
+    # ),
+    # # ("Link", "battery charger", "battery"): ("Secondary AC In", "AC Storage"),
+    # # ("Link", "home battery charger", "home battery"): ("", ""),
+    # ("Link", "battery discharger", "AC"): ("AC Storage", "Secondary AC Out"),  # todo: activate
+    # ("Link", "home battery discharger", "low voltage"): (  # todo: activate
+    #     "AC Storage",
+    #     "Secondary AC Out",
+    # ),
+    # # ("Link", "battery discharger", "battery"): ("", ""),
+    # # ("Link", "home battery discharger", "home battery"): ("", ""),
+    # ("Link", "battery discharger", "battery losses"): ("AC Storage", "Storage Losses"),  # todo: activate
+    # ("Link", "home battery discharger", "home battery losses"): (  # todo: activate
+    #     "AC Storage",
+    #     "Storage Losses",
+    # ),
     ("Link", "biogas to gas", "gas"): ("Biogas", "Primary Gas"),
     ("Link", "biogas to gas CC", "gas"): ("Biogas", "Primary Gas"),
     ("Link", "biomass to liquid", "oil"): (
@@ -323,8 +325,8 @@ LINK_MAPPING = {
         "Secondary Solids In",
         "Transformation Losses",
     ),
-    ("Store", "gas", "gas"): ("", ""),  # todo: gas supply/demand
-    ("Store", "gas supply", "gas"): ("Secondary Gas Out", "Secondary Gas In"),
+    # ("Store", "gas", "gas"): ("", ""),
+    # ("Store", "gas supply", "gas"): ("Secondary Gas Out", "Secondary Gas In"),  # todo: activate
     # ("Store", "gas demand", "gas"): ("Secondary Gas In", "Secondary Gas Out"),
     # ("Link", "gas for industry", "gas"): ("", ""),
     ("Link", "gas for industry", "gas for industry"): ("Secondary Gas Out", "Industry"),
@@ -334,7 +336,7 @@ LINK_MAPPING = {
         "Secondary Gas Out",
         "Industry",
     ),
-    ("Link", "gas for industry CC", "gas losses"): ("Industry", "Losses Industry"),
+    # ("Link", "gas for industry CC", "gas losses"): ("Industry", "Losses Industry"),   # todo: activate
     ("StorageUnit", "hydro supply", "AC"): ("Hydro Power", "Primary AC"),  # is primary
     ("Generator", "import H2", "H2"): ("Green Hydrogen", "Primary H2"),
     ("Generator", "import NH3", "NH3"): ("Green Liquids", "Primary Liquids"),
@@ -485,10 +487,10 @@ LINK_MAPPING = {
         "Decentral Heat",
     ),
     ("Load", "rural heat", "rural heat"): ("Decentral Heat", "HH & Services"),
-    ("Generator", "rural heat vent", "rural heat"): (
-        "Decentral Heat",
-        "Decentral Heat Losses",
-    ),
+    # ("Generator", "rural heat vent", "rural heat"): (   # todo: activate
+    #     "Decentral Heat",
+    #     "Losses Decentral Heat",
+    # ),
     # ("Link", "rural resistive heater", "low voltage"): ("", ""),
     ("Link", "rural resistive heater", "low voltage losses"): (
         "Secondary AC In",
@@ -502,10 +504,10 @@ LINK_MAPPING = {
         "Solar Heat",
         "Decentral Heat",
     ),
-    ("Store", "rural water tanks", "rural water tanks"): (
-        "Decentral Heat",
-        "Decentral Heat Losses",
-    ),
+    # ("Store", "rural water tanks", "rural water tanks"): (   # todo: activate
+    #     "Decentral Heat",
+    #     "Losses Decentral Heat",
+    # ),
     # ("Link", "rural water tanks charger", "rural heat"): ("", ""),
     # ("Link", "rural water tanks charger", "rural water tanks"): ("", ""),
     # ("Link", "rural water tanks discharger", "rural heat"): ("", ""),
@@ -534,10 +536,10 @@ LINK_MAPPING = {
         "Industry",
     ),
     # ("Link", "solid biomass for industry CC", "solid biomass for industry"): ("Secondary Solids Out", "Industry"),
-    ("Link", "solid biomass for industry CC", "solid biomass losses"): (
-        "Industry",
-        "Losses Industry",
-    ),
+    # ("Link", "solid biomass for industry CC", "solid biomass losses"): (  # todo: activate
+    #     "Industry",
+    #     "Losses Industry",
+    # ),
     ("Link", "solid biomass to hydrogen", "H2"): (
         "Secondary Solids In",
         "Secondary H2 Out",
@@ -615,10 +617,10 @@ LINK_MAPPING = {
         "Secondary Heat Out",
         "HH & Services",
     ),
-    ("Generator", "urban central heat vent", "urban central heat"): (
-        "Secondary Heat Out",
-        "Ventilation Losses",
-    ),
+    # ("Generator", "urban central heat vent", "urban central heat"): (  # todo: activate
+    #     "Secondary Heat Out",
+    #     "Losses Ventilation",
+    # ),
     ("Link", "urban central ptes heat pump", "ambient heat"): (
         "Ambient Heat Central",
         "Secondary Heat Out",
@@ -728,10 +730,10 @@ LINK_MAPPING = {
         "Solar Heat",
         "Decentral Heat",
     ),
-    ("Store", "urban decentral water tanks", "urban decentral water tanks"): (
-        "Decentral Heat",
-        "Decentral Heat Losses",
-    ),
+    # ("Store", "urban decentral water tanks", "urban decentral water tanks"): (   # todo: activate
+    #     "Decentral Heat",
+    #     "Losses Decentral Heat",
+    # ),
     # ("Link", "urban decentral water tanks charger", "urban decentral heat"): ("", ""),
     # ("Link", "urban decentral water tanks charger", "urban decentral water tanks"): ("", ""),
     # ("Link", "urban decentral water tanks discharger", "urban decentral heat"): ("", ""),
@@ -767,11 +769,14 @@ class SankeyChart(ESMChart):
         self._df = self._df.droplevel(DM.YEAR).droplevel(DM.LOCATION)
         self._df.columns = ["value"]
 
-    def get_nodes_data_frame(self, node_ids):
-        nodes = pd.Series(list(node_ids)).to_frame("label")
-        nodes["x"] = [self.get_node_x_value(label) for label in nodes["label"]]
-        nodes["y"] = None  # todo:
-        nodes["color"] = "#000000"
+    def get_nodes_data_frame(self, links, node_ids):
+        nodes = pd.DataFrame(index=list(node_ids))
+        nodes["x"] = [self.get_node_x_value(label) for label in nodes.index]
+
+        nodes["y"] = nodes.groupby("x", group_keys=False).apply(
+            partial(self.get_node_y_value, links), include_groups=False
+        )
+        nodes["color"] = "white"
 
         return nodes
 
@@ -791,6 +796,36 @@ class SankeyChart(ESMChart):
             ],
         ]
 
+    def get_node_y_value(self, links, data):
+        """Distribute nodes equally among available space."""
+        values_col = filter_by(links, source=data.index.tolist())
+        bus_carrier_order = (
+            "AC",
+            "gas",
+            "H2",
+            "coal",
+            "ambient heat",
+            "rural heat",
+            "urban central heat",
+            "solid biomass",
+            "non-sequestered HVC",
+            "NH3",
+            "oil",
+        )
+        total_value = values_col["value"].sum()
+        space_available = total_value * 1.2
+        space_used = 0  # 20% gap space
+        for label, source in self.custom_sort(
+            values_col, "bus_carrier", bus_carrier_order, ascending=True
+        ).groupby("source"):
+            node_size = source["value"].sum()
+            data.loc[label, "y"] = round(
+                (space_available - space_used - node_size / 2) / space_available, 3
+            )
+            space_used += node_size * 1.2
+
+        return data
+
     def plot(self):
         # fixme: secondary forwarding in EU 2050 H2 wrong?
         # Concatenate the data with source and target columns
@@ -803,7 +838,7 @@ class SankeyChart(ESMChart):
         links = self.combine_duplicates(links)
         links = self.map_colors_from_bus_carrier(links)
 
-        nodes = self.get_nodes_data_frame(node_ids)
+        nodes = self.get_nodes_data_frame(links, node_ids)
 
         self.fig = Figure(
             data=[
@@ -812,10 +847,10 @@ class SankeyChart(ESMChart):
                     valuesuffix=self.unit,
                     node=dict(
                         line=dict(color="black", width=0.5),
-                        label=nodes["label"],
+                        label=nodes.index,
                         hovertemplate="%{label}: %{value}<extra></extra>",
                         x=nodes["x"],
-                        y=nodes["y"],  # must include y, or x is ignored
+                        # y=nodes["y"],  # must include y, or x is ignored
                         pad=10,
                         thickness=20,
                         color=nodes["color"],
@@ -849,11 +884,11 @@ class SankeyChart(ESMChart):
         elif lbl == "AC Storage":
             return 0.5
         elif lbl == "Transformation Losses":
-            return 0.55
+            return 0.6
         elif lbl.startswith("Secondary") and lbl.endswith("Out"):
             return 0.6
-        elif lbl == "Ambient Heat Decentral":
-            return 0.75
+        elif lbl.startswith("Ambient Heat"):
+            return 0.70
         elif lbl == "Decentral Heat":
             return 0.8
         elif lbl in (
@@ -864,9 +899,10 @@ class SankeyChart(ESMChart):
             "Final AC",
         ):
             return 0.85
-        elif lbl.startswith("Losses") or lbl.endswith("Losses"):
-            return 0.95
+        # elif lbl.startswith("Losses") or lbl.endswith("Losses"):
+        #     return 0.95
         else:
+            print(lbl)
             return 0.0
 
     def _set_base_layout(self):
@@ -920,7 +956,7 @@ class SankeyChart(ESMChart):
                     f"Secondary {bus_carrier} In",
                 ]
             else:
-                links.loc[row_idx, ["value", "source", "target"]] = [
+                links.loc[row_idx, cols] = [
                     abs(secondary_forwarding),
                     f"Secondary {bus_carrier} In",
                     f"Secondary {bus_carrier} Out",
@@ -965,8 +1001,11 @@ class SankeyChart(ESMChart):
 
     @staticmethod
     def add_id_source_target_columns(links, label_mapping):
+        # reversed_mapping = {v: k for k, v in label_mapping.items()}
         links["source_id"] = links["source"].map(label_mapping)
+        # links["source_label"] = links["source_id"].map(reversed_mapping)
         links["target_id"] = links["target"].map(label_mapping)
+        # links["target_label"] = links["target_id"].map(reversed_mapping)
         return links
 
     @staticmethod
