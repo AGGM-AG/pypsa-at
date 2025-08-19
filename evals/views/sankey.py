@@ -225,84 +225,46 @@ def view_sankey(
     #  - calculate regional NH3 Load from regional NH3 production
     #  - calculate StorageUnit losses
     #  - harmonize V2G amounts
+    #  - harmonize heat storages
+    #  - assert all nodes balanced
     grid_losses = net_distribution_grid_losses(supply, demand)
     trade_statistics = get_trade_statistics(
         networks, transmission_comps, transmission_carrier, unit=supply.attrs["unit"]
     )
     link_losses = get_link_losses(supply, demand)
-    # storage_systems = (
-    #     "rural water tanks",
-    #     "urban central water tanks",
-    #     "urban decentral water tanks",
-    #     "urban central water pits",
-    # )
-    #
-    # for storage_system in storage_systems:
-    #     charger = f"{storage_system} charger"
-    #     charger_losses = (
-    #         filter_by(supply, carrier=charger)
-    #         .droplevel("bus_carrier")
-    #         .add(filter_by(demand, carrier=charger).droplevel("bus_carrier"))
-    #     )
-    #     assert charger_losses.abs().le(1.5).all(), (
-    #         f"Charger Losses detected for carrier: {storage_system}"
-    #     )
-    #     supply.drop(charger, level="carrier", inplace=True)
-    #     demand.drop(charger, level="carrier", inplace=True)
-    #     discharger = f"{storage_system} discharger"
-    #     discharger_losses = (
-    #         filter_by(supply, carrier=discharger)
-    #         .droplevel("bus_carrier")
-    #         .add(filter_by(demand, carrier=discharger).droplevel("bus_carrier"))
-    #     )
-    #     assert discharger_losses.abs().le(1.5).all(), (
-    #         f"Storage system imbalances detected for carrier: {storage_system}"
-    #     )
-    #     supply.drop(discharger, level="carrier", inplace=True)
-    #     demand.drop(discharger, level="carrier", inplace=True)
 
-    for_industry_losses = []
-    # for_industry_carrier = (
-    #     "coal for industry",
-    #     "gas for industry",
-    #     "gas for industry CC",
-    #     "naphtha for industry",
-    #     "solid biomass for industry",
-    #     "solid biomass for industry CC",
-    #     "low-temperature heat for industry",
-    #     "agriculture machinery oil",
-    # )
-    # for industry_carrier in for_industry_carrier:
-    #     industry_supply = filter_by(supply, carrier=industry_carrier, component="Link")
-    #     industry_demand = filter_by(demand, carrier=industry_carrier, component="Link")
-    #     if industry_supply.empty and industry_demand.empty:
-    #         continue
-    #     demand_bus_carrier = industry_demand.index.unique("bus_carrier").item()
-    #     balance = industry_supply.droplevel("bus_carrier").add(
-    #         industry_demand.droplevel("bus_carrier")
-    #     )
-    #     if balance.le(0).all():
-    #         losses = insert_index_level(
-    #             balance, demand_bus_carrier, "bus_carrier", pos=4
-    #         )
-    #         for_industry_losses.append(losses)
-    #     elif balance.abs().gt(1e-3).any():
-    #         raise ValueError(
-    #             f"Unexpected carrier '{industry_carrier}' supplies energy to Load bus."
-    #         )
-    #     supply.drop(industry_supply.index, inplace=True)
-    #     demand.drop(industry_demand.index, inplace=True)
+    regional_oil_supply = (
+        filter_by(supply, bus_carrier="oil").groupby(["year", "location"]).sum()
+    )
+    regional_oil_demand = (
+        filter_by(demand, bus_carrier="oil").groupby(["year", "location"]).sum()
+    )
+    regional_oil_balance = (
+        regional_oil_demand.add(regional_oil_supply, fill_value=0)
+        .pipe(insert_index_level, "Link", "component", pos=1)
+        .pipe(insert_index_level, "oil", "bus_carrier", pos=3)
+        .pipe(insert_index_level, "trade", "carrier", pos=3)
+    )
+    regional_oil_import = rename_aggregate(
+        regional_oil_balance[regional_oil_balance.le(0)], {"trade": "Import Foreign"}
+    )
+    regional_oil_export = rename_aggregate(
+        regional_oil_balance[regional_oil_balance.gt(0)], {"trade": "Export Foreign"}
+    )
 
     exporter = Exporter(
-        statistics=[supply, demand, grid_losses]
+        statistics=[
+            supply,
+            demand,
+            grid_losses,
+            regional_oil_import,
+            regional_oil_export,
+        ]
         + trade_statistics
-        + for_industry_losses
+        # + for_industry_losses
         + link_losses,
         view_config=config["view"],
     )
-
-    # todo: remove me
-    # exporter.df = filter_by(exporter.df, year="2050", location="Europe")
 
     chart_class = getattr(plots, config["view"]["chart"])
     exporter.defaults.plotly.chart = chart_class
@@ -315,6 +277,4 @@ def view_sankey(
         DM.CARRIER,
         DM.BUS_CARRIER,
     ]
-    # exporter.defaults.plotly.xaxis_title = ""
-
     exporter.export(result_path, config["global"]["subdir"])

@@ -17,7 +17,7 @@ from evals.utils import (
     prettify_number,
 )
 
-# Transformationsblöcke je ENergieträger
+# Transformationsblöcke je Energieträger
 # Zusammenfassung Energieträger:
 #  - AC (low voltage + AC) - uranium similar to primary but with additional step
 #  - H2
@@ -26,7 +26,45 @@ from evals.utils import (
 #  - Solids (waste, biomass, coal, lignite)
 #  - Heat (central), connect decentral heat directly to FED
 # Alle Losses in Grau und je Tranformationsblock (Energieträger)
+# drei Transformationsblöcke P2G, GtP, other
+# oder ein Transformationsblock
 
+
+BUS_CARRIER_GROUPS = {
+    "biogas": "Biogas",
+    "coal": "Solids",
+    "H2": "Hydrogen",
+    "NH3": "Liquids",
+    "lignite": "Solids",
+    "gas": "Methane",
+    "municipal solid waste": "Solids",
+    "AC": "Electricity",
+    "oil primary": "Liquids",
+    "rural heat": "Heat",
+    "low voltage": "Electricity",
+    "solid biomass": "Solids",
+    "uranium": "Uranium",
+    "urban central heat": "Heat",
+    "urban decentral heat": "Heat",
+    "EV battery": "Electricity",
+    "methanol": "Liquids",
+    "oil": "Liquids",
+    "non-sequestered HVC": "Solids",
+    "agriculture machinery oil": "Liquids",
+    "battery": "Electricity",
+    "ambient heat": "Heat",
+    "home battery": "Electricity",
+    "industry methanol": "Liquids",
+    "kerosene for aviation": "Liquids",
+    "shipping methanol": "Liquids",
+    "gas for industry": "Methane",
+    "naphtha for industry": "Liquids",
+    "solid biomass for industry": "Solids",
+    "rural water tanks": "Heat",
+    "urban central water pits": "Heat",
+    "urban central water tanks": "Heat",
+    "urban decentral water tanks": "Heat",
+}
 
 BUS_CARRIER_COLORS = {
     "biogas": COLOUR.green_sage,
@@ -62,10 +100,32 @@ BUS_CARRIER_COLORS = {
     "urban central water pits": COLOUR.yellow_golden,
     "urban central water tanks": COLOUR.yellow_golden,
     "urban decentral water tanks": COLOUR.yellow_golden,
+    # Grouped colors
+    "Liquids": COLOUR.red_deep,
+    "Solids": COLOUR.green_sage,
+    "Gas": COLOUR.brown_light,
+    "Heat": COLOUR.yellow_golden,
 }
 
 
 LINK_MAPPING = {
+    ("Line", "Export Foreign", "AC"): ("Secondary AC Out", "Export"),
+    ("Line", "Import Foreign", "AC"): ("Import", "Primary AC"),
+    ("Link", "Export Foreign", "AC"): ("Secondary AC Out", "Export"),
+    ("Link", "Export Foreign", "H2"): ("Secondary H2 Out", "Export"),
+    ("Link", "Export Foreign", "gas"): ("Secondary Gas Out", "Export"),
+    ("Link", "Export Foreign", "municipal solid waste"): (
+        "Secondary Solids Out",
+        "Export",
+    ),
+    ("Link", "Export Foreign", "solid biomass"): ("Secondary Solids Out", "Export"),
+    ("Link", "Import Foreign", "AC"): ("Import", "Primary AC"),
+    ("Link", "Import Foreign", "H2"): ("Import", "Primary H2"),
+    ("Link", "Import Foreign", "gas"): ("Import", "Primary Gas"),
+    ("Link", "Import Foreign", "municipal solid waste"): ("Import", "Primary Solids"),
+    ("Link", "Import Foreign", "solid biomass"): ("Import", "Primary Solids"),
+    ("Link", "Import Foreign", "oil"): ("Import", "Primary Liquids"),
+    ("Link", "Export Foreign", "oil"): ("Secondary Liquids Out", "Export"),
     # ("Link", "BEV charger", "EV battery"): ("Secondary AC Out", "Transport"),
     # ("Link", "BEV charger", "low voltage losses"): ("Transport", "Losses Transport"),   # todo: activate
     # Wood gasification treated as primary energy to simplify energy flows
@@ -96,9 +156,9 @@ LINK_MAPPING = {
         "Secondary Liquids In",
         "Transformation Losses",
     ),
-    ("Link", "DAC", "AC"): ("", ""),
-    ("Link", "DAC", "urban central heat"): ("", ""),
-    ("Link", "DAC", "urban decentral heat"): ("", ""),
+    ("Link", "DAC", "AC"): ("Secondary AC Out", "DAC"),
+    ("Link", "DAC", "urban central heat"): ("Secondary Heat Out", "DAC"),
+    ("Link", "DAC", "urban decentral heat"): ("Decentral Heat", "DAC"),
     # ("Store", "EV battery", "EV battery"): ("", ""),
     # ("Link", "Fischer-Tropsch", "H2"): ("", ""),
     ("Link", "Fischer-Tropsch", "H2 losses"): (
@@ -136,7 +196,7 @@ LINK_MAPPING = {
     # ("Store", "H2 Store supply", "H2"): ("Secondary H2 Out", "Secondary H2 In"),  # todo: activate
     # ("Store", "H2 Store demand", "H2"): ("Secondary H2 In", "Secondary H2 Out"),
     ("Load", "H2 for industry", "H2"): ("Secondary H2 Out", "Industry"),
-    ("Link", "HVC to air", "non-sequestered HVC"): ("", ""),
+    # ("Link", "HVC to air", "non-sequestered HVC"): ("", ""),
     # ("Link", "Haber-Bosch", "AC"): ("", ""),
     ("Link", "Haber-Bosch", "AC losses"): ("Secondary AC In", "Transformation Losses"),
     # ("Link", "Haber-Bosch", "H2"): ("", ""),
@@ -301,7 +361,7 @@ LINK_MAPPING = {
     # ("Link", "coal", "coal"): ("", ""),
     ("Link", "coal", "coal losses"): ("Secondary Solids In", "Transformation Losses"),
     # ("Store", "coal", "coal"): ("", ""),
-    ("Load", "electricity", "low voltage"): ("Secondary AC Out", "Final AC"),
+    ("Load", "electricity", "low voltage"): ("Secondary AC Out", "HH & Services"),
     ("Link", "electricity distribution grid", "losses"): (
         "Secondary AC In",
         "Transformation Losses",
@@ -340,7 +400,7 @@ LINK_MAPPING = {
     ("StorageUnit", "hydro supply", "AC"): ("Hydro Power", "Primary AC"),  # is primary
     ("Generator", "import H2", "H2"): ("Green Hydrogen", "Primary H2"),
     ("Generator", "import NH3", "NH3"): ("Green Liquids", "Primary Liquids"),
-    ("Link", "import gas", "gas"): ("Green Gas", "Primary Gas"),
+    ("Link", "import gas", "gas"): ("Import", "Primary Gas"),
     ("Link", "import methanol", "methanol"): ("Green Liquids", "Primary Liquids"),
     ("Link", "import oil", "oil"): ("Green Liquids", "Primary Liquids"),
     ("Load", "industry electricity", "low voltage"): ("Secondary AC Out", "Industry"),
@@ -366,7 +426,7 @@ LINK_MAPPING = {
         "Transformation Losses",
     ),
     # ("Store", "lignite", "lignite"): ("", ""),
-    ("Generator", "lng gas", "gas"): ("LNG", "Primary Gas"),
+    ("Generator", "lng gas", "gas"): ("Import", "Primary Gas"),
     ("Load", "low-temperature heat for industry", "urban central heat"): (
         "Secondary Heat Out",
         "Industry",
@@ -450,7 +510,7 @@ LINK_MAPPING = {
     # ("Link", "oil refining", "oil primary"): ("", ""),
     # ("Link", "oil refining", "oil primary losses"): ("", ""),
     ("Generator", "onwind", "AC"): ("Wind Power", "Primary AC"),
-    ("Generator", "pipeline gas", "gas"): ("Pipeline", "Primary Gas"),
+    ("Generator", "pipeline gas", "gas"): ("Import", "Primary Gas"),
     ("Generator", "production gas", "gas"): ("Production", "Primary Gas"),
     ("Generator", "ror", "AC"): ("Hydro Power", "Primary AC"),
     ("Link", "rural air heat pump", "ambient heat"): (
@@ -667,7 +727,7 @@ LINK_MAPPING = {
         "Secondary Heat Out",
     ),
     ("Store", "urban central water pits", "urban central water pits"): (
-        "Secondary Heat In",
+        "Secondary Heat Out",
         "Transformation Losses",
     ),
     # ("Link", "urban central water pits charger", "urban central heat"): ("", ""),
@@ -675,7 +735,7 @@ LINK_MAPPING = {
     # ("Link", "urban central water pits discharger", "urban central heat"): ("", ""),
     # ("Link", "urban central water pits discharger", "urban central water pits"): ("", ""),
     ("Store", "urban central water tanks", "urban central water tanks"): (
-        "Secondary Heat In",
+        "Secondary Heat Out",
         "Transformation Losses",
     ),
     # ("Link", "urban central water tanks charger", "urban central heat"): ("", ""),
@@ -813,8 +873,8 @@ class SankeyChart(ESMChart):
             "oil",
         )
         total_value = values_col["value"].sum()
-        space_available = total_value * 1.2
-        space_used = 0  # 20% gap space
+        space_available = total_value * 1.2  # 20% gap space
+        space_used = 0
         for label, source in self.custom_sort(
             values_col, "bus_carrier", bus_carrier_order, ascending=True
         ).groupby("source"):
@@ -827,7 +887,6 @@ class SankeyChart(ESMChart):
         return data
 
     def plot(self):
-        # fixme: secondary forwarding in EU 2050 H2 wrong?
         # Concatenate the data with source and target columns
         links = self.add_source_target_columns_to_links()
         links["value"] = links["value"].abs()
@@ -877,6 +936,10 @@ class SankeyChart(ESMChart):
 
     @staticmethod
     def get_node_x_value(lbl: str) -> float:
+        if pd.isna(lbl):
+            print("todo: remove ", lbl, "label")
+            return 0
+
         if lbl.startswith("Primary"):
             return 0.15
         elif lbl.startswith("Secondary") and lbl.endswith("In"):
@@ -896,13 +959,12 @@ class SankeyChart(ESMChart):
             "HH & Services",
             "Transport",
             "Agriculture",
-            "Final AC",
+            # "Final AC",
         ):
             return 0.85
         # elif lbl.startswith("Losses") or lbl.endswith("Losses"):
         #     return 0.95
         else:
-            print(lbl)
             return 0.0
 
     def _set_base_layout(self):
