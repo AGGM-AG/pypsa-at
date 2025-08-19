@@ -105,6 +105,7 @@ BUS_CARRIER_COLORS = {
     "Solids": COLOUR.green_sage,
     "Gas": COLOUR.brown_light,
     "Heat": COLOUR.yellow_golden,
+    "Waste": COLOUR.grey_light,
 }
 
 
@@ -398,11 +399,11 @@ LINK_MAPPING = {
     ),
     # ("Link", "gas for industry CC", "gas losses"): ("Industry", "Losses Industry"),   # todo: activate
     ("StorageUnit", "hydro supply", "AC"): ("Hydro Power", "Primary AC"),  # is primary
-    ("Generator", "import H2", "H2"): ("Green Hydrogen", "Primary H2"),
-    ("Generator", "import NH3", "NH3"): ("Green Liquids", "Primary Liquids"),
+    ("Generator", "import H2", "H2"): ("Import", "Primary H2"),
+    ("Generator", "import NH3", "NH3"): ("Import", "Primary Liquids"),
     ("Link", "import gas", "gas"): ("Import", "Primary Gas"),
-    ("Link", "import methanol", "methanol"): ("Green Liquids", "Primary Liquids"),
-    ("Link", "import oil", "oil"): ("Green Liquids", "Primary Liquids"),
+    ("Link", "import methanol", "methanol"): ("Import", "Primary Liquids"),
+    ("Link", "import oil", "oil"): ("Import", "Primary Liquids"),
     ("Load", "industry electricity", "low voltage"): ("Secondary AC Out", "Industry"),
     # ("Link", "industry methanol", "industry methanol"): ("", ""),
     # ("Link", "industry methanol", "methanol"): ("", ""),
@@ -828,6 +829,35 @@ class SankeyChart(ESMChart):
         self.year = self._df.index.unique(DM.YEAR).item()
         self._df = self._df.droplevel(DM.YEAR).droplevel(DM.LOCATION)
         self._df.columns = ["value"]
+        self.flows = pd.DataFrame(
+            columns=["source", "target", "value", "color", "customdata"]
+        )
+
+    def _add_flow(self, source, target, df):
+        customdata = "<br>".join(
+            [
+                f"{c}: {prettify_number(v)} {self._df.attrs['unit']}"
+                for c, v in zip(df.index.get_level_values("carrier"), df["value"])
+            ]
+        )
+        self.flows.at[self.flows.shape[0], self.flows.columns] = [
+            source,
+            target,
+            df.sum().item(),
+            BUS_CARRIER_COLORS[source],
+            customdata,
+        ]
+        self._df.drop(df.index, inplace=True)
+
+    def connect_primary_solids(self):
+        bus_carrier = [k for k, v in BUS_CARRIER_GROUPS.items() if v == "Solids"]
+        waste = filter_by(
+            self._df, bus_carrier=bus_carrier, component=["Generator", "Store"]
+        )
+        self._add_flow("Waste", "Primary|Solids", waste)
+
+    def connect_wind(self):
+        pass
 
     def get_nodes_data_frame(self, links, node_ids):
         nodes = pd.DataFrame(index=list(node_ids))
@@ -839,22 +869,6 @@ class SankeyChart(ESMChart):
         nodes["color"] = "white"
 
         return nodes
-
-    @staticmethod
-    def get_node_groups(ids):
-        return [
-            [
-                ids.get("Wind Power"),
-                ids.get("Solar Power"),
-                ids.get("Hydro Power"),
-            ],
-            [
-                ids.get("Biogas"),
-                ids.get("LNG"),
-                ids.get("Green Gas"),
-                ids.get("Pipeline"),
-            ],
-        ]
 
     def get_node_y_value(self, links, data):
         """Distribute nodes equally among available space."""

@@ -196,6 +196,30 @@ def get_link_losses(supply, demand):
     return link_losses
 
 
+def get_regional_trade(supply, demand, bus_carrier: str | list):
+    regional_supply = (
+        filter_by(supply, bus_carrier=bus_carrier).groupby(["year", "location"]).sum()
+    )
+    regional_demand = (
+        filter_by(demand, bus_carrier=bus_carrier).groupby(["year", "location"]).sum()
+    )
+    regional_balance = (
+        regional_supply.add(regional_demand, fill_value=0)
+        .pipe(insert_index_level, "Link", "component", pos=1)
+        .pipe(insert_index_level, bus_carrier, "bus_carrier", pos=3)
+        .pipe(insert_index_level, "trade", "carrier", pos=3)
+        .drop("EU", level="location", errors="ignore")
+    )
+    regional_import = rename_aggregate(
+        regional_balance[regional_balance.gt(0)], {"trade": "Import Foreign"}
+    )
+    regional_export = rename_aggregate(
+        regional_balance[regional_balance.le(0)], {"trade": "Export Foreign"}
+    )
+
+    return [regional_import, regional_export]
+
+
 def view_sankey(
     result_path: str | Path,
     networks: dict,
@@ -233,34 +257,18 @@ def view_sankey(
     )
     link_losses = get_link_losses(supply, demand)
 
-    regional_oil_supply = (
-        filter_by(supply, bus_carrier="oil").groupby(["year", "location"]).sum()
-    )
-    regional_oil_demand = (
-        filter_by(demand, bus_carrier="oil").groupby(["year", "location"]).sum()
-    )
-    regional_oil_balance = (
-        regional_oil_demand.add(regional_oil_supply, fill_value=0)
-        .pipe(insert_index_level, "Link", "component", pos=1)
-        .pipe(insert_index_level, "oil", "bus_carrier", pos=3)
-        .pipe(insert_index_level, "trade", "carrier", pos=3)
-    )
-    regional_oil_import = rename_aggregate(
-        regional_oil_balance[regional_oil_balance.le(0)], {"trade": "Import Foreign"}
-    )
-    regional_oil_export = rename_aggregate(
-        regional_oil_balance[regional_oil_balance.gt(0)], {"trade": "Export Foreign"}
-    )
+    regional_trade = []
+    for bus_carrier in ("oil", "coal", "lignite", "NH3"):
+        regional_trade.extend(get_regional_trade(supply, demand, bus_carrier))
 
     exporter = Exporter(
         statistics=[
             supply,
             demand,
             grid_losses,
-            regional_oil_import,
-            regional_oil_export,
         ]
         + trade_statistics
+        + regional_trade
         # + for_industry_losses
         + link_losses,
         view_config=config["view"],
