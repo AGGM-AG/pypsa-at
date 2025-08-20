@@ -211,11 +211,11 @@ def get_regional_trade(supply, demand, bus_carrier: str | list):
         .drop("EU", level="location", errors="ignore")
     )
     regional_import = rename_aggregate(
-        regional_balance[regional_balance.gt(0)], {"trade": "Import Foreign"}
-    )
+        regional_balance[regional_balance.le(0)], {"trade": "Import Foreign"}
+    ).mul(-1)
     regional_export = rename_aggregate(
-        regional_balance[regional_balance.le(0)], {"trade": "Export Foreign"}
-    )
+        regional_balance[regional_balance.gt(0)], {"trade": "Export Foreign"}
+    ).mul(-1)
 
     return [regional_import, regional_export]
 

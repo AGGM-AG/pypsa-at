@@ -4,18 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Module for Sankey diagram."""
 
-from functools import partial
-
-import pandas as pd
-from plotly.graph_objs import Figure, Sankey
-
-from evals.constants import COLOUR, RUN_META_DATA
-from evals.constants import DataModel as DM
-from evals.plots._base import ESMChart
-from evals.utils import (
-    filter_by,
-    prettify_number,
-)
+import dataclasses
 
 # Transformationsblöcke je Energieträger
 # Zusammenfassung Energieträger:
@@ -28,6 +17,34 @@ from evals.utils import (
 # Alle Losses in Grau und je Tranformationsblock (Energieträger)
 # drei Transformationsblöcke P2G, GtP, other
 # oder ein Transformationsblock
+import enum
+from functools import partial
+from itertools import product
+
+import pandas as pd
+from plotly.graph_objs import Figure, Sankey
+
+from evals.constants import COLOUR, RUN_META_DATA
+from evals.constants import DataModel as DM
+from evals.plots._base import ESMChart
+from evals.utils import (
+    drop_from_multtindex_by_regex,
+    filter_by,
+    prettify_number,
+)
+
+
+@dataclasses.dataclass
+class Node:
+    label: str
+    color: str
+    # bus_carrier: tuple
+
+
+class Nodes(enum.Enum):
+    WASTE = Node("Waste", COLOUR.grey_light)
+    IMPORT = Node("Import", COLOUR.black)
+    GAS_PRIMARY_IN = Node("Gas Primary In", COLOUR.brown)
 
 
 BUS_CARRIER_GROUPS = {
@@ -65,6 +82,55 @@ BUS_CARRIER_GROUPS = {
     "urban central water tanks": "Heat",
     "urban decentral water tanks": "Heat",
 }
+
+GROUPS = {
+    "Biogas": ["biogas"],
+    "Electricity": ["AC", "low voltage", "EV battery", "battery", "home battery"],
+    "Heat": [
+        "rural heat",
+        "urban central heat",
+        "urban decentral heat",
+        "ambient heat",
+        "rural water tanks",
+        "urban central water pits",
+        "urban central water tanks",
+        "urban decentral water tanks",
+    ],
+    "Hydrogen": ["H2"],
+    "Liquids": [
+        "NH3",
+        "oil primary",
+        "methanol",
+        "oil",
+        "agriculture machinery oil",
+        "industry methanol",
+        "kerosene for aviation",
+        "shipping methanol",
+        "naphtha for industry",
+    ],
+    "Methane": ["gas", "gas for industry"],
+    "Solids": [
+        "coal",
+        "lignite",
+        "municipal solid waste",
+        "solid biomass",
+        "non-sequestered HVC",
+        "solid biomass for industry",
+    ],
+    "Uranium": ["uranium"],
+}
+
+GROUP_COLORS = {
+    "Biogas": COLOUR.green_sage,
+    "Electricity": COLOUR.blue_pastel,
+    "Heat": COLOUR.yellow_canary,
+    "Hydrogen": COLOUR.blue_cerulean,
+    "Liquids": COLOUR.red_deep,
+    "Methane": COLOUR.brown_light,
+    "Solids": COLOUR.grey_dark,
+    "Uranium": COLOUR.orange_mellow,
+}
+
 
 BUS_CARRIER_COLORS = {
     "biogas": COLOUR.green_sage,
@@ -833,6 +899,271 @@ class SankeyChart(ESMChart):
             columns=["source", "target", "value", "color", "customdata"]
         )
 
+        node_data = [
+            ["IMPORT", "Import", COLOUR.black],
+            # ["GAS_PRIMARY_IN", "", COLOUR.brown],
+            # ["GAS_PRIMARY_OUT", "", COLOUR.brown],
+            ["TRANSFORMATION_IN", "Transformation<br>& Storage", COLOUR.salmon],
+            ["TRANSFORMATION_OUT", "", COLOUR.salmon],
+            # ["GAS_BYPASS_IN", "Bypass", COLOUR.brown],
+            # ["GAS_BYPASS_OUT", "", COLOUR.brown],
+            # ["SECONDARY_GAS_IN", "Gas Secondary", COLOUR.brown],
+            # ["SECONDARY_GAS_OUT", "", COLOUR.brown],
+            ["INDUSTRY", "Industry", COLOUR.black],
+            ["HH_SERVICES", "Households & Services", COLOUR.black],
+            ["EXPORT", "Export", COLOUR.black],
+            ["TRANSFORMATION_LOSSES", "Transformation Losses", COLOUR.grey_neutral],
+        ]
+        for group, intersection, side in product(
+            GROUPS, ("PRIMARY", "BYPASS", "SECONDARY"), ("IN", "OUT")
+        ):
+            node_data.append(
+                [f"{group.upper()}_{intersection}_{side}", "", GROUP_COLORS[group]]
+            )
+
+        self.nodes = (
+            pd.DataFrame(
+                data=node_data,
+                columns=["name", "label", "color"],
+            )
+            .reset_index()
+            .set_index("name")
+            .rename({"index": "id"}, axis=1)
+        )
+        # self.nodes = pd.DataFrame(
+        #     columns=["id", "label", "color"]  # "customdata", "x", "y", "size"
+        # )
+
+    def _connect(self, df, source, target, color: str = None):
+        customdata = "<br>".join(
+            [
+                f"{c}: {prettify_number(v)} {self._df.attrs['unit']}"
+                for c, v in zip(df.index.get_level_values("carrier"), df["value"])
+            ]
+        )
+        # add a row with the link's value
+        row = self.flows.shape[0]  # next index
+        self.flows.loc[row, self.flows.columns] = [
+            source.name,
+            target.name,
+            df.sum().item(),
+            color or source.color,
+            customdata,
+        ]
+        # drop from the original dataframe
+        self._df.drop(df.index, inplace=True, errors="ignore")
+
+    def _forward(self, source, target, value, color: str = None):
+        row = self.flows.shape[0]  # next index
+        self.flows.loc[row, self.flows.columns] = [
+            source.name,
+            target.name,
+            value,
+            color or source.color,
+            f"{prettify_number(value)} {self._df.attrs['unit']}",
+        ]
+
+    # def _insert_node(self, node):
+    #     if node.name not in self.nodes.index:
+    #         self.nodes.loc[node.name, self.nodes.columns] = [
+    #             self.nodes.shape[0],
+    #             node.value.label,
+    #             node.value.color,
+    #         ]
+
+    def connect_electricity(self):
+        pass
+
+    def connect_methane(self):
+        gas_import = filter_by(
+            self._df,
+            bus_carrier="gas",
+            carrier=[
+                "Import Foreign",
+                "Import Domestic",
+                "pipeline gas",
+                "lng gas",
+                "production gas",
+                "import gas",
+            ],
+        )
+        self._connect(
+            gas_import,
+            self.nodes.loc["IMPORT"],
+            self.nodes.loc["METHANE_PRIMARY_IN"],
+            color=self.nodes.loc["METHANE_PRIMARY_IN", "color"],
+        )
+        self.nodes.at["IMPORT", "label"] += (
+            f"<br>{prettify_number(gas_import.sum().item())} {self.unit} Methane"
+        )
+
+        gas_primary = gas_import.sum().item()
+        self._forward(
+            self.nodes.loc["METHANE_PRIMARY_IN"],
+            self.nodes.loc["METHANE_PRIMARY_OUT"],
+            gas_primary,
+        )
+        self.nodes.at["METHANE_PRIMARY_IN", "label"] = (
+            f"{prettify_number(gas_primary)} {self.unit}"
+        )
+
+        transform_gas = filter_by(
+            self._df, bus_carrier="gas", component=["Link", "Store"]
+        ).pipe(
+            drop_from_multtindex_by_regex,
+            "Foreign|Domestic|gas for industry|decentral|rural",
+        )
+        transformation_gas_demand = transform_gas[transform_gas.lt(0)].dropna().mul(-1)
+        self._connect(
+            transformation_gas_demand,
+            self.nodes.loc["METHANE_PRIMARY_OUT"],
+            self.nodes.loc["TRANSFORMATION_IN"],
+        )
+        self._forward(
+            self.nodes.loc["TRANSFORMATION_IN"],
+            self.nodes.loc["TRANSFORMATION_OUT"],
+            transformation_gas_demand.sum().item(),
+        )
+
+        bypass_gas = gas_primary - transformation_gas_demand.sum()
+        self._forward(
+            self.nodes.loc["METHANE_PRIMARY_OUT"],
+            self.nodes.loc["METHANE_BYPASS_IN"],
+            bypass_gas.item(),
+        )
+        self._forward(
+            self.nodes.loc["METHANE_BYPASS_IN"],
+            self.nodes.loc["METHANE_BYPASS_OUT"],
+            bypass_gas.item(),
+        )
+        self.nodes.at["METHANE_BYPASS_IN", "label"] = (
+            f"{prettify_number(bypass_gas.item())} {self.unit}"
+        )
+
+        transformation_gas_supply = transform_gas[transform_gas.ge(0)].dropna()
+        self._connect(
+            transformation_gas_supply,
+            self.nodes.loc["TRANSFORMATION_OUT"],
+            self.nodes.loc["METHANE_SECONDARY_IN"],
+            color=self.nodes.loc["METHANE_PRIMARY_IN", "color"],
+        )
+        self._forward(
+            self.nodes.loc["METHANE_BYPASS_OUT"],
+            self.nodes.loc["METHANE_SECONDARY_IN"],
+            bypass_gas.item(),
+        )
+
+        secondary_gas = transformation_gas_supply.sum() + bypass_gas
+        self._forward(
+            self.nodes.loc["METHANE_SECONDARY_IN"],
+            self.nodes.loc["METHANE_SECONDARY_OUT"],
+            secondary_gas.item(),
+        )
+        self.nodes.at["METHANE_SECONDARY_IN", "label"] = (
+            f"{prettify_number(secondary_gas.item())} {self.unit}"
+        )
+
+        final_gas = filter_by(self._df, bus_carrier="gas").abs()
+
+        industry = final_gas.filter(like="industry", axis=0)
+        self._connect(
+            industry,
+            self.nodes.loc["METHANE_SECONDARY_OUT"],
+            self.nodes.loc["INDUSTRY"],
+        )
+        hh_services = final_gas.filter(regex="rural|decentral", axis=0)
+        self._connect(
+            hh_services,
+            self.nodes.loc["METHANE_SECONDARY_OUT"],
+            self.nodes.loc["HH_SERVICES"],
+        )
+        export_gas = final_gas.filter(regex="Foreign|Domestic", axis=0)
+        self._connect(
+            export_gas,
+            self.nodes.loc["METHANE_SECONDARY_OUT"],
+            self.nodes.loc["EXPORT"],
+        )
+
+        remaining_gas = filter_by(self._df, bus_carrier="gas")
+        assert remaining_gas.empty, remaining_gas
+
+    def plot(self):
+        self.connect_methane()
+        # next: connect hydrogen and electricity
+        # then: align x and y coordinates
+        # connect losses in background
+
+        self.fig = Figure(
+            data=[
+                Sankey(
+                    arrangement="snap",  # snap, perpendicular, freeform, fixed
+                    valuesuffix=self.unit,
+                    textfont_family="Montserrat",
+                    textfont_weight="bold",
+                    node=dict(
+                        align="justify",
+                        line=dict(color="black", width=0.5),
+                        label=self.nodes["label"],
+                        color=self.nodes["color"],
+                        line_width=0,
+                        hovertemplate="%{label}<extra></extra>",
+                        # x=nodes["x"],
+                        # y=nodes["y"],  # must include y, or x is ignored
+                        pad=10,
+                        thickness=20,
+                        # color=nodes["color"],
+                        # groups=self.get_node_groups(node_ids),  #
+                    ),
+                    link=dict(
+                        # arrowlen=15,
+                        source=self.flows["source"].map(self.nodes["id"]),
+                        target=self.flows["target"].map(self.nodes["id"]),
+                        value=self.flows["value"],
+                        color=self.flows["color"],
+                        customdata=self.flows["customdata"],
+                        hovertemplate="%{customdata} <extra></extra>",
+                    ),
+                )
+            ]
+        )
+
+        self._set_base_layout()
+
+    def _set_base_layout(self):
+        """Set various figure properties."""
+        self.fig.update_layout(
+            height=800,
+            font_family="Calibri",
+            plot_bgcolor="#ffffff",
+            legend_title_text=self.cfg.legend_header,
+        )
+        # update axes
+        self.fig.update_yaxes(
+            showgrid=self.cfg.yaxes_showgrid, visible=self.cfg.yaxes_visible
+        )
+        self.fig.update_layout(
+            xaxis={"categoryorder": "category ascending"},
+            # hovermode="x",  # show all categories on mouse-over
+        )
+        # trace order always needs to be reversed to show correct order
+        # of legend entries for relative bar charts
+        self.fig.update_layout(legend={"traceorder": "reversed"})
+
+        # export the metadata directly in the Layout property for JSON
+        self.fig.update_layout(meta=[RUN_META_DATA])
+
+
+class OldSankeyChart(ESMChart):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.location = self._df.index.unique(DM.LOCATION).item()
+        self.year = self._df.index.unique(DM.YEAR).item()
+        self._df = self._df.droplevel(DM.YEAR).droplevel(DM.LOCATION)
+        self._df.columns = ["value"]
+        self.flows = pd.DataFrame(
+            columns=["source", "target", "value", "color", "customdata"]
+        )
+
     def _add_flow(self, source, target, df):
         customdata = "<br>".join(
             [
@@ -847,14 +1178,14 @@ class SankeyChart(ESMChart):
             BUS_CARRIER_COLORS[source],
             customdata,
         ]
-        self._df.drop(df.index, inplace=True)
+        self._df.drop(df.index, inplace=True, errors="ignore")
 
     def connect_primary_solids(self):
-        bus_carrier = [k for k, v in BUS_CARRIER_GROUPS.items() if v == "Solids"]
-        waste = filter_by(
-            self._df, bus_carrier=bus_carrier, component=["Generator", "Store"]
+        bus_carrier = GROUPS["Solids"]
+        solids = filter_by(
+            self._df, bus_carrier=bus_carrier, component=["Generator", "Store", "Link"]
         )
-        self._add_flow("Waste", "Primary|Solids", waste)
+        self._add_flow("Waste", "Primary|Solids", solids)
 
     def connect_wind(self):
         pass
@@ -900,8 +1231,7 @@ class SankeyChart(ESMChart):
 
         return data
 
-    def plot(self):
-        # Concatenate the data with source and target columns
+    def prepare_data(self):
         links = self.add_source_target_columns_to_links()
         links["value"] = links["value"].abs()
         links = self.add_jumpers(links)
@@ -910,8 +1240,15 @@ class SankeyChart(ESMChart):
         links = self.add_customdata(links, self.unit)
         links = self.combine_duplicates(links)
         links = self.map_colors_from_bus_carrier(links)
-
         nodes = self.get_nodes_data_frame(links, node_ids)
+
+        return links, nodes
+
+    def plot(self):
+        # # Concatenate the data with source and target columns
+        links, nodes = self.prepare_data()
+
+        self.connect_primary_solids()
 
         self.fig = Figure(
             data=[
