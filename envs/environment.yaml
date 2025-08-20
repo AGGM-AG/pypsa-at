@@ -76,7 +76,7 @@ dependencies:
 - pylint
 
 # Temporary pins
-- ixmp4<0.10.0
+#- ixmp4<0.10.0  # disabled: version <10 trys to drop non-existing 'type' column
 
 - pip:
   - gurobipy
