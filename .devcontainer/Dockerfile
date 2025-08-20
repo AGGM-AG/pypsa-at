@@ -1,4 +1,4 @@
-FROM debian:bookworm
+FROM ghcr.io/aggm-ag/at-dev-env:latest
 
 ARG PIXI_VERSION=v0.50.2
 
