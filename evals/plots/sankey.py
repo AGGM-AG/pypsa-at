@@ -910,10 +910,10 @@ class SankeyChart(ESMChart):
         )
 
         node_data = [
-            ["IMPORT", "Import", COLOUR.black, 0, 0.1],
-            ["WIND", "Wind Power", COLOUR.black, 0, 0.3],
-            ["SOLAR", "Solar Power", COLOUR.black, 0, 0.5],
-            ["HYDRO", "Hydro Power", COLOUR.black, 0, 0.6],
+            ["IMPORT", "Import", COLOUR.black, 0.05, 0.1],
+            ["WIND", "Wind Power", COLOUR.black, 0.05, 0.3],
+            ["SOLAR", "Solar Power", COLOUR.black, 0.05, 0.5],
+            ["HYDRO", "Hydro Power", COLOUR.black, 0.05, 0.6],
             [
                 "TRANSFORMATION_IN",
                 "Transformation<br>& Storage",
@@ -922,11 +922,11 @@ class SankeyChart(ESMChart):
                 0.9,
             ],
             ["TRANSFORMATION_OUT", "", COLOUR.salmon, 0.6, 0.9],
-            ["INDUSTRY", "Industry", COLOUR.black, 1, 0.5],
-            ["HH_SERVICES", "Households & Services", COLOUR.black, 1, 0.3],
-            ["EXPORT", "Export", COLOUR.black, 1, 0.2],
-            ["TRANSPORT", "Transport", COLOUR.black, 1, 0.6],
-            ["AGRICULTURE", "Agriculture", COLOUR.black, 1, 0.8],
+            ["INDUSTRY", "Industry", COLOUR.black, 0.99, 0.5],
+            ["HH_SERVICES", "Households & Services", COLOUR.black, 0.99, 0.3],
+            ["EXPORT", "Export", COLOUR.black, 0.99, 0.2],
+            ["TRANSPORT", "Transport", COLOUR.black, 0.99, 0.6],
+            ["AGRICULTURE", "Agriculture", COLOUR.black, 0.99, 0.8],
             [
                 "TRANSFORMATION_LOSSES",
                 "Transformation Losses",
@@ -938,12 +938,12 @@ class SankeyChart(ESMChart):
         ]
         for group, (section, x), side in product(
             GROUPS,
-            (("PRIMARY", 0.2), ("BYPASS", 0.5), ("SECONDARY", 0.8)),
+            (("PRIMARY", 0.3), ("BYPASS", 0.5), ("SECONDARY", 0.8)),
             ("IN", "OUT"),
         ):
             distance = 0.1
             if section in ("PRIMARY", "SECONDARY"):
-                distance = 0.05
+                distance = 0.02
             if side == "IN":
                 pos_horizontal = x - distance
             else:
@@ -953,7 +953,7 @@ class SankeyChart(ESMChart):
                     f"{group.upper()}_{section}_{side}",
                     "",
                     GROUP_COLORS[group],
-                    pos_horizontal,
+                    round(pos_horizontal, 1),
                     GROUP_RANK[group],
                 ]
             )
@@ -1493,28 +1493,46 @@ class SankeyChart(ESMChart):
 
         # self.check_nodal_balance()
         # self.calculate_node_y_positions()
-        # flows_used = set(self.flows["source"]).union(set(self.flows["target"]))
-        # self.nodes = self.nodes.query("name in @flows_used")
+        flows_used = set(self.flows["source"]).union(set(self.flows["target"]))
+        self.nodes = self.nodes.query("name in @flows_used")
+        self.nodes["id"] = [*range(len(self.nodes))]
+        # self.nodes["id"] = [*range(1, len(self.nodes) + 1)]
+        # METHANE_PRIMARY_IN x coordinates are not respected
+
+        x = self.nodes["x"].tolist()
+        # x.insert(0, x.pop())
 
         self.fig = Figure(
             data=[
                 Sankey(
-                    arrangement="fixed",  # snap, perpendicular, freeform, fixed
+                    arrangement="snap",  # snap, perpendicular, freeform, fixed
                     valuesuffix=self.unit,
                     textfont_family="Montserrat",
                     textfont_weight="bold",
                     node=dict(
                         # align="justify",
                         line=dict(color="black", width=0.5),
-                        label=self.nodes["label"],
-                        color=self.nodes["color"],
-                        line_width=0,
+                        # label=self.nodes["label"].tolist(),
+                        # label=[""] * len(self.nodes["label"]),
+                        label=self.nodes.index,
+                        color=self.nodes["color"].tolist(),
+                        line_width=1,
                         hovertemplate="%{label}<extra></extra>",
-                        x=self.nodes["x"],
+                        x=x,
+                        # fixme: node positions are off by one.
+                        # self.nodes["x"].tolist()[6]
+                        # Out[23]: 0.25
+                        # self.nodes["x"].tolist()[5]  # 6th position
+                        # Out[24]: 0.99  # used for primary in
+                        y=self.nodes[
+                            "y_rank"
+                        ].tolist(),  # must include y, or x is ignored
+                        # fixme: 0.0 and 1.0 are ignored in plotly.js
+                        # the coordinates refer to the node center
+                        # snap will optimize positions again, fixed will not
                         # x=[0.01, 0.4, 0.6, 0.99, 0.99, 0.99, 0.15, 0.25, 0.4, 0.6, 0.75, 0.85],
                         # y=[0.99, 0.01, 0.01, 0.5, 0.8, 0.99, 0.10, 0.10, 0.1, 0.1, 0.10, 0.10],
                         # y=[0.5, 0.2, 0.2, 0.3, 0.1, 0.7, 0.50, 0.50, 0.6, 0.6, 0.50, 0.50],
-                        y=self.nodes["y_rank"],  # must include y, or x is ignored
                         pad=10,
                         thickness=10,
                     ),
