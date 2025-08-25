@@ -18,7 +18,6 @@ import dataclasses
 # drei Transformationsblöcke P2G, GtP, other
 # oder ein Transformationsblock
 import enum
-from functools import partial
 from itertools import product
 
 import pandas as pd
@@ -131,7 +130,7 @@ GROUP_COLORS = {
     "Uranium": COLOUR.orange_mellow,
 }
 
-GROUP_RANK = {
+GROUP_Y = {
     "Electricity": 0.1,  # zero is reserved for Transformation
     "Methane": 0.3,
     "Hydrogen": 0.4,
@@ -140,6 +139,14 @@ GROUP_RANK = {
     "Liquids": 0.7,
     "Biogas": 0.8,
     "Uranium": 0.9,
+}
+GROUP_X = {
+    ("PRIMARY", "IN"): 0.25,
+    ("PRIMARY", "OUT"): 0.3,
+    ("BYPASS", "IN"): 0.4,
+    ("BYPASS", "OUT"): 0.6,
+    ("SECONDARY", "IN"): 0.7,
+    ("SECONDARY", "OUT"): 0.75,
 }
 
 BUS_CARRIER_COLORS = {
@@ -185,717 +192,48 @@ BUS_CARRIER_COLORS = {
 }
 
 
-LINK_MAPPING = {
-    ("Line", "Export Foreign", "AC"): ("Secondary AC Out", "Export"),
-    ("Line", "Import Foreign", "AC"): ("Import", "Primary AC"),
-    ("Link", "Export Foreign", "AC"): ("Secondary AC Out", "Export"),
-    ("Link", "Export Foreign", "H2"): ("Secondary H2 Out", "Export"),
-    ("Link", "Export Foreign", "gas"): ("Secondary Gas Out", "Export"),
-    ("Link", "Export Foreign", "municipal solid waste"): (
-        "Secondary Solids Out",
-        "Export",
-    ),
-    ("Link", "Export Foreign", "solid biomass"): ("Secondary Solids Out", "Export"),
-    ("Link", "Import Foreign", "AC"): ("Import", "Primary AC"),
-    ("Link", "Import Foreign", "H2"): ("Import", "Primary H2"),
-    ("Link", "Import Foreign", "gas"): ("Import", "Primary Gas"),
-    ("Link", "Import Foreign", "municipal solid waste"): ("Import", "Primary Solids"),
-    ("Link", "Import Foreign", "solid biomass"): ("Import", "Primary Solids"),
-    ("Link", "Import Foreign", "oil"): ("Import", "Primary Liquids"),
-    ("Link", "Export Foreign", "oil"): ("Secondary Liquids Out", "Export"),
-    # ("Link", "BEV charger", "EV battery"): ("Secondary AC Out", "Transport"),
-    # ("Link", "BEV charger", "low voltage losses"): ("Transport", "Losses Transport"),   # todo: activate
-    # Wood gasification treated as primary energy to simplify energy flows
-    ("Link", "BioSNG", "gas"): ("Solid Biomass", "Primary Gas"),
-    ("Link", "BioSNG CC", "gas"): ("Solid Biomass", "Primary Gas"),
-    # ("Link", "BioSNG", "solid biomass"): ("", ""),
-    ("Link", "BioSNG", "solid biomass losses"): (
-        "Secondary Solids In",
+NODE_DATA = [
+    ["IMPORT", "Import", COLOUR.black, 0.05, 0.1],
+    ["WIND", "Wind Power", COLOUR.black, 0.05, 0.3],
+    ["SOLAR", "Solar Power", COLOUR.black, 0.05, 0.5],
+    ["HYDRO", "Hydro Power", COLOUR.black, 0.05, 0.6],
+    ["BIOGAS", "Biogas", COLOUR.black, 0.05, 0.8],
+    [
+        "TRANSFORMATION_IN",
+        "Transformation<br>& Storage",
+        COLOUR.salmon,
+        0.4,
+        0.9,
+    ],
+    ["TRANSFORMATION_OUT", "", COLOUR.salmon, 0.6, 0.9],
+    ["INDUSTRY", "Industry", COLOUR.black, 0.99, 0.5],
+    ["HH_SERVICES", "Households & Services", COLOUR.black, 0.99, 0.3],
+    ["EXPORT", "Export", COLOUR.black, 0.99, 0.01],
+    ["TRANSPORT", "Transport", COLOUR.black, 0.99, 0.6],
+    ["AGRICULTURE", "Agriculture", COLOUR.black, 0.99, 0.8],
+    [
+        "TRANSFORMATION_LOSSES",
         "Transformation Losses",
-    ),  # todo: need to subtract from Biomass primary
-    # ("Link", "BioSNG CC", "solid biomass"): ("", ""),
-    ("Link", "BioSNG CC", "solid biomass losses"): (
-        "Secondary Solids In",
-        "Transformation Losses",
-    ),
-    ("Link", "CCGT", "AC"): ("Secondary Gas In", "Secondary AC Out"),
-    # ("Link", "CCGT", "gas"): ("", ""),
-    ("Link", "CCGT", "gas losses"): ("Secondary Gas In", "Transformation Losses"),
-    ("Link", "CCGT methanol", "AC"): ("Secondary Liquids In", "Secondary AC Out"),
-    # ("Link", "CCGT methanol", "methanol"): ("", ""),
-    ("Link", "CCGT methanol", "methanol losses"): (
-        "Secondary Liquids In",
-        "Transformation Losses",
-    ),
-    ("Link", "CCGT methanol CC", "AC"): ("Secondary Liquids In", "Secondary AC Out"),
-    # ("Link", "CCGT methanol CC", "methanol"): ("", ""),
-    ("Link", "CCGT methanol CC", "methanol losses"): (
-        "Secondary Liquids In",
-        "Transformation Losses",
-    ),
-    ("Link", "DAC", "AC"): ("Secondary AC Out", "DAC"),
-    ("Link", "DAC", "urban central heat"): ("Secondary Heat Out", "DAC"),
-    ("Link", "DAC", "urban decentral heat"): ("Decentral Heat", "DAC"),
-    # ("Store", "EV battery", "EV battery"): ("", ""),
-    # ("Link", "Fischer-Tropsch", "H2"): ("", ""),
-    ("Link", "Fischer-Tropsch", "H2 losses"): (
-        "Secondary H2 In",
-        "Transformation Losses",
-    ),
-    ("Link", "Fischer-Tropsch", "oil"): ("Secondary H2 In", "Secondary Liquids Out"),
-    ("Link", "Fischer-Tropsch", "urban central heat"): (
-        "Secondary H2 In",
-        "Secondary Heat Out",
-    ),
-    ("Link", "H2 Electrolysis", "AC losses"): (
-        "Secondary AC In",
-        "Transformation Losses",
-    ),
-    ("Link", "H2 Electrolysis", "H2"): ("Secondary AC In", "Secondary H2 Out"),
-    ("Link", "H2 Electrolysis", "urban central heat"): (
-        "Secondary AC In",
-        "Secondary Heat Out",
-    ),
-    ("Link", "H2 Fuel Cell", "AC"): ("Secondary H2 In", "Secondary AC Out"),
-    # ("Link", "H2 Fuel Cell", "H2"): ("", ""),
-    ("Link", "H2 Fuel Cell", "H2 losses"): (
-        "Secondary H2 In",
-        "Transformation Losses",
-    ),
-    ("Link", "H2 Fuel Cell", "urban central heat"): (
-        "Secondary H2 In",
-        "Secondary Heat Out",
-    ),
-    ("Link", "H2 OCGT", "AC"): ("Secondary H2 In", "Secondary AC Out"),
-    # ("Link", "H2 OCGT", "H2"): ("", ""),
-    ("Link", "H2 OCGT", "H2 losses"): ("Secondary H2 In", "Transformation Losses"),
-    # ("Store", "H2 Store", "H2"): ("", ""),
-    # ("Store", "H2 Store supply", "H2"): ("Secondary H2 Out", "Secondary H2 In"),  # todo: activate
-    # ("Store", "H2 Store demand", "H2"): ("Secondary H2 In", "Secondary H2 Out"),
-    ("Load", "H2 for industry", "H2"): ("Secondary H2 Out", "Industry"),
-    # ("Link", "HVC to air", "non-sequestered HVC"): ("", ""),
-    # ("Link", "Haber-Bosch", "AC"): ("", ""),
-    ("Link", "Haber-Bosch", "AC losses"): ("Secondary AC In", "Transformation Losses"),
-    # ("Link", "Haber-Bosch", "H2"): ("", ""),
-    ("Link", "Haber-Bosch", "H2 losses"): ("Secondary H2 In", "Transformation Losses"),
-    # ("Link", "Haber-Bosch", "NH3"): ("", ""),
-    ("Link", "Haber-Bosch", "NH3 from AC"): (
-        "Secondary AC In",
-        "Secondary Liquids Out",
-    ),
-    ("Link", "Haber-Bosch", "NH3 from H2"): (
-        "Secondary H2 In",
-        "Secondary Liquids Out",
-    ),
-    # ("Link", "Haber-Bosch", "urban central heat"): ("", ""),
-    ("Link", "Haber-Bosch", "urban central heat from AC"): (
-        "Secondary AC In",
-        "Secondary Heat Out",
-    ),
-    ("Link", "Haber-Bosch", "urban central heat from H2"): (
-        "Secondary H2 In",
-        "Secondary Heat Out",
-    ),
-    ("Link", "Methanol steam reforming", "H2"): (
-        "Secondary Liquids In",
-        "Secondary H2 Out",
-    ),
-    # ("Link", "Methanol steam reforming", "methanol"): ("", ""),
-    ("Link", "Methanol steam reforming", "methanol losses"): (
-        "Secondary Liquids In",
-        "Transformation Losses",
-    ),
-    ("Link", "Methanol steam reforming CC", "H2"): (
-        "Secondary Liquids In",
-        "Secondary H2 Out",
-    ),
-    # ("Link", "Methanol steam reforming CC", "methanol"): ("", ""),
-    ("Link", "Methanol steam reforming CC", "methanol losses"): (
-        "Secondary Liquids In",
-        "Transformation Losses",
-    ),
-    ("Load", "NH3", "NH3"): ("", ""),
-    ("Link", "OCGT", "AC"): ("Secondary Gas In", "Secondary AC Out"),
-    # ("Link", "OCGT", "gas"): ("", ""),
-    ("Link", "OCGT", "gas losses"): ("Secondary Gas In", "Transformation Losses"),
-    ("Link", "OCGT methanol", "AC"): ("Secondary Liquids In", "Secondary AC Out"),
-    # ("Link", "OCGT methanol", "methanol"): ("", ""),
-    ("Link", "OCGT methanol", "methanol losses"): (
-        "Secondary Liquids In",
-        "Transformation Losses",
-    ),
-    # ("StorageUnit", "PHS demand", "AC"): ("Secondary AC In", "AC Storage"),  # todo: activate
-    # ("StorageUnit", "PHS supply", "AC"): ("AC Storage", "Secondary AC Out"),  # todo: activate
-    # todo: PHS losses
-    ("Link", "SMR", "H2"): ("Secondary Gas In", "Secondary H2 Out"),
-    # ("Link", "SMR", "gas"): ("", ""),
-    ("Link", "SMR", "gas losses"): ("Secondary Gas In", "Transformation Losses"),
-    ("Link", "SMR CC", "H2"): ("Secondary Gas In", "Secondary H2 Out"),
-    # ("Link", "SMR CC", "gas"): ("", ""),
-    ("Link", "SMR CC", "gas losses"): ("Secondary Gas In", "Transformation Losses"),
-    # ("Link", "Sabatier", "H2"): ("", ""),
-    ("Link", "Sabatier", "H2 losses"): ("Secondary H2 In", "Transformation Losses"),
-    ("Link", "Sabatier", "gas"): ("Secondary H2 In", "Secondary Gas Out"),
-    ("Link", "Sabatier", "urban central heat"): (
-        "Secondary H2 In",
-        "Secondary Heat Out",
-    ),
-    # todo: treat V2G as a storage technology same as battery
-    ("Link", "V2G", "EV battery"): ("", ""),
-    # ("Link", "V2G", "EV battery losses"): ("Transport", "Losses"),
-    # ("Link", "V2G", "low voltage"): ("Transport", "Secondary AC In"),
-    ("Load", "agriculture electricity", "low voltage"): (
-        "Secondary AC Out",
-        "Agriculture",
-    ),
-    ("Load", "agriculture heat", "rural heat"): ("Decentral Heat", "Agriculture"),
-    # prefer Load for tests to find unexpected losses in Links
-    # ("Link", "agriculture machinery oil", "agriculture machinery oil"): ("Secondary Liquids Out", "Agriculture"),
-    # ("Link", "agriculture machinery oil", "oil"): ("", ""),
-    ("Load", "agriculture machinery oil", "agriculture machinery oil"): (
-        "Secondary Liquids Out",
-        "Agriculture",
-    ),
-    ("Link", "allam methanol", "AC"): ("Secondary Liquids In", "Secondary AC Out"),
-    # ("Link", "allam methanol", "methanol"): ("", ""),
-    ("Link", "allam methanol", "methanol losses"): (
-        "Secondary Liquids In",
-        "Transformation Losses",
-    ),
-    ("Link", "ammonia cracker", "H2"): ("Secondary Liquids In", "Secondary H2 Out"),
-    # ("Link", "ammonia cracker", "NH3"): ("", ""),
-    ("Link", "ammonia cracker", "NH3 losses"): (
-        "Secondary Liquids In",
-        "Transformation Losses",
-    ),
-    # ("Store", "ammonia store", "NH3"): ("", ""),
-    # ("Store", "battery", "battery"): ("", ""),
-    # ("Store", "home battery", "home battery"): ("", ""),
-    # ("Link", "battery charger", "AC"): (
-    #     "Secondary AC In",
-    #     "AC Storage",
-    # ),  # todo: activate
-    # ("Link", "home battery charger", "low voltage"): ("Secondary AC In", "AC Storage"),  # todo: activate
-    # ("Link", "battery charger", "AC losses"): ("AC Storage", "Storage Losses"),  # todo: activate
-    # ("Link", "home battery charger", "low voltage losses"): (  # todo: activate
-    #     "AC Storage",
-    #     "Storage Losses",
-    # ),
-    # # ("Link", "battery charger", "battery"): ("Secondary AC In", "AC Storage"),
-    # # ("Link", "home battery charger", "home battery"): ("", ""),
-    # ("Link", "battery discharger", "AC"): ("AC Storage", "Secondary AC Out"),  # todo: activate
-    # ("Link", "home battery discharger", "low voltage"): (  # todo: activate
-    #     "AC Storage",
-    #     "Secondary AC Out",
-    # ),
-    # # ("Link", "battery discharger", "battery"): ("", ""),
-    # # ("Link", "home battery discharger", "home battery"): ("", ""),
-    # ("Link", "battery discharger", "battery losses"): ("AC Storage", "Storage Losses"),  # todo: activate
-    # ("Link", "home battery discharger", "home battery losses"): (  # todo: activate
-    #     "AC Storage",
-    #     "Storage Losses",
-    # ),
-    ("Link", "biogas to gas", "gas"): ("Biogas", "Primary Gas"),
-    ("Link", "biogas to gas CC", "gas"): ("Biogas", "Primary Gas"),
-    ("Link", "biomass to liquid", "oil"): (
-        "Secondary Solids In",
-        "Secondary Liquids Out",
-    ),
-    # ("Link", "biomass to liquid", "solid biomass"): ("", ""),
-    ("Link", "biomass to liquid", "solid biomass losses"): (
-        "Secondary Solids In",
-        "Transformation Losses",
-    ),
-    ("Link", "biomass to liquid CC", "oil"): (
-        "Secondary Solids In",
-        "Secondary Liquids Out",
-    ),
-    # ("Link", "biomass to liquid CC", "solid biomass"): ("", ""),
-    ("Link", "biomass to liquid CC", "solid biomass losses"): (
-        "Secondary Solids In",
-        "Transformation Losses",
-    ),
-    ("Link", "biomass-to-methanol", "methanol"): (
-        "Secondary Solids In",
-        "Secondary Liquids Out",
-    ),
-    # ("Link", "biomass-to-methanol", "solid biomass"): ("", ""),
-    ("Link", "biomass-to-methanol", "solid biomass losses"): (
-        "Secondary Solids In",
-        "Transformation Losses",
-    ),
-    ("Link", "biomass-to-methanol CC", "methanol"): (
-        "Secondary Solids In",
-        "Secondary Liquids Out",
-    ),
-    # ("Link", "biomass-to-methanol CC", "solid biomass"): ("", ""),
-    ("Link", "biomass-to-methanol CC", "solid biomass losses"): (
-        "Secondary Solids In",
-        "Transformation Losses",
-    ),
-    ("Generator", "coal", "coal"): ("Coal", "Primary Solids"),
-    ("Link", "coal", "AC"): ("Secondary Solids In", "Secondary AC Out"),
-    # ("Link", "coal", "coal"): ("", ""),
-    ("Link", "coal", "coal losses"): ("Secondary Solids In", "Transformation Losses"),
-    # ("Store", "coal", "coal"): ("", ""),
-    ("Load", "electricity", "low voltage"): ("Secondary AC Out", "HH & Services"),
-    ("Link", "electricity distribution grid", "losses"): (
-        "Secondary AC In",
-        "Transformation Losses",
-    ),
-    # ("Link", "electrobiofuels", "H2"): ("", ""),
-    ("Link", "electrobiofuels", "H2 losses"): (
-        "Secondary H2 In",
-        "Transformation Losses",
-    ),
-    # ("Link", "electrobiofuels", "oil"): ("", ""),
-    ("Link", "electrobiofuels", "oil from solid biomass"): (
-        "Secondary Solids In",
-        "Secondary Liquids Out",
-    ),
-    ("Link", "electrobiofuels", "oil from H2"): (
-        "Secondary H2 In",
-        "Secondary Liquids Out",
-    ),
-    # ("Link", "electrobiofuels", "solid biomass"): ("", ""),
-    ("Link", "electrobiofuels", "solid biomass losses"): (
-        "Secondary Solids In",
-        "Transformation Losses",
-    ),
-    # ("Store", "gas", "gas"): ("", ""),
-    # ("Store", "gas supply", "gas"): ("Secondary Gas Out", "Secondary Gas In"),  # todo: activate
-    # ("Store", "gas demand", "gas"): ("Secondary Gas In", "Secondary Gas Out"),
-    # ("Link", "gas for industry", "gas"): ("", ""),
-    ("Link", "gas for industry", "gas for industry"): ("Secondary Gas Out", "Industry"),
-    # ("Load", "gas for industry", "gas for industry"): ("", ""),
-    # ("Link", "gas for industry CC", "gas"): ("", ""),
-    ("Link", "gas for industry CC", "gas for industry"): (
-        "Secondary Gas Out",
-        "Industry",
-    ),
-    # ("Link", "gas for industry CC", "gas losses"): ("Industry", "Losses Industry"),   # todo: activate
-    ("StorageUnit", "hydro supply", "AC"): ("Hydro Power", "Primary AC"),  # is primary
-    ("Generator", "import H2", "H2"): ("Import", "Primary H2"),
-    ("Generator", "import NH3", "NH3"): ("Import", "Primary Liquids"),
-    ("Link", "import gas", "gas"): ("Import", "Primary Gas"),
-    ("Link", "import methanol", "methanol"): ("Import", "Primary Liquids"),
-    ("Link", "import oil", "oil"): ("Import", "Primary Liquids"),
-    ("Load", "industry electricity", "low voltage"): ("Secondary AC Out", "Industry"),
-    # ("Link", "industry methanol", "industry methanol"): ("", ""),
-    # ("Link", "industry methanol", "methanol"): ("", ""),
-    ("Load", "industry methanol", "industry methanol"): (
-        "Secondary Liquids Out",
-        "Industry",
-    ),
-    # ("Link", "kerosene for aviation", "kerosene for aviation"): ("", ""),
-    # ("Link", "kerosene for aviation", "oil"): ("", ""),
-    ("Load", "kerosene for aviation", "kerosene for aviation"): (
-        "Secondary Liquids Out",
-        "Transport",
-    ),
-    ("Load", "land transport EV", "EV battery"): ("Secondary AC Out", "Transport"),
-    ("Load", "land transport fuel cell", "H2"): ("Secondary H2 Out", "Transport"),
-    ("Generator", "lignite", "lignite"): ("Coal", "Primary Solids"),
-    ("Link", "lignite", "AC"): ("Secondary Solids In", "Secondary AC Out"),
-    # ("Link", "lignite", "lignite"): ("", ""),
-    ("Link", "lignite", "lignite losses"): (
-        "Secondary Solids In",
-        "Transformation Losses",
-    ),
-    # ("Store", "lignite", "lignite"): ("", ""),
-    ("Generator", "lng gas", "gas"): ("Import", "Primary Gas"),
-    ("Load", "low-temperature heat for industry", "urban central heat"): (
-        "Secondary Heat Out",
-        "Industry",
-    ),
-    ("Load", "low-temperature heat for industry", "urban decentral heat"): (
-        "Decentral Heat",
-        "Industry",
-    ),
-    # ("Store", "methanol", "methanol"): ("", ""),
-    # ("Link", "methanol-to-kerosene", "H2"): ("", ""),
-    ("Link", "methanol-to-kerosene", "H2 losses"): (
-        "Secondary H2 In",
-        "Transformation Losses",
-    ),
-    # ("Link", "methanol-to-kerosene", "kerosene for aviation"): ("", ""),
-    ("Link", "methanol-to-kerosene", "kerosene for aviation from H2"): (
-        "Secondary H2 In",
-        "Secondary Liquids Out",
-    ),
-    # ("Link", "methanol-to-kerosene", "kerosene for aviation from methanol"): ("", ""),
-    # ("Link", "methanol-to-kerosene", "methanol"): ("", ""),
-    # must include Liquids to Liquids conversion losses
-    ("Link", "methanol-to-kerosene", "methanol losses"): (
-        "Secondary Liquids In",
-        "Transformation Losses",
-    ),
-    # ("Link", "methanolisation", "AC"): ("", ""),
-    ("Link", "methanolisation", "AC losses"): (
-        "Secondary AC In",
-        "Transformation Losses",
-    ),
-    # ("Link", "methanolisation", "H2"): ("", ""),
-    ("Link", "methanolisation", "H2 losses"): (
-        "Secondary H2 In",
-        "Transformation Losses",
-    ),
-    # ("Link", "methanolisation", "methanol"): ("", ""),
-    ("Link", "methanolisation", "methanol from AC"): (
-        "Secondary AC In",
-        "Secondary Liquids Out",
-    ),
-    ("Link", "methanolisation", "methanol from H2"): (
-        "Secondary H2 In",
-        "Secondary Liquids Out",
-    ),
-    # ("Link", "methanolisation", "urban central heat"): ("", ""),
-    ("Link", "methanolisation", "urban central heat from AC"): (
-        "Secondary AC In",
-        "Secondary Heat Out",
-    ),
-    ("Link", "methanolisation", "urban central heat from H2"): (
-        "Secondary H2 In",
-        "Secondary Heat Out",
-    ),
-    # ("Generator", "municipal solid waste", "municipal solid waste"): ("Waste", "Primary Solids"),
-    # ("Link", "municipal solid waste", "municipal solid waste"): ("", ""),
-    ("Link", "municipal solid waste", "non-sequestered HVC"): (
-        "Waste",
-        "Primary Solids",
-    ),
-    # ("Link", "naphtha for industry", "naphtha for industry"): ("", ""),
-    # ("Link", "naphtha for industry", "oil"): ("", ""),
-    ("Load", "naphtha for industry", "naphtha for industry"): (
-        "Secondary Liquids Out",
-        "Industry",
-    ),
-    ("Store", "non-sequestered HVC", "non-sequestered HVC"): (
-        "Waste",
-        "Primary Solids",
-    ),  # todo: why is this store not balanced?
-    ("Link", "nuclear", "AC"): ("Nuclear Power", "Primary AC"),
-    ("Generator", "offwind-ac", "AC"): ("Wind Power", "Primary AC"),
-    ("Generator", "offwind-dc", "AC"): ("Wind Power", "Primary AC"),
-    ("Link", "oil", "AC"): ("Secondary Liquids In", "Secondary AC Out"),
-    # ("Link", "oil", "oil"): ("", ""),
-    ("Link", "oil", "oil losses"): ("Secondary Liquids In", "Transformation Losses"),
-    # ("Store", "oil", "oil"): ("", ""),
-    # ("Generator", "oil primary", "oil primary"): ("", ""),
-    # skipping oil primary and refining losses
-    ("Link", "oil refining", "oil"): ("Oil", "Primary Liquids"),
-    # ("Link", "oil refining", "oil primary"): ("", ""),
-    # ("Link", "oil refining", "oil primary losses"): ("", ""),
-    ("Generator", "onwind", "AC"): ("Wind Power", "Primary AC"),
-    ("Generator", "pipeline gas", "gas"): ("Import", "Primary Gas"),
-    ("Generator", "production gas", "gas"): ("Production", "Primary Gas"),
-    ("Generator", "ror", "AC"): ("Hydro Power", "Primary AC"),
-    ("Link", "rural air heat pump", "ambient heat"): (
-        "Ambient Heat Decentral",
-        "Decentral Heat",
-    ),
-    # ("Link", "rural air heat pump", "low voltage"): ("", ""),
-    ("Link", "rural air heat pump", "rural heat"): (
-        "Secondary AC In",
-        "Decentral Heat",
-    ),
-    ("Link", "rural biomass boiler", "rural heat"): (
-        "Secondary Solids In",
-        "Decentral Heat",
-    ),
-    # ("Link", "rural biomass boiler", "solid biomass"): ("", ""),
-    ("Link", "rural biomass boiler", "solid biomass losses"): (
-        "Secondary Solids In",
-        "Transformation Losses",
-    ),
-    # ("Link", "rural gas boiler", "gas"): ("", ""),
-    ("Link", "rural gas boiler", "gas losses"): (
-        "Secondary Gas In",
-        "Transformation Losses",
-    ),
-    ("Link", "rural gas boiler", "rural heat"): ("Secondary Gas In", "Decentral Heat"),
-    ("Link", "rural ground heat pump", "ambient heat"): (
-        "Ambient Heat Decentral",
-        "Decentral Heat",
-    ),
-    # ("Link", "rural ground heat pump", "low voltage"): ("", ""),
-    ("Link", "rural ground heat pump", "rural heat"): (
-        "Secondary AC In",
-        "Decentral Heat",
-    ),
-    ("Load", "rural heat", "rural heat"): ("Decentral Heat", "HH & Services"),
-    # ("Generator", "rural heat vent", "rural heat"): (   # todo: activate
-    #     "Decentral Heat",
-    #     "Losses Decentral Heat",
-    # ),
-    # ("Link", "rural resistive heater", "low voltage"): ("", ""),
-    ("Link", "rural resistive heater", "low voltage losses"): (
-        "Secondary AC In",
-        "Transformation Losses",
-    ),
-    ("Link", "rural resistive heater", "rural heat"): (
-        "Secondary AC In",
-        "Decentral Heat",
-    ),
-    ("Generator", "rural solar thermal", "rural heat"): (
-        "Solar Heat",
-        "Decentral Heat",
-    ),
-    # ("Store", "rural water tanks", "rural water tanks"): (   # todo: activate
-    #     "Decentral Heat",
-    #     "Losses Decentral Heat",
-    # ),
-    # ("Link", "rural water tanks charger", "rural heat"): ("", ""),
-    # ("Link", "rural water tanks charger", "rural water tanks"): ("", ""),
-    # ("Link", "rural water tanks discharger", "rural heat"): ("", ""),
-    # ("Link", "rural water tanks discharger", "rural water tanks"): ("", ""),
-    # ("Link", "shipping methanol", "methanol"): ("", ""),
-    # ("Link", "shipping methanol", "shipping methanol"): ("", ""),
-    ("Load", "shipping methanol", "shipping methanol"): (
-        "Secondary Liquids Out",
-        "Transport",
-    ),
-    ("Generator", "solar", "AC"): ("Solar Power", "Primary AC"),
-    ("Generator", "solar rooftop", "low voltage"): ("Solar Power", "Primary AC"),
-    ("Generator", "solar-hsat", "AC"): ("Solar Power", "Primary AC"),
-    ("Generator", "solid biomass", "solid biomass"): (
-        "Solid Biomass",
-        "Primary Solids",
-    ),
-    # ("Link", "solid biomass for industry", "solid biomass"): ("", ""),
-    ("Link", "solid biomass for industry", "solid biomass for industry"): (
-        "Secondary Solids Out",
-        "Industry",
-    ),
-    # ("Load", "solid biomass for industry", "solid biomass for industry"): ("Secondary Solids Out", "Industry"),
-    ("Link", "solid biomass for industry CC", "solid biomass"): (
-        "Secondary Solids Out",
-        "Industry",
-    ),
-    # ("Link", "solid biomass for industry CC", "solid biomass for industry"): ("Secondary Solids Out", "Industry"),
-    # ("Link", "solid biomass for industry CC", "solid biomass losses"): (  # todo: activate
-    #     "Industry",
-    #     "Losses Industry",
-    # ),
-    ("Link", "solid biomass to hydrogen", "H2"): (
-        "Secondary Solids In",
-        "Secondary H2 Out",
-    ),
-    # ("Link", "solid biomass to hydrogen", "solid biomass"): ("", ""),
-    ("Link", "solid biomass to hydrogen", "solid biomass losses"): (
-        "Secondary Solids In",
-        "Transformation Losses",
-    ),
-    ("Link", "urban central H2 CHP", "AC"): ("Secondary H2 In", "Secondary AC Out"),
-    ("Link", "urban central H2 CHP", "H2 losses"): (
-        "Secondary H2 In",
-        "Transformation Losses",
-    ),
-    ("Link", "urban central H2 CHP", "urban central heat"): (
-        "Secondary H2 In",
-        "Secondary Heat Out",
-    ),
-    ("Link", "urban central air heat pump", "ambient heat"): (
-        "Ambient Heat Central",
-        "Secondary Heat Out",
-    ),
-    # ("Link", "urban central air heat pump", "low voltage"): ("", ""),
-    ("Link", "urban central air heat pump", "urban central heat"): (
-        "Secondary AC In",
-        "Secondary Heat Out",
-    ),
-    ("Link", "urban central coal CHP", "AC"): (
-        "Secondary Solids In",
-        "Secondary AC Out",
-    ),
-    ("Link", "urban central coal CHP", "ambient heat"): (
-        "Ambient Heat Central",
-        "Secondary Heat Out",
-    ),
-    ("Link", "urban central coal CHP", "urban central heat"): (
-        "Secondary Solids In",
-        "Secondary Heat Out",
-    ),
-    ("Link", "urban central gas CHP", "AC"): ("Secondary Gas In", "Secondary AC Out"),
-    ("Link", "urban central gas CHP", "ambient heat"): (
-        "Ambient Heat Central",
-        "Secondary Heat Out",
-    ),
-    ("Link", "urban central gas CHP", "gas losses"): (
-        "Secondary Gas In",
-        "Transformation Losses",
-    ),
-    ("Link", "urban central gas CHP", "urban central heat"): (
-        "Secondary Gas In",
-        "Secondary Heat Out",
-    ),
-    ("Link", "urban central gas CHP CC", "AC"): (
-        "Secondary Gas In",
-        "Secondary AC Out",
-    ),
-    ("Link", "urban central gas CHP CC", "gas losses"): (
-        "Secondary Gas In",
-        "Transformation Losses",
-    ),
-    ("Link", "urban central gas CHP CC", "urban central heat"): (
-        "Secondary Gas In",
-        "Secondary Heat Out",
-    ),
-    ("Link", "urban central gas boiler", "ambient heat"): (
-        "Ambient Heat Central",
-        "Secondary Heat Out",
-    ),
-    # ("Link", "urban central gas boiler", "gas"): ("", ""),
-    ("Link", "urban central gas boiler", "urban central heat"): (
-        "Secondary Gas In",
-        "Secondary Heat Out",
-    ),
-    ("Load", "urban central heat", "urban central heat"): (
-        "Secondary Heat Out",
-        "HH & Services",
-    ),
-    # ("Generator", "urban central heat vent", "urban central heat"): (  # todo: activate
-    #     "Secondary Heat Out",
-    #     "Losses Ventilation",
-    # ),
-    ("Link", "urban central ptes heat pump", "ambient heat"): (
-        "Ambient Heat Central",
-        "Secondary Heat Out",
-    ),
-    ("Link", "urban central ptes heat pump", "low voltage"): (
-        "Secondary AC In",
-        "Secondary Heat Out",
-    ),
-    # ("Link", "urban central ptes heat pump", "urban central heat"): ("", ""),
-    # ("Link", "urban central resistive heater", "low voltage"): ("", ""),,
-    ("Link", "urban central resistive heater", "low voltage losses"): (
-        "Secondary AC In",
-        "Transformation Losses",
-    ),
-    # ("Link", "urban central resistive heater", "urban central heat"): ("Secondary AC In", "Secondary Heat Out"),
-    ("Generator", "urban central solar thermal", "urban central heat"): (
-        "Solar Heat",
-        "Primary Heat",
-    ),
-    ("Link", "urban central solid biomass CHP", "AC"): (
-        "Secondary Solids In",
-        "Secondary AC Out",
-    ),
-    ("Link", "urban central solid biomass CHP", "ambient heat"): (
-        "Ambient Heat Central",
-        "Secondary Heat Out",
-    ),
-    # ("Link", "urban central solid biomass CHP", "solid biomass"): ("", ""),
-    ("Link", "urban central solid biomass CHP", "urban central heat"): (
-        "Secondary Solids In",
-        "Secondary Heat Out",
-    ),
-    ("Link", "urban central solid biomass CHP CC", "AC"): (
-        "Secondary Solids In",
-        "Secondary AC Out",
-    ),
-    ("Link", "urban central solid biomass CHP CC", "ambient heat"): (
-        "Ambient Heat Central",
-        "Secondary Heat Out",
-    ),
-    # ("Link", "urban central solid biomass CHP CC", "solid biomass"): ("", ""),
-    ("Link", "urban central solid biomass CHP CC", "urban central heat"): (
-        "Secondary Solids In",
-        "Secondary Heat Out",
-    ),
-    ("Store", "urban central water pits", "urban central water pits"): (
-        "Secondary Heat Out",
-        "Transformation Losses",
-    ),
-    # ("Link", "urban central water pits charger", "urban central heat"): ("", ""),
-    # ("Link", "urban central water pits charger", "urban central water pits"): ("", ""),
-    # ("Link", "urban central water pits discharger", "urban central heat"): ("", ""),
-    # ("Link", "urban central water pits discharger", "urban central water pits"): ("", ""),
-    ("Store", "urban central water tanks", "urban central water tanks"): (
-        "Secondary Heat Out",
-        "Transformation Losses",
-    ),
-    # ("Link", "urban central water tanks charger", "urban central heat"): ("", ""),
-    # ("Link", "urban central water tanks charger", "urban central water tanks"): ("", ""),
-    # ("Link", "urban central water tanks discharger", "urban central heat"): ("", ""),
-    # ("Link", "urban central water tanks discharger", "urban central water tanks"): ("", ""),
-    ("Link", "urban decentral air heat pump", "ambient heat"): (
-        "Ambient Heat Decentral",
-        "Decentral Heat",
-    ),
-    # ("Link", "urban decentral air heat pump", "low voltage"): ("", ""),
-    ("Link", "urban decentral air heat pump", "urban decentral heat"): (
-        "Secondary AC In",
-        "Decentral Heat",
-    ),
-    # ("Link", "urban decentral biomass boiler", "solid biomass"): ("", ""),
-    ("Link", "urban decentral biomass boiler", "solid biomass losses"): (
-        "Secondary Solids In",
-        "Transformation Losses",
-    ),
-    ("Link", "urban decentral biomass boiler", "urban decentral heat"): (
-        "Secondary Solids In",
-        "Secondary Heat Out",
-    ),
-    # ("Link", "urban decentral gas boiler", "gas"): ("", ""),
-    ("Link", "urban decentral gas boiler", "gas losses"): (
-        "Secondary Gas In",
-        "Transformation Losses",
-    ),
-    ("Link", "urban decentral gas boiler", "urban decentral heat"): (
-        "Secondary Gas In",
-        "Decentral Heat",
-    ),
-    ("Load", "urban decentral heat", "urban decentral heat"): (
-        "Decentral Heat",
-        "HH & Services",
-    ),
-    ("Generator", "urban decentral heat vent", "urban decentral heat"): (
-        "Decentral Heat",
-        "HH & Services",
-    ),
-    # ("Link", "urban decentral resistive heater", "low voltage"): ("", ""),
-    ("Link", "urban decentral resistive heater", "low voltage losses"): (
-        "Secondary AC In",
-        "Transformation Losses",
-    ),
-    ("Link", "urban decentral resistive heater", "urban decentral heat"): (
-        "Secondary AC In",
-        "Secondary Heat Out",
-    ),
-    ("Generator", "urban decentral solar thermal", "urban decentral heat"): (
-        "Solar Heat",
-        "Decentral Heat",
-    ),
-    # ("Store", "urban decentral water tanks", "urban decentral water tanks"): (   # todo: activate
-    #     "Decentral Heat",
-    #     "Losses Decentral Heat",
-    # ),
-    # ("Link", "urban decentral water tanks charger", "urban decentral heat"): ("", ""),
-    # ("Link", "urban decentral water tanks charger", "urban decentral water tanks"): ("", ""),
-    # ("Link", "urban decentral water tanks discharger", "urban decentral heat"): ("", ""),
-    # ("Link", "urban decentral water tanks discharger", "urban decentral water tanks"): ("", ""),
-    ("Link", "waste CHP", "AC"): ("Secondary Solids In", "Secondary AC Out"),
-    # ("Link", "waste CHP", "non-sequestered HVC"): ("", ""),
-    ("Link", "waste CHP", "non-sequestered HVC losses"): (
-        "Secondary Solids In",
-        "Transformation Losses",
-    ),
-    ("Link", "waste CHP", "urban central heat"): (
-        "Secondary Solids In",
-        "Secondary Heat Out",
-    ),
-    ("Link", "waste CHP CC", "AC"): ("Secondary Solids In", "Secondary AC Out"),
-    # ("Link", "waste CHP CC", "non-sequestered HVC"): ("", ""),
-    ("Link", "waste CHP CC", "non-sequestered HVC losses"): (
-        "Secondary Solids In",
-        "Transformation Losses",
-    ),
-    ("Link", "waste CHP CC", "urban central heat"): (
-        "Secondary Solids In",
-        "Secondary Heat Out",
-    ),
-}
+        COLOUR.grey_deep,
+        0.65,
+        0.9,
+    ],
+    ["DISTRIBUTION_LOSSES", "Distribution Losses", COLOUR.grey_deep, 0.8, 0.99],
+]
+for group, section, side in product(
+    GROUPS,
+    ("PRIMARY", "BYPASS", "SECONDARY"),
+    ("IN", "OUT"),
+):
+    NODE_DATA.append(
+        [
+            f"{group.upper()}_{section}_{side}",
+            "",
+            GROUP_COLORS[group],
+            GROUP_X[(section, side)],
+            GROUP_Y[group],
+        ]
+    )
 
 
 class SankeyChart(ESMChart):
@@ -908,122 +246,68 @@ class SankeyChart(ESMChart):
         self.flows = pd.DataFrame(
             columns=["source", "target", "value", "color", "customdata"]
         )
-
-        node_data = [
-            ["IMPORT", "Import", COLOUR.black, 0.05, 0.1],
-            ["WIND", "Wind Power", COLOUR.black, 0.05, 0.3],
-            ["SOLAR", "Solar Power", COLOUR.black, 0.05, 0.5],
-            ["HYDRO", "Hydro Power", COLOUR.black, 0.05, 0.6],
-            [
-                "TRANSFORMATION_IN",
-                "Transformation<br>& Storage",
-                COLOUR.salmon,
-                0.4,
-                0.9,
-            ],
-            ["TRANSFORMATION_OUT", "", COLOUR.salmon, 0.6, 0.9],
-            ["INDUSTRY", "Industry", COLOUR.black, 0.99, 0.5],
-            ["HH_SERVICES", "Households & Services", COLOUR.black, 0.99, 0.3],
-            ["EXPORT", "Export", COLOUR.black, 0.99, 0.2],
-            ["TRANSPORT", "Transport", COLOUR.black, 0.99, 0.6],
-            ["AGRICULTURE", "Agriculture", COLOUR.black, 0.99, 0.8],
-            [
-                "TRANSFORMATION_LOSSES",
-                "Transformation Losses",
-                COLOUR.grey_deep,
-                0.7,
-                0.9,
-            ],
-            ["DISTRIBUTION_LOSSES", "Distribution Losses", COLOUR.grey_deep, 0.9, 0.9],
-        ]
-        for group, (section, x), side in product(
-            GROUPS,
-            (("PRIMARY", 0.3), ("BYPASS", 0.5), ("SECONDARY", 0.8)),
-            ("IN", "OUT"),
-        ):
-            distance = 0.1
-            if section in ("PRIMARY", "SECONDARY"):
-                distance = 0.02
-            if side == "IN":
-                pos_horizontal = x - distance
-            else:
-                pos_horizontal = x + distance
-            node_data.append(
-                [
-                    f"{group.upper()}_{section}_{side}",
-                    "",
-                    GROUP_COLORS[group],
-                    round(pos_horizontal, 1),
-                    GROUP_RANK[group],
-                ]
-            )
-
         self.nodes = (
             pd.DataFrame(
-                data=node_data,
-                columns=["name", "label", "color", "x", "y_rank"],
+                data=NODE_DATA,
+                columns=["name", "label", "color", "x", "y"],
             )
             .reset_index()
             .set_index("name")
             .rename({"index": "id"}, axis=1)
         )
-        # self.nodes = pd.DataFrame(
-        #     columns=["id", "label", "color"]  # "customdata", "x", "y", "size"
-        # )
 
-    def _connect(
-        self, df, source, target, color: str = None, extend_node_label: str = None
-    ):
-        df = df.sort_values(by="value", ascending=False)
-        customdata = "<br>".join(
-            [
-                f"{c}: {prettify_number(v)} {self._df.attrs['unit']}"
-                for c, v in zip(df.index.get_level_values("carrier"), df["value"])
-                if v > 0.05
+    def plot(self):
+        # plotly draws traces connected first in the background.
+        self.connect_methane()
+        self.connect_hydrogen()
+        self.connect_electricity()
+        self.connect_biogas()
+        # self.connect_heat()
+        # self.connect_liquids()
+        # self.connect_solids()
+        # self.connect_uranium()
+
+        # self.check_nodal_balance()
+        # self.calculate_node_y_positions()
+        flows_used = set(self.flows["source"]).union(set(self.flows["target"]))  # noqa: F841
+        self.nodes = self.nodes.query("name in @flows_used")
+        self.nodes["id"] = [*range(len(self.nodes))]
+
+        self.fig = Figure(
+            data=[
+                Sankey(
+                    arrangement="snap",  # snap, perpendicular, freeform, fixed
+                    valuesuffix=self.unit,
+                    textfont_family="Montserrat",
+                    textfont_weight="bold",
+                    node=dict(
+                        # align="justify",
+                        line=dict(color="black", width=0.5),
+                        label=self.nodes["label"],
+                        color=self.nodes["color"],
+                        line_width=1,
+                        hovertemplate="%{label}<extra></extra>",
+                        x=self.nodes["x"],
+                        y=self.nodes["y"],
+                        pad=10,
+                        thickness=10,
+                    ),
+                    link=dict(
+                        source=self.flows["source"].map(self.nodes["id"]),
+                        target=self.flows["target"].map(self.nodes["id"]),
+                        value=self.flows["value"],
+                        color=self.flows["color"],
+                        customdata=self.flows["customdata"],
+                        hovertemplate="%{customdata} <extra></extra>",
+                    ),
+                )
             ]
         )
-        customdata += f"<br><br>Total: {prettify_number(df.sum().item())} {self.unit}"
 
-        # add a row with the link's value
-        row = self.flows.shape[0]  # next index
-        self.flows.loc[row, self.flows.columns] = [
-            source.name,
-            target.name,
-            df.abs().sum().item(),
-            color or source.color,
-            customdata,
-        ]
-        # drop from the original dataframe
-        self._df.drop(df.index, inplace=True, errors="ignore")
+        self._set_base_layout()
 
-    def _forward(self, source, target, value, color: str = None):
-        row = self.flows.shape[0]  # next index
-        self.flows.loc[row, self.flows.columns] = [
-            source.name,
-            target.name,
-            value,
-            color or source.color,
-            f"{prettify_number(value)} {self._df.attrs['unit']}",
-        ]
-
-    def check_nodal_balance(self):
-        checks = (
-            "PRIMARY",
-            "SECONDARY",
-            "TRANSFORMATION",
-        )
-        for node in self.nodes.index:
-            # skip left and right border nodes because they are not balanced
-            if not any([s in node for s in checks]):
-                continue
-
-            node_in = filter_by(self.flows, source=node)
-            node_out = filter_by(self.flows, target=node)
-            diff = node_in["value"].sum() - node_out["value"].sum()
-            if abs(diff) > 1e-5:
-                print(
-                    f"Warning[{self.location} {self.year}]: {node} has a discrepancy of {diff:.2f} {self.unit}"
-                )
+        # import plotly.io as pio
+        # pio.show(self.fig)
 
     def connect_electricity(self):
         bus_carrier = ["AC", "low voltage"]  # ignoring battery, home battery buses
@@ -1465,94 +749,119 @@ class SankeyChart(ESMChart):
             f"{self.location} and year {self.year}:\n{remaining}"
         )
 
-    def calculate_node_y_positions(self):
-        # cols = [*self.nodes.sort_values(by="y_rank").groupby("x")]
-        for x, node_col in self.nodes.groupby("x"):
-            for name in node_col.index:
-                pass
-                size = "max from left and right side"
-                print(name)
-            # print(node)
-            src = filter_by(self.flows, source=self.node.index.tolist())
-            dst = filter_by(self.flows, target=self.node.index.tolist())
-            if not src.empty and not dst.empty:
-                size = (src["value"].sum() + dst["value"].sum()) / 2
-            elif not src.empty:
-                size = src["value"].sum()
-            elif not dst.empty:
-                size = dst["value"].sum()
-            print(size)
-
-    def plot(self):
-        self.connect_methane()
-        # self.connect_hydrogen()
-        # self.connect_electricity()
-
-        # then: align x and y coordinates
-        # connect losses in the background
-
-        # self.check_nodal_balance()
-        # self.calculate_node_y_positions()
-        flows_used = set(self.flows["source"]).union(set(self.flows["target"]))
-        self.nodes = self.nodes.query("name in @flows_used")
-        self.nodes["id"] = [*range(len(self.nodes))]
-        # self.nodes["id"] = [*range(1, len(self.nodes) + 1)]
-        # METHANE_PRIMARY_IN x coordinates are not respected
-
-        x = self.nodes["x"].tolist()
-        # x.insert(0, x.pop())
-
-        self.fig = Figure(
-            data=[
-                Sankey(
-                    arrangement="snap",  # snap, perpendicular, freeform, fixed
-                    valuesuffix=self.unit,
-                    textfont_family="Montserrat",
-                    textfont_weight="bold",
-                    node=dict(
-                        # align="justify",
-                        line=dict(color="black", width=0.5),
-                        # label=self.nodes["label"].tolist(),
-                        # label=[""] * len(self.nodes["label"]),
-                        label=self.nodes.index,
-                        color=self.nodes["color"].tolist(),
-                        line_width=1,
-                        hovertemplate="%{label}<extra></extra>",
-                        x=x,
-                        # fixme: node positions are off by one.
-                        # self.nodes["x"].tolist()[6]
-                        # Out[23]: 0.25
-                        # self.nodes["x"].tolist()[5]  # 6th position
-                        # Out[24]: 0.99  # used for primary in
-                        y=self.nodes[
-                            "y_rank"
-                        ].tolist(),  # must include y, or x is ignored
-                        # fixme: 0.0 and 1.0 are ignored in plotly.js
-                        # the coordinates refer to the node center
-                        # snap will optimize positions again, fixed will not
-                        # x=[0.01, 0.4, 0.6, 0.99, 0.99, 0.99, 0.15, 0.25, 0.4, 0.6, 0.75, 0.85],
-                        # y=[0.99, 0.01, 0.01, 0.5, 0.8, 0.99, 0.10, 0.10, 0.1, 0.1, 0.10, 0.10],
-                        # y=[0.5, 0.2, 0.2, 0.3, 0.1, 0.7, 0.50, 0.50, 0.6, 0.6, 0.50, 0.50],
-                        pad=10,
-                        thickness=10,
-                    ),
-                    link=dict(
-                        # arrowlen=15,
-                        source=self.flows["source"].map(self.nodes["id"]).tolist(),
-                        target=self.flows["target"].map(self.nodes["id"]).tolist(),
-                        value=self.flows["value"].tolist(),
-                        color=self.flows["color"].tolist(),
-                        customdata=self.flows["customdata"].tolist(),
-                        hovertemplate="%{customdata} <extra></extra>",
-                    ),
-                )
-            ]
+    def connect_biogas(self):
+        bus_carrier = "biogas"
+        generation = filter_by(
+            self._df,
+            bus_carrier=bus_carrier,
+            component="Generator",
+            # carrier=[
+            #     "Import Foreign",
+            #     "Import Domestic",
+            #     "biogas",
+            # ],
+        )
+        self._connect(
+            generation,
+            self.nodes.loc["BIOGAS"],
+            self.nodes.loc["BIOGAS_PRIMARY_IN"],
+            color=self.nodes.loc["BIOGAS_PRIMARY_IN", "color"],
+        )
+        self._forward(
+            self.nodes.loc["BIOGAS_PRIMARY_IN"],
+            self.nodes.loc["BIOGAS_PRIMARY_OUT"],
+            generation.sum().item(),
         )
 
-        # self._set_base_layout()
+        processing = filter_by(self._df, bus_carrier=bus_carrier, component="Link")
+        self._connect(
+            processing,
+            self.nodes.loc["BIOGAS_PRIMARY_OUT"],
+            self.nodes.loc["TRANSFORMATION_IN"],
+        )
+        self._forward(
+            self.nodes.loc["TRANSFORMATION_IN"],
+            self.nodes.loc["TRANSFORMATION_OUT"],
+            processing.sum().item(),
+        )
 
-        # import plotly.io as pio
-        # pio.show(self.fig)
+    def _connect(
+        self, df, source, target, color: str = None, extend_node_label: str = None
+    ):
+        if df.abs().sum().item() < 1e-6:  # todo: magic number to config
+            self._df.drop(df.index, inplace=True, errors="ignore")
+            return
+
+        df = df.sort_values(by="value", ascending=False)
+        customdata = "<br>".join(
+            [
+                f"{c}: {prettify_number(v)} {self._df.attrs['unit']}"
+                for c, v in zip(df.index.get_level_values("carrier"), df["value"])
+                if v >= 0.05  # todo: magic number to config
+            ]
+        )
+        customdata += f"<br><br>Total: {prettify_number(df.sum().item())} {self.unit}"
+
+        # add a row with the link's value
+        row = self.flows.shape[0]  # next index
+        self.flows.loc[row, self.flows.columns] = [
+            source.name,
+            target.name,
+            df.abs().sum().item(),
+            color or source.color,
+            customdata,
+        ]
+        # drop from the original dataframe
+        self._df.drop(df.index, inplace=True, errors="ignore")
+
+    def _forward(self, source, target, value, color: str = None):
+        if value < 1e-6:  # todo: magic number to config
+            return
+
+        row = self.flows.shape[0]  # next index
+        self.flows.loc[row, self.flows.columns] = [
+            source.name,
+            target.name,
+            value,
+            color or source.color,
+            f"{prettify_number(value)} {self._df.attrs['unit']}",
+        ]
+
+    def check_nodal_balance(self):
+        checks = (
+            "PRIMARY",
+            "SECONDARY",
+            "TRANSFORMATION",
+        )
+        for node in self.nodes.index:
+            # skip left and right border nodes because they are not balanced
+            if not any([s in node for s in checks]):
+                continue
+
+            node_in = filter_by(self.flows, source=node)
+            node_out = filter_by(self.flows, target=node)
+            diff = node_in["value"].sum() - node_out["value"].sum()
+            if abs(diff) > 1e-5:
+                print(
+                    f"Warning[{self.location} {self.year}]: {node} has a discrepancy of {diff:.2f} {self.unit}"
+                )
+
+    # def calculate_node_y_positions(self):
+    #     # cols = [*self.nodes.sort_values(by="y_rank").groupby("x")]
+    #     for x, node_col in self.nodes.groupby("x"):
+    #         for name in node_col.index:
+    #             pass
+    #             size = "max from left and right side"
+    #             print(name)
+    #         # print(node)
+    #         src = filter_by(self.flows, source=self.nodes.index.tolist())
+    #         dst = filter_by(self.flows, target=self.nodes.index.tolist())
+    #         if not src.empty and not dst.empty:
+    #             size = (src["value"].sum() + dst["value"].sum()) / 2
+    #         elif not src.empty:
+    #             size = src["value"].sum()
+    #         elif not dst.empty:
+    #             size = dst["value"].sum()
 
     def _set_base_layout(self):
         """Set various figure properties."""
@@ -1576,297 +885,3 @@ class SankeyChart(ESMChart):
 
         # export the metadata directly in the Layout property for JSON
         self.fig.update_layout(meta=[RUN_META_DATA])
-
-
-class OldSankeyChart(ESMChart):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.location = self._df.index.unique(DM.LOCATION).item()
-        self.year = self._df.index.unique(DM.YEAR).item()
-        self._df = self._df.droplevel(DM.YEAR).droplevel(DM.LOCATION)
-        self._df.columns = ["value"]
-        self.flows = pd.DataFrame(
-            columns=["source", "target", "value", "color", "customdata"]
-        )
-
-    def _add_flow(self, source, target, df):
-        customdata = "<br>".join(
-            [
-                f"{c}: {prettify_number(v)} {self._df.attrs['unit']}"
-                for c, v in zip(df.index.get_level_values("carrier"), df["value"])
-            ]
-        )
-        self.flows.at[self.flows.shape[0], self.flows.columns] = [
-            source,
-            target,
-            df.sum().item(),
-            BUS_CARRIER_COLORS[source],
-            customdata,
-        ]
-        self._df.drop(df.index, inplace=True, errors="ignore")
-
-    def connect_primary_solids(self):
-        bus_carrier = GROUPS["Solids"]
-        solids = filter_by(
-            self._df, bus_carrier=bus_carrier, component=["Generator", "Store", "Link"]
-        )
-        self._add_flow("Waste", "Primary|Solids", solids)
-
-    def connect_wind(self):
-        pass
-
-    def get_nodes_data_frame(self, links, node_ids):
-        nodes = pd.DataFrame(index=list(node_ids))
-        nodes["x"] = [self.get_node_x_value(label) for label in nodes.index]
-
-        nodes["y"] = nodes.groupby("x", group_keys=False).apply(
-            partial(self.get_node_y_value, links), include_groups=False
-        )
-        nodes["color"] = "white"
-
-        return nodes
-
-    def get_node_y_value(self, links, data):
-        """Distribute nodes equally among available space."""
-        values_col = filter_by(links, source=data.index.tolist())
-        bus_carrier_order = (
-            "AC",
-            "gas",
-            "H2",
-            "coal",
-            "ambient heat",
-            "rural heat",
-            "urban central heat",
-            "solid biomass",
-            "non-sequestered HVC",
-            "NH3",
-            "oil",
-        )
-        total_value = values_col["value"].sum()
-        space_available = total_value * 1.2  # 20% gap space
-        space_used = 0
-        for label, source in self.custom_sort(
-            values_col, "bus_carrier", bus_carrier_order, ascending=True
-        ).groupby("source"):
-            node_size = source["value"].sum()
-            data.loc[label, "y"] = round(
-                (space_available - space_used - node_size / 2) / space_available, 3
-            )
-            space_used += node_size * 1.2
-
-        return data
-
-    def prepare_data(self):
-        links = self.add_source_target_columns_to_links()
-        links["value"] = links["value"].abs()
-        links = self.add_jumpers(links)
-        node_ids = self.get_node_ids(links)
-        links = self.add_id_source_target_columns(links, node_ids)
-        links = self.add_customdata(links, self.unit)
-        links = self.combine_duplicates(links)
-        links = self.map_colors_from_bus_carrier(links)
-        nodes = self.get_nodes_data_frame(links, node_ids)
-
-        return links, nodes
-
-    def plot(self):
-        # # Concatenate the data with source and target columns
-        links, nodes = self.prepare_data()
-
-        self.connect_primary_solids()
-
-        self.fig = Figure(
-            data=[
-                Sankey(
-                    arrangement="snap",  # snap, perpendicular, freeform, fixed
-                    valuesuffix=self.unit,
-                    node=dict(
-                        line=dict(color="black", width=0.5),
-                        label=nodes.index,
-                        hovertemplate="%{label}: %{value}<extra></extra>",
-                        x=nodes["x"],
-                        # y=nodes["y"],  # must include y, or x is ignored
-                        pad=10,
-                        thickness=20,
-                        color=nodes["color"],
-                        # groups=self.get_node_groups(node_ids),  #
-                    ),
-                    link=dict(
-                        # arrowlen=15,
-                        source=links.source_id,
-                        target=links.target_id,
-                        value=links.value.abs(),
-                        color=links.color,
-                        customdata=links.link_customdata,
-                        hovertemplate="%{customdata} <extra></extra>",
-                    ),
-                )
-            ]
-        )
-
-        self._set_base_layout()
-        # self._style_title_and_legend_and_xaxis_label()
-        # self._append_footnotes()
-
-        # pio.show(self.fig)  # todo: remove debugging
-
-    @staticmethod
-    def get_node_x_value(lbl: str) -> float:
-        if pd.isna(lbl):
-            print("todo: remove ", lbl, "label")
-            return 0
-
-        if lbl.startswith("Primary"):
-            return 0.15
-        elif lbl.startswith("Secondary") and lbl.endswith("In"):
-            return 0.4
-        elif lbl == "AC Storage":
-            return 0.5
-        elif lbl == "Transformation Losses":
-            return 0.6
-        elif lbl.startswith("Secondary") and lbl.endswith("Out"):
-            return 0.6
-        elif lbl.startswith("Ambient Heat"):
-            return 0.70
-        elif lbl == "Decentral Heat":
-            return 0.8
-        elif lbl in (
-            "Industry",
-            "HH & Services",
-            "Transport",
-            "Agriculture",
-            # "Final AC",
-        ):
-            return 0.85
-        # elif lbl.startswith("Losses") or lbl.endswith("Losses"):
-        #     return 0.95
-        else:
-            return 0.0
-
-    def _set_base_layout(self):
-        """Set various figure properties."""
-        self.fig.update_layout(
-            height=800,
-            font_family="Calibri",
-            plot_bgcolor="#ffffff",
-            legend_title_text=self.cfg.legend_header,
-        )
-        # update axes
-        self.fig.update_yaxes(
-            showgrid=self.cfg.yaxes_showgrid, visible=self.cfg.yaxes_visible
-        )
-        self.fig.update_layout(
-            xaxis={"categoryorder": "category ascending"},
-            # hovermode="x",  # show all categories on mouse-over
-        )
-        # trace order always needs to be reversed to show correct order
-        # of legend entries for relative bar charts
-        self.fig.update_layout(legend={"traceorder": "reversed"})
-
-        # export the metadata directly in the Layout property for JSON
-        self.fig.update_layout(meta=[RUN_META_DATA])
-
-    @staticmethod
-    def add_jumpers(links):
-        cols = links.columns
-        for bus_carrier in ("AC", "H2", "Gas", "Liquids", "Solids", "Heat", "Biomass"):
-            primary_to_secondary = filter_by(links, target=f"Primary {bus_carrier}")
-            row_idx = ("Jumper", "primary to secondary", bus_carrier)
-            links.loc[row_idx, cols] = [
-                primary_to_secondary.value.sum(),
-                f"Primary {bus_carrier}",
-                f"Secondary {bus_carrier} In",
-            ]
-
-            secondary_demand = filter_by(links, source=f"Secondary {bus_carrier} In")[
-                "value"
-            ].sum()
-            primary_supply = filter_by(links, target=f"Secondary {bus_carrier} In")[
-                "value"
-            ].sum()
-            row_idx = ("Jumper", "secondary forwarding", bus_carrier)
-            secondary_forwarding = primary_supply - secondary_demand
-            if secondary_forwarding < 0:
-                # amounts are produced during transformation
-                links.loc[row_idx, cols] = [
-                    abs(secondary_forwarding),
-                    f"Secondary {bus_carrier} Out",
-                    f"Secondary {bus_carrier} In",
-                ]
-            else:
-                links.loc[row_idx, cols] = [
-                    abs(secondary_forwarding),
-                    f"Secondary {bus_carrier} In",
-                    f"Secondary {bus_carrier} Out",
-                ]
-
-        return links
-
-    @staticmethod
-    def _source_target_mapping(idx: tuple) -> pd.Series:
-        return pd.Series(LINK_MAPPING.get(idx, ""))
-
-    def add_source_target_columns_to_links(self):
-        df = self._df.copy()
-        df["index"] = df.index  # convert to tuples
-        df[["source", "target"]] = df["index"].apply(self._source_target_mapping)
-        df = df.drop(columns=["index"])
-
-        return df.query("source != '' and target != ''")
-
-    @staticmethod
-    def get_node_ids(links):
-        return {
-            label: i
-            for i, label in enumerate(
-                set(pd.concat([links["source"], links["target"]]))
-            )
-        }
-
-    @staticmethod
-    def add_customdata(links, unit):
-        to_concat = []
-        for _, data in links.groupby(["source", "target"]):
-            data = data.reset_index()
-            carrier_values = [
-                f"{c}: {prettify_number(v)} {unit}"
-                for c, v in zip(data["carrier"], data["value"])
-            ]
-            data["link_customdata"] = "<br>".join(carrier_values)
-            to_concat.append(data)
-
-        return pd.concat(to_concat)
-
-    @staticmethod
-    def add_id_source_target_columns(links, label_mapping):
-        # reversed_mapping = {v: k for k, v in label_mapping.items()}
-        links["source_id"] = links["source"].map(label_mapping)
-        # links["source_label"] = links["source_id"].map(reversed_mapping)
-        links["target_id"] = links["target"].map(label_mapping)
-        # links["target_label"] = links["target_id"].map(reversed_mapping)
-        return links
-
-    @staticmethod
-    def map_colors_from_bus_carrier(links):
-        links["color"] = (
-            links["bus_carrier"].map(BUS_CARRIER_COLORS).fillna(COLOUR.grey_neutral)
-        )
-        return links
-
-    @staticmethod
-    def combine_duplicates(links):
-        return (
-            links.groupby(["source", "target"])
-            .agg(
-                {
-                    "value": "sum",
-                    "source": "first",
-                    "target": "first",
-                    "source_id": "first",
-                    "target_id": "first",
-                    "link_customdata": "first",
-                    "bus_carrier": "first",
-                }
-            )
-            .reset_index(drop=True)
-        )
