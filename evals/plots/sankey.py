@@ -508,6 +508,7 @@ class SankeyChart(ESMChart):
 
     def connect_hydrogen(self):
         bus_carrier = "H2"
+        color = self.nodes.loc["HYDROGEN_PRIMARY_IN", "color"]
         import_ = filter_by(
             self._df,
             bus_carrier=bus_carrier,
@@ -521,7 +522,7 @@ class SankeyChart(ESMChart):
             import_,
             "IMPORT",
             "HYDROGEN_PRIMARY_IN",
-            color=self.nodes.loc["HYDROGEN_PRIMARY_IN", "color"],
+            color=color,
         )
         self.nodes.at["IMPORT", "label"] += (
             f"<br>{prettify_number(import_.sum().item())} {self.unit} Hydrogen"
@@ -595,11 +596,15 @@ class SankeyChart(ESMChart):
             # amounts are looped in the transformation input side.
             diff = transformation_supply.sum() - final.sum()
             self._forward(
-                "HYDROGEN_SECONDARY_IN",
-                "TRANSFORMATION_IN",
-                diff.item(),
+                "TRANSFORMATION_OUT", "TRANSFORMATION_IN", diff.item(), color=color
             )
             # subtract diff from PRIMARY_OUT to TRANSFORM_IN
+            self.flows.at[("HYDROGEN_PRIMARY_OUT", "TRANSFORMATION_IN"), "value"] -= (
+                diff.item()
+            )
+            self.flows.at[("TRANSFORMATION_OUT", "HYDROGEN_SECONDARY_IN"), "value"] -= (
+                diff.item()
+            )
 
         industry = final.filter(like="industry", axis=0)
         self._connect(
@@ -1009,7 +1014,9 @@ class SankeyChart(ESMChart):
             f"{name}_SECONDARY_OUT",
             "INDUSTRY",
         )
-        export = final.filter(regex="Foreign|Domestic", axis=0)
+        export = final.filter(regex="Foreign|Domestic", axis=0).drop(
+            "NH3", level="bus_carrier", errors="ignore"
+        )  # fixme: contains NH3
         self._connect(
             export,
             f"{name}_SECONDARY_OUT",
@@ -1027,7 +1034,9 @@ class SankeyChart(ESMChart):
             f"{name}_SECONDARY_OUT",
             "TRANSPORT",
         )
-        agriculture = final.filter(regex="agriculture|NH3", axis=0)
+        agriculture = final.filter(
+            regex="agriculture|NH3", axis=0
+        )  # todo: review -> assignment of NH3 to agriculture sector. Is that correct?
         self._connect(
             agriculture,
             f"{name}_SECONDARY_OUT",
