@@ -276,7 +276,8 @@ def view_sankey(
 
     chart_class = getattr(plots, config["view"]["chart"])
     exporter.defaults.plotly.chart = chart_class
-
+    exporter.defaults.plotly.xaxis_title = ""
+    exporter.defaults.plotly.title = ""
     exporter.defaults.plotly.plotby = [DM.YEAR, DM.LOCATION]
     exporter.defaults.plotly.pivot_index = [
         DM.COMPONENT,

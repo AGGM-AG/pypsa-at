@@ -4,8 +4,6 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Module for Sankey diagram."""
 
-import dataclasses
-
 # Transformationsblöcke je Energieträger
 # Zusammenfassung Energieträger:
 #  - AC (low voltage + AC) - uranium similar to primary but with additional step
@@ -17,7 +15,6 @@ import dataclasses
 # Alle Losses in Grau und je Tranformationsblock (Energieträger)
 # drei Transformationsblöcke P2G, GtP, other
 # oder ein Transformationsblock
-import enum
 from itertools import product
 
 import pandas as pd
@@ -32,55 +29,41 @@ from evals.utils import (
     prettify_number,
 )
 
-
-@dataclasses.dataclass
-class Node:
-    label: str
-    color: str
-    # bus_carrier: tuple
-
-
-class Nodes(enum.Enum):
-    WASTE = Node("Waste", COLOUR.grey_light)
-    IMPORT = Node("Import", COLOUR.black)
-    GAS_PRIMARY_IN = Node("Gas Primary In", COLOUR.brown)
-
-
-BUS_CARRIER_GROUPS = {
-    "biogas": "Biogas",
-    "coal": "Solids",
-    "H2": "Hydrogen",
-    "NH3": "Liquids",
-    "lignite": "Solids",
-    "gas": "Methane",
-    "municipal solid waste": "Solids",
-    "AC": "Electricity",
-    "oil primary": "Liquids",
-    "rural heat": "Heat",
-    "low voltage": "Electricity",
-    "solid biomass": "Solids",
-    "uranium": "Uranium",
-    "urban central heat": "Heat",
-    "urban decentral heat": "Heat",
-    "EV battery": "Electricity",
-    "methanol": "Liquids",
-    "oil": "Liquids",
-    "non-sequestered HVC": "Solids",
-    "agriculture machinery oil": "Liquids",
-    "battery": "Electricity",
-    "ambient heat": "Heat",
-    "home battery": "Electricity",
-    "industry methanol": "Liquids",
-    "kerosene for aviation": "Liquids",
-    "shipping methanol": "Liquids",
-    "gas for industry": "Methane",
-    "naphtha for industry": "Liquids",
-    "solid biomass for industry": "Solids",
-    "rural water tanks": "Heat",
-    "urban central water pits": "Heat",
-    "urban central water tanks": "Heat",
-    "urban decentral water tanks": "Heat",
-}
+# BUS_CARRIER_GROUPS = {
+#     "biogas": "Biogas",
+#     "coal": "Solids",
+#     "H2": "Hydrogen",
+#     "NH3": "Liquids",
+#     "lignite": "Solids",
+#     "gas": "Methane",
+#     "municipal solid waste": "Solids",
+#     "AC": "Electricity",
+#     "oil primary": "Liquids",
+#     "rural heat": "Heat",
+#     "low voltage": "Electricity",
+#     "solid biomass": "Solids",
+#     "uranium": "Uranium",
+#     "urban central heat": "Heat",
+#     "urban decentral heat": "Heat",
+#     "EV battery": "Electricity",
+#     "methanol": "Liquids",
+#     "oil": "Liquids",
+#     "non-sequestered HVC": "Solids",
+#     "agriculture machinery oil": "Liquids",
+#     "battery": "Electricity",
+#     "ambient heat": "Heat",
+#     "home battery": "Electricity",
+#     "industry methanol": "Liquids",
+#     "kerosene for aviation": "Liquids",
+#     "shipping methanol": "Liquids",
+#     "gas for industry": "Methane",
+#     "naphtha for industry": "Liquids",
+#     "solid biomass for industry": "Solids",
+#     "rural water tanks": "Heat",
+#     "urban central water pits": "Heat",
+#     "urban central water tanks": "Heat",
+#     "urban decentral water tanks": "Heat",
+# }
 
 GROUPS = {
     "Biogas": ["biogas"],
@@ -118,7 +101,6 @@ GROUPS = {
     ],
     "Uranium": ["uranium"],
 }
-
 GROUP_COLORS = {
     "Biogas": COLOUR.green_sage,
     "Electricity": COLOUR.blue_pastel,
@@ -129,16 +111,31 @@ GROUP_COLORS = {
     "Solids": COLOUR.grey_dark,
     "Uranium": COLOUR.orange_mellow,
 }
-
 GROUP_Y = {
-    "Electricity": 0.1,  # zero is reserved for Transformation
-    "Methane": 0.3,
-    "Hydrogen": 0.4,
-    "Heat": 0.5,
-    "Solids": 0.6,
-    "Liquids": 0.7,
-    "Biogas": 0.8,
-    "Uranium": 0.9,
+    name: i / 10
+    for i, name in enumerate(
+        (
+            "Electricity",
+            "Methane",
+            "Heat",
+            "Liquids",
+            "Solids",
+            "Biogas",
+            "Uranium",
+            "Hydrogen",
+        ),
+        start=1,
+    )
+}
+GROUP_Y = {
+    "Electricity": 0.1,
+    "Methane": 0.2,
+    "Heat": 0.3,
+    "Liquids": 0.4,
+    "Solids": 0.5,
+    "Biogas": 0.6,
+    "Uranium": 0.7,
+    "Hydrogen": 0.8,
 }
 GROUP_X = {
     ("PRIMARY", "IN"): 0.25,
@@ -149,55 +146,58 @@ GROUP_X = {
     ("SECONDARY", "OUT"): 0.75,
 }
 
-BUS_CARRIER_COLORS = {
-    "biogas": COLOUR.green_sage,
-    "coal": COLOUR.grey_dark,
-    "H2": COLOUR.green_mint,
-    "NH3": COLOUR.yellow_canary,
-    "lignite": COLOUR.brown_dark,
-    "gas": COLOUR.brown_light,
-    "municipal solid waste": COLOUR.grey_light,
-    "AC": COLOUR.blue_celestial,
-    "oil primary": COLOUR.red_deep,
-    "rural heat": COLOUR.yellow_golden,
-    "low voltage": COLOUR.blue_celestial,
-    "solid biomass": COLOUR.green_sage,
-    "uranium": COLOUR.orange_mellow,
-    "urban central heat": COLOUR.yellow_golden,
-    "urban decentral heat": COLOUR.yellow_golden,
-    "EV battery": COLOUR.blue_celestial,
-    "methanol": COLOUR.salmon,
-    "oil": COLOUR.red_deep,
-    "non-sequestered HVC": COLOUR.grey_light,
-    "agriculture machinery oil": COLOUR.red_deep,
-    "battery": COLOUR.blue_celestial,
-    "ambient heat": COLOUR.yellow_golden,
-    "home battery": COLOUR.blue_celestial,
-    "industry methanol": COLOUR.salmon,
-    "kerosene for aviation": COLOUR.red_deep,
-    "shipping methanol": COLOUR.salmon,
-    "gas for industry": COLOUR.brown_light,
-    "naphtha for industry": COLOUR.red_deep,
-    "solid biomass for industry": COLOUR.green_sage,
-    "rural water tanks": COLOUR.yellow_golden,
-    "urban central water pits": COLOUR.yellow_golden,
-    "urban central water tanks": COLOUR.yellow_golden,
-    "urban decentral water tanks": COLOUR.yellow_golden,
-    # Grouped colors
-    "Liquids": COLOUR.red_deep,
-    "Solids": COLOUR.green_sage,
-    "Gas": COLOUR.brown_light,
-    "Heat": COLOUR.yellow_golden,
-    "Waste": COLOUR.grey_light,
-}
+# BUS_CARRIER_COLORS = {
+#     "biogas": COLOUR.green_sage,
+#     "coal": COLOUR.grey_dark,
+#     "H2": COLOUR.green_mint,
+#     "NH3": COLOUR.yellow_canary,
+#     "lignite": COLOUR.brown_dark,
+#     "gas": COLOUR.brown_light,
+#     "municipal solid waste": COLOUR.grey_light,
+#     "AC": COLOUR.blue_celestial,
+#     "oil primary": COLOUR.red_deep,
+#     "rural heat": COLOUR.yellow_golden,
+#     "low voltage": COLOUR.blue_celestial,
+#     "solid biomass": COLOUR.green_sage,
+#     "uranium": COLOUR.orange_mellow,
+#     "urban central heat": COLOUR.yellow_golden,
+#     "urban decentral heat": COLOUR.yellow_golden,
+#     "EV battery": COLOUR.blue_celestial,
+#     "methanol": COLOUR.salmon,
+#     "oil": COLOUR.red_deep,
+#     "non-sequestered HVC": COLOUR.grey_light,
+#     "agriculture machinery oil": COLOUR.red_deep,
+#     "battery": COLOUR.blue_celestial,
+#     "ambient heat": COLOUR.yellow_golden,
+#     "home battery": COLOUR.blue_celestial,
+#     "industry methanol": COLOUR.salmon,
+#     "kerosene for aviation": COLOUR.red_deep,
+#     "shipping methanol": COLOUR.salmon,
+#     "gas for industry": COLOUR.brown_light,
+#     "naphtha for industry": COLOUR.red_deep,
+#     "solid biomass for industry": COLOUR.green_sage,
+#     "rural water tanks": COLOUR.yellow_golden,
+#     "urban central water pits": COLOUR.yellow_golden,
+#     "urban central water tanks": COLOUR.yellow_golden,
+#     "urban decentral water tanks": COLOUR.yellow_golden,
+#     # Grouped colors
+#     "Liquids": COLOUR.red_deep,
+#     "Solids": COLOUR.green_sage,
+#     "Gas": COLOUR.brown_light,
+#     "Heat": COLOUR.yellow_golden,
+#     "Waste": COLOUR.grey_light,
+# }
 
 
 NODE_DATA = [
-    ["IMPORT", "Import", COLOUR.black, 0.05, 0.1],
-    ["WIND", "Wind Power", COLOUR.black, 0.05, 0.3],
-    ["SOLAR", "Solar Power", COLOUR.black, 0.05, 0.5],
-    ["HYDRO", "Hydro Power", COLOUR.black, 0.05, 0.6],
-    ["BIOGAS", "Biogas", COLOUR.black, 0.05, 0.8],
+    ["IMPORT", "Import", COLOUR.black, 0.01, 0.1],
+    ["WIND", "Wind Power", COLOUR.black, 0.01, 0.3],
+    ["SOLAR", "Solar Power", COLOUR.black, 0.01, 0.5],
+    ["HYDRO", "Hydro Power", COLOUR.black, 0.01, 0.6],
+    ["BIOGAS", "Biogas", COLOUR.black, 0.01, 0.7],
+    ["SOLIDS", "Solids", COLOUR.black, 0.01, 0.75],
+    ["LIQUIDS", "Liquids", COLOUR.black, 0.01, 0.8],
+    ["HEAT", "Ambient Heat", COLOUR.black, 0.01, 0.85],
     [
         "TRANSFORMATION_IN",
         "Transformation<br>& Storage",
@@ -211,6 +211,7 @@ NODE_DATA = [
     ["EXPORT", "Export", COLOUR.black, 0.99, 0.01],
     ["TRANSPORT", "Transport", COLOUR.black, 0.99, 0.6],
     ["AGRICULTURE", "Agriculture", COLOUR.black, 0.99, 0.8],
+    ["UNUSED", "Ressource Losses", COLOUR.grey_deep, 0.35, 0.9],
     [
         "TRANSFORMATION_LOSSES",
         "Transformation Losses",
@@ -244,7 +245,8 @@ class SankeyChart(ESMChart):
         self._df = self._df.droplevel(DM.YEAR).droplevel(DM.LOCATION)
         self._df.columns = ["value"]
         self.flows = pd.DataFrame(
-            columns=["source", "target", "value", "color", "customdata"]
+            index=pd.MultiIndex.from_tuples([], names=["source", "target"]),
+            columns=["value", "color", "customdata"],
         )
         self.nodes = (
             pd.DataFrame(
@@ -262,20 +264,26 @@ class SankeyChart(ESMChart):
         self.connect_hydrogen()
         self.connect_electricity()
         self.connect_biogas()
-        # self.connect_heat()
-        # self.connect_liquids()
-        # self.connect_solids()
+        self.connect_heat()
+        self.connect_liquids()
+        self.connect_solids()
         # self.connect_uranium()
 
+        self.forward_transformation()
         # self.check_nodal_balance()
         # self.calculate_node_y_positions()
-        flows_used = set(self.flows["source"]).union(set(self.flows["target"]))  # noqa: F841
+
+        # reduce nodes data frame to prevent misalignment in sankey nodes
+        flows_used = self.flows.index.unique("source").union(  # noqa: F841
+            self.flows.index.unique("target")
+        )
         self.nodes = self.nodes.query("name in @flows_used")
         self.nodes["id"] = [*range(len(self.nodes))]
 
         self.fig = Figure(
             data=[
                 Sankey(
+                    # name="Legend Name",
                     arrangement="snap",  # snap, perpendicular, freeform, fixed
                     valuesuffix=self.unit,
                     textfont_family="Montserrat",
@@ -293,8 +301,12 @@ class SankeyChart(ESMChart):
                         thickness=10,
                     ),
                     link=dict(
-                        source=self.flows["source"].map(self.nodes["id"]),
-                        target=self.flows["target"].map(self.nodes["id"]),
+                        source=self.flows.index.get_level_values("source").map(
+                            self.nodes["id"]
+                        ),
+                        target=self.flows.index.get_level_values("target").map(
+                            self.nodes["id"]
+                        ),
                         value=self.flows["value"],
                         color=self.flows["color"],
                         customdata=self.flows["customdata"],
@@ -303,6 +315,9 @@ class SankeyChart(ESMChart):
                 )
             ]
         )
+
+        title = self.cfg.title.format(location=self.location, unit=self.year)
+        self.fig.update_layout(title=dict(text=title))
 
         self._set_base_layout()
 
@@ -321,8 +336,8 @@ class SankeyChart(ESMChart):
         )
         self._connect(
             import_,
-            self.nodes.loc["IMPORT"],
-            self.nodes.loc["ELECTRICITY_PRIMARY_IN"],
+            "IMPORT",
+            "ELECTRICITY_PRIMARY_IN",
             color=self.nodes.loc["ELECTRICITY_PRIMARY_IN", "color"],
         )
         self.nodes.at["IMPORT", "label"] += (
@@ -335,29 +350,29 @@ class SankeyChart(ESMChart):
         wind = generation.filter(like="wind", axis=0)
         self._connect(
             wind,
-            self.nodes.loc["WIND"],
-            self.nodes.loc["ELECTRICITY_PRIMARY_IN"],
+            "WIND",
+            "ELECTRICITY_PRIMARY_IN",
             color=COLOUR.blue_sky,
         )
         solar = generation.filter(like="solar", axis=0)
         self._connect(
             solar,
-            self.nodes.loc["SOLAR"],
-            self.nodes.loc["ELECTRICITY_PRIMARY_IN"],
+            "SOLAR",
+            "ELECTRICITY_PRIMARY_IN",
             color=COLOUR.yellow_canary,
         )
         hydro = generation.filter(regex="ror|hydro", axis=0)
         self._connect(
             hydro,
-            self.nodes.loc["HYDRO"],
-            self.nodes.loc["ELECTRICITY_PRIMARY_IN"],
+            "HYDRO",
+            "ELECTRICITY_PRIMARY_IN",
             color=COLOUR.blue_pastel,
         )
 
         primary = pd.concat([import_, wind, solar, hydro]).sum().item()
         self._forward(
-            self.nodes.loc["ELECTRICITY_PRIMARY_IN"],
-            self.nodes.loc["ELECTRICITY_PRIMARY_OUT"],
+            "ELECTRICITY_PRIMARY_IN",
+            "ELECTRICITY_PRIMARY_OUT",
             primary,
         )
         self.nodes.at["ELECTRICITY_PRIMARY_IN", "label"] = (
@@ -394,24 +409,19 @@ class SankeyChart(ESMChart):
 
         self._connect(
             transformation_demand,
-            self.nodes.loc["ELECTRICITY_PRIMARY_OUT"],
-            self.nodes.loc["TRANSFORMATION_IN"],
-        )
-        self._forward(
-            self.nodes.loc["TRANSFORMATION_IN"],
-            self.nodes.loc["TRANSFORMATION_OUT"],
-            transformation_demand.sum().item(),
+            "ELECTRICITY_PRIMARY_OUT",
+            "TRANSFORMATION_IN",
         )
 
         bypass = primary - transformation_demand.sum()
         self._forward(
-            self.nodes.loc["ELECTRICITY_PRIMARY_OUT"],
-            self.nodes.loc["ELECTRICITY_BYPASS_IN"],
+            "ELECTRICITY_PRIMARY_OUT",
+            "ELECTRICITY_BYPASS_IN",
             bypass.item(),
         )
         self._forward(
-            self.nodes.loc["ELECTRICITY_BYPASS_IN"],
-            self.nodes.loc["ELECTRICITY_BYPASS_OUT"],
+            "ELECTRICITY_BYPASS_IN",
+            "ELECTRICITY_BYPASS_OUT",
             bypass.item(),
         )
         self.nodes.at["ELECTRICITY_BYPASS_IN", "label"] = (
@@ -421,20 +431,20 @@ class SankeyChart(ESMChart):
         transformation_supply = transformation[transformation.gt(0)].dropna()
         self._connect(
             transformation_supply,
-            self.nodes.loc["TRANSFORMATION_OUT"],
-            self.nodes.loc["ELECTRICITY_SECONDARY_IN"],
+            "TRANSFORMATION_OUT",
+            "ELECTRICITY_SECONDARY_IN",
             color=self.nodes.loc["ELECTRICITY_PRIMARY_IN", "color"],
         )
         self._forward(
-            self.nodes.loc["ELECTRICITY_BYPASS_OUT"],
-            self.nodes.loc["ELECTRICITY_SECONDARY_IN"],
+            "ELECTRICITY_BYPASS_OUT",
+            "ELECTRICITY_SECONDARY_IN",
             bypass.item(),
         )
 
         secondary = transformation_supply.sum() + bypass
         self._forward(
-            self.nodes.loc["ELECTRICITY_SECONDARY_IN"],
-            self.nodes.loc["ELECTRICITY_SECONDARY_OUT"],
+            "ELECTRICITY_SECONDARY_IN",
+            "ELECTRICITY_SECONDARY_OUT",
             secondary.item(),
         )
         self.nodes.at["ELECTRICITY_SECONDARY_IN", "label"] = (
@@ -446,14 +456,14 @@ class SankeyChart(ESMChart):
         industry = final.filter(like="industry", axis=0)
         self._connect(
             industry,
-            self.nodes.loc["ELECTRICITY_SECONDARY_OUT"],
-            self.nodes.loc["INDUSTRY"],
+            "ELECTRICITY_SECONDARY_OUT",
+            "INDUSTRY",
         )
         export = final.filter(regex="Foreign|Domestic", axis=0)
         self._connect(
             export,
-            self.nodes.loc["ELECTRICITY_SECONDARY_OUT"],
-            self.nodes.loc["EXPORT"],
+            "ELECTRICITY_SECONDARY_OUT",
+            "EXPORT",
         )
         transport = final.filter(like="BEV charger", axis=0)
         bev_charger_losses = filter_by(
@@ -461,20 +471,20 @@ class SankeyChart(ESMChart):
         )
         self._connect(
             pd.concat([transport, bev_charger_losses]),
-            self.nodes.loc["ELECTRICITY_SECONDARY_OUT"],
-            self.nodes.loc["TRANSPORT"],
+            "ELECTRICITY_SECONDARY_OUT",
+            "TRANSPORT",
         )
         agriculture = final.filter(like="agriculture", axis=0)
         self._connect(
             agriculture,
-            self.nodes.loc["ELECTRICITY_SECONDARY_OUT"],
-            self.nodes.loc["AGRICULTURE"],
+            "ELECTRICITY_SECONDARY_OUT",
+            "AGRICULTURE",
         )
         hh_services = final.filter(regex="rural|decentral|'electricity'", axis=0)
         self._connect(
             hh_services,
-            self.nodes.loc["ELECTRICITY_SECONDARY_OUT"],
-            self.nodes.loc["HH_SERVICES"],
+            "ELECTRICITY_SECONDARY_OUT",
+            "HH_SERVICES",
         )
         self.nodes.at["EXPORT", "label"] += (
             f"<br>{prettify_number(export.sum().item())} {self.unit} Electricity"
@@ -491,8 +501,8 @@ class SankeyChart(ESMChart):
         )
         self._connect(
             distribution_grid_losses,
-            self.nodes.loc["ELECTRICITY_SECONDARY_OUT"],
-            self.nodes.loc["DISTRIBUTION_LOSSES"],
+            "ELECTRICITY_SECONDARY_OUT",
+            "DISTRIBUTION_LOSSES",
             color=COLOUR.grey_neutral,
         )
 
@@ -509,8 +519,8 @@ class SankeyChart(ESMChart):
         )
         self._connect(
             import_,
-            self.nodes.loc["IMPORT"],
-            self.nodes.loc["HYDROGEN_PRIMARY_IN"],
+            "IMPORT",
+            "HYDROGEN_PRIMARY_IN",
             color=self.nodes.loc["HYDROGEN_PRIMARY_IN", "color"],
         )
         self.nodes.at["IMPORT", "label"] += (
@@ -519,8 +529,8 @@ class SankeyChart(ESMChart):
 
         primary = import_.sum().item()
         self._forward(
-            self.nodes.loc["HYDROGEN_PRIMARY_IN"],
-            self.nodes.loc["HYDROGEN_PRIMARY_OUT"],
+            "HYDROGEN_PRIMARY_IN",
+            "HYDROGEN_PRIMARY_OUT",
             primary,
         )
         self.nodes.at["HYDROGEN_PRIMARY_IN", "label"] = (
@@ -536,24 +546,19 @@ class SankeyChart(ESMChart):
         transformation_demand = transformation[transformation.lt(0)].dropna().mul(-1)
         self._connect(
             transformation_demand,
-            self.nodes.loc["HYDROGEN_PRIMARY_OUT"],
-            self.nodes.loc["TRANSFORMATION_IN"],
-        )
-        self._forward(
-            self.nodes.loc["TRANSFORMATION_IN"],
-            self.nodes.loc["TRANSFORMATION_OUT"],
-            transformation_demand.sum().item(),
+            "HYDROGEN_PRIMARY_OUT",
+            "TRANSFORMATION_IN",
         )
 
         bypass = primary - transformation_demand.sum()
         self._forward(
-            self.nodes.loc["HYDROGEN_PRIMARY_OUT"],
-            self.nodes.loc["HYDROGEN_BYPASS_IN"],
+            "HYDROGEN_PRIMARY_OUT",
+            "HYDROGEN_BYPASS_IN",
             bypass.item(),
         )
         self._forward(
-            self.nodes.loc["HYDROGEN_BYPASS_IN"],
-            self.nodes.loc["HYDROGEN_BYPASS_OUT"],
+            "HYDROGEN_BYPASS_IN",
+            "HYDROGEN_BYPASS_OUT",
             bypass.item(),
         )
         self.nodes.at["HYDROGEN_BYPASS_IN", "label"] = (
@@ -563,20 +568,20 @@ class SankeyChart(ESMChart):
         transformation_supply = transformation[transformation.gt(0)].dropna()
         self._connect(
             transformation_supply,
-            self.nodes.loc["TRANSFORMATION_OUT"],
-            self.nodes.loc["HYDROGEN_SECONDARY_IN"],
+            "TRANSFORMATION_OUT",
+            "HYDROGEN_SECONDARY_IN",
             color=self.nodes.loc["HYDROGEN_PRIMARY_IN", "color"],
         )
         self._forward(
-            self.nodes.loc["HYDROGEN_BYPASS_OUT"],
-            self.nodes.loc["HYDROGEN_SECONDARY_IN"],
+            "HYDROGEN_BYPASS_OUT",
+            "HYDROGEN_SECONDARY_IN",
             bypass.item(),
         )
 
         secondary = transformation_supply.sum() + bypass
         self._forward(
-            self.nodes.loc["HYDROGEN_SECONDARY_IN"],
-            self.nodes.loc["HYDROGEN_SECONDARY_OUT"],
+            "HYDROGEN_SECONDARY_IN",
+            "HYDROGEN_SECONDARY_OUT",
             secondary.item(),
         )
         self.nodes.at["HYDROGEN_SECONDARY_IN", "label"] = (
@@ -590,34 +595,35 @@ class SankeyChart(ESMChart):
             # amounts are looped in the transformation input side.
             diff = transformation_supply.sum() - final.sum()
             self._forward(
-                self.nodes.loc["HYDROGEN_SECONDARY_IN"],
-                self.nodes.loc["HYDROGEN_PRIMARY_OUT"],
+                "HYDROGEN_SECONDARY_IN",
+                "TRANSFORMATION_IN",
                 diff.item(),
             )
+            # subtract diff from PRIMARY_OUT to TRANSFORM_IN
 
         industry = final.filter(like="industry", axis=0)
         self._connect(
             industry,
-            self.nodes.loc["HYDROGEN_SECONDARY_OUT"],
-            self.nodes.loc["INDUSTRY"],
+            "HYDROGEN_SECONDARY_OUT",
+            "INDUSTRY",
         )
         hh_services = final.filter(regex="rural|decentral", axis=0)
         self._connect(
             hh_services,
-            self.nodes.loc["HYDROGEN_SECONDARY_OUT"],
-            self.nodes.loc["HH_SERVICES"],
+            "HYDROGEN_SECONDARY_OUT",
+            "HH_SERVICES",
         )
         export = final.filter(regex="Foreign|Domestic", axis=0)
         self._connect(
             export,
-            self.nodes.loc["HYDROGEN_SECONDARY_OUT"],
-            self.nodes.loc["EXPORT"],
+            "HYDROGEN_SECONDARY_OUT",
+            "EXPORT",
         )
         transport = final.filter(regex="transport", axis=0)
         self._connect(
             transport,
-            self.nodes.loc["HYDROGEN_SECONDARY_OUT"],
-            self.nodes.loc["TRANSPORT"],
+            "HYDROGEN_SECONDARY_OUT",
+            "TRANSPORT",
         )
         self.nodes.at["EXPORT", "label"] += (
             f"<br>{prettify_number(export.sum().item())} {self.unit} Hydrogen"
@@ -645,8 +651,8 @@ class SankeyChart(ESMChart):
         )
         self._connect(
             import_,
-            self.nodes.loc["IMPORT"],
-            self.nodes.loc["METHANE_PRIMARY_IN"],
+            "IMPORT",
+            "METHANE_PRIMARY_IN",
             color=self.nodes.loc["METHANE_PRIMARY_IN", "color"],
         )
         self.nodes.at["IMPORT", "label"] += (
@@ -655,8 +661,8 @@ class SankeyChart(ESMChart):
 
         gas_primary = import_.sum().item()
         self._forward(
-            self.nodes.loc["METHANE_PRIMARY_IN"],
-            self.nodes.loc["METHANE_PRIMARY_OUT"],
+            "METHANE_PRIMARY_IN",
+            "METHANE_PRIMARY_OUT",
             gas_primary,
         )
         self.nodes.at["METHANE_PRIMARY_IN", "label"] = (
@@ -672,24 +678,19 @@ class SankeyChart(ESMChart):
         transformation_gas_demand = transform_gas[transform_gas.lt(0)].dropna().mul(-1)
         self._connect(
             transformation_gas_demand,
-            self.nodes.loc["METHANE_PRIMARY_OUT"],
-            self.nodes.loc["TRANSFORMATION_IN"],
-        )
-        self._forward(
-            self.nodes.loc["TRANSFORMATION_IN"],
-            self.nodes.loc["TRANSFORMATION_OUT"],
-            transformation_gas_demand.sum().item(),
+            "METHANE_PRIMARY_OUT",
+            "TRANSFORMATION_IN",
         )
 
         bypass_gas = gas_primary - transformation_gas_demand.sum()
         self._forward(
-            self.nodes.loc["METHANE_PRIMARY_OUT"],
-            self.nodes.loc["METHANE_BYPASS_IN"],
+            "METHANE_PRIMARY_OUT",
+            "METHANE_BYPASS_IN",
             bypass_gas.item(),
         )
         self._forward(
-            self.nodes.loc["METHANE_BYPASS_IN"],
-            self.nodes.loc["METHANE_BYPASS_OUT"],
+            "METHANE_BYPASS_IN",
+            "METHANE_BYPASS_OUT",
             bypass_gas.item(),
         )
         self.nodes.at["METHANE_BYPASS_IN", "label"] = (
@@ -699,20 +700,20 @@ class SankeyChart(ESMChart):
         transformation_gas_supply = transform_gas[transform_gas.ge(0)].dropna()
         self._connect(
             transformation_gas_supply,
-            self.nodes.loc["TRANSFORMATION_OUT"],
-            self.nodes.loc["METHANE_SECONDARY_IN"],
+            "TRANSFORMATION_OUT",
+            "METHANE_SECONDARY_IN",
             color=self.nodes.loc["METHANE_PRIMARY_IN", "color"],
         )
         self._forward(
-            self.nodes.loc["METHANE_BYPASS_OUT"],
-            self.nodes.loc["METHANE_SECONDARY_IN"],
+            "METHANE_BYPASS_OUT",
+            "METHANE_SECONDARY_IN",
             bypass_gas.item(),
         )
 
         secondary = transformation_gas_supply.sum() + bypass_gas
         self._forward(
-            self.nodes.loc["METHANE_SECONDARY_IN"],
-            self.nodes.loc["METHANE_SECONDARY_OUT"],
+            "METHANE_SECONDARY_IN",
+            "METHANE_SECONDARY_OUT",
             secondary.item(),
         )
         self.nodes.at["METHANE_SECONDARY_IN", "label"] = (
@@ -724,20 +725,20 @@ class SankeyChart(ESMChart):
         industry = final.filter(like="industry", axis=0)
         self._connect(
             industry,
-            self.nodes.loc["METHANE_SECONDARY_OUT"],
-            self.nodes.loc["INDUSTRY"],
+            "METHANE_SECONDARY_OUT",
+            "INDUSTRY",
         )
         hh_services = final.filter(regex="rural|decentral", axis=0)
         self._connect(
             hh_services,
-            self.nodes.loc["METHANE_SECONDARY_OUT"],
-            self.nodes.loc["HH_SERVICES"],
+            "METHANE_SECONDARY_OUT",
+            "HH_SERVICES",
         )
         export = final.filter(regex="Foreign|Domestic", axis=0)
         self._connect(
             export,
-            self.nodes.loc["METHANE_SECONDARY_OUT"],
-            self.nodes.loc["EXPORT"],
+            "METHANE_SECONDARY_OUT",
+            "EXPORT",
         )
         self.nodes.at["EXPORT", "label"] += (
             f"<br>{prettify_number(export.sum().item())} {self.unit} Methane"
@@ -755,40 +756,437 @@ class SankeyChart(ESMChart):
             self._df,
             bus_carrier=bus_carrier,
             component="Generator",
-            # carrier=[
-            #     "Import Foreign",
-            #     "Import Domestic",
-            #     "biogas",
-            # ],
         )
         self._connect(
             generation,
-            self.nodes.loc["BIOGAS"],
-            self.nodes.loc["BIOGAS_PRIMARY_IN"],
+            "BIOGAS",
+            "BIOGAS_PRIMARY_IN",
             color=self.nodes.loc["BIOGAS_PRIMARY_IN", "color"],
         )
         self._forward(
-            self.nodes.loc["BIOGAS_PRIMARY_IN"],
-            self.nodes.loc["BIOGAS_PRIMARY_OUT"],
+            "BIOGAS_PRIMARY_IN",
+            "BIOGAS_PRIMARY_OUT",
             generation.sum().item(),
+        )
+        self.nodes.at["BIOGAS_PRIMARY_IN", "label"] = (
+            f"{prettify_number(generation.sum().item())} {self.unit}"
         )
 
         processing = filter_by(self._df, bus_carrier=bus_carrier, component="Link")
         self._connect(
             processing,
-            self.nodes.loc["BIOGAS_PRIMARY_OUT"],
-            self.nodes.loc["TRANSFORMATION_IN"],
-        )
-        self._forward(
-            self.nodes.loc["TRANSFORMATION_IN"],
-            self.nodes.loc["TRANSFORMATION_OUT"],
-            processing.sum().item(),
+            "BIOGAS_PRIMARY_OUT",
+            "TRANSFORMATION_IN",
         )
 
-    def _connect(
-        self, df, source, target, color: str = None, extend_node_label: str = None
-    ):
-        if df.abs().sum().item() < 1e-6:  # todo: magic number to config
+    def connect_solids(self):
+        bus_carrier = [
+            "coal",
+            "lignite",
+            "solid biomass",
+            "municipal solid waste",
+            "non-sequestered HVC",
+        ]
+        color = self.nodes.loc["SOLIDS_PRIMARY_IN", "color"]
+        import_ = filter_by(
+            self._df,
+            bus_carrier=bus_carrier,
+            carrier=[
+                "Import Foreign",
+                "Import Domestic",
+            ],
+        )
+        self._connect(import_, "IMPORT", "SOLIDS_PRIMARY_IN", color=color)
+        self.nodes.at["IMPORT", "label"] += (
+            f"<br>{prettify_number(import_.sum().item())} {self.unit} Solids"
+        )
+
+        generation = filter_by(
+            self._df, bus_carrier=bus_carrier, component=["Generator", "Store"]
+        )
+        self._connect(
+            generation,
+            "SOLIDS",
+            "SOLIDS_PRIMARY_IN",
+            color=color,
+        )
+
+        # HVC to air is an unused resource
+        primary_losses = filter_by(
+            self._df, bus_carrier=bus_carrier, carrier="HVC to air"
+        )
+        self._connect(
+            primary_losses, "SOLIDS_PRIMARY_OUT", "UNUSED", color=COLOUR.grey_neutral
+        )
+
+        primary = pd.concat([import_, generation]).sum().item()
+        self._forward(
+            "SOLIDS_PRIMARY_IN",
+            "SOLIDS_PRIMARY_OUT",
+            primary,
+        )
+        self.nodes.at["SOLIDS_PRIMARY_IN", "label"] = (
+            f"{prettify_number(primary)} {self.unit}"
+        )
+
+        # waste to HVC is only used to track CO2 emissions
+        waste_to_hvc = filter_by(
+            self._df, carrier="municipal solid waste", component="Link"
+        )
+        assert waste_to_hvc.sum().abs().item() < 1e-6, waste_to_hvc
+        self._df.drop(waste_to_hvc.index, inplace=True)
+        transformation = filter_by(
+            self._df,
+            bus_carrier=bus_carrier,
+            component="Link",
+        ).pipe(
+            drop_from_multtindex_by_regex,
+            "Foreign|Domestic|decentral|rural|for industry",
+        )
+
+        transformation_demand = transformation[transformation.lt(0)].dropna().mul(-1)
+        self._connect(
+            transformation_demand,
+            "SOLIDS_PRIMARY_OUT",
+            "TRANSFORMATION_IN",
+        )
+
+        bypass = (
+            primary
+            - transformation_demand.sum().item()
+            - primary_losses.sum().abs().item()
+        )
+        self._forward(
+            "SOLIDS_PRIMARY_OUT",
+            "SOLIDS_BYPASS_IN",
+            bypass,
+        )
+        self._forward(
+            "SOLIDS_BYPASS_IN",
+            "SOLIDS_BYPASS_OUT",
+            bypass,
+        )
+        self.nodes.at["SOLIDS_BYPASS_IN", "label"] = (
+            f"{prettify_number(bypass)} {self.unit}"
+        )
+
+        transformation_supply = transformation[transformation.gt(0)].dropna()
+        assert transformation_supply.empty
+
+        self._forward(
+            "SOLIDS_BYPASS_OUT",
+            "SOLIDS_SECONDARY_IN",
+            bypass,
+        )
+
+        secondary = transformation_supply.sum().item() + bypass
+        self._forward(
+            "SOLIDS_SECONDARY_IN",
+            "SOLIDS_SECONDARY_OUT",
+            secondary,
+        )
+        self.nodes.at["SOLIDS_SECONDARY_IN", "label"] = (
+            f"{prettify_number(secondary)} {self.unit}"
+        )
+
+        final = filter_by(self._df, bus_carrier=bus_carrier).abs()
+
+        industry = final.filter(like="industry", axis=0)
+        self._connect(
+            industry,
+            "SOLIDS_SECONDARY_OUT",
+            "INDUSTRY",
+        )
+        export = final.filter(regex="Foreign|Domestic", axis=0)
+        self._connect(
+            export,
+            "SOLIDS_SECONDARY_OUT",
+            "EXPORT",
+        )
+        hh_services = final.filter(regex="rural|decentral", axis=0)
+        self._connect(
+            hh_services,
+            "SOLIDS_SECONDARY_OUT",
+            "HH_SERVICES",
+        )
+        self.nodes.at["EXPORT", "label"] += (
+            f"<br>{prettify_number(export.sum().item())} {self.unit} Solids"
+        )
+
+        remaining = filter_by(self._df, bus_carrier=bus_carrier)
+        assert remaining.empty, (
+            f"Missing amounts detected for location "
+            f"{self.location} and year {self.year}:\n{remaining}"
+        )
+
+    def connect_liquids(self):
+        name = "LIQUIDS"
+        bus_carrier = [
+            "oil",
+            "methanol",
+            "NH3",
+            "electrobiofuels",
+        ]
+        color = self.nodes.loc[f"{name}_PRIMARY_IN", "color"]
+        import_ = filter_by(
+            self._df,
+            bus_carrier=bus_carrier,
+            carrier=[
+                "Import Foreign",
+                "Import Domestic",
+                "import NH3",
+                "import oil",
+                "import methanol",
+            ],
+        )
+        self._connect(import_, "IMPORT", f"{name}_PRIMARY_IN", color=color)
+        self.nodes.at["IMPORT", "label"] += (
+            f"<br>{prettify_number(import_.sum().item())} {self.unit} {name.title()}"
+        )
+
+        primary = import_.sum().item()
+        self._forward(
+            f"{name}_PRIMARY_IN",
+            f"{name}_PRIMARY_OUT",
+            primary,
+        )
+        self.nodes.at[f"{name}_PRIMARY_IN", "label"] = (
+            f"{prettify_number(primary)} {self.unit}"
+        )
+
+        transformation = filter_by(
+            self._df,
+            bus_carrier=bus_carrier,
+            component="Link",
+        ).pipe(
+            drop_from_multtindex_by_regex,
+            "Foreign|Domestic|decentral|rural|industry|shipping|agriculture|transport|aviation",
+        )
+
+        transformation_demand = transformation[transformation.lt(0)].dropna().mul(-1)
+        self._connect(
+            transformation_demand,
+            f"{name}_PRIMARY_OUT",
+            "TRANSFORMATION_IN",
+        )
+
+        bypass = primary - transformation_demand.sum().item()
+        self._forward(
+            f"{name}_PRIMARY_OUT",
+            f"{name}_BYPASS_IN",
+            bypass,
+        )
+        self._forward(
+            f"{name}_BYPASS_IN",
+            f"{name}_BYPASS_OUT",
+            bypass,
+        )
+        self.nodes.at[f"{name}_BYPASS_IN", "label"] = (
+            f"{prettify_number(bypass)} {self.unit}"
+        )
+
+        transformation_supply = transformation[transformation.gt(0)].dropna()
+        self._connect(
+            transformation_supply,
+            "TRANSFORMATION_OUT",
+            f"{name}_SECONDARY_IN",
+            color=color,
+        )
+
+        self._forward(f"{name}_BYPASS_OUT", f"{name}_SECONDARY_IN", bypass)
+
+        secondary = transformation_supply.sum().item() + bypass
+        self._forward(f"{name}_SECONDARY_IN", f"{name}_SECONDARY_OUT", secondary)
+        self.nodes.at[f"{name}_SECONDARY_IN", "label"] = (
+            f"{prettify_number(secondary)} {self.unit}"
+        )
+
+        final = filter_by(self._df, bus_carrier=bus_carrier).abs()
+
+        industry = final.filter(like="industry", axis=0)
+        self._connect(
+            industry,
+            f"{name}_SECONDARY_OUT",
+            "INDUSTRY",
+        )
+        export = final.filter(regex="Foreign|Domestic", axis=0)
+        self._connect(
+            export,
+            f"{name}_SECONDARY_OUT",
+            "EXPORT",
+        )
+        hh_services = final.filter(regex="rural|decentral", axis=0)
+        self._connect(
+            hh_services,
+            f"{name}_SECONDARY_OUT",
+            "HH_SERVICES",
+        )
+        transport = final.filter(regex="transport|shipping|aviation", axis=0)
+        self._connect(
+            transport,
+            f"{name}_SECONDARY_OUT",
+            "TRANSPORT",
+        )
+        agriculture = final.filter(regex="agriculture|NH3", axis=0)
+        self._connect(
+            agriculture,
+            f"{name}_SECONDARY_OUT",
+            "AGRICULTURE",
+        )
+        self.nodes.at["EXPORT", "label"] += (
+            f"<br>{prettify_number(export.sum().item())} {self.unit} {name.title()}"
+        )
+
+        stores = filter_by(self._df, bus_carrier=bus_carrier, component="Store")
+        assert stores.sum().abs().item() < 1e-6
+        self._df.drop(stores.index, inplace=True)
+
+        remaining = filter_by(self._df, bus_carrier=bus_carrier)
+        assert remaining.empty, (
+            f"Missing amounts detected for location "
+            f"{self.location} and year {self.year}:\n{remaining}"
+        )
+
+    def connect_heat(self):
+        name = "HEAT"
+        bus_carrier = [
+            "ambient heat",
+            "rural heat",
+            "urban central heat",
+            "urban decentral heat",
+        ]
+        color = self.nodes.loc[f"{name}_PRIMARY_IN", "color"]
+
+        generation = filter_by(
+            self._df, bus_carrier=bus_carrier, component=["Generator", "Link"]
+        ).filter(regex="solar thermal|ambient heat", axis=0)
+
+        self._connect(generation, "HEAT", "HEAT_PRIMARY_IN", color=color)
+
+        primary = generation.sum().item()
+        self._forward(
+            f"{name}_PRIMARY_IN",
+            f"{name}_PRIMARY_OUT",
+            primary,
+        )
+        self.nodes.at[f"{name}_PRIMARY_IN", "label"] = (
+            f"{prettify_number(primary)} {self.unit}"
+        )
+
+        transformation = filter_by(
+            self._df,
+            bus_carrier=bus_carrier,
+            component="Link",
+        ).pipe(
+            drop_from_multtindex_by_regex,
+            "decentral|rural|industry|agriculture|DAC",
+        )
+
+        storage_demand = transformation[transformation.lt(0)].dropna().mul(-1)
+        central_heat = generation.filter(like=" central ", axis=0)
+        transformation_demand = pd.concat([storage_demand, central_heat])
+        self._connect(
+            transformation_demand,
+            f"{name}_PRIMARY_OUT",
+            "TRANSFORMATION_IN",
+        )
+
+        bypass = primary - transformation_demand.sum().item()
+        self._forward(
+            f"{name}_PRIMARY_OUT",
+            f"{name}_BYPASS_IN",
+            bypass,
+        )
+        self._forward(
+            f"{name}_BYPASS_IN",
+            f"{name}_BYPASS_OUT",
+            bypass,
+        )
+        self.nodes.at[f"{name}_BYPASS_IN", "label"] = (
+            f"{prettify_number(bypass)} {self.unit}"
+        )
+
+        storage_supply = transformation[transformation.gt(0)].dropna()
+        transformation_supply = pd.concat([storage_supply, central_heat])
+        self._connect(
+            transformation_supply,
+            "TRANSFORMATION_OUT",
+            f"{name}_SECONDARY_IN",
+            color=color,
+        )
+
+        self._forward(f"{name}_BYPASS_OUT", f"{name}_SECONDARY_IN", bypass)
+
+        secondary = transformation_supply.sum().item() + bypass
+        self._forward(f"{name}_SECONDARY_IN", f"{name}_SECONDARY_OUT", secondary)
+        self.nodes.at[f"{name}_SECONDARY_IN", "label"] = (
+            f"{prettify_number(secondary)} {self.unit}"
+        )
+
+        final = filter_by(self._df, bus_carrier=bus_carrier).abs()
+
+        industry = final.filter(like="industry", axis=0)
+        self._connect(
+            industry,
+            f"{name}_SECONDARY_OUT",
+            "INDUSTRY",
+        )
+        dac = final.filter(regex="DAC", axis=0)
+        self._connect(
+            dac,
+            f"{name}_SECONDARY_OUT",
+            "INDUSTRY",
+        )
+        agriculture = final.filter(regex="agriculture", axis=0)
+        self._connect(
+            agriculture,
+            f"{name}_SECONDARY_OUT",
+            "AGRICULTURE",
+        )
+
+        # todo: decentral heat distribution losses
+
+        vents = final.filter(like="heat vent", axis=0)
+        self._connect(
+            vents,
+            f"{name}_SECONDARY_OUT",
+            "DISTRIBUTION_LOSSES",
+            color=COLOUR.grey_neutral,
+        )
+
+        heat_loads = filter_by(self._df, bus_carrier=bus_carrier, component="Load")
+        self._connect(
+            heat_loads,
+            f"{name}_SECONDARY_OUT",
+            "HH_SERVICES",
+        )
+        # hh_services = final.filter(regex="rural|decentral", axis=0)
+
+        # some technologies are connected to FED via their input
+        # bus_carrier because this form of energy is metered
+        to_drop = filter_by(self._df, bus_carrier=bus_carrier, component="Link").filter(
+            regex="decentral|rural", axis=0
+        )
+        self._df.drop(to_drop.index, inplace=True)
+        # self._df.drop("Load", level="component", inplace=True)
+
+        remaining = filter_by(self._df, bus_carrier=bus_carrier)
+        assert remaining.empty, (
+            f"Missing amounts detected for location "
+            f"{self.location} and year {self.year}:\n{remaining}"
+        )
+
+    def forward_transformation(self):
+        transformation = self.flows.query("target == 'TRANSFORMATION_IN'")
+        self._forward(
+            "TRANSFORMATION_IN",
+            "TRANSFORMATION_OUT",
+            transformation["value"].sum(),
+        )
+
+    def _connect(self, df, source, target, color: str = None):
+        value = df.abs().sum().item()
+        if value < self.cfg.cutoff:
             self._df.drop(df.index, inplace=True, errors="ignore")
             return
 
@@ -797,18 +1195,15 @@ class SankeyChart(ESMChart):
             [
                 f"{c}: {prettify_number(v)} {self._df.attrs['unit']}"
                 for c, v in zip(df.index.get_level_values("carrier"), df["value"])
-                if v >= 0.05  # todo: magic number to config
+                if prettify_number(v) != "0.0"
             ]
         )
-        customdata += f"<br><br>Total: {prettify_number(df.sum().item())} {self.unit}"
+        customdata += f"<br><br><b>Total: {prettify_number(value)} {self.unit}</b>"
 
         # add a row with the link's value
-        row = self.flows.shape[0]  # next index
-        self.flows.loc[row, self.flows.columns] = [
-            source.name,
-            target.name,
-            df.abs().sum().item(),
-            color or source.color,
+        self.flows.loc[(source, target), self.flows.columns] = [
+            value,
+            color or self.nodes.loc[source, "color"],
             customdata,
         ]
         # drop from the original dataframe
@@ -818,12 +1213,12 @@ class SankeyChart(ESMChart):
         if value < 1e-6:  # todo: magic number to config
             return
 
-        row = self.flows.shape[0]  # next index
-        self.flows.loc[row, self.flows.columns] = [
-            source.name,
-            target.name,
+        # row = self.flows.shape[0]  # next index
+        self.flows.loc[(source, target), self.flows.columns] = [
+            # source,
+            # target,
             value,
-            color or source.color,
+            color or self.nodes.loc[source, "color"],
             f"{prettify_number(value)} {self._df.attrs['unit']}",
         ]
 
