@@ -828,7 +828,7 @@ exports = []
 [view_final_energy_demand.catagories]
 
 [view_sankey]
-name = "Sankey Diagram"
+name = "Energy Flow for"
 unit = "TWh"
 file_name = "sankey_{location}_{year}"
 bus_carrier = ""  # all bus_carrier

@@ -115,7 +115,7 @@ GROUP_COLORS = {
     "Uranium": COLOUR.orange_mellow,
 }
 GROUP_Y = {
-    name: i / 10
+    name: i / 20
     for i, name in enumerate(
         (
             "Electricity",
@@ -138,69 +138,25 @@ GROUP_X = {
     ("SECONDARY", "IN"): 0.7,
     ("SECONDARY", "OUT"): 0.75,
 }
-
-# BUS_CARRIER_COLORS = {
-#     "biogas": COLOUR.green_sage,
-#     "coal": COLOUR.grey_dark,
-#     "H2": COLOUR.green_mint,
-#     "NH3": COLOUR.yellow_canary,
-#     "lignite": COLOUR.brown_dark,
-#     "gas": COLOUR.brown_light,
-#     "municipal solid waste": COLOUR.grey_light,
-#     "AC": COLOUR.blue_celestial,
-#     "oil primary": COLOUR.red_deep,
-#     "rural heat": COLOUR.yellow_golden,
-#     "low voltage": COLOUR.blue_celestial,
-#     "solid biomass": COLOUR.green_sage,
-#     "uranium": COLOUR.orange_mellow,
-#     "urban central heat": COLOUR.yellow_golden,
-#     "urban decentral heat": COLOUR.yellow_golden,
-#     "EV battery": COLOUR.blue_celestial,
-#     "methanol": COLOUR.salmon,
-#     "oil": COLOUR.red_deep,
-#     "non-sequestered HVC": COLOUR.grey_light,
-#     "agriculture machinery oil": COLOUR.red_deep,
-#     "battery": COLOUR.blue_celestial,
-#     "ambient heat": COLOUR.yellow_golden,
-#     "home battery": COLOUR.blue_celestial,
-#     "industry methanol": COLOUR.salmon,
-#     "kerosene for aviation": COLOUR.red_deep,
-#     "shipping methanol": COLOUR.salmon,
-#     "gas for industry": COLOUR.brown_light,
-#     "naphtha for industry": COLOUR.red_deep,
-#     "solid biomass for industry": COLOUR.green_sage,
-#     "rural water tanks": COLOUR.yellow_golden,
-#     "urban central water pits": COLOUR.yellow_golden,
-#     "urban central water tanks": COLOUR.yellow_golden,
-#     "urban decentral water tanks": COLOUR.yellow_golden,
-#     # Grouped colors
-#     "Liquids": COLOUR.red_deep,
-#     "Solids": COLOUR.green_sage,
-#     "Gas": COLOUR.brown_light,
-#     "Heat": COLOUR.yellow_golden,
-#     "Waste": COLOUR.grey_light,
-# }
-
-
 NODE_DATA = [  # id, label, x, y
-    ["IMPORT", "Import", COLOUR.black, 0.01, 0.1],
-    ["WIND", "Wind Power", COLOUR.black, 0.01, 0.3],
-    ["SOLAR", "Solar Power", COLOUR.black, 0.01, 0.5],
-    ["HYDRO", "Hydro Power", COLOUR.black, 0.01, 0.6],
-    ["BIOGAS", "Biogas", COLOUR.black, 0.01, 0.7],
-    ["SOLIDS", "Solids", COLOUR.black, 0.01, 0.75],
-    ["LIQUIDS", "Liquids", COLOUR.black, 0.01, 0.8],
-    ["HEAT", "Ambient Heat", COLOUR.black, 0.01, 0.85],
-    ["TRANS_IN", "Transformation<br>& Storage", COLOUR.salmon, 0.4, 0.9],
-    ["TRANS_OUT", "", COLOUR.salmon, 0.6, 0.9],
-    ["INDUSTRY", "Industry", COLOUR.black, 0.99, 0.5],
-    ["HH_SERVICES", "Households & Services", COLOUR.black, 0.99, 0.3],
+    ["IMPORT", "Import", COLOUR.black, 0.01, 0.01],
+    ["WIND", "Wind Power", COLOUR.black, 0.01, 0.05],
+    ["SOLAR", "Solar Power", COLOUR.black, 0.01, 0.1],
+    ["HYDRO", "Hydro Power", COLOUR.black, 0.01, 0.15],
+    ["BIOGAS", "Biogas", COLOUR.black, 0.01, 0.2],
+    ["SOLIDS", "Solids", COLOUR.black, 0.01, 0.25],
+    ["LIQUIDS", "Liquids", COLOUR.black, 0.01, 0.3],
+    ["HEAT", "Ambient Heat", COLOUR.black, 0.01, 0.35],
+    ["TRANS_IN", "Transformation<br>& Storage", COLOUR.salmon, 0.4, 0.5],
+    ["TRANS_OUT", "", COLOUR.salmon, 0.6, 0.5],
     ["EXPORT", "Export", COLOUR.black, 0.99, 0.01],
-    ["TRANSPORT", "Transport", COLOUR.black, 0.99, 0.6],
-    ["AGRICULTURE", "Agriculture", COLOUR.black, 0.99, 0.8],
-    ["UNUSED", "Ressource Losses", COLOUR.grey_deep, 0.35, 0.99],
-    ["TRANS_LOSS", "Transformation Losses", COLOUR.grey_deep, 0.65, 0.99],
-    ["DIST_LOSS", "Distribution Losses", COLOUR.grey_deep, 0.8, 0.99],
+    ["HH_SERVICES", "Households & Services", COLOUR.black, 0.99, 0.05],
+    ["INDUSTRY", "Industry", COLOUR.black, 0.99, 0.1],
+    ["TRANSPORT", "Transport", COLOUR.black, 0.99, 0.15],
+    ["AGRICULTURE", "Agriculture", COLOUR.black, 0.99, 0.2],
+    ["UNUSED", "Ressource Losses", COLOUR.grey_deep, 0.35, 0.7],
+    ["TRANS_LOSS", "Transformation Losses", COLOUR.grey_deep, 0.65, 0.7],
+    ["DIST_LOSS", "Distribution Losses", COLOUR.grey_deep, 0.8, 0.7],
 ]
 for group, section, side in product(
     GROUPS,
@@ -246,13 +202,13 @@ class SankeyChart(ESMChart):
         self.connect_liquids()
         self.connect_solids()
         self.connect_uranium()
-        # must connect heat last to know FED
-        self.connect_heat()
+        self.connect_heat()  # must connect heat last to know FED
 
         self.forward_transformation()
         self.connect_transformation_losses()
+
         # self.check_nodal_balance()
-        # self.calculate_node_y_positions()
+        # self.fix_node_y_positions()
 
         # reduce nodes data frame to prevent misalignment in sankey nodes
         flows_used = self.flows.index.unique("source").union(  # noqa: F841
@@ -297,11 +253,11 @@ class SankeyChart(ESMChart):
             ]
         )
 
-        title = self.cfg.title.format(location=self.location, unit=self.year)
-        self.fig.update_layout(title=dict(text=title))
-
         self._set_base_layout()
-
+        title = self.cfg.title.format(location=self.location, unit=self.year)
+        self.fig.update_layout(
+            title=dict(text=title, font_size=self.cfg.title_font_size)
+        )
         # import plotly.io as pio
         # pio.show(self.fig)
 
@@ -378,7 +334,6 @@ class SankeyChart(ESMChart):
         v2g_demand = transformation.query("carrier == 'V2G'").rename(
             {"V2G": "V2G demand"}
         )
-        # bev_charger = transformation_demand.query("carrier == 'BEV charger'")
         # increase BEV charger withdrawal by V2G amounts and drop it from
         # transformation demand since its transport load
         bev = ("Link", "BEV charger", "low voltage")
@@ -394,19 +349,19 @@ class SankeyChart(ESMChart):
             "TRANS_IN",
         )
 
-        bypass = primary - transformation_demand.sum()
+        bypass = primary - transformation_demand.sum().item()
         self._forward(
             "ELECTRICITY_PRIMARY_OUT",
             "ELECTRICITY_BYPASS_IN",
-            bypass.item(),
+            bypass,
         )
         self._forward(
             "ELECTRICITY_BYPASS_IN",
             "ELECTRICITY_BYPASS_OUT",
-            bypass.item(),
+            bypass,
         )
         self.nodes.at["ELECTRICITY_BYPASS_IN", "label"] = (
-            f"{prettify_number(bypass.item())} {self.unit}"
+            f"{prettify_number(bypass)} {self.unit}"
         )
 
         transformation_supply = transformation[transformation.gt(0)].dropna()
@@ -419,17 +374,17 @@ class SankeyChart(ESMChart):
         self._forward(
             "ELECTRICITY_BYPASS_OUT",
             "ELECTRICITY_SECONDARY_IN",
-            bypass.item(),
+            bypass,
         )
 
-        secondary = transformation_supply.sum() + bypass
+        secondary = transformation_supply.sum().item() + bypass
         self._forward(
             "ELECTRICITY_SECONDARY_IN",
             "ELECTRICITY_SECONDARY_OUT",
-            secondary.item(),
+            secondary,
         )
         self.nodes.at["ELECTRICITY_SECONDARY_IN", "label"] = (
-            f"{prettify_number(secondary.item())} {self.unit}"
+            f"{prettify_number(secondary)} {self.unit}"
         )
 
         final = filter_by(self._df, bus_carrier=bus_carrier).abs()
@@ -1182,6 +1137,7 @@ class SankeyChart(ESMChart):
             "AGRICULTURE",
         )
 
+        # todo: heat storage losses
         # todo: decentral heat distribution losses
 
         vents = final.filter(like="heat vent", axis=0)
@@ -1192,23 +1148,6 @@ class SankeyChart(ESMChart):
             color=COLOUR.grey_neutral,
         )
 
-        # heat_loads = filter_by(self._df, bus_carrier=bus_carrier, component="Load")
-        # # some heat amounts are metered as electricity, gas, solid biomass, etc.
-        # # those amounts must be subtracted from the Load. We connect the Load
-        # # component here to check the calculation (We could simply forward all
-        # # remaining heat from Secondary Out to Final, but that easily hides bugs).
-        # heat_fed = pd.concat(
-        #     [
-        #         self.cache["gas_for_heat"],
-        #         self.cache["electricity_for_heat"],
-        #         self.cache["hydrogen_for_heat"],
-        #         self.cache["liquids_for_heat"],
-        #         self.cache["solids_for_heat"],
-        #     ]
-        # )
-        # load_split = heat_loads / heat_loads.sum()
-        # already_delivered = load_split * heat_fed.sum()
-        # heat_hh_services = heat_loads.add(already_delivered, fill_value=0)
         hh_services = (
             secondary - industry.sum() - dac.sum() - vents.sum() - agriculture.sum()
         ).item()
@@ -1218,19 +1157,12 @@ class SankeyChart(ESMChart):
                 f"Negative remaining Heat Load detected in "
                 f"{self.location} and year {self.year}:\n{hh_services}"
             )
-        # assert hh_services >= 0, (
-        #     f"Negative remaining Heat Load detected in {self.location} and year {self.year}:\n{hh_services}"
-        # )
-        # self._connect(
-        #     heat_hh_services,
-        #     f"{name}_SECONDARY_OUT",
-        #     "HH_SERVICES",
-        # )
+            # assuming that electricity supplies these amounts to the largest load
         self._forward(f"{name}_SECONDARY_OUT", "HH_SERVICES", hh_services)
-        # hh_services = final.filter(regex="rural|decentral", axis=0)
 
-        # some technologies are connected to FED via their input
-        # bus_carrier because this form of energy is metered
+        # decentral heat technologies connect to FED via their input
+        # bus_carrier because this form of energy is metered. central Load
+        # also needs to be dropped.
         to_drop = filter_by(
             self._df, bus_carrier=bus_carrier, component=["Link", "Load"]
         ).filter(regex="decentral|rural|central", axis=0)
@@ -1279,6 +1211,48 @@ class SankeyChart(ESMChart):
             color=COLOUR.grey_neutral,
         )
 
+    def check_nodal_balance(self):
+        checks = (
+            "PRIMARY",
+            "SECONDARY",
+            "TRANSFORMATION",
+        )
+        for node in self.nodes.index:
+            # skip left and right border nodes because they are never balanced
+            if not any([s in node for s in checks]):
+                continue
+
+            node_in = filter_by(self.flows, source=node)
+            node_out = filter_by(self.flows, target=node)
+            diff = node_in["value"].sum() - node_out["value"].sum()
+            if abs(diff) > self.cfg.cutoff:
+                print(
+                    f"Warning[{self.location} {self.year}]: {node} has a discrepancy of {diff:.2f} {self.unit}"
+                )
+
+    # def fix_node_y_positions(self):
+    #     # calculate max column size
+    #     # scale all y ranks to that size
+    #     # cols = [*self.nodes.sort_values(by="y_rank").groupby("x")]
+    #     for x, nodes in self.nodes.groupby("x"):
+    #         order = nodes.sort_values("y")
+    #         for name in nodes.index:
+    #             df = filter_by(self.flows, source=name)
+    #             pass
+    #             size = "max from left and right side"
+    #             print(name)
+    #         # print(node)
+    #         src = filter_by(self.flows, source=self.nodes.index.tolist())
+    #         dst = filter_by(self.flows, target=self.nodes.index.tolist())
+    #         if not src.empty and not dst.empty:
+    #             size = (src["value"].sum() + dst["value"].sum()) / 2
+    #         elif not src.empty:
+    #             size = src["value"].sum()
+    #         elif not dst.empty:
+    #             size = dst["value"].sum()
+    #
+    #     print(size)
+
     def _connect(self, df, source, target, color: str = None):
         value = df.abs().sum().item()
         if value < self.cfg.cutoff:
@@ -1323,42 +1297,6 @@ class SankeyChart(ESMChart):
             )
         else:
             self.nodes.at[idx, "label"] = f"{prettify_number(value)} {self.unit}"
-
-    def check_nodal_balance(self):
-        checks = (
-            "PRIMARY",
-            "SECONDARY",
-            "TRANSFORMATION",
-        )
-        for node in self.nodes.index:
-            # skip left and right border nodes because they are never balanced
-            if not any([s in node for s in checks]):
-                continue
-
-            node_in = filter_by(self.flows, source=node)
-            node_out = filter_by(self.flows, target=node)
-            diff = node_in["value"].sum() - node_out["value"].sum()
-            if abs(diff) > 1e-5:
-                print(
-                    f"Warning[{self.location} {self.year}]: {node} has a discrepancy of {diff:.2f} {self.unit}"
-                )
-
-    # def calculate_node_y_positions(self):
-    #     # cols = [*self.nodes.sort_values(by="y_rank").groupby("x")]
-    #     for x, node_col in self.nodes.groupby("x"):
-    #         for name in node_col.index:
-    #             pass
-    #             size = "max from left and right side"
-    #             print(name)
-    #         # print(node)
-    #         src = filter_by(self.flows, source=self.nodes.index.tolist())
-    #         dst = filter_by(self.flows, target=self.nodes.index.tolist())
-    #         if not src.empty and not dst.empty:
-    #             size = (src["value"].sum() + dst["value"].sum()) / 2
-    #         elif not src.empty:
-    #             size = src["value"].sum()
-    #         elif not dst.empty:
-    #             size = dst["value"].sum()
 
     def _set_base_layout(self):
         """Set various figure properties."""
