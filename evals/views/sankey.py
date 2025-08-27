@@ -96,14 +96,19 @@ def get_supply(networks, transmission_comps, transmission_carrier):
 
 
 def get_demand(networks, transmission_comps, transmission_carrier, unit):
+    withdrawal = collect_myopic_statistics(
+        networks,
+        statistic="withdrawal",
+        aggregate_components=None,
+    )
+    compressing = (
+        withdrawal.to_frame()
+        .query("carrier.str.contains('pipeline') and bus_carrier == 'AC'")
+        .squeeze()
+    )
     demand = (
-        collect_myopic_statistics(
-            networks,
-            statistic="withdrawal",
-            aggregate_components=None,
-        )
-        .pipe(
-            filter_by,
+        filter_by(
+            withdrawal,
             component=transmission_comps,
             carrier=transmission_carrier,
             exclude=True,
@@ -122,9 +127,11 @@ def get_demand(networks, transmission_comps, transmission_carrier, unit):
         )
         .mul(-1)
     )
-    demand.attrs["unit"] = unit
 
-    return demand
+    result = pd.concat([demand, compressing])
+    result.attrs["unit"] = unit
+
+    return result
 
 
 def net_distribution_grid_losses(supply, demand):
@@ -161,7 +168,7 @@ def get_trade_statistics(networks, transmission_comps, transmission_carrier, uni
                 direction=direction,
                 aggregate_components=None,
             )
-            # the trade statistic wrongly finds transmission between EU -> country buses.
+            # the trade statistic finds transmission between EU -> country buses.
             # Those are dropped by the filter_by statement.
             .pipe(
                 filter_by,
@@ -248,7 +255,6 @@ def view_sankey(
     #  - calculate regional oil import from regional oil demand
     #  - calculate regional NH3 Load from regional NH3 production
     #  - calculate StorageUnit losses
-    #  - harmonize V2G amounts
     #  - harmonize heat storages
     #  - assert all nodes balanced
     grid_losses = net_distribution_grid_losses(supply, demand)
@@ -269,7 +275,6 @@ def view_sankey(
         ]
         + trade_statistics
         + regional_trade
-        # + for_industry_losses
         + link_losses,
         view_config=config["view"],
     )
