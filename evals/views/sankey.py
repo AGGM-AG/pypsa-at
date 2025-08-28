@@ -254,8 +254,7 @@ def view_sankey(
     # todo:
     #  - calculate regional oil import from regional oil demand
     #  - calculate regional NH3 Load from regional NH3 production
-    #  - calculate StorageUnit losses
-    #  - harmonize heat storages
+
     #  - assert all nodes balanced
     grid_losses = net_distribution_grid_losses(supply, demand)
     trade_statistics = get_trade_statistics(

@@ -54,9 +54,11 @@ import logging
 from itertools import product
 
 import pandas as pd
-from plotly.graph_objs import Figure, Sankey
+import plotly.graph_objects as go
+from plotly.graph_objs import Sankey
+from plotly.subplots import make_subplots
 
-from evals.constants import COLOUR, RUN_META_DATA
+from evals.constants import COLOUR, COLOUR_SCHEME, RUN_META_DATA
 from evals.constants import DataModel as DM
 from evals.plots._base import ESMChart
 from evals.utils import (
@@ -69,8 +71,9 @@ from evals.utils import (
 logger = logging.getLogger(__file__)
 
 GROUPS = {
-    "Biogas": ["biogas"],
+    # the order of keys implicitly determines the vertical (y) alignment of nodes
     "Electricity": ["AC", "low voltage", "EV battery", "battery", "home battery"],
+    "Methane": ["gas", "gas for industry"],
     "Heat": [
         "rural heat",
         "urban central heat",
@@ -81,7 +84,14 @@ GROUPS = {
         "urban central water tanks",
         "urban decentral water tanks",
     ],
-    "Hydrogen": ["H2"],
+    "Solids": [
+        "coal",
+        "lignite",
+        "municipal solid waste",
+        "solid biomass",
+        "non-sequestered HVC",
+        "solid biomass for industry",
+    ],
     "Liquids": [
         "NH3",
         "oil primary",
@@ -93,43 +103,20 @@ GROUPS = {
         "shipping methanol",
         "naphtha for industry",
     ],
-    "Methane": ["gas", "gas for industry"],
-    "Solids": [
-        "coal",
-        "lignite",
-        "municipal solid waste",
-        "solid biomass",
-        "non-sequestered HVC",
-        "solid biomass for industry",
-    ],
     "Uranium": ["uranium"],
+    "Biogas": ["biogas"],
+    "Hydrogen": ["H2"],
 }
-GROUP_COLORS = {
-    "Biogas": COLOUR.green_sage,
-    "Electricity": COLOUR.blue_pastel,
-    "Heat": COLOUR.yellow_canary,
-    "Hydrogen": COLOUR.blue_cerulean,
-    "Liquids": COLOUR.red_deep,
-    "Methane": COLOUR.brown_light,
-    "Solids": COLOUR.grey_dark,
-    "Uranium": COLOUR.orange_mellow,
-}
-GROUP_Y = {
-    name: i / 20
-    for i, name in enumerate(
-        (
-            "Electricity",
-            "Methane",
-            "Heat",
-            "Liquids",
-            "Solids",
-            "Biogas",
-            "Uranium",
-            "Hydrogen",
-        ),
-        start=1,
-    )
-}
+
+
+def node_y(pos, nnodes):
+    if pos == 1:
+        # fix the top nodes to align them nicely
+        return 0.01
+    return (pos / nnodes) - (1 / nnodes) * 0.99
+
+
+GROUP_Y = {name: i / 20 for i, name in enumerate(GROUPS, start=1)}
 GROUP_X = {
     ("PRIMARY", "IN"): 0.25,
     ("PRIMARY", "OUT"): 0.3,
@@ -138,27 +125,37 @@ GROUP_X = {
     ("SECONDARY", "IN"): 0.7,
     ("SECONDARY", "OUT"): 0.75,
 }
+_BOTTOM = 0.99  # max(GROUP_Y.values()) + (1 -  max(GROUP_Y.values())) / 2
 NODE_DATA = [  # id, label, x, y
+    # 8 incoming nodes distributed evenly
     ["IMPORT", "Import", COLOUR.black, 0.01, 0.01],
-    ["WIND", "Wind Power", COLOUR.black, 0.01, 0.05],
-    ["SOLAR", "Solar Power", COLOUR.black, 0.01, 0.1],
-    ["HYDRO", "Hydro Power", COLOUR.black, 0.01, 0.15],
-    ["BIOGAS", "Biogas", COLOUR.black, 0.01, 0.2],
-    ["SOLIDS", "Solids", COLOUR.black, 0.01, 0.25],
-    ["LIQUIDS", "Liquids", COLOUR.black, 0.01, 0.3],
-    ["HEAT", "Ambient Heat", COLOUR.black, 0.01, 0.35],
-    ["TRANS_IN", "Transformation<br>& Storage", COLOUR.salmon, 0.4, 0.6],
-    ["TRANS_OUT", "", COLOUR.salmon, 0.6, 0.6],
-    # ["LOOP_IN", "", COLOUR.salmon, 0.4, 0.65],
-    # ["LOOP_OUT", "", COLOUR.salmon, 0.6, 0.65],
-    ["EXPORT", "Export", COLOUR.black, 0.99, 0.02],
-    ["HH_SERVICES", "Households & Services", COLOUR.black, 0.99, 0.05],
-    ["INDUSTRY", "Industry", COLOUR.black, 0.99, 0.1],
-    ["TRANSPORT", "Transport", COLOUR.black, 0.99, 0.15],
-    ["AGRICULTURE", "Agriculture", COLOUR.black, 0.99, 0.2],
-    ["UNUSED", "Ressource Losses", COLOUR.grey_deep, 0.35, 0.99],
-    ["TRANS_LOSS", "Transformation Losses", COLOUR.grey_deep, 0.65, 0.99],
-    ["DIST_LOSS", "Distribution Losses", COLOUR.grey_deep, 0.8, 0.01],
+    ["WIND", "Wind Power", COLOUR.black, 0.01, 0.1],
+    ["SOLAR", "Solar Power", COLOUR.black, 0.01, 0.15],
+    ["HYDRO", "Hydro Power", COLOUR.black, 0.01, 0.2],
+    ["HEAT", "Ambient Heat", COLOUR.black, 0.01, 0.25],
+    ["SOLIDS", "Solids", COLOUR.black, 0.01, 0.3],
+    ["LIQUIDS", "Liquids", COLOUR.black, 0.01, 0.35],
+    ["BIOGAS", "Biogas", COLOUR.black, 0.01, 0.4],
+    # up to len(GROUPS) + Transformation boxes distributed evenly,
+    # where the Transformation should be at the bottom
+    [
+        "TRANS_IN",
+        "Transformation<br>& Storage",
+        COLOUR.salmon,
+        0.4,
+        max(GROUP_Y.values()) + 0.1,
+    ],
+    ["TRANS_OUT", "", COLOUR.salmon, 0.6, max(GROUP_Y.values()) + 0.1],
+    # 5 outgoing nodes distributed evenly
+    ["EXPORT", "Export", COLOUR.black, 0.99, 0.01],
+    ["HH_SERVICES", "Households & Services", COLOUR.black, 0.99, 0.1],
+    ["INDUSTRY", "Industry", COLOUR.black, 0.99, 0.15],
+    ["TRANSPORT", "Transport", COLOUR.black, 0.99, 0.2],
+    ["AGRICULTURE", "Agriculture", COLOUR.black, 0.99, 0.25],
+    # Losses are stacked to the very bottom of the plot
+    ["UNUSED", "Ressource Losses", COLOUR.grey_deep, 0.4, _BOTTOM],
+    ["TRANS_LOSS", "Transformation Losses", COLOUR.grey_deep, 0.7, _BOTTOM],
+    ["DIST_LOSS", "Distribution Losses", COLOUR.grey_deep, 0.8, 0.0001],
 ]
 for group, section, side in product(
     GROUPS,
@@ -169,11 +166,14 @@ for group, section, side in product(
         [
             f"{group.upper()}_{section}_{side}",
             "",
-            GROUP_COLORS[group],
+            COLOUR_SCHEME[group],
             GROUP_X[(section, side)],
             GROUP_Y[group],
         ]
     )
+
+# todo: solid biomass from solids to bio energy
+# todo: BMK Primärenergie pie chart abb 11
 
 
 class SankeyChart(ESMChart):
@@ -199,21 +199,30 @@ class SankeyChart(ESMChart):
         self.pad = 10
 
     def plot(self):
-        # plotly draws traces connected first in the background.
-        self.connect_methane()
-        self.connect_hydrogen()
+        # plotly draws traces connected first in the background. The connection
+        # order should correspond with the order of keys in GROUP_COLORS.
         self.connect_electricity()
-        self.connect_biogas()
-        self.connect_liquids()
+        self.connect_methane()
+        self.connect_heat()
         self.connect_solids()
+        self.connect_liquids()
         self.connect_uranium()
-        self.connect_heat()  # must connect heat last to know FED
+        self.connect_biogas()
+        self.connect_hydrogen()
 
         self.forward_transformation()
         self.connect_transformation_losses()
 
         # self.check_nodal_balance()
-        # self.fix_node_y_positions()
+
+        if self.has_loop:
+            self.nodes.at["TRANS_LOSS", "y"] = (
+                self.nodes.at["HYDROGEN_SECONDARY_IN", "y"] + 0.05
+            )
+            self.nodes.at["UNUSED", "y"] = (
+                self.nodes.at["HYDROGEN_PRIMARY_OUT", "y"] + 0.05
+            )
+        #     self.fix_node_y_positions()
 
         # reduce nodes data frame to prevent misalignment in sankey nodes
         flows_used = self.flows.index.unique("source").union(  # noqa: F841
@@ -222,43 +231,98 @@ class SankeyChart(ESMChart):
         self.nodes = self.nodes.query("name in @flows_used")
         self.nodes["id"] = [*range(len(self.nodes))]
 
-        self.fig = Figure(
-            data=[
-                Sankey(
-                    # name="Legend Name",
-                    arrangement="snap",  # snap, perpendicular, freeform, fixed
-                    valuesuffix=self.unit,
-                    textfont_family="Montserrat",
-                    textfont_weight="bold",
-                    node=dict(
-                        # align="justify",
-                        line=dict(color="black", width=0.5),
-                        label=self.nodes["label"],
-                        color=self.nodes["color"],
-                        line_width=1,
-                        hovertemplate="%{label}<extra></extra>",
-                        x=self.nodes["x"],
-                        y=self.nodes["y"],
-                        pad=self.pad,
-                        thickness=10,
-                    ),
-                    link=dict(
-                        source=self.flows.index.get_level_values("source").map(
-                            self.nodes["id"]
-                        ),
-                        target=self.flows.index.get_level_values("target").map(
-                            self.nodes["id"]
-                        ),
-                        value=self.flows["value"],
-                        color=self.flows["color"],
-                        customdata=self.flows["customdata"],
-                        hovertemplate="%{customdata} <extra></extra>",
-                    ),
-                )
-            ]
+        self.fig = make_subplots(
+            rows=5,
+            cols=2,
+            specs=[
+                [{"type": "domain", "rowspan": 5}, {"type": "xy"}],
+                [None, {"type": "domain"}],
+                [None, {"type": "domain"}],
+                [None, {"type": "domain"}],
+                [None, {"type": "domain"}],
+            ],
+            column_widths=[0.85, 0.15],
+            horizontal_spacing=0.00,
+            vertical_spacing=0.05,
+        )
+        sankey = Sankey(
+            name="Energy Carrier",
+            arrangement="snap",  # snap, perpendicular, freeform, fixed
+            valuesuffix=self.unit,
+            textfont_family="Montserrat, monospaced",
+            textfont_weight="bold",
+            node=dict(
+                # align="justify",
+                line=dict(color="black", width=0.5),
+                label=self.nodes["label"],
+                color=self.nodes["color"],
+                line_width=1,
+                hovertemplate="%{label}<extra></extra>",
+                x=self.nodes["x"],
+                y=self.nodes["y"],
+                pad=self.pad,
+                thickness=10,
+            ),
+            link=dict(
+                source=self.flows.index.get_level_values("source").map(
+                    self.nodes["id"]
+                ),
+                target=self.flows.index.get_level_values("target").map(
+                    self.nodes["id"]
+                ),
+                value=self.flows["value"],
+                color=self.flows["color"],
+                customdata=self.flows["customdata"],
+                hovertemplate="%{customdata} <extra></extra>",
+            ),
+        )
+        self.fig.add_trace(sankey, row=1, col=1)
+
+        pie = go.Pie(values=[1, 2, 3, 4], showlegend=False)
+        for i in range(1, 5):
+            self.fig.add_trace(pie, row=i + 1, col=2)
+
+        # add legend for sankey traces
+        for carrier_group in GROUPS:
+            self.fig.add_trace(
+                go.Scatter(
+                    x=[None],
+                    y=[None],
+                    mode="markers",
+                    marker=dict(size=10, color=COLOUR_SCHEME[carrier_group]),
+                    name=carrier_group,
+                    showlegend=True,
+                ),
+                row=1,
+                col=2,
+            )
+
+        self.fig.update_layout(
+            height=800,  # width=1200,
+            showlegend=True,
+            legend=dict(
+                orientation="h",  # horizontal
+                yanchor="bottom",
+                y=-0.1,  # place below figure
+                xanchor="left",
+                x=0.0,  # center under the large plot (not global center)
+                font=dict(
+                    size=14,
+                ),
+            ),
         )
 
-        self._set_base_layout()
+        # hide scatter plot used to show the legend
+        self.fig.update_xaxes(visible=False, row=1, col=2)
+        self.fig.update_yaxes(visible=False, row=1, col=2)
+        # hide subplot backgrounds
+        self.fig.update_layout(
+            xaxis2=dict(showgrid=False, zeroline=False, showticklabels=False),
+            yaxis2=dict(showgrid=False, zeroline=False, showticklabels=False),
+            plot_bgcolor="rgba(0,0,0,0)",  # global, will apply to all xy subplots
+        )
+
+        # add Sankey title
         title = self.cfg.title.format(location=self.location, unit=self.year)
         self.fig.update_layout(
             title=dict(text=title, font_size=self.cfg.title_font_size)
@@ -281,11 +345,11 @@ class SankeyChart(ESMChart):
         )
 
         wind = generation.filter(like="wind", axis=0)
-        self._flow_generation(wind, name, "WIND", COLOUR.blue_sky)
+        self._flow_generation(wind, name, "WIND", COLOUR.blue_moonstone)
         solar = generation.filter(like="solar", axis=0)
-        self._flow_generation(solar, name, "SOLAR", COLOUR.yellow_canary)
+        self._flow_generation(solar, name, "SOLAR", COLOUR.yellow_bright)
         hydro = generation.filter(regex="ror|hydro", axis=0)
-        self._flow_generation(hydro, name, "HYDRO", COLOUR.blue_pastel)
+        self._flow_generation(hydro, name, "HYDRO", COLOUR.blue_persian)
 
         primary = pd.concat([import_, wind, solar, hydro])
         self._flow_primary(primary, name)
@@ -375,8 +439,6 @@ class SankeyChart(ESMChart):
         self._flow_sector(final, "rural|decentral", name, "HH_SERVICES")
         self._flow_sector(final, "transport", name, "TRANSPORT")
         self._flow_sector(final, "Foreign|Domestic", name, "EXPORT", append_label=True)
-
-        self._flow_loop(transformation_supply, final, name, color)
 
         self._check_remainder(bus_carrier)
 
@@ -666,14 +728,20 @@ class SankeyChart(ESMChart):
 
         final = filter_by(self._df, bus_carrier=bus_carrier).abs()
         self._flow_sector(final, "industry", name, "INDUSTRY")
-        export = final.filter(regex="Foreign|Domestic", axis=0).drop(
-            "NH3", level="bus_carrier", errors="ignore"
-        )
-        self._flow_sector(export, r"[*az,AZ,\s]", name, "EXPORT", append_label=True)
+        # export = final.filter(regex="Foreign|Domestic", axis=0).drop(
+        #     "NH3", level="bus_carrier", errors="ignore"
+        # )
+        self._flow_sector(final, "Foreign|Domestic", name, "EXPORT", append_label=True)
         self._flow_sector(final, "rural|decentral", name, "HH_SERVICES")
         self._flow_sector(final, "transport|shipping|aviation", name, "TRANSPORT")
-        self._flow_sector(final, "agriculture|NH3", name, "AGRICULTURE")
+        self._flow_sector(final, "agriculture", name, "AGRICULTURE")
 
+        # assign EU Ammonia Loads to agriculture sector
+        if self.location == "Europe":
+            nh3_load = filter_by(
+                self._df, bus_carrier="NH3", carrier="NH3", component="Load"
+            )
+            self._flow_sector(nh3_load, r"NH3", name, "AGRICULTURE")
         # industry = final.filter(like="industry", axis=0)
         # self._connect(
         #     industry,
@@ -958,27 +1026,42 @@ class SankeyChart(ESMChart):
                 )
 
     def fix_node_y_positions(self):
-        # get max column size
-        # scale all y ranks to that size
-        if not self.has_loop:
-            # let the plotly node alignment algorithm handle y position adjustments
-            return
-        # x = self.nodes.at["TRANS_OUT", "x"]
-        # nodes = self.nodes.query("x == @x")
-        # flows = filter_by(self.flows, source=nodes.index.tolist())
-        # total_flow = flows["value"].sum()
-        # padding = self.pad * (flows.shape[0] - 1)  # in px
-        # # x and y are from the top-left canvas corner. We want to position
-        # # the transformation box at 95% y and the same x.
-        # needed_space = (total_flow + padding) * (1 / 0.95)
-        # scale all other columns to that size
-
-        # scale all y values to 95% of max per column
-        to_concat = []
         for x, nodes in self.nodes.groupby("x"):
-            nodes["y"] /= nodes["y"].max() / 0.95
-            to_concat.append(nodes)
-        self.nodes = pd.concat(to_concat)
+            idx = nodes.index.tolist()
+            # we only need to shift the Transformation box upwards
+            if not any(x in ("TRANS_IN", "TRANS_OUT") for x in idx):
+                continue
+
+            # select the larger of source or target node sides
+            src = filter_by(self.flows, source=idx)
+            dst = filter_by(self.flows, target=idx)
+            if src["value"].sum() >= dst["value"].sum():
+                choice, level = src, "source"
+            else:
+                choice, level = dst, "target"
+
+            size_total = choice["value"].sum()
+            size_nodes = choice.groupby(level)["value"].sum().to_frame()
+            order = nodes.sort_values(by="y").index.tolist()
+            size_nodes = self.custom_sort(size_nodes, level, order, ascending=True)
+            size_normed = size_nodes["value"] / (size_total * 1.05)
+            # scaling: need to scale 100% to be the largest existing y value among all columns
+            scale = nodes["y"].max()
+            used_space = 0
+            for node_id, size in size_normed.items():
+                offset = 0.01 if used_space == 0 else 0
+                self.nodes.at[node_id, "y"] = used_space * scale + offset  # node top
+                used_space += size
+
+        # # finally, normalize all y values
+        # to_scale = self.nodes.query("y > 0.1 & name not in ('TRANS_LOSS', 'DIST_LOSS', 'UNUSED')")
+        # scaled_y = to_scale["y"] / self.nodes["y"].max()
+        # self.nodes.loc[to_scale.index, "y"] = scaled_y
+        #
+        # # set the Losses nodes to the bottom of the Transformation box
+        # self.nodes.at["TRANS_LOSS", 'y'] = scaled_y.max()
+        # self.nodes.at["DIST_LOSS", 'y'] = scaled_y.max()
+        # self.nodes.at["UNUSED", 'y'] = scaled_y.max()
 
     def _connect(self, df, source, target, color: str = None):
         value = df.abs().sum().item()
@@ -995,7 +1078,7 @@ class SankeyChart(ESMChart):
                 if prettify_number(v) != "0.0"
             ]
         )
-        customdata += f"<br><b>Total: {prettify_number(value)} {self.unit}</b>"
+        customdata += f"<br><b>{prettify_number(value)} {self.unit} in Total</b>"
 
         # add a row with the link's value
         color = color or self.nodes.loc[source, "color"]  # allow explicit override
@@ -1017,14 +1100,10 @@ class SankeyChart(ESMChart):
 
     def _flow_loop(self, transformation_supply, final, name, color):
         loop = (transformation_supply.sum() - final.sum()).item()
-        if has_loop := (loop > 0):
+        if has_loop := (loop > self.cfg.cutoff):
             self.has_loop = has_loop
-            # Some amounts from transformation output are not FED. Those
-            # amounts are looped in the transformation input side.
             self._forward("TRANS_OUT", "TRANS_IN", loop, color=color)
-            # self._forward("LOOP_OUT", "LOOP_IN", loop, color=color)
-            # self._forward("TRANS_IN", "LOOP_IN", loop, color=color)
-            # subtract loop from PRIMARY_OUT to TRANSFORM_IN
+            # self._forward(f"{name}_SECONDARY_IN", f"{name}_PRIMARY_OUT", loop, color=color)
             if (f"{name}_PRIMARY_OUT", "TRANS_IN") in self.flows.index:
                 self.flows.at[(f"{name}_PRIMARY_OUT", "TRANS_IN"), "value"] -= loop
             if ("TRANS_OUT", f"{name}_SECONDARY_IN") in self.flows.index:
@@ -1127,7 +1206,7 @@ class SankeyChart(ESMChart):
         value = demand.sum().item()
         if append_label and value > 0.05:
             self.nodes.at["EXPORT", "label"] += (
-                f"<br>{prettify_number(value)} {self.unit} {name.title()}"
+                f"<br>{name.title()} {prettify_number(value)} {self.unit}"
             )
 
     def _set_node_label(self, idx, value, name="", append=False):

@@ -510,7 +510,7 @@ class COLOUR:
     coral: str = "#E8B5B1"
     raspberry: str = "#961454"
     salmon: str = "#E19990"
-    rose: str = "#D5A1BB"
+    rose: str = "#C13A2A"
     peach: str = "#EBBFBA"
 
     red: str = "#CA0638"
@@ -518,8 +518,9 @@ class COLOUR:
     red_bright: str = "#E53212"
     red_deep: str = "#B20633"
     red_fire: str = "#E63313"
+    red_liquid: str = "#A7003F"
 
-    green: str = "#3C703E"
+    green: str = "#619159"
     green_light: str = "#509554"
     green_ocean: str = "#3DCCBF"
     green_mint: str = "#B0D4B2"
@@ -536,25 +537,26 @@ class COLOUR:
 
     black: str = "#000000"
 
-    brown: str = "#C58000"
+    brown: str = "#AE8020"
     brown_dark: str = "#b37400"
     brown_sallow: str = "#bf9c5c"
     brown_light: str = "#e8cc99"
     brown_deep: str = "#4d3200"
 
     blue_pastel: str = "#B5C9D5"
-    blue_moonstone: str = "#3DACBF"
+    blue_moonstone: str = "#74AABA"
     blue_dark: str = "#5F5F5F"
-    blue_persian: str = "#0064A2"
+    blue_persian: str = "#34629B"
     blue_celestial: str = "#4F8FCD"
     blue_cerulean: str = "#005082"
     blue_sky: str = "#99C1DA"
     blue_lavender: str = "#636EFA"
+    blue_deepdark: str = "#1C3049"
 
     orange: str = "#FF6600"
     orange_mellow: str = "#FECB52"
 
-    yellow_bright: str = "#FED500"
+    yellow_bright: str = "#EDD820"
     yellow_vivid: str = "#FEC500"
     yellow_canary: str = "#FFDE53"
     yellow_golden: str = "#FFB200"
@@ -604,6 +606,7 @@ ALIAS_COUNTRY: frozendict = frozendict(
 ALIAS_COUNTRY_REV: frozendict = frozendict({v: k for k, v in ALIAS_COUNTRY.items()})
 COLOUR_SCHEME: dict = {
     # dark blue - coal
+    "Solids": COLOUR.blue_deepdark,
     Group.coal: COLOUR.blue_dark,
     Group.pp_coal: COLOUR.blue_dark,
     Group.chp_coal: COLOUR.blue_dark,
@@ -615,6 +618,7 @@ COLOUR_SCHEME: dict = {
     "Fischer-Tropsch": COLOUR.red,
     "Oil Import": COLOUR.red,
     "Oil CHP": COLOUR.red,
+    "Liquids": COLOUR.red_liquid,
     # dark green - biogas
     "Biogas": COLOUR.green,
     "Biogas (CC)": COLOUR.green,
@@ -676,6 +680,7 @@ COLOUR_SCHEME: dict = {
     # red - nuclear
     "Nuclear": COLOUR.orange,
     "Nuclear Power": COLOUR.orange,
+    "Uranium": COLOUR.orange,
     # light blue - electricity
     "Electricity": COLOUR.blue_celestial,
     "AC": COLOUR.blue_celestial,
