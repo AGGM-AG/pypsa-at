@@ -82,6 +82,8 @@ BC_ALIAS = {
     "shipping oil": "Oil",
     "solid biomass for industry": "Biomass",
     "EV battery": "AC",
+    "battery": "AC",
+    "home battery": "AC",
     # Store
     "urban central water pits": "Heat",
     "urban central water tanks": "Heat",
@@ -845,7 +847,9 @@ def collect_storage_imbalances():
         "coal": "Coal",  # FixMe: small unexplained imbalances
         "PHS": "PHS",  # Pump efficiency
         "non-sequestered HVC": "Waste",
-    }
+        "battery": "Battery",
+        "home battery": "Battery",
+}
 
     carrier_supply = filter_by(SUPPLY, component=comps).index.unique("carrier")
     carrier_demand = filter_by(DEMAND, component=comps).index.unique("carrier")
