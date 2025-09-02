@@ -248,10 +248,7 @@ class SankeyChart(ESMChart):
         import_ = filter_by(
             self._df,
             bus_carrier=bus_carrier,
-            carrier=[
-                "Import Foreign",
-                "Import Domestic",
-            ],
+            carrier=["Import Foreign", "Import Domestic"],
         )
         self._flow_import(import_, name)
         generation = filter_by(
