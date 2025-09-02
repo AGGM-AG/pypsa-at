@@ -85,7 +85,7 @@ GROUPS = {
 }
 
 # default positions are relative order for the plotly node alignment
-# algorithm. In case of loops, the node positions become adjusted.
+# algorithm. In the case of loops, the node positions become adjusted.
 GROUP_Y = {name: i / 20 for i, name in enumerate(GROUPS, start=1)}
 GROUP_X = {
     ("PRIMARY", "IN"): 0.25,
@@ -185,7 +185,6 @@ class SankeyChart(ESMChart):
         self.nodes["id"] = [*range(len(self.nodes))]
 
         if self.has_loop:
-            # self.nodes = align_nodes_with_loops(self.nodes, self.flows)
             self.fix_node_y_positions()
 
         self.fig = make_subplots(
@@ -204,15 +203,11 @@ class SankeyChart(ESMChart):
         )
         sankey = Sankey(
             name="Energy Carrier",
-            # arrangement="snap",
-            arrangement="fixed"
-            if self.has_loop
-            else "snap",  # snap, perpendicular, freeform, fixed
+            arrangement="fixed" if self.has_loop else "snap",
             valuesuffix=self.unit,
             textfont_family="Montserrat, monospaced",
             textfont_weight="bold",
             node=dict(
-                # align="justify",
                 line=dict(color="black", width=0.5),
                 label=self.nodes["label"],
                 color=self.nodes["color"],
@@ -241,51 +236,9 @@ class SankeyChart(ESMChart):
         self._add_pie_chart("PRIMARY", row=2, col=2)
         self._add_pie_chart("FED", row=3, col=2)
 
-        # add legend for sankey traces
-        for carrier_group in GROUPS:
-            self.fig.add_trace(
-                go.Scatter(
-                    x=[None],
-                    y=[None],
-                    mode="markers",
-                    marker=dict(size=10, color=COLOUR_SCHEME[carrier_group]),
-                    name=carrier_group,
-                    showlegend=True,
-                ),
-                row=1,
-                col=2,
-            )
-
-        self.fig.update_layout(
-            height=800,
-            showlegend=True,
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=-0.1,
-                xanchor="left",
-                x=0.0,
-                font=dict(
-                    size=14,
-                ),
-            ),
-        )
-
-        # hide scatter plot used to show the legend
-        self.fig.update_xaxes(visible=False, row=1, col=2)
-        self.fig.update_yaxes(visible=False, row=1, col=2)
-        # hide subplot backgrounds
-        self.fig.update_layout(
-            xaxis2=dict(showgrid=False, zeroline=False, showticklabels=False),
-            yaxis2=dict(showgrid=False, zeroline=False, showticklabels=False),
-            plot_bgcolor="rgba(0,0,0,0)",  # global, will apply to all xy subplots
-        )
-
-        # add Sankey title
-        title = self.cfg.title.format(location=self.location, unit=self.year)
-        self.fig.update_layout(
-            title=dict(text=title, font_size=self.cfg.title_font_size)
-        )
+        self._set_legend()
+        self._set_base_layout()
+        self._set_title()
 
         self.check_nodal_balance()
 
@@ -1049,24 +1002,51 @@ class SankeyChart(ESMChart):
         """Set various figure properties."""
         self.fig.update_layout(
             height=800,
-            # font_family="Calibri",
-            plot_bgcolor="#ffffff",
-            legend_title_text=self.cfg.legend_header,
+            showlegend=True,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=-0.1,
+                xanchor="left",
+                x=0.0,
+                font=dict(size=14),
+            ),
         )
-        # update axes
-        self.fig.update_yaxes(
-            showgrid=self.cfg.yaxes_showgrid, visible=self.cfg.yaxes_visible
-        )
+
+        # hide scatter plot used to show the legend
+        self.fig.update_xaxes(visible=False, row=1, col=2)
+        self.fig.update_yaxes(visible=False, row=1, col=2)
+        # hide subplot backgrounds
         self.fig.update_layout(
-            xaxis={"categoryorder": "category ascending"},
-            # hovermode="x",  # show all categories on mouse-over
+            xaxis2=dict(showgrid=False, zeroline=False, showticklabels=False),
+            yaxis2=dict(showgrid=False, zeroline=False, showticklabels=False),
+            plot_bgcolor="rgba(0,0,0,0)",  # applies to all xy subplots
         )
-        # trace order always needs to be reversed to show correct order
-        # of legend entries for relative bar charts
-        self.fig.update_layout(legend={"traceorder": "reversed"})
 
         # export the metadata directly in the Layout property for JSON
         self.fig.update_layout(meta=[RUN_META_DATA])
+
+    def _set_title(self):
+        title = self.cfg.title.format(location=self.location, unit=self.year)
+        self.fig.update_layout(
+            title=dict(text=title, font_size=self.cfg.title_font_size)
+        )
+
+    def _set_legend(self):
+        # add legend for sankey traces
+        for carrier_group in GROUPS:
+            self.fig.add_trace(
+                go.Scatter(
+                    x=[None],
+                    y=[None],
+                    mode="markers",
+                    marker=dict(size=10, color=COLOUR_SCHEME[carrier_group]),
+                    name=carrier_group,
+                    showlegend=True,
+                ),
+                row=1,
+                col=2,
+            )
 
     def _add_pie_chart(self, kind, row, col):
         """Add a pie chart to the figure."""
