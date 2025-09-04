@@ -87,11 +87,11 @@ if __name__ == "__main__":
     logger.info("Applying custom administrative clustering.")
 
     # AT: 10
-    assert admin_levels.get("AT") == 2
-    override_nuts("AT333", "AT333", "level2")
-    assert_expected_number_of_entries("AT", expected=10, lvl=2)
+    assert admin_levels.get("AT") in (2, 3)
+    if admin_levels.get("AT") == 2:
+        override_nuts("AT333", "AT333", "level2")
+        assert_expected_number_of_entries("AT", expected=10, lvl=2)
     # IT: italy is in test network but must not be clustered to reduce test complexity
-    # if not IS_TEST_RUN:
     assert admin_levels.get("IT") == 1
     override_nuts("IT", "IT0")  # mainland
     override_nuts("ITG1", "IT1")  # Sicily
