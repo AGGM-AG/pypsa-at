@@ -18,8 +18,8 @@ clustering:
   administrative:
     level: 0 # countries
     AT: 2  # 10 regions
-    DE: 0  # reduce complexity
-    IT: 0  # no islands during tests
+    # DE: 0  # reduce complexity
+    # IT: 0  # no islands during tests
   temporal:
     resolution_sector: 24H
 
