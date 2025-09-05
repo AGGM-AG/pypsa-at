@@ -1392,12 +1392,12 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "solve_sector_network_myopic",
-            run="KN2045_Mix",
+            run="AT10_KN2040",
             opts="",
             clusters="adm",
             configfiles="config/config.at.yaml",
             sector_opts="none",
-            planning_horizons="2040",
+            planning_horizons="2020",
         )
     configure_logging(snakemake)
     set_scenario_config(snakemake)
