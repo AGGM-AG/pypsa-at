@@ -3,25 +3,34 @@
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
 """
-Module for Sankey diagram.
+Interactive Sankey diagram plotting for energy system visualization.
 
-# Improvements:
-# todo: solid biomass from solids to bio energy
-# todo: separate storage and transformation into two flows from same nodes to preserve information on the amounts.
+This module provides the SankeyChart class for creating comprehensive energy flow
+Sankey diagrams from processed PyPSA network statistics. The diagrams visualize
+energy flows from primary sources through transformation processes to final
+consumption sectors, including losses and storage operations.
 
-# Known issues:
-# Fixme: Heat sector is imbalanced. Need to assume a heat supply share per sector to
-#        distribute AC/gas/oil/biomass to sectors that have Loads on rural or decentral
-#        heat buses.
-# Todo: central heat storage losses are not being tracked in transformation and storage block
-# todo: central heat distribution losses are not included in distribution losses
-# todo: oil refining losses are ignored, while losses from HVC to waste are tracked in resource losses
-# Fixme: Loads from "low-temperature heat for industry" are produced using electricity, gas or something else.
-#        Those amounts are counted twice if connected as Heat to Industry!
-# Fixme: Similarly, "agriculture heat" Loads at "rural heat" bus are produced using electricity,
-#        gas or something else.
-#        Those amounts are counted twice if connected as Heat to Agriculture!
-# Fixme: Include decentral heat and gas for industry losses in the sectoral amounts
+Key Features
+------------
+- Interactive Plotly-based Sankey diagrams with hover details
+- Automatic node positioning with loop detection and adjustment
+- Energy carrier grouping and color coding
+- Integrated pie charts for primary energy and final energy demand
+- Comprehensive flow tracking from import through transformation to consumption
+- Balance checking and loss accounting
+
+The main class SankeyChart processes energy statistics and creates a multi-panel
+visualization showing the complete energy system flow with accompanying summary charts.
+
+Known Issues and TODOs
+----------------------
+- Heat sector balancing needs improvement for rural/decentral heat buses
+- Central heat storage and distribution losses need better tracking
+- Oil refining losses are currently ignored
+- Some industrial heat loads may be double-counted
+- Decentral heat/gas industry losses need sectoral allocation
+- Solid biomass flows to bio energy need separation
+- Storage vs transformation flows should be distinguished
 """
 
 import logging
@@ -95,8 +104,8 @@ GROUP_X = {
     ("SECONDARY", "IN"): 0.7,
     ("SECONDARY", "OUT"): 0.75,
 }
-_BOTTOM = 0.99  # max(GROUP_Y.values()) + (1 -  max(GROUP_Y.values())) / 2
-NODE_DATA = [  # id, label, x, y
+_BOTTOM = 0.99
+NODE_DATA = [  # id, label, colour, x, y
     ["IMPORT", "Import", COLOUR.black, 0.01, 0.01],
     ["WIND", "Wind Power", COLOUR.black, 0.01, 0.1],
     ["SOLAR", "Solar Power", COLOUR.black, 0.01, 0.15],
@@ -113,7 +122,6 @@ NODE_DATA = [  # id, label, x, y
         max(GROUP_Y.values()) + 0.1,
     ],
     ["TRANS_OUT", "", COLOUR.salmon, 0.6, max(GROUP_Y.values()) + 0.1],
-    # 5 outgoing nodes distributed evenly
     ["EXPORT", "Export", COLOUR.black, 0.99, 0.01],
     ["HH_SERVICES", "Households & Services", COLOUR.black, 0.99, 0.1],
     ["INDUSTRY", "Industry", COLOUR.black, 0.99, 0.15],
@@ -141,7 +149,44 @@ for group, section, side in product(
 
 
 class SankeyChart(ESMChart):
+    """
+    Interactive Sankey diagram for energy system flow visualization.
+
+    Creates comprehensive energy flow diagrams showing the path from primary
+    energy sources through transformation and storage to final consumption
+    sectors. The chart includes automatic node positioning, loop detection,
+    and integrated summary pie charts.
+
+    The visualization groups energy carriers by type (Electricity, Methane, Heat,
+    Solids, Liquids, Uranium, Biogas, Hydrogen) and tracks flows through three
+    main stages: Primary (import/generation), Transformation & Storage, and
+    Secondary (final consumption by sector).
+
+    Attributes
+    ----------
+    location
+        Geographic location being visualized.
+    year
+        Year of the energy data.
+    flows
+        DataFrame tracking all energy flows between nodes.
+    nodes
+        DataFrame containing node positions, colors, and labels.
+    has_loop
+        Flag indicating if transformation block contains loops.
+    primary
+        List of primary energy DataFrames for pie chart.
+    fed
+        List of final energy demand DataFrames for pie chart.
+    """
+
     def __init__(self, *args, **kwargs):
+        """
+        Initialize the SankeyChart with energy flow data.
+
+        Extracts location and year from the input DataFrame, sets up node
+        and flow tracking structures, and initializes the base chart configuration.
+        """
         super().__init__(*args, **kwargs)
         self.location = self._df.index.unique(DM.LOCATION).item()
         self.year = self._df.index.unique(DM.YEAR).item()
@@ -164,6 +209,13 @@ class SankeyChart(ESMChart):
         self.fed = []
 
     def plot(self):
+        """
+        Create the complete Sankey diagram with pie charts.
+
+        Orchestrates the full plotting process by connecting all energy carriers,
+        handling transformation flows and losses, positioning nodes, and creating
+        the final multi-panel visualization with integrated pie charts.
+        """
         # plotly draws traces connected first in the background. The connection
         # order should correspond with the order of keys in GROUP_COLORS.
         self.connect_electricity()
@@ -242,7 +294,14 @@ class SankeyChart(ESMChart):
 
         self.check_nodal_balance()
 
-    def connect_electricity(self):
+    def connect_electricity(self) -> None:
+        """
+        Connect electricity flows from generation through transformation to consumption.
+
+        Processes electricity sector including renewable generation (wind, solar, hydro),
+        imports, transformation through power plants and storage, bypasses, and final
+        consumption by sectors. Handles distribution losses and V2G harmonization.
+        """
         bus_carrier = ["AC", "low voltage"]  # ignoring battery, home battery buses
         name = "ELECTRICITY"
         import_ = filter_by(
@@ -308,7 +367,14 @@ class SankeyChart(ESMChart):
 
         self._check_remainder(bus_carrier)
 
-    def connect_hydrogen(self):
+    def connect_hydrogen(self) -> None:
+        """
+        Connect hydrogen flows from import/production to final consumption.
+
+        Processes hydrogen sector flows including imports, industrial production,
+        transformation through electrolysis and storage, and consumption by
+        industry, households, and transport sectors.
+        """
         bus_carrier = "H2"
         name = "HYDROGEN"
         color = self.nodes.loc[f"{name}_PRIMARY_IN", "color"]
@@ -355,7 +421,14 @@ class SankeyChart(ESMChart):
 
         self._check_remainder(bus_carrier)
 
-    def connect_methane(self):
+    def connect_methane(self) -> None:
+        """
+        Connect methane/gas flows from import through transformation to consumption.
+
+        Processes natural gas and synthetic methane flows including pipeline and LNG
+        imports, transformation through power plants and industrial processes,
+        and consumption by sectors with loop detection for gas-to-gas processes.
+        """
         bus_carrier = "gas"
         name = "METHANE"
         color = self.nodes.loc[f"{name}_PRIMARY_IN", "color"]
@@ -396,7 +469,13 @@ class SankeyChart(ESMChart):
 
         self._check_remainder(bus_carrier)
 
-    def connect_biogas(self):
+    def connect_biogas(self) -> None:
+        """
+        Connect biogas flows from generation to transformation.
+
+        Processes biogas generation and direct forwarding to transformation
+        processes, typically for conversion to electricity or upgraded gas.
+        """
         bus_carrier = "biogas"
         name = "BIOGAS"
         color = self.nodes.loc[f"{name}_PRIMARY_IN", "color"]
@@ -419,6 +498,13 @@ class SankeyChart(ESMChart):
         self._check_remainder(bus_carrier)
 
     def connect_solids(self):
+        """
+        Connect solid fuel flows from import/generation to consumption.
+
+        Processes coal, lignite, biomass, waste, and HVC flows including imports,
+        domestic generation, transformation losses, and consumption by industry
+        and households. Handles waste-to-energy and resource loss tracking.
+        """
         bus_carrier = [
             "coal",
             "lignite",
@@ -487,6 +573,13 @@ class SankeyChart(ESMChart):
         self._check_remainder(bus_carrier)
 
     def connect_liquids(self):
+        """
+        Connect liquid fuel flows from import through transformation to consumption.
+
+        Processes oil, methanol, NH3, and electrobiofuel flows including imports,
+        transformation through refining and synthesis, and consumption by transport,
+        industry, shipping, aviation, and agriculture sectors.
+        """
         name = "LIQUIDS"
         bus_carrier = [
             "oil",
@@ -550,6 +643,12 @@ class SankeyChart(ESMChart):
         self._check_remainder(bus_carrier)
 
     def connect_uranium(self):
+        """
+        Connect uranium flows from import to nuclear transformation.
+
+        Processes uranium imports (treated as nuclear power plant demand)
+        and forwards to transformation block for electricity generation.
+        """
         bus_carrier = "uranium"
         name = "URANIUM"
 
@@ -575,6 +674,13 @@ class SankeyChart(ESMChart):
         self._check_remainder(bus_carrier)
 
     def connect_heat(self):
+        """
+        Connect heat flows from ambient sources through systems to consumption.
+
+        Processes ambient heat, solar thermal, and heat pump flows including
+        central and decentral heating systems, storage, distribution losses,
+        and consumption by households, industry, and agriculture.
+        """
         name = "HEAT"
         bus_carrier = [
             "ambient heat",
@@ -714,6 +820,12 @@ class SankeyChart(ESMChart):
         )
 
     def forward_transformation(self):
+        """
+        Connect transformation input to output flows.
+
+        Creates the central transformation flow that aggregates all inputs
+        to the transformation block and forwards them to outputs.
+        """
         transformation = self.flows.query("target == 'TRANS_IN'")
         self._forward(
             "TRANS_IN",
@@ -722,6 +834,13 @@ class SankeyChart(ESMChart):
         )
 
     def connect_transformation_losses(self):
+        """
+        Connect transformation losses from output to loss sink.
+
+        Processes conversion losses from power plants, storage systems,
+        and other transformation technologies, grouping by carrier type
+        and connecting to the transformation loss node.
+        """
         bus_carrier = [
             bc for bc in self._df.index.unique("bus_carrier") if bc.endswith("losses")
         ]
@@ -754,6 +873,12 @@ class SankeyChart(ESMChart):
         )
 
     def check_nodal_balance(self):
+        """
+        Verify energy balance at primary, secondary, and transformation nodes.
+
+        Checks that inflows equal outflows for internal nodes and logs
+        warnings for any significant imbalances that exceed the cutoff threshold.
+        """
         checks = (
             "PRIMARY",
             "SECONDARY",
@@ -774,6 +899,13 @@ class SankeyChart(ESMChart):
                 )
 
     def fix_node_y_positions(self):
+        """
+        Adjust vertical node positions when transformation loops are detected.
+
+        Recalculates node positions proportional to flow magnitudes to prevent
+        visual overlap when the transformation block contains loops. Maintains
+        proper spacing and ensures positions stay within plot bounds.
+        """
         # Calculate maximum flow for normalization
         maximum = 0
         for x, nodes in self.nodes.groupby("x"):
@@ -832,6 +964,25 @@ class SankeyChart(ESMChart):
                     self.nodes.at[node_name, "y"] *= scale_factor
 
     def _connect(self, df, source, target, color: str = None):
+        """
+        Create a flow connection between two nodes.
+
+        Parameters
+        ----------
+        df
+            DataFrame containing the flow data to connect.
+        source
+            Source node identifier.
+        target
+            Target node identifier.
+        color
+            Optional color override for the flow.
+
+        Notes
+        -----
+        Aggregates the DataFrame values, creates hover information,
+        and removes processed data from the main DataFrame.
+        """
         value = df.abs().sum().item()
         if value < self.cfg.cutoff:
             self._df.drop(df.index, inplace=True, errors="ignore")
@@ -858,6 +1009,20 @@ class SankeyChart(ESMChart):
         self._df.drop(df.index, inplace=True, errors="ignore")
 
     def _forward(self, source, target, value, color: str = None):
+        """
+        Create a simple flow connection with a single value.
+
+        Parameters
+        ----------
+        source
+            Source node identifier.
+        target
+            Target node identifier.
+        value
+            Flow value to connect.
+        color
+            Optional color override for the flow.
+        """
         if value < self.cfg.cutoff:
             return
         self.flows.loc[(source, target), self.flows.columns] = [
@@ -996,7 +1161,12 @@ class SankeyChart(ESMChart):
             self.nodes.at[idx, "label"] = f"{prettify_number(value)} {self.unit}"
 
     def _set_base_layout(self):
-        """Set various figure properties."""
+        """
+        Configure the base layout properties for the figure.
+
+        Sets up subplot visibility, grid properties, background colors,
+        legend positioning, and embeds run metadata for export.
+        """
         self.fig.update_layout(
             height=800,
             showlegend=True,
@@ -1024,12 +1194,24 @@ class SankeyChart(ESMChart):
         self.fig.update_layout(meta=[RUN_META_DATA])
 
     def _set_title(self):
+        """
+        Set the chart title using location and year information.
+
+        Formats and applies the title based on configuration template
+        with appropriate font sizing.
+        """
         title = self.cfg.title.format(location=self.location, unit=self.year)
         self.fig.update_layout(
             title=dict(text=title, font_size=self.cfg.title_font_size)
         )
 
     def _set_legend(self):
+        """
+        Add color-coded legend for energy carrier groups.
+
+        Creates legend entries for each energy carrier group using the
+        standardized color scheme and positions them horizontally.
+        """
         # add legend for sankey traces
         for carrier_group in GROUPS:
             self.fig.add_trace(
@@ -1046,7 +1228,23 @@ class SankeyChart(ESMChart):
             )
 
     def _add_pie_chart(self, kind, row, col):
-        """Add a pie chart to the figure."""
+        """
+        Add a pie chart to the subplot layout.
+
+        Parameters
+        ----------
+        kind
+            Chart type - 'PRIMARY' for primary energy or 'FED' for final energy demand.
+        row
+            Subplot row position.
+        col
+            Subplot column position.
+
+        Notes
+        -----
+        Creates proportional pie charts showing energy breakdown by carrier type
+        with matching colors and hover information.
+        """
         if kind == "PRIMARY":
             df = pd.concat(self.primary)
             domain_id = 1
@@ -1095,6 +1293,26 @@ class SankeyChart(ESMChart):
         return self.nodes.at[node_id, "color"]
 
     def _harmonize_v2g(self, transformation, transformation_demand):
+        """
+        Harmonize vehicle-to-grid flows with BEV charging demand.
+
+        Parameters
+        ----------
+        transformation
+            Full transformation DataFrame.
+        transformation_demand
+            Transformation demand subset.
+
+        Returns
+        -------
+        :
+            Modified transformation demand with V2G flows properly allocated.
+
+        Notes
+        -----
+        Adjusts BEV charger demand by V2G supply amounts and treats V2G as
+        storage demand to avoid double-counting in transport sector.
+        """
         # harmonize V2G and hide EV battery to connect electricity demand
         # for transport directly without storage. Increase BEV charger by
         # V2G supply. The BEV Charger will serve as the Transport sectoral
@@ -1114,6 +1332,19 @@ class SankeyChart(ESMChart):
         return transformation_demand
 
     def _check_remainder(self, bus_carrier):
+        """
+        Verify all flows for a bus carrier have been processed.
+
+        Parameters
+        ----------
+        bus_carrier
+            Bus carrier name(s) to check for remaining unprocessed flows.
+
+        Raises
+        ------
+        AssertionError
+            If any flows remain unprocessed for the specified bus carrier(s).
+        """
         remaining = filter_by(self._df, bus_carrier=bus_carrier)
         assert remaining.empty, (
             f"Missing amounts detected for location "
@@ -1122,6 +1353,25 @@ class SankeyChart(ESMChart):
 
     @staticmethod
     def _format_customdata_line(carrier, value, unit, target_length):
+        """
+        Format a single line of hover information for energy flows.
+
+        Parameters
+        ----------
+        carrier
+            Energy carrier name.
+        value
+            Flow value.
+        unit
+            Unit string.
+        target_length
+            Target length for formatting alignment (currently unused).
+
+        Returns
+        -------
+        :
+            Formatted string for hover display.
+        """
         # padding = target_length - len(carrier)
         # return carrier + " " * padding + f"{prettify_number(value)} {unit}"
         return f"{prettify_number(value)} {unit} {carrier}"
