@@ -233,11 +233,41 @@ def view_sankey(
     config: dict,
 ) -> None:
     """
-    Evaluate the carbon balance.
+    Generate Sankey diagrams for energy flow visualization.
+
+    Creates comprehensive Sankey diagrams showing energy flows, including supply/demand
+    balances, transmission losses, trade statistics, and regional energy exchanges.
+    The function processes PyPSA network data to extract energy flows and exports
+    them as interactive visualizations.
+
+    Parameters
+    ----------
+    result_path
+        Path where the generated Sankey diagrams and data will be saved.
+    networks
+        Dictionary of PyPSA network objects containing the energy system data
+        to be analyzed and visualized.
+    config
+        Configuration dictionary containing view settings, chart specifications,
+        transmission components to exclude, and export parameters.
 
     Returns
     -------
     :
+        Exports Sankey diagrams and underlying energy flow data to the specified
+        result path. Generated files include interactive Plotly visualizations
+        and CSV data files containing the processed statistics.
+
+    Notes
+    -----
+    The function processes several types of energy flows:
+    - Supply and demand statistics (excluding transmission components)
+    - Grid losses from electricity distribution
+    - Trade statistics (foreign and domestic imports/exports)
+    - Link losses and conversion inefficiencies
+    - Regional trade balances for specific carriers (oil, coal, lignite, NH3)
+
+    All statistics are aggregated by year, component, location, and carrier.
     """
     (
         _,
