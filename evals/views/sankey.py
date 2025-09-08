@@ -86,7 +86,7 @@ def get_supply(networks, transmission_comps, transmission_carrier):
                 "hydro": "hydro supply",
                 "PHS": "PHS supply",
                 "H2 Store": "H2 Store supply",
-                "gas": "gas supply",
+                "gas": "gas Store supply",
             },
         )
     )
@@ -96,14 +96,19 @@ def get_supply(networks, transmission_comps, transmission_carrier):
 
 
 def get_demand(networks, transmission_comps, transmission_carrier, unit):
+    withdrawal = collect_myopic_statistics(
+        networks,
+        statistic="withdrawal",
+        aggregate_components=None,
+    )
+    compressing = (
+        withdrawal.to_frame()
+        .query("carrier.str.contains('pipeline') and bus_carrier == 'AC'")
+        .squeeze()
+    )
     demand = (
-        collect_myopic_statistics(
-            networks,
-            statistic="withdrawal",
-            aggregate_components=None,
-        )
-        .pipe(
-            filter_by,
+        filter_by(
+            withdrawal,
             component=transmission_comps,
             carrier=transmission_carrier,
             exclude=True,
@@ -117,14 +122,16 @@ def get_demand(networks, transmission_comps, transmission_carrier, unit):
                 "hydro": "hydro demand",
                 "PHS": "PHS demand",
                 "H2 Store": "H2 Store demand",
-                "gas": "gas demand",
+                "gas": "gas Store demand",
             },
         )
         .mul(-1)
     )
-    demand.attrs["unit"] = unit
 
-    return demand
+    result = pd.concat([demand, compressing])
+    result.attrs["unit"] = unit
+
+    return result
 
 
 def net_distribution_grid_losses(supply, demand):
@@ -161,7 +168,7 @@ def get_trade_statistics(networks, transmission_comps, transmission_carrier, uni
                 direction=direction,
                 aggregate_components=None,
             )
-            # the trade statistic wrongly finds transmission between EU -> country buses.
+            # the trade statistic finds transmission between EU -> country buses.
             # Those are dropped by the filter_by statement.
             .pipe(
                 filter_by,
@@ -170,7 +177,6 @@ def get_trade_statistics(networks, transmission_comps, transmission_carrier, uni
             )
             .pipe(drop_from_multtindex_by_regex, "co2", level="bus_carrier")
             .pipe(rename_aggregate, alias)
-            .abs()
         )
         trade.attrs["unit"] = unit
         trade_statistics.append(trade)
@@ -194,6 +200,30 @@ def get_link_losses(supply, demand):
         # demand.drop(link_demand.index, inplace=True)
 
     return link_losses
+
+
+def get_regional_trade(supply, demand, bus_carrier: str | list):
+    regional_supply = (
+        filter_by(supply, bus_carrier=bus_carrier).groupby(["year", "location"]).sum()
+    )
+    regional_demand = (
+        filter_by(demand, bus_carrier=bus_carrier).groupby(["year", "location"]).sum()
+    )
+    regional_balance = (
+        regional_supply.add(regional_demand, fill_value=0)
+        .pipe(insert_index_level, "Link", "component", pos=1)
+        .pipe(insert_index_level, bus_carrier, "bus_carrier", pos=3)
+        .pipe(insert_index_level, "trade", "carrier", pos=3)
+        .drop("EU", level="location", errors="ignore")
+    )
+    regional_import = rename_aggregate(
+        regional_balance[regional_balance.le(0)], {"trade": "Import Foreign"}
+    ).mul(-1)
+    regional_export = rename_aggregate(
+        regional_balance[regional_balance.gt(0)], {"trade": "Export Foreign"}
+    ).mul(-1)
+
+    return [regional_import, regional_export]
 
 
 def view_sankey(
@@ -223,90 +253,36 @@ def view_sankey(
     # todo:
     #  - calculate regional oil import from regional oil demand
     #  - calculate regional NH3 Load from regional NH3 production
-    #  - calculate StorageUnit losses
-    #  - harmonize V2G amounts
+
+    #  - assert all nodes balanced
     grid_losses = net_distribution_grid_losses(supply, demand)
     trade_statistics = get_trade_statistics(
         networks, transmission_comps, transmission_carrier, unit=supply.attrs["unit"]
     )
     link_losses = get_link_losses(supply, demand)
-    # storage_systems = (
-    #     "rural water tanks",
-    #     "urban central water tanks",
-    #     "urban decentral water tanks",
-    #     "urban central water pits",
-    # )
-    #
-    # for storage_system in storage_systems:
-    #     charger = f"{storage_system} charger"
-    #     charger_losses = (
-    #         filter_by(supply, carrier=charger)
-    #         .droplevel("bus_carrier")
-    #         .add(filter_by(demand, carrier=charger).droplevel("bus_carrier"))
-    #     )
-    #     assert charger_losses.abs().le(1.5).all(), (
-    #         f"Charger Losses detected for carrier: {storage_system}"
-    #     )
-    #     supply.drop(charger, level="carrier", inplace=True)
-    #     demand.drop(charger, level="carrier", inplace=True)
-    #     discharger = f"{storage_system} discharger"
-    #     discharger_losses = (
-    #         filter_by(supply, carrier=discharger)
-    #         .droplevel("bus_carrier")
-    #         .add(filter_by(demand, carrier=discharger).droplevel("bus_carrier"))
-    #     )
-    #     assert discharger_losses.abs().le(1.5).all(), (
-    #         f"Storage system imbalances detected for carrier: {storage_system}"
-    #     )
-    #     supply.drop(discharger, level="carrier", inplace=True)
-    #     demand.drop(discharger, level="carrier", inplace=True)
 
-    for_industry_losses = []
-    # for_industry_carrier = (
-    #     "coal for industry",
-    #     "gas for industry",
-    #     "gas for industry CC",
-    #     "naphtha for industry",
-    #     "solid biomass for industry",
-    #     "solid biomass for industry CC",
-    #     "low-temperature heat for industry",
-    #     "agriculture machinery oil",
-    # )
-    # for industry_carrier in for_industry_carrier:
-    #     industry_supply = filter_by(supply, carrier=industry_carrier, component="Link")
-    #     industry_demand = filter_by(demand, carrier=industry_carrier, component="Link")
-    #     if industry_supply.empty and industry_demand.empty:
-    #         continue
-    #     demand_bus_carrier = industry_demand.index.unique("bus_carrier").item()
-    #     balance = industry_supply.droplevel("bus_carrier").add(
-    #         industry_demand.droplevel("bus_carrier")
-    #     )
-    #     if balance.le(0).all():
-    #         losses = insert_index_level(
-    #             balance, demand_bus_carrier, "bus_carrier", pos=4
-    #         )
-    #         for_industry_losses.append(losses)
-    #     elif balance.abs().gt(1e-3).any():
-    #         raise ValueError(
-    #             f"Unexpected carrier '{industry_carrier}' supplies energy to Load bus."
-    #         )
-    #     supply.drop(industry_supply.index, inplace=True)
-    #     demand.drop(industry_demand.index, inplace=True)
+    regional_trade = [
+        get_regional_trade(supply, demand, bus_carrier)
+        for bus_carrier in ("oil", "coal", "lignite", "NH3")
+    ]
+    # for bus_carrier in ("oil", "coal", "lignite", "NH3"):
+    #     regional_trade.extend(get_regional_trade(supply, demand, bus_carrier))
 
     exporter = Exporter(
-        statistics=[supply, demand, grid_losses]
+        statistics=[
+            supply,
+            demand,
+            grid_losses,
+        ]
         + trade_statistics
-        + for_industry_losses
+        + regional_trade
         + link_losses,
         view_config=config["view"],
     )
 
-    # todo: remove me
-    # exporter.df = filter_by(exporter.df, year="2050", location="Europe")
-
     chart_class = getattr(plots, config["view"]["chart"])
     exporter.defaults.plotly.chart = chart_class
-
+    exporter.defaults.plotly.xaxis_title = ""
     exporter.defaults.plotly.plotby = [DM.YEAR, DM.LOCATION]
     exporter.defaults.plotly.pivot_index = [
         DM.COMPONENT,
@@ -315,6 +291,4 @@ def view_sankey(
         DM.CARRIER,
         DM.BUS_CARRIER,
     ]
-    # exporter.defaults.plotly.xaxis_title = ""
-
     exporter.export(result_path, config["global"]["subdir"])

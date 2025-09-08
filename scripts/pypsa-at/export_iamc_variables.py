@@ -82,6 +82,8 @@ BC_ALIAS = {
     "shipping oil": "Oil",
     "solid biomass for industry": "Biomass",
     "EV battery": "AC",
+    "battery": "AC",
+    "home battery": "AC",
     # Store
     "urban central water pits": "Heat",
     "urban central water tanks": "Heat",
@@ -843,6 +845,8 @@ def collect_storage_imbalances():
         "coal": "Coal",  # FixMe: small unexplained imbalances
         "PHS": "PHS",  # Pump efficiency
         "non-sequestered HVC": "Waste",
+        "battery": "Battery",
+        "home battery": "Battery",
     }
 
     carrier_supply = filter_by(SUPPLY, component=comps).index.unique("carrier")
@@ -995,7 +999,8 @@ def collect_secondary_energy():
 
     transform_link(technology="Powerplant", carrier=["CCGT", "OCGT"])
     transform_link(
-        technology="Powerplant", carrier=["H2 OCGT", "H2 CCGT", "H2 turbine"]
+        technology="Powerplant",
+        carrier=["H2 OCGT", "H2 CCGT", "H2 turbine", "H2 retrofit OCGT"],
     )
     transform_link(technology="Powerplant", carrier="H2 Fuel Cell")
     transform_link(

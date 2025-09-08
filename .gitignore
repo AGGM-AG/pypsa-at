@@ -102,4 +102,6 @@ CLAUDE.md
 .pixi
 *.egg-info
 pixi.bak.*
-__marimo__/
+__marimo__/# pixi environments
+.pixi/*
+!.pixi/config.toml
