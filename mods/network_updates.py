@@ -35,6 +35,13 @@ def modify_austrian_transmission_capacities(
     -------
     :
     """
+    if (nuts_at := n.meta["clustering"]["administrative"]["AT"]) != 2:
+        logger.info(
+            f"Skipping grid capacity updates for Austria. The NUTS "
+            f"level for Austria is {nuts_at}, but only NUTS level 2 is supported."
+        )
+        return
+
     logger.info("Modifying grid capacities for Austria.")
 
     # transmission_carrier = get_transmission_carriers(n)
@@ -57,7 +64,7 @@ def modify_austrian_transmission_capacities(
         n.static(c).update(overwrite)
 
     # todo: test if 2020 capacities are in result network
-    # todo: support all years. currently only 2020 is possible
+    # todo: support all years. currently only 2020 is supported
 
 
 def modify_austrian_industry_demand(existing_industry, year):

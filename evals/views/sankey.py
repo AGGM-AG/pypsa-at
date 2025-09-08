@@ -86,7 +86,7 @@ def get_supply(networks, transmission_comps, transmission_carrier):
                 "hydro": "hydro supply",
                 "PHS": "PHS supply",
                 "H2 Store": "H2 Store supply",
-                "gas": "gas supply",
+                "gas": "gas Store supply",
             },
         )
     )
@@ -122,7 +122,7 @@ def get_demand(networks, transmission_comps, transmission_carrier, unit):
                 "hydro": "hydro demand",
                 "PHS": "PHS demand",
                 "H2 Store": "H2 Store demand",
-                "gas": "gas demand",
+                "gas": "gas Store demand",
             },
         )
         .mul(-1)
@@ -177,7 +177,7 @@ def get_trade_statistics(networks, transmission_comps, transmission_carrier, uni
             )
             .pipe(drop_from_multtindex_by_regex, "co2", level="bus_carrier")
             .pipe(rename_aggregate, alias)
-            .abs()
+            # .abs()
         )
         trade.attrs["unit"] = unit
         trade_statistics.append(trade)
@@ -292,9 +292,12 @@ def view_sankey(
     )
     link_losses = get_link_losses(supply, demand)
 
-    regional_trade = []
-    for bus_carrier in ("oil", "coal", "lignite", "NH3"):
-        regional_trade.extend(get_regional_trade(supply, demand, bus_carrier))
+    regional_trade = [
+        get_regional_trade(supply, demand, bus_carrier)
+        for bus_carrier in ("oil", "coal", "lignite", "NH3")
+    ]
+    # for bus_carrier in ("oil", "coal", "lignite", "NH3"):
+    #     regional_trade.extend(get_regional_trade(supply, demand, bus_carrier))
 
     exporter = Exporter(
         statistics=[
