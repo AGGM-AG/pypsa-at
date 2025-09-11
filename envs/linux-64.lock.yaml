@@ -147,6 +147,7 @@ dependencies:
   - freetype=2.13.3=ha770c72_1
   - freexl=2.0.0=h9dce30a_2
   - fribidi=1.0.10=h36c2ea0_0
+  - frozendict=2.4.6=py312h4c3975b_1
   - fsspec=2025.7.0=pyhd8ed1ab_0
   - furl=2.1.4=pyhd8ed1ab_0
   - gdk-pixbuf=2.42.12=h2b0a6b4_3
@@ -619,4 +620,5 @@ dependencies:
       - gurobipy == 12.0.3 --hash=sha256:b3f971caf270f671b6ffcf5b937b3c0430a5264b0f01529dc8681d61c221f215
       - ply == 3.11 --hash=sha256:096f9b8350b65ebd2fd1346b12452efe5b9607f7482813ffca50c22722a807ce
       - pyomo == 6.9.4 --hash=sha256:ddd48dec34b270ca2621863a216c4f3a6fcc409db86a7dc34c31eb788a44b8c6
+      - sourcery == 1.37.0 --hash=sha256:b674457203201c6716b5318f15964f904f482837ef7a32e6bef0f68b03db6cb6
       - tsam == 2.3.9 --hash=sha256:edcc4febb9e1dacc028bc819d710974ede8f563467c3d235a250f46416f93a1b
