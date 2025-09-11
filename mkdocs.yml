@@ -37,9 +37,13 @@ nav:
       - timeseries.py: reference/evals/plots/timeseries.md
     - Views:
       - reference/evals/views/index.md
-      - capacity:
-        - reference/evals/views/capacity/index.md
-        - reference/evals/views/capacity/heat_capacity
+      - balances.py: reference/evals/views/balances.md
+      - balances_timeseries.py: reference/evals/views/balances_timeseries.md
+      - capacities.py: reference/evals/views/capacities.md
+      - demand.py: reference/evals/views/demand.md
+      - demand_fed.py: reference/evals/views/demand_fed.md
+      - price.py: reference/evals/views/price.md
+      - transmission.py: reference/evals/views/transmission.md
 - Explanations:
   - explanations/index.md
 
