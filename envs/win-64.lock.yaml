@@ -132,6 +132,7 @@ dependencies:
   - freetype=2.13.3=h57928b3_1
   - freexl=2.0.0=hf297d47_2
   - fribidi=1.0.10=h8d14728_0
+  - frozendict=2.4.6=py312he06e257_1
   - fsspec=2025.7.0=pyhd8ed1ab_0
   - furl=2.1.4=pyhd8ed1ab_0
   - geographiclib=2.1=pyhd8ed1ab_0
@@ -544,4 +545,5 @@ dependencies:
       - gurobipy == 12.0.3 --hash=sha256:af18fd03d5dc3f6e5f590c372ad288b8430a6d88a5b5e66cfcd8432f86ee8650
       - ply == 3.11 --hash=sha256:096f9b8350b65ebd2fd1346b12452efe5b9607f7482813ffca50c22722a807ce
       - pyomo == 6.9.4 --hash=sha256:a274d74616c0b793279931f3b2175a31f9c63213f2d7b86c14d168c6c264f782
+      - sourcery == 1.37.0 --hash=sha256:0a74d7a38e194d6c0fb0cda497089b876d436218eea4e41037ecc4de4677ad2c
       - tsam == 2.3.9 --hash=sha256:edcc4febb9e1dacc028bc819d710974ede8f563467c3d235a250f46416f93a1b
