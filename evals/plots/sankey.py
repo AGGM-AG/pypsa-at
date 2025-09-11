@@ -4,15 +4,95 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Module for Sankey diagram."""
 
+import re
+
 import pandas as pd
 import plotly
 import pyam
 from plotly.graph_objs import Figure, Sankey
+from pyam.index import get_index_levels
 
+from evals.constants import COLOUR
 from evals.utils import filter_by, rename_aggregate
 
 pd.set_option("display.width", 250)
 pd.set_option("display.max_columns", 20)
+
+
+def sankey(df: pyam.IamDataFrame, mapping: dict) -> Figure:
+    """
+    Plot a sankey diagram.
+
+    Parameters
+    ----------
+    df
+        Data to be plotted
+    mapping
+        Assigns the source and target component of a variable
+
+        .. code-block:: python
+
+            {
+                variable: (source, target),
+            }
+
+    Returns
+    -------
+    :
+        The generated plotly figure.
+    """
+
+    # Check for duplicates
+    for col in [name for name in df.dimensions if name != "variable"]:
+        levels = get_index_levels(df._data, col)
+        if len(levels) > 1:
+            raise ValueError(f"Non-unique values in column {col}: {levels}")
+
+    # Concatenate the data with source and target columns
+    _df = pd.DataFrame.from_dict(
+        mapping, orient="index", columns=["source", "target"]
+    ).merge(df._data, how="left", left_index=True, right_on="variable")
+    label_mapping = {
+        label: i
+        for i, label in enumerate(set(pd.concat([_df["source"], _df["target"]])))
+    }
+    _df = _df.replace(label_mapping)
+
+    def get_carrier_color(s) -> str:
+        carrier = re.findall(r"\|AC", s)[0].strip("|")
+        color_map = {"AC": COLOUR.red}
+        return color_map[carrier]
+
+    _df["color"] = _df.index.get_level_values("variable").map(get_carrier_color)
+
+    region = get_index_levels(_df, "region")[0]
+    unit = " " + get_index_levels(_df, "unit")[0]
+    year = get_index_levels(_df, "year")[0]
+    fig = Figure(
+        data=[
+            Sankey(
+                valuesuffix=unit,
+                node=dict(
+                    # pad=15,
+                    # thickness=10,
+                    line=dict(color="black", width=0.5),
+                    label=pd.Series(list(label_mapping)),
+                    hovertemplate="%{label}: %{value}<extra></extra>",
+                    color=_df.color,
+                ),
+                link=dict(
+                    # arrowlen=15,
+                    source=_df.source,
+                    target=_df.target,
+                    value=_df.value,
+                    color=_df.color,
+                    hovertemplate='"%{source.label}" to "%{target.label}": %{value}<extra></extra> ',
+                ),
+            )
+        ]
+    )
+    fig.update_layout(title_text=f"region: {region}, year: {year}", font_size=10)
+    return fig
 
 
 def read_iamc_data_frame(filepath):

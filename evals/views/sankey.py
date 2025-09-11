@@ -177,7 +177,6 @@ def get_trade_statistics(networks, transmission_comps, transmission_carrier, uni
             )
             .pipe(drop_from_multtindex_by_regex, "co2", level="bus_carrier")
             .pipe(rename_aggregate, alias)
-            # .abs()
         )
         trade.attrs["unit"] = unit
         trade_statistics.append(trade)
