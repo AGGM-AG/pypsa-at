@@ -14,9 +14,12 @@ The main entry point is `view_sankey.py` which processes PyPSA networks and gene
 Sankey diagrams aggregated by year, component, location, and carrier.
 """
 
+import logging
 from pathlib import Path
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 from evals import plots as plots
 from evals.constants import DataModel as DM
@@ -346,7 +349,7 @@ def get_link_losses(supply: pd.Series, demand: pd.DataFrame) -> list[pd.Series]:
     -------
     :
         List of imbalance series for each Link carrier type.
-        Empty carriers are skipped with a printed warning.
+        Empty carriers are skipped with a logged warning.
     """
     link_losses = []
     link_supply_carrier = filter_by(supply, component="Link").index.unique("carrier")
@@ -356,7 +359,7 @@ def get_link_losses(supply: pd.Series, demand: pd.DataFrame) -> list[pd.Series]:
         link_supply = filter_by(supply, carrier=carrier, component="Link")
         link_demand = filter_by(demand, carrier=carrier, component="Link")
         if link_supply.empty or link_demand.empty:
-            print(f"Skipping carrier '{carrier}' due to empty supply or demand.")
+            logger.warning(f"Skipping carrier '{carrier}' due to empty supply or demand.")
             continue
         link_losses.append(collect_imbalances(link_supply, link_demand))
 
