@@ -19,7 +19,7 @@ as well as reasoning about how it was implemented.
 
 ## Dependencies
 
-The package esmtools uses a variety of inputs from PyPSA model runs.
+The package uses a variety of inputs from PyPSA model runs.
 
 ### Folder Structure
 

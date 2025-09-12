@@ -336,6 +336,7 @@ plotting:
     urban central oil boiler: '#9d9d9d'
     services urban decentral oil boiler: '#999999'
     agriculture machinery oil: '#949494'
+    agriculture machinery electric: '#444578'
     shipping oil: "#808080"
     land transport oil: '#afafaf'
     # nuclear
@@ -587,3 +588,5 @@ plotting:
     import NH3: '#e2ed74'
     import oil: '#93eda2'
     import methanol: '#87d0e6'
+    "": "black"
+    none: "black"

@@ -36,6 +36,8 @@ Known Issues and TODOs
 import logging
 from itertools import product
 
+import re
+
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.graph_objs import Sankey
