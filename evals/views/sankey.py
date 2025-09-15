@@ -19,8 +19,6 @@ from pathlib import Path
 
 import pandas as pd
 
-logger = logging.getLogger(__name__)
-
 from evals import plots as plots
 from evals.constants import DataModel as DM
 from evals.constants import Group, TradeTypes
@@ -33,6 +31,8 @@ from evals.utils import (
     rename_aggregate,
 )
 from evals.views.common import _parse_view_config_items
+
+logger = logging.getLogger(__name__)
 
 IDX = ["year", "component", "location", "carrier"]
 pd.set_option("display.width", 250)
@@ -359,7 +359,9 @@ def get_link_losses(supply: pd.Series, demand: pd.DataFrame) -> list[pd.Series]:
         link_supply = filter_by(supply, carrier=carrier, component="Link")
         link_demand = filter_by(demand, carrier=carrier, component="Link")
         if link_supply.empty or link_demand.empty:
-            logger.warning(f"Skipping carrier '{carrier}' due to empty supply or demand.")
+            logger.warning(
+                f"Skipping carrier '{carrier}' due to empty supply or demand."
+            )
             continue
         link_losses.append(collect_imbalances(link_supply, link_demand))
 

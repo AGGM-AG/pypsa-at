@@ -5,7 +5,6 @@
 from evals.plots.barchart import ESMBarChart
 from evals.plots.facetbars import ESMGroupedBarChart
 from evals.plots.gridmap import TransmissionGridMap
-from evals.plots.sankey import SankeyChart
 from evals.plots.timeseries import ESMTimeSeriesChart
 
 __all__ = [
@@ -13,5 +12,4 @@ __all__ = [
     "ESMGroupedBarChart",
     "ESMTimeSeriesChart",
     "TransmissionGridMap",
-    "SankeyChart",
 ]

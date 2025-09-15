@@ -36,8 +36,6 @@ Known Issues and TODOs
 import logging
 from itertools import product
 
-import re
-
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.graph_objs import Sankey
@@ -546,8 +544,7 @@ class SankeyChart(ESMChart):
         waste_to_hvc = filter_by(
             self._df, carrier="municipal solid waste", component="Link"
         )
-        if not waste_to_hvc.sum().abs().item() < 1e-6:
-            raise ValueError(f"Non-zero waste to HVC detected: {waste_to_hvc}")
+        assert waste_to_hvc.sum().abs().item() < 1e-6, waste_to_hvc
         self._df.drop(waste_to_hvc.index, inplace=True)
 
         transformation = filter_by(
@@ -561,8 +558,7 @@ class SankeyChart(ESMChart):
 
         transformation_demand = self._flow_transformation_in(transformation, name)
         transformation_supply = transformation[transformation.gt(0)].dropna()
-        if not transformation_supply.empty:
-            raise ValueError("Expected empty transformation supply for solids")
+        assert transformation_supply.empty
 
         bypass = (
             primary.sum() - transformation_demand.sum() - primary_losses.abs().sum()
@@ -641,8 +637,7 @@ class SankeyChart(ESMChart):
             self._df.drop(oil_refining.index, inplace=True)
 
         stores = filter_by(self._df, bus_carrier=bus_carrier, component="Store")
-        if not stores.sum().abs().item() < 1e-6:
-            raise ValueError("Non-zero liquid stores detected")
+        assert stores.sum().abs().item() < 1e-6
         self._df.drop(stores.index, inplace=True)
 
         self._check_remainder(bus_carrier)
@@ -819,11 +814,10 @@ class SankeyChart(ESMChart):
         self._df.drop(to_drop.index, inplace=True)
 
         remaining = filter_by(self._df, bus_carrier=bus_carrier)
-        if not remaining.empty:
-            raise ValueError(
-                f"Missing amounts detected for location "
-                f"{self.location} and year {self.year}:\n{remaining}"
-            )
+        assert remaining.empty, (
+            f"Missing amounts detected for location "
+            f"{self.location} and year {self.year}:\n{remaining}"
+        )
 
     def forward_transformation(self):
         """
@@ -892,7 +886,7 @@ class SankeyChart(ESMChart):
         )
         for node in self.nodes.index:
             # skip left and right border nodes because they are never balanced
-            if all(s not in node for s in checks):
+            if not any([s in node for s in checks]):
                 continue
 
             node_in = filter_by(self.flows, source=node)
@@ -1348,15 +1342,14 @@ class SankeyChart(ESMChart):
 
         Raises
         ------
-        ValueError
+        AssertionError
             If any flows remain unprocessed for the specified bus carrier(s).
         """
         remaining = filter_by(self._df, bus_carrier=bus_carrier)
-        if not remaining.empty:
-            raise ValueError(
-                f"Missing amounts detected for location "
-                f"{self.location} and year {self.year}:\n{remaining}"
-            )
+        assert remaining.empty, (
+            f"Missing amounts detected for location "
+            f"{self.location} and year {self.year}:\n{remaining}"
+        )
 
     @staticmethod
     def _format_customdata_line(carrier, value, unit, target_length):
