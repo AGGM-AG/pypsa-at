@@ -1,5 +1,6 @@
 FROM debian:bookworm
 
+ENV GRB_LICENSE_FILE=/mnt/storage/gurobi/gurobi.lic
 ARG PIXI_VERSION=v0.50.2
 
 RUN mkdir -p /mnt/storage
