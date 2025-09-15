@@ -35,6 +35,7 @@ Known Issues and TODOs
 
 import logging
 from itertools import product
+from typing import Any, Optional, Union
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -169,22 +170,22 @@ class SankeyChart(ESMChart):
     year
         Year of the energy data.
     flows
-        DataFrame tracking all energy flows between nodes.
+        Tracking all energy flows between nodes.
     nodes
-        DataFrame containing node positions, colors, and labels.
+        Node positions, colors, and labels.
     has_loop
         Flag indicating if transformation block contains loops.
     primary
-        List of primary energy DataFrames for pie chart.
+        Primary energy data for pie chart.
     fed
-        List of final energy demand DataFrames for pie chart.
+        Final energy demand data for pie chart.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """
         Initialize the SankeyChart with energy flow data.
 
-        Extracts location and year from the input DataFrame, sets up node
+        Extracts location and year from the input data, sets up node
         and flow tracking structures, and initializes the base chart configuration.
         """
         super().__init__(*args, **kwargs)
@@ -208,7 +209,7 @@ class SankeyChart(ESMChart):
         self.primary = []
         self.fed = []
 
-    def plot(self):
+    def plot(self) -> None:
         """
         Create the complete Sankey diagram with pie charts.
 
@@ -497,7 +498,7 @@ class SankeyChart(ESMChart):
 
         self._check_remainder(bus_carrier)
 
-    def connect_solids(self):
+    def connect_solids(self) -> None:
         """
         Connect solid fuel flows from import/generation to consumption.
 
@@ -572,7 +573,7 @@ class SankeyChart(ESMChart):
         self._flow_sector(final, "rural|decentral", name, "HH_SERVICES")
         self._check_remainder(bus_carrier)
 
-    def connect_liquids(self):
+    def connect_liquids(self) -> None:
         """
         Connect liquid fuel flows from import through transformation to consumption.
 
@@ -642,7 +643,7 @@ class SankeyChart(ESMChart):
 
         self._check_remainder(bus_carrier)
 
-    def connect_uranium(self):
+    def connect_uranium(self) -> None:
         """
         Connect uranium flows from import to nuclear transformation.
 
@@ -673,7 +674,7 @@ class SankeyChart(ESMChart):
 
         self._check_remainder(bus_carrier)
 
-    def connect_heat(self):
+    def connect_heat(self) -> None:
         """
         Connect heat flows from ambient sources through systems to consumption.
 
@@ -694,18 +695,9 @@ class SankeyChart(ESMChart):
             self._df, bus_carrier=bus_carrier, component=["Generator", "Link"]
         ).filter(regex="solar thermal|ambient heat", axis=0)
         self._flow_generation(generation, name, name, color)
-        # self._connect(generation, "HEAT", "HEAT_PRIMARY_IN", color=color)
 
-        # primary = generation.sum().item()
         self._flow_primary(generation, name)
-        # self._forward(
-        #     f"{name}_PRIMARY_IN",
-        #     f"{name}_PRIMARY_OUT",
-        #     primary,
-        # )
-        # self.nodes.at[f"{name}_PRIMARY_IN", "label"] = (
-        #     f"{prettify_number(primary)} {self.unit}"
-        # )
+
         regex = "decentral|rural|industry|agriculture|DAC"
         transformation = filter_by(
             self._df,
@@ -728,20 +720,6 @@ class SankeyChart(ESMChart):
 
         bypass = generation.sum() - transformation_demand.sum()
         self._flow_bypass(bypass.item(), name)
-        # bypass = primary - transformation_demand.sum().item()
-        # self._forward(
-        #     f"{name}_PRIMARY_OUT",
-        #     f"{name}_BYPASS_IN",
-        #     bypass,
-        # )
-        # self._forward(
-        #     f"{name}_BYPASS_IN",
-        #     f"{name}_BYPASS_OUT",
-        #     bypass,
-        # )
-        # self.nodes.at[f"{name}_BYPASS_IN", "label"] = (
-        #     f"{prettify_number(bypass)} {self.unit}"
-        # )
         self._connect(
             transformation_supply,
             "TRANS_OUT",
@@ -752,32 +730,10 @@ class SankeyChart(ESMChart):
         # self._forward(f"{name}_BYPASS_OUT", f"{name}_SECONDARY_IN", bypass)
         secondary = transformation_supply.sum() + bypass
         self._flow_secondary(secondary.item(), name)
-        # secondary = transformation_supply.sum().item() + bypass
-        # self._forward(f"{name}_SECONDARY_IN", f"{name}_SECONDARY_OUT", secondary)
-        # self.nodes.at[f"{name}_SECONDARY_IN", "label"] = (
-        #     f"{prettify_number(secondary)} {self.unit}"
-        # )
 
         final = filter_by(self._df, bus_carrier=bus_carrier).abs()
         self._flow_sector(final, "industry|DAC", name, "INDUSTRY")
-        # self._connect(
-        #     industry,
-        #     f"{name}_SECONDARY_OUT",
-        #     "INDUSTRY",
-        # )
-        # dac = final.filter(regex="DAC", axis=0)
-        # self._connect(
-        #     dac,
-        #     f"{name}_SECONDARY_OUT",
-        #     "INDUSTRY",
-        # )
         self._flow_sector(final, "agriculture", name, "AGRICULTURE")
-        # agriculture = final.filter(regex="agriculture", axis=0)
-        # self._connect(
-        #     agriculture,
-        #     f"{name}_SECONDARY_OUT",
-        #     "AGRICULTURE",
-        # )
 
         vents = final.filter(like="heat vent", axis=0)
         self._connect(
@@ -789,12 +745,8 @@ class SankeyChart(ESMChart):
 
         industry = final.filter(regex="industry|DAC", axis=0)
         agriculture = final.filter(regex="agriculture", axis=0)
-        # hh_services = (
-        #         secondary - industry.sum() - dac.sum() - vents.sum() - agriculture.sum()
-        # ).item()
         hh_services = secondary - industry.sum() - vents.sum() - agriculture.sum()
         self._forward(f"{name}_SECONDARY_OUT", "HH_SERVICES", hh_services.item())
-        # self._flow_sector(hh_services, r"[*az,AZ,\s]", name, "HH_SERVICES")
 
         # if hh_services <= 0:
         #     # some amounts of gas/electricity/solid biomass for heat are for agriculture
@@ -810,7 +762,7 @@ class SankeyChart(ESMChart):
         # also needs to be dropped.
         to_drop = filter_by(
             self._df, bus_carrier=bus_carrier, component=["Link", "Load", "Generator"]
-        ).filter(regex="decentral|rural|central", axis=0)  # |central
+        ).filter(regex="decentral|rural|central", axis=0)
         self._df.drop(to_drop.index, inplace=True)
 
         remaining = filter_by(self._df, bus_carrier=bus_carrier)
@@ -819,7 +771,7 @@ class SankeyChart(ESMChart):
             f"{self.location} and year {self.year}:\n{remaining}"
         )
 
-    def forward_transformation(self):
+    def forward_transformation(self) -> None:
         """
         Connect transformation input to output flows.
 
@@ -833,7 +785,7 @@ class SankeyChart(ESMChart):
             transformation["value"].sum(),
         )
 
-    def connect_transformation_losses(self):
+    def connect_transformation_losses(self) -> None:
         """
         Connect transformation losses from output to loss sink.
 
@@ -872,7 +824,7 @@ class SankeyChart(ESMChart):
             color=COLOUR.grey_neutral,
         )
 
-    def check_nodal_balance(self):
+    def check_nodal_balance(self) -> None:
         """
         Verify energy balance at primary, secondary, and transformation nodes.
 
@@ -898,7 +850,7 @@ class SankeyChart(ESMChart):
                     f"discrepancy of {diff:.2f} {self.unit}"
                 )
 
-    def fix_node_y_positions(self):
+    def fix_node_y_positions(self) -> None:
         """
         Adjust vertical node positions when transformation loops are detected.
 
@@ -963,25 +915,27 @@ class SankeyChart(ESMChart):
                 for node_name in node_order:
                     self.nodes.at[node_name, "y"] *= scale_factor
 
-    def _connect(self, df, source, target, color: str = None):
+    def _connect(
+        self, df: pd.DataFrame, source: str, target: str, color: Optional[str] = None
+    ) -> None:
         """
         Create a flow connection between two nodes.
 
         Parameters
         ----------
         df
-            DataFrame containing the flow data to connect.
+            Flow data to connect.
         source
             Source node identifier.
         target
             Target node identifier.
         color
-            Optional color override for the flow.
+            Color override for the flow.
 
         Notes
         -----
-        Aggregates the DataFrame values, creates hover information,
-        and removes processed data from the main DataFrame.
+        Aggregates the data values, creates hover information,
+        and removes processed data from the main dataset.
         """
         value = df.abs().sum().item()
         if value < self.cfg.cutoff:
@@ -1008,7 +962,9 @@ class SankeyChart(ESMChart):
         ]
         self._df.drop(df.index, inplace=True, errors="ignore")
 
-    def _forward(self, source, target, value, color: str = None):
+    def _forward(
+        self, source: str, target: str, value: float, color: Optional[str] = None
+    ) -> None:
         """
         Create a simple flow connection with a single value.
 
@@ -1021,7 +977,7 @@ class SankeyChart(ESMChart):
         value
             Flow value to connect.
         color
-            Optional color override for the flow.
+            Color override for the flow.
         """
         if value < self.cfg.cutoff:
             return
@@ -1031,7 +987,31 @@ class SankeyChart(ESMChart):
             f"{prettify_number(value)} {self._df.attrs['unit']}",
         ]
 
-    def _flow_loop(self, transformation_supply, final, name, color):
+    def _flow_loop(
+        self,
+        transformation_supply: pd.DataFrame,
+        final: pd.DataFrame,
+        name: str,
+        color: str,
+    ) -> None:
+        """
+        Handle loop flows in transformation systems.
+
+        Detects and creates loop flows when transformation output exceeds final consumption,
+        indicating internal recycling or feedback loops within the transformation block.
+        Adjusts existing flows to prevent double-counting.
+
+        Parameters
+        ----------
+        transformation_supply
+            Transformation output flows.
+        final
+            Final consumption flows.
+        name
+            Energy carrier name for flow identification.
+        color
+            Color for the loop flow visualization.
+        """
         loop = (transformation_supply.sum() - final.sum()).item()
         if has_loop := (loop > self.cfg.cutoff):
             self.has_loop = has_loop
@@ -1042,7 +1022,20 @@ class SankeyChart(ESMChart):
             if ("TRANS_OUT", f"{name}_SECONDARY_IN") in self.flows.index:
                 self.flows.at[("TRANS_OUT", f"{name}_SECONDARY_IN"), "value"] -= loop
 
-    def _flow_primary(self, df, name):
+    def _flow_primary(self, df: pd.DataFrame, name: str) -> None:
+        """
+        Create primary energy flow connections.
+
+        Establishes the flow from primary input to primary output nodes and
+        updates the primary input node label with the total flow value.
+
+        Parameters
+        ----------
+        df
+            Primary energy flow data.
+        name
+            Energy carrier name for node identification.
+        """
         primary = df.sum().item()
         self._forward(
             f"{name}_PRIMARY_IN",
@@ -1053,7 +1046,20 @@ class SankeyChart(ESMChart):
             f"{prettify_number(primary)} {self.unit}"
         )
 
-    def _flow_import(self, df, name):
+    def _flow_import(self, df: pd.DataFrame, name: str) -> None:
+        """
+        Create import flow connections to primary energy input.
+
+        Connects import flows to the primary energy input node and updates
+        the import node label with carrier-specific import amounts.
+
+        Parameters
+        ----------
+        df
+            Import flow data.
+        name
+            Energy carrier name for target identification.
+        """
         target = f"{name}_PRIMARY_IN"
         self._connect(
             df,
@@ -1067,7 +1073,26 @@ class SankeyChart(ESMChart):
                 f"<br>{prettify_number(value)} {self.unit} {name.title()}"
             )
 
-    def _flow_generation(self, df, name, label, color):
+    def _flow_generation(
+        self, df: pd.DataFrame, name: str, label: str, color: str
+    ) -> None:
+        """
+        Create generation flow connections for renewable sources.
+
+        Connects generation sources (wind, solar, hydro, etc.) to the primary
+        energy input and tracks the data for pie chart visualization.
+
+        Parameters
+        ----------
+        df
+            Generation flow data.
+        name
+            Energy carrier name for target identification.
+        label
+            Source label for the generation node.
+        color
+            Color for the flow visualization.
+        """
         self.primary.append(df)
         self._connect(
             df,
@@ -1076,7 +1101,26 @@ class SankeyChart(ESMChart):
             color=color,
         )
 
-    def _flow_transformation_in(self, df, name):
+    def _flow_transformation_in(self, df: pd.DataFrame, name: str) -> pd.DataFrame:
+        """
+        Process transformation input flows and connect to the transformation block.
+
+        Extracts negative flows (demand) from transformation data,
+        handles special cases like V2G harmonization for electricity,
+        and connects to the transformation input node.
+
+        Parameters
+        ----------
+        df
+            Complete transformation flow data.
+        name
+            Energy carrier name for flow identification.
+
+        Returns
+        -------
+        :
+            Processed transformation demand flows.
+        """
         transformation_demand = df[df.lt(0)].dropna().mul(-1)
         if name == "ELECTRICITY":
             transformation_demand = self._harmonize_v2g(df, transformation_demand)
@@ -1094,7 +1138,25 @@ class SankeyChart(ESMChart):
 
         return transformation_demand
 
-    def _flow_transformation_out(self, df, name):
+    def _flow_transformation_out(self, df: pd.DataFrame, name: str) -> pd.DataFrame:
+        """
+        Process transformation output flows and connect from transformation block.
+
+        Extracts positive flows (supply) from transformation data
+        and connects them from the transformation output to secondary input.
+
+        Parameters
+        ----------
+        df
+            Complete transformation flow data.
+        name
+            Energy carrier name for flow identification.
+
+        Returns
+        -------
+        :
+            Processed transformation supply flows.
+        """
         transformation_supply = df[df.gt(0)].dropna()
         target = f"{name}_SECONDARY_IN"
         self._connect(
@@ -1105,7 +1167,21 @@ class SankeyChart(ESMChart):
         )
         return transformation_supply
 
-    def _flow_bypass(self, value, name):
+    def _flow_bypass(self, value: float, name: str) -> None:
+        """
+        Create bypass flows that skip transformation.
+
+        Establishes flow paths for energy that bypasses transformation,
+        going directly from primary to secondary through bypass nodes.
+        Updates bypass input node label with the flow value.
+
+        Parameters
+        ----------
+        value
+            Bypass flow amount.
+        name
+            Energy carrier name for node identification.
+        """
         self._forward(
             f"{name}_PRIMARY_OUT",
             f"{name}_BYPASS_IN",
@@ -1125,7 +1201,20 @@ class SankeyChart(ESMChart):
             f"{prettify_number(value)} {self.unit}"
         )
 
-    def _flow_secondary(self, value, name):
+    def _flow_secondary(self, value: float, name: str) -> None:
+        """
+        Create secondary energy flow connections.
+
+        Establishes the flow from secondary input to secondary output nodes
+        and updates the secondary input node label with the total flow value.
+
+        Parameters
+        ----------
+        value
+            Secondary flow amount.
+        name
+            Energy carrier name for node identification.
+        """
         self._forward(
             f"{name}_SECONDARY_IN",
             f"{name}_SECONDARY_OUT",
@@ -1135,7 +1224,34 @@ class SankeyChart(ESMChart):
             f"{prettify_number(value)} {self.unit}"
         )
 
-    def _flow_sector(self, df, regex, name, sector, append_label=False):
+    def _flow_sector(
+        self,
+        df: pd.DataFrame,
+        regex: str,
+        name: str,
+        sector: str,
+        append_label: bool = False,
+    ) -> None:
+        """
+        Create sector consumption flow connections.
+
+        Filters flows by regex pattern, connects them to the specified sector,
+        and tracks data for final energy demand pie chart. Optionally appends
+        flow information to sector node labels.
+
+        Parameters
+        ----------
+        df
+            Complete flow data to filter.
+        regex
+            Regular expression pattern for filtering flows.
+        name
+            Energy carrier name for source identification.
+        sector
+            Target sector node identifier.
+        append_label
+            Whether to append flow info to sector label.
+        """
         demand = df.filter(regex=regex, axis=0)
         self.fed.append(demand)
         self._connect(
@@ -1149,7 +1265,26 @@ class SankeyChart(ESMChart):
                 f"<br>{name.title()} {prettify_number(value)} {self.unit}"
             )
 
-    def _set_node_label(self, idx, value, name="", append=False):
+    def _set_node_label(
+        self, idx: str, value: float, name: str = "", append: bool = False
+    ) -> None:
+        """
+        Set or append node label with flow value.
+
+        Updates node labels with formatted flow values and units.
+        Can either replace existing label or append to it.
+
+        Parameters
+        ----------
+        idx
+            Node identifier.
+        value
+            Flow value to display.
+        name
+            Optional name to include in label.
+        append
+            Whether to append to existing label or replace it.
+        """
         if idx not in self.nodes.index:
             return
 
@@ -1160,7 +1295,7 @@ class SankeyChart(ESMChart):
         else:
             self.nodes.at[idx, "label"] = f"{prettify_number(value)} {self.unit}"
 
-    def _set_base_layout(self):
+    def _set_base_layout(self) -> None:
         """
         Configure the base layout properties for the figure.
 
@@ -1193,7 +1328,7 @@ class SankeyChart(ESMChart):
         # export the metadata directly in the Layout property for JSON
         self.fig.update_layout(meta=[RUN_META_DATA])
 
-    def _set_title(self):
+    def _set_title(self) -> None:
         """
         Set the chart title using location and year information.
 
@@ -1205,7 +1340,7 @@ class SankeyChart(ESMChart):
             title=dict(text=title, font_size=self.cfg.title_font_size)
         )
 
-    def _set_legend(self):
+    def _set_legend(self) -> None:
         """
         Add color-coded legend for energy carrier groups.
 
@@ -1227,7 +1362,7 @@ class SankeyChart(ESMChart):
                 col=2,
             )
 
-    def _add_pie_chart(self, kind, row, col):
+    def _add_pie_chart(self, kind: str, row: int, col: int) -> None:
         """
         Add a pie chart to the subplot layout.
 
@@ -1289,24 +1424,37 @@ class SankeyChart(ESMChart):
             font=dict(size=12),
         )
 
-    def _get_color(self, node_id):
+    def _get_color(self, node_id: str) -> str:
+        """
+        Get the color assigned to a specific node.
+
+        Parameters
+        ----------
+        node_id
+            Node identifier to look up.
+
+        Returns
+        -------
+        Color value for the specified node.
+        """
         return self.nodes.at[node_id, "color"]
 
-    def _harmonize_v2g(self, transformation, transformation_demand):
+    def _harmonize_v2g(
+        self, transformation: pd.DataFrame, transformation_demand: pd.DataFrame
+    ) -> pd.DataFrame:
         """
         Harmonize vehicle-to-grid flows with BEV charging demand.
 
         Parameters
         ----------
         transformation
-            Full transformation DataFrame.
+            Full transformation data.
         transformation_demand
-            Transformation demand subset.
+            Transformation demand data.
 
         Returns
         -------
-        :
-            Modified transformation demand with V2G flows properly allocated.
+        Modified transformation demand with V2G flows properly allocated.
 
         Notes
         -----
@@ -1331,7 +1479,7 @@ class SankeyChart(ESMChart):
 
         return transformation_demand
 
-    def _check_remainder(self, bus_carrier):
+    def _check_remainder(self, bus_carrier: Union[str, list[str]]) -> None:
         """
         Verify all flows for a bus carrier have been processed.
 
@@ -1352,7 +1500,9 @@ class SankeyChart(ESMChart):
         )
 
     @staticmethod
-    def _format_customdata_line(carrier, value, unit, target_length):
+    def _format_customdata_line(
+        carrier: str, value: float, unit: str, target_length: int
+    ) -> str:
         """
         Format a single line of hover information for energy flows.
 
@@ -1369,8 +1519,7 @@ class SankeyChart(ESMChart):
 
         Returns
         -------
-        :
-            Formatted string for hover display.
+        Formatted string for hover display.
         """
         # padding = target_length - len(carrier)
         # return carrier + " " * padding + f"{prettify_number(value)} {unit}"
