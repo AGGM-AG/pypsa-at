@@ -80,7 +80,7 @@ def simple_bus_balance(
                 bus_carrier=bus_carrier,
                 aggregate_components=None,
             )
-            # the trade statistic wrongly finds transmission between EU -> country buses.
+            # the trade statistic finds transmission between EU -> country buses.
             # Those are dropped by the filter_by statement.
             .pipe(
                 filter_by,

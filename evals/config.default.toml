@@ -826,8 +826,6 @@ exports = []
 [view_final_energy_demand]
 
 [view_final_energy_demand.catagories]
-
-[view_sankey]
 name = "Sankey Diagram"
 unit = "TWh"
 file_name = "sankey_{location}_{year}"

@@ -107,3 +107,8 @@ reset:
 		rm -r ./.snakemake || true; \
 		echo "Reset completed." \
 	) || echo "Reset cancelled."
+
+# build the pixi environment
+pixi:
+	@echo "Wiping the existing .pixi folder and building the environment from scratch using pixi"
+	pixi run python scripts/pypsa-at/build_pixi_environment.py

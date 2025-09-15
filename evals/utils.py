@@ -811,14 +811,6 @@ def prettify_number(x: float) -> str:
         The formatted number as a string with 1 or 0 decimal places,
         depending on the magnitude of the input value.
     """
-    # if abs(round(x, 0)) >= 10:
-    #     with localcontext():
-    #         return str(round(round(Decimal(x), 1), 0))
-    # else:
-    #     with localcontext() as ctx:
-    #         ctx.rounding = ROUND_HALF_UP
-    #         return str(round(round(Decimal(x), 2), 1))
-    #
     if abs(x) >= 10:
         return f"{int(round(x, 0)):d}"
     else:
