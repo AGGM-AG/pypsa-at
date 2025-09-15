@@ -34,6 +34,7 @@ nav:
       - barchart.py: reference/evals/plots/barchart.md
       - facetbars.py: reference/evals/plots/facetbars.md
       - gridmap.py: reference/evals/plots/gridmap.md
+      - sankey.py: reference/evals/plots/sankey.md
       - timeseries.py: reference/evals/plots/timeseries.md
     - Views:
       - reference/evals/views/index.md
@@ -43,6 +44,7 @@ nav:
       - demand.py: reference/evals/views/demand.md
       - demand_fed.py: reference/evals/views/demand_fed.md
       - price.py: reference/evals/views/price.md
+      - sankey.py: reference/evals/views/sankey.md
       - transmission.py: reference/evals/views/transmission.md
 - Explanations:
   - explanations/index.md
