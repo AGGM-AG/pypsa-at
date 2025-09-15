@@ -82,7 +82,7 @@ clustering:
     IT: 1 # +2 islands
     ES: 1 # +1 islands
   temporal:
-    resolution_sector: 365H
+    resolution_sector: 3H
 
 sector:
   v2g: true
@@ -127,11 +127,11 @@ sector:
 
 industry:
   # gas compression seems incompatible with gas network. Pipelines connect
-  # gas buses, however Generators in '{node} gas primary' buses introduce gas
+  # gas buses. However, Generators in '{node} gas primary' buses introduce gas
   # energy at local nodes, which is then compressed to the local gas bus.
   # As a result, gas is not transported via pipelines.
-  # Note, that gas compression AC withdrawal still is implemented. Losses are
-  # for methane to atmosphere.
+  # Note that gas compression AC withdrawal still is implemented. Losses are
+  # for methane to the atmosphere.
   gas_compression_losses: 0  # 0.04
   # oil_refining_emissions: 0  # 0.013
 
