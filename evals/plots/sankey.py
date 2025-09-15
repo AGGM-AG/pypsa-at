@@ -1173,7 +1173,7 @@ class SankeyChart(ESMChart):
 
         Establishes flow paths for energy that bypasses transformation,
         going directly from primary to secondary through bypass nodes.
-        Updates bypass input node label with the flow value.
+        Updates bypass the input node label with the flow value.
 
         Parameters
         ----------
@@ -1236,7 +1236,7 @@ class SankeyChart(ESMChart):
         Create sector consumption flow connections.
 
         Filters flows by regex pattern, connects them to the specified sector,
-        and tracks data for final energy demand pie chart. Optionally appends
+        and tracks data for the final energy demand pie chart. Optionally appends
         flow information to sector node labels.
 
         Parameters
@@ -1272,7 +1272,7 @@ class SankeyChart(ESMChart):
         Set or append node label with flow value.
 
         Updates node labels with formatted flow values and units.
-        Can either replace existing label or append to it.
+        Can either replace the existing label or append to it.
 
         Parameters
         ----------
@@ -1281,9 +1281,9 @@ class SankeyChart(ESMChart):
         value
             Flow value to display.
         name
-            Optional name to include in label.
+            Optional name to include in the label.
         append
-            Whether to append to existing label or replace it.
+            Whether to append to the existing label or replace it.
         """
         if idx not in self.nodes.index:
             return
@@ -1332,7 +1332,7 @@ class SankeyChart(ESMChart):
         """
         Set the chart title using location and year information.
 
-        Formats and applies the title based on configuration template
+        Formats and applies the title based on the configuration template
         with appropriate font sizing.
         """
         title = self.cfg.title.format(location=self.location, unit=self.year)
@@ -1454,12 +1454,13 @@ class SankeyChart(ESMChart):
 
         Returns
         -------
-        Modified transformation demand with V2G flows properly allocated.
+        :
+            Modified transformation demand with V2G flows properly allocated.
 
         Notes
         -----
         Adjusts BEV charger demand by V2G supply amounts and treats V2G as
-        storage demand to avoid double-counting in transport sector.
+        storage demand to avoid double-counting in the transport sector.
         """
         # harmonize V2G and hide EV battery to connect electricity demand
         # for transport directly without storage. Increase BEV charger by
