@@ -25,7 +25,6 @@ nav:
     - configs.py: reference/evals/configs.md
     - constants.py: reference/evals/constants.md
     - fileio.py: reference/evals/fileio.md
-    - metric.py: reference/evals/metric.md
     - statistic.py: reference/evals/statistic.md
     - utils.py: reference/evals/utils.md
     - Plots:

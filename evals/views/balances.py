@@ -49,8 +49,7 @@ def view_balance_electricity(
 
     Notes
     -----
-    Balances do not add up to zero, because of transmission losses and
-    storage cycling (probably).
+    Balances do not add up to zero, because of domestic transmission losses.
     """
     simple_bus_balance(networks, config, result_path)
 
