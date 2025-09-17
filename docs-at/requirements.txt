@@ -4,6 +4,7 @@ mkdocs-badges
 mkdocs-marimo
 mkdocs-material
 mkdocs-material-extensions
+mkdocs-plotly-plugin
 mkdocstrings-python
 mknotebooks
 pymdown-extensions

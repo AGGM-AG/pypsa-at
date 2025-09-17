@@ -83,12 +83,13 @@ extra:
     name: github
   generator: true
 
-copyright: Copyright &copy; 2024 - 2025 Austrian Gas Grid Management AG
+copyright: Copyright &copy; 2024 - 2025 Austrian Gas Grid Management AG - all rights reserved.
 
 plugins:
 - search
 - badges
 - autorefs
+- plotly
 #- mknotebooks:
 #    execute: false
 #    timeout: 100
@@ -129,6 +130,11 @@ markdown_extensions:
 - pymdownx.superfences
 - pymdownx.tabbed:
     alternate_style: true
+- pymdownx.superfences:
+    custom_fences:
+    - name: plotly
+      class: mkdocs-plotly
+      format: !!python/name:mkdocs_plotly_plugin.fences.fence_plotly
 - tables
 
 extra_css:
