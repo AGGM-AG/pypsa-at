@@ -11,15 +11,15 @@ Running the model at high spatial and temporal resolution requires substantial r
 | 64          | 365                     |                   |                   |          |
 | 64          | 120                     |                   |                   |          |
 | 64          | 24                      |                   |                   |          |
-| 64          | 3                       |                   |                   |          |
-| 64          | 1                       |                   |                   |          |
+| 64          | 3                       |                   | 8                 | 120      |
+| 64          | 1                       |                   |                   | 370      |
 | 91          | 365                     |                   |                   |          |
 | 91          | 120                     |                   |                   |          |
 | 91          | 24                      |                   |                   |          |
-| 91          | 3                       |                   |                   |          |
+| 91          | 3                       |                   | 12.5              | 170      |
 | 91          | 1                       |                   |                   |          |
 
-**Table 1:** Required time and memory for productive pypsa-at model runs.
+**Table 1:** Required time and memory per network for productive pypsa-at model runs.
 
 Benchmarks are for `INTEL(R) XEON(R) GOLD 6544Y` processor and using `threads: 8` with a gurobi solver and the default
 gurobi solver settings from `config/config.default.yaml`. 
