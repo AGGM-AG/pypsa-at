@@ -133,7 +133,7 @@ dependencies:
   - fonttools=4.59.2=py312h05f76fc_0
   - fqdn=1.5.1=pyhd8ed1ab_1
   - freeglut=3.2.2=he0c23c2_3
-  - freetype=2.14.0=h57928b3_1
+  - freetype=2.14.1=h57928b3_0
   - freexl=2.0.0=hf297d47_2
   - fribidi=1.0.16=hfd05255_0
   - frozendict=2.4.6=py312he06e257_1
@@ -155,7 +155,7 @@ dependencies:
   - google-api-core=2.25.1=pyhd8ed1ab_0
   - google-auth=2.40.3=pyhd8ed1ab_0
   - google-cloud-core=2.4.3=pyhd8ed1ab_0
-  - google-cloud-storage=3.3.1=pyhd8ed1ab_0
+  - google-cloud-storage=3.4.0=pyhd8ed1ab_0
   - google-crc32c=1.7.1=py312h3d708b0_1
   - google-resumable-media=2.7.2=pyhd8ed1ab_2
   - googleapis-common-protos=1.70.0=pyhd8ed1ab_0
@@ -178,11 +178,11 @@ dependencies:
   - httpx=0.28.1=pyhd8ed1ab_0
   - humanfriendly=10.0=pyh7428d3b_8
   - hyperframe=6.1.0=pyhd8ed1ab_0
-  - iam-units=2023.9.12=pyhd8ed1ab_1
+  - iam-units=2025.9.12=pyhd8ed1ab_0
   - icu=75.1=he0c23c2_0
   - identify=2.6.14=pyhd8ed1ab_0
   - idna=3.10=pyhd8ed1ab_1
-  - immutables=0.21=py312h4389bb4_1
+  - immutables=0.21=py312he06e257_2
   - importlib-metadata=8.7.0=pyhe01879c_1
   - infinity=1.5=pyhd8ed1ab_1
   - iniconfig=2.0.0=pyhd8ed1ab_1
@@ -225,26 +225,26 @@ dependencies:
   - libabseil=20250512.1=cxx17_habfad5f_0
   - libaec=1.1.4=h20038f6_0
   - libarchive=3.8.1=gpl_h1ca5a36_100
-  - libarrow=21.0.0=hb0fdb7d_2_cpu
-  - libarrow-acero=21.0.0=h7d8d6a5_2_cpu
-  - libarrow-compute=21.0.0=hd953190_2_cpu
-  - libarrow-dataset=21.0.0=h7d8d6a5_2_cpu
-  - libarrow-substrait=21.0.0=hf865cc0_2_cpu
+  - libarrow=21.0.0=hb0fdb7d_3_cpu
+  - libarrow-acero=21.0.0=h7d8d6a5_3_cpu
+  - libarrow-compute=21.0.0=h2db994a_3_cpu
+  - libarrow-dataset=21.0.0=h7d8d6a5_3_cpu
+  - libarrow-substrait=21.0.0=hf865cc0_3_cpu
   - libblas=3.9.0=35_h5709861_mkl
-  - libboost=1.88.0=h9dfe17d_4
+  - libboost=1.88.0=h9dfe17d_5
   - libbrotlicommon=1.1.0=hfd05255_4
   - libbrotlidec=1.1.0=hfd05255_4
   - libbrotlienc=1.1.0=hfd05255_4
   - libcblas=3.9.0=35_h2a3cdd5_mkl
-  - libclang13=21.1.0=default_ha2db4b5_1
+  - libclang13=21.1.1=default_ha2db4b5_0
   - libcrc32c=1.1.2=h0e60522_0
   - libcurl=8.14.1=h88aaa65_0
   - libdeflate=1.24=h76ddb4d_0
   - libevent=2.1.12=h3671451_1
   - libexpat=2.7.1=hac47afa_0
   - libffi=3.4.6=h537db12_1
-  - libfreetype=2.14.0=h57928b3_1
-  - libfreetype6=2.14.0=hdbac1cb_1
+  - libfreetype=2.14.1=h57928b3_0
+  - libfreetype6=2.14.1=hdbac1cb_0
   - libgcc=15.1.0=h1383e82_5
   - libgd=2.3.3=h7208af6_11
   - libgdal-core=3.10.3=h228a343_13
@@ -264,9 +264,9 @@ dependencies:
   - liblapack=3.9.0=35_hf9ab0e9_mkl
   - liblzma=5.8.1=h2466b09_2
   - libnetcdf=4.9.2=nompi_ha45073a_118
-  - libparquet=21.0.0=h24c48c9_2_cpu
+  - libparquet=21.0.0=h24c48c9_3_cpu
   - libpng=1.6.50=h7351971_1
-  - libpq=17.6=h063c6db_1
+  - libpq=17.6=h063c6db_2
   - libprotobuf=6.31.1=hdcda5b4_1
   - libre2-11=2025.08.12=h0eb2380_1
   - librttopo=1.1.0=hbfc9ebc_18
@@ -276,7 +276,7 @@ dependencies:
   - libssh2=1.11.1=h9aa295b_0
   - libthrift=0.22.0=h23985f6_1
   - libtiff=4.7.0=h550210a_6
-  - libutf8proc=2.10.0=hff4702e_0
+  - libutf8proc=2.11.0=h0b34c2f_0
   - libwebp-base=1.6.0=h4d5522a_0
   - libwinpthread=12.0.0.r4.gg4f2fc60ca=h57928b3_9
   - libxcb=1.17.0=h0e4246c_0
@@ -310,9 +310,9 @@ dependencies:
   - multiurl=0.3.7=pyhd8ed1ab_0
   - mumps-seq=5.8.1=hd297af6_3
   - munkres=1.1.4=pyhd8ed1ab_1
-  - mypy=1.17.1=py312he06e257_1
+  - mypy=1.18.1=py312he06e257_0
   - mypy_extensions=1.1.0=pyha770c72_0
-  - narwhals=2.4.0=pyhcf101f3_0
+  - narwhals=2.5.0=pyhcf101f3_0
   - nbclient=0.10.2=pyhd8ed1ab_0
   - nbconvert-core=7.16.6=pyh29332c3_0
   - nbformat=5.10.4=pyhd8ed1ab_1
@@ -322,7 +322,7 @@ dependencies:
   - nodeenv=1.9.1=pyhd8ed1ab_1
   - notebook=7.4.5=pyhd8ed1ab_0
   - notebook-shim=0.2.4=pyhd8ed1ab_1
-  - numexpr=2.10.2=mkl_py312h5e4250c_0
+  - numexpr=2.12.1=mkl_py312hd035341_0
   - numpy=1.26.4=py312h8753938_0
   - oauthlib=3.3.1=pyhd8ed1ab_0
   - openjdk=24.0.2=hda6743d_0
@@ -371,7 +371,7 @@ dependencies:
   - psycopg=3.2.9=pyhd5ab78c_0
   - psycopg-c=3.2.9=py312h1be3c1c_1
   - pthread-stubs=0.4=h0e40799_1002
-  - pulp=2.8.0=py312he39998a_2
+  - pulp=2.8.0=py312he39998a_3
   - pure_eval=0.2.3=pyhd8ed1ab_1
   - py-cpuinfo=9.0.0=pyhd8ed1ab_1
   - pyam=3.0.0=pyhd8ed1ab_1
@@ -381,7 +381,7 @@ dependencies:
   - pyasn1-modules=0.4.2=pyhd8ed1ab_0
   - pycountry=24.6.1=pyhd8ed1ab_0
   - pycparser=2.22=pyh29332c3_1
-  - pydantic=2.11.7=pyh3cfb1c2_0
+  - pydantic=2.11.9=pyh3cfb1c2_0
   - pydantic-core=2.33.2=py312h8422cdd_0
   - pydantic-settings=2.10.1=pyh3cfb1c2_0
   - pygments=2.19.2=pyhd8ed1ab_0
@@ -389,7 +389,7 @@ dependencies:
   - pylint=3.3.8=pyhe01879c_0
   - pyogrio=0.11.0=py312h6e88f47_0
   - pyopenssl=25.1.0=pyhd8ed1ab_0
-  - pyparsing=3.2.3=pyhe01879c_2
+  - pyparsing=3.2.4=pyhcf101f3_0
   - pyproj=3.7.2=py312h235ce7f_1
   - pypsa=0.35.2=pyhd8ed1ab_0
   - pyreadline3=3.5.4=py312h2e8e312_2
@@ -440,7 +440,7 @@ dependencies:
   - ruff=0.13.0=h429b229_0
   - scikit-learn=1.7.2=py312h91ac024_0
   - scip=9.2.3=h89aff08_2
-  - scipy=1.16.1=py312h33376e8_1
+  - scipy=1.16.2=py312h33376e8_0
   - seaborn=0.13.2=hd8ed1ab_3
   - seaborn-base=0.13.2=pyhd8ed1ab_3
   - send2trash=1.8.3=pyh5737063_1
@@ -460,7 +460,7 @@ dependencies:
   - snakemake-interface-logger-plugins=1.2.4=pyhdfd78af_0
   - snakemake-interface-report-plugins=1.2.0=pyhdfd78af_0
   - snakemake-interface-scheduler-plugins=2.0.1=pyhd4c3c12_0
-  - snakemake-interface-storage-plugins=4.2.2=pyhdfd78af_0
+  - snakemake-interface-storage-plugins=4.2.3=pyhd4c3c12_0
   - snakemake-minimal=9.11.2=pyhdfd78af_0
   - snakemake-storage-plugin-http=0.3.0=pyhdfd78af_0
   - snappy=1.2.2=h7fa0ca8_0
@@ -546,7 +546,7 @@ dependencies:
   - xarray=2025.6.1=pyhd8ed1ab_1
   - xerces-c=3.2.5=he0c23c2_2
   - xlrd=2.0.2=pyhd8ed1ab_0
-  - xlsxwriter=3.2.5=pyhd8ed1ab_0
+  - xlsxwriter=3.2.6=pyhd8ed1ab_0
   - xorg-libice=1.1.2=h0e40799_0
   - xorg-libsm=1.2.6=h0e40799_0
   - xorg-libx11=1.8.12=hf48077a_0
@@ -564,7 +564,7 @@ dependencies:
   - zipp=3.23.0=pyhd8ed1ab_0
   - zlib=1.3.1=h2466b09_2
   - zlib-ng=2.2.5=h1608b31_0
-  - zstandard=0.24.0=py312ha680012_1
+  - zstandard=0.25.0=py312he5662c2_0
   - zstd=1.5.7=hbeecb71_2
   - pip:
       - gurobipy == 12.0.3 --hash=sha256:af18fd03d5dc3f6e5f590c372ad288b8430a6d88a5b5e66cfcd8432f86ee8650
