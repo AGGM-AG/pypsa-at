@@ -12,7 +12,7 @@ Running the model at high spatial and temporal resolution requires substantial r
 | 64          | 120                     |                   |                   |          |
 | 64          | 24                      |                   |                   |          |
 | 64          | 3                       |                   | 8                 | 120      |
-| 64          | 1                       |                   |                   | 370      |
+| 64          | 1                       | 197116            | 54.7              | 370      |
 | 91          | 365                     |                   |                   |          |
 | 91          | 120                     |                   |                   |          |
 | 91          | 24                      |                   |                   |          |
