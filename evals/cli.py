@@ -153,16 +153,6 @@ def run_eval(
     sys.exit(len(fails))
 
 
-@click.command()
-def run_tests() -> None:
-    """Run test suite in a dev environment."""
-    # delayed import to skip dependency in production environments
-    import pytest
-
-    rc = pytest.main()
-    sys.exit(rc)
-
-
 if __name__ == "__main__":
     # debugging entry point
     # args = (__file__, "../results/evals-dev", "-n", "view_grid_capacity")
