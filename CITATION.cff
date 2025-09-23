@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "pypsa-at"
-title: "PyPSA-AT - Sektorengekoppeltes Energiesystemmodell des österreichischen Energiesystems"
+title: "PyPSA-AT - Sektorgekoppeltes Energiesystemmodell des österreichischen Energiesystems"
 repository: https://github.com/AGGM-AG/pypsa-at
 version: 0.0.0
 date-released: "none"
