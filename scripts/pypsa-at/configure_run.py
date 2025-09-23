@@ -1,4 +1,5 @@
 import logging
+import sys
 from pathlib import Path
 
 import click
@@ -43,7 +44,16 @@ def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
             f"'{clustering}' is not valid. Chose from {available_clustering}"
         )
 
+    # todo: if resolution is too high fir HiGHS -> deny
+
     file_path = Path("config/config.at.yaml")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="{levelname} - {name} - {message}",
+        datefmt="%Y-%m-%d %H:%M",
+        style="{",
+        handlers=[logging.StreamHandler(sys.stdout)],
+    )
     logger = logging.getLogger(__name__)
 
     with file_path.open("r") as fh:
