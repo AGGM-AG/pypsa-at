@@ -164,6 +164,9 @@ solver_options:
   # https://ergo-code.github.io/HiGHS/dev/options/definitions/
   highs-default:
     threads: 0
+    random_seed: 123
+  gurobi_default:
+    Seed: 123
 
 mods:
 
