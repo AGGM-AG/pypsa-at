@@ -74,9 +74,15 @@ def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
 
     nuts_at = 2 if "AT10" in clustering else 3  # AT35
     nuts_de = 1 if "DE19" in clustering else 3  # DE5
-    logger.info(f"Setting administrative clustering in AT to NUTS level {nuts_at}")
+    logger.info(
+        f"Setting administrative clustering in AT to "
+        f"NUTS level {nuts_at} (={10 if nuts_at == 2 else 35} Regions)"
+    )
     config["clustering"]["administrative"]["AT"] = nuts_at
-    logger.info(f"Setting administrative clustering in DE to NUTS level {nuts_de}")
+    logger.info(
+        f"Setting administrative clustering in DE to "
+        f"NUTS level {nuts_de} (={19 if nuts_de == 1 else 5} Regions)"
+    )
     config["clustering"]["administrative"]["DE"] = nuts_de
 
     logger.info(f"Setting temporary resolution to '{resolution}H'")
