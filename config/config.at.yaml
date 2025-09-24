@@ -166,7 +166,7 @@ solver_options:
   highs-default:
     threads: 0
     random_seed: 123
-  gurobi_default:
+  gurobi-default:
     Seed: 123
 
 mods:
