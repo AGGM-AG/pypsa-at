@@ -15,7 +15,6 @@ Before running evaluations, ensure you have:
 ### Run All Available Evaluations
 
 To execute all evaluation functions on your results:
-
 ```bash
 run_eval "/path/to/results/scenario_name"
 ```
