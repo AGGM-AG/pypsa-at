@@ -26,6 +26,7 @@ run:
     - industry_sector_ratios
     - build_industry_sector_ratios   # This is necessary to save build_industry_sector_ratios_data.log in the correct folder
     - modify_existing_heating
+    - nuts3_shapes-raw.geojson  # avoids test runs with limited countries list to leak filters into productive runs
   disable_progressbar: true
 
 iiasa_database:
