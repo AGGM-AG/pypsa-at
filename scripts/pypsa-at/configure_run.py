@@ -79,7 +79,7 @@ def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
     config["solving"]["solver"]["name"] = solver_name
     config["solving"]["solver"]["options"] = solver
     key = "random_seed" if solver_name == "highs" else "Seed"  # gurobi
-    logger.info(f"Setting seed to '{key}'")
+    logger.info(f"Setting seed to '{seed}'")
     config["solver_options"][solver][key] = seed
 
     with file_path.open("w") as fh:
