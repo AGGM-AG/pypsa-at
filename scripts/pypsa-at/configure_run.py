@@ -13,7 +13,10 @@ import yaml
 @click.option("--seed", "-e", type=int, required=True)
 def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
     """
-    Overwrite values in config.at.yaml during pipeline execution.
+    Configure PyPSA-AT model run by updating configuration parameters.
+
+    Overwrites values in config/config.at.yaml with the provided clustering configuration,
+    temporal resolution, solver settings, and random seed for reproducible model runs.
 
     Parameters
     ----------
@@ -30,6 +33,11 @@ def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
     -------
     :
         Updates the configuration file at `config/config.at.yaml`.
+
+    Notes
+    -----
+    This function is expected to run using pipelines and the dumped configuration
+    yaml is not expected to be check in to VCS.
     """
     # validate inputs
     accepted_solver = ("highs-default", "gurobi-default")
