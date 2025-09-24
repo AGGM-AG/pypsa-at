@@ -52,7 +52,12 @@ def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
             f"'{clustering}' is not valid. Chose from {available_clustering}"
         )
 
-    # todo: if resolution is too high fir HiGHS -> deny
+    # sanitize temporal resolution
+    resolution = int(resolution.rstrip("H"))
+    if resolution < 24 and "highs" in solver:
+        raise ValueError(
+            f"Denying to run model with resolution {resolution} and solver {solver}."
+        )
 
     file_path = Path("config/config.at.yaml")
     logging.basicConfig(
@@ -67,18 +72,15 @@ def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
     with file_path.open("r") as fh:
         config = yaml.safe_load(fh)
 
-    nuts_at = 2 if "AT10" in clustering else 3
-    nuts_de = 1 if "DE19" in clustering else 5
+    nuts_at = 2 if "AT10" in clustering else 3  # AT35
+    nuts_de = 1 if "DE19" in clustering else 3  # DE5
     logger.info(f"Setting administrative clustering in AT to NUTS level {nuts_at}")
     config["clustering"]["administrative"]["AT"] = nuts_at
     logger.info(f"Setting administrative clustering in DE to NUTS level {nuts_de}")
     config["clustering"]["administrative"]["DE"] = nuts_de
 
-    # sanitize temporal resolution
-    if not resolution.endswith("H"):
-        resolution += "H"
-    logger.info(f"Setting temporary resolution to '{resolution}'")
-    config["clustering"]["temporal"]["resolution_sector"] = resolution
+    logger.info(f"Setting temporary resolution to '{resolution}H'")
+    config["clustering"]["temporal"]["resolution_sector"] = f"{resolution}H"
 
     solver_name = solver.split("-")[0]
     logger.info(
@@ -86,7 +88,7 @@ def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
     )
     config["solving"]["solver"]["name"] = solver_name
     config["solving"]["solver"]["options"] = solver
-    key = "random_seed" if solver_name == "highs" else "Seed"  # gurobi
+    key = "random_seed" if solver_name == "highs" else "Seed"  # else gurobi
     logger.info(f"Setting seed to '{seed}'")
     config["solver_options"][solver][key] = seed
 
