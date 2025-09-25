@@ -67,7 +67,7 @@ def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
         style="{",
         handlers=[logging.StreamHandler(sys.stdout)],
     )
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger(__file__)
 
     with file_path.open("r") as fh:
         config = yaml.safe_load(fh)
