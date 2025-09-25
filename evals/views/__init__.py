@@ -33,6 +33,7 @@ from evals.views.transmission import view_grid_capacity
 
 __all__ = [
     "view_demand_heat",
+    # "view_demand_heat_sectoral",
     "view_final_energy_demand",
     # capacities
     "view_capacity_gas_storage",

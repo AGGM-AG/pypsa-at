@@ -4,6 +4,8 @@
 # For license information, see the LICENSE.txt file in the project root.
 from pathlib import Path
 
+import pandas as pd
+
 from evals.constants import BusCarrier, DataModel
 from evals.fileio import Exporter
 from evals.plots import ESMBarChart
@@ -12,6 +14,7 @@ from evals.utils import (
     calculate_input_share,
     drop_from_multtindex_by_regex,
     filter_for_carrier_connected_to,
+    rename_aggregate,
 )
 
 
@@ -35,13 +38,19 @@ def view_demand_heat(
     -----
     See eval docstring for parameter description.
     """
-    energy_for_heat = (
+    energy_balance = (
         collect_myopic_statistics(networks, comps="Link", statistic="energy_balance")
         .drop(["co2", "co2 stored"], level=DataModel.BUS_CARRIER)
         .pipe(drop_from_multtindex_by_regex, "water tanks|water pits")
         .pipe(filter_for_carrier_connected_to, BusCarrier.heat_buses())
-        .pipe(calculate_input_share, BusCarrier.heat_buses())
     )
+    energy_for_heat = pd.concat(
+        [
+            calculate_input_share(energy_balance, bc).pipe(rename_aggregate, bc)
+            for bc in BusCarrier.heat_buses()
+        ]
+    )
+    energy_for_heat = energy_for_heat[energy_for_heat > 0]
     # need to set energy balance unit
     energy_for_heat.attrs["unit"] = "MWh_th"
 
@@ -59,6 +68,7 @@ def view_demand_heat(
 
     # view specific static settings:
     exporter.defaults.plotly.chart = ESMBarChart
+    # exporter.defaults.plotly.chart = ESMGroupedBarChart
     exporter.defaults.excel.pivot_index = [DataModel.LOCATION, DataModel.BUS_CARRIER]
     exporter.defaults.plotly.plot_category = DataModel.BUS_CARRIER
     exporter.defaults.plotly.pivot_index = [
