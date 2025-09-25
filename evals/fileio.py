@@ -463,6 +463,9 @@ class Exporter:
 
     def default_checks(self) -> None:
         """Perform integrity checks for views."""
+        if self.view_config.get("chart") == "SankeyChart":
+            return  # bypass all checks, because Sankey has its own set of assertions
+
         category = self.defaults.plotly.plot_category
         categories = self.view_config["categories"]
 

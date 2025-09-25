@@ -1445,6 +1445,11 @@ class SankeyChart(ESMChart):
         """
         Harmonize vehicle-to-grid flows with BEV charging demand.
 
+        Moves V2G and hides EV battery to connect electricity demand
+        for transport directly without storage. Increase BEV charger by
+        V2G supply. The BEV Charger will serve as the Transport sectoral
+        demand, effectively hiding the storage systems for EV.
+
         Parameters
         ----------
         transformation
@@ -1462,10 +1467,6 @@ class SankeyChart(ESMChart):
         Adjusts BEV charger demand by V2G supply amounts and treats V2G as
         storage demand to avoid double-counting in the transport sector.
         """
-        # harmonize V2G and hide EV battery to connect electricity demand
-        # for transport directly without storage. Increase BEV charger by
-        # V2G supply. The BEV Charger will serve as the Transport sectoral
-        # demand, effectively hiding the storage systems for EV.
         v2g_demand = transformation.query("carrier == 'V2G'").rename(
             {"V2G": "V2G demand"}
         )

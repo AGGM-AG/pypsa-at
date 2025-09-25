@@ -370,7 +370,7 @@ def get_link_losses(supply: pd.Series, demand: pd.DataFrame) -> list[pd.Series]:
 
 def get_regional_trade(
     supply: pd.Series, demand: pd.DataFrame, bus_carrier: str | list
-) -> list[pd.Series]:
+) -> pd.Series:
     """
     Calculate regional trade balances for specific carriers.
 
@@ -412,7 +412,7 @@ def get_regional_trade(
         regional_balance[regional_balance.gt(0)], {"trade": "Export Foreign"}
     ).mul(-1)
 
-    return [regional_import, regional_export]
+    return pd.concat([regional_import, regional_export])
 
 
 def view_sankey(

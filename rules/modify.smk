@@ -54,13 +54,17 @@ rule export_iamc_variables:
         "../scripts/pypsa-at/export_iamc_variables.py"
 
 
-rule plot_iamc_variables:
+rule export_evaluation_pypsa_at:
+    params:
+        rdir=RESULTS,
     input:
         exported_variables=RESULTS + "evaluation/exported_iamc_variables.xlsx",
     output:
         touch(
-            RESULTS + "evaluation/HTML/sankey_diagram_EU_2050.html",
+            RESULTS + "evaluation/.run_by_snakemake",
         ),
+    shell:
+        'PYTHONPATH="." python3 evals/cli.py {params.rdir}'
 
 
 rule validate_pypsa_at:
@@ -69,13 +73,13 @@ rule validate_pypsa_at:
         rdir=RESULTS,
     input:
         expand(
-            RESULTS + "evaluation/HTML/sankey_diagram_EU_2050.html",
+            RESULTS + "evaluation/.run_by_snakemake",
             run=config["run"]["name"],
         ),
     output:
-        validity_report=RESULTS + "validity_report.html",
+        validity_report=RESULTS + "test_report.html",
     resources:
         mem_mb=16000,
     shell:
-        # fixme: remove unit mark once tests pass
-        "pytest -m unit --html {params.rdir}/validity_report.html --result-path={params.rdir}"
+        # fixme: remove unit mark once all tests pass
+        "pytest -m unit --html {params.rdir}/test_report.html --result-path={params.rdir}"

@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pandas as pd
 
+from evals import plots as plots
 from evals.constants import BusCarrier, DataModel
 from evals.fileio import Exporter
-from evals.plots import ESMBarChart
 from evals.statistic import collect_myopic_statistics
 from evals.utils import (
     calculate_input_share,
@@ -60,6 +60,11 @@ def view_demand_heat(
         comps="Generator",
         bus_carrier=BusCarrier.heat_buses(),
     )
+    # swap index levels to
+    generator_supply = generator_supply.swaplevel(
+        DataModel.CARRIER, DataModel.BUS_CARRIER
+    )
+    generator_supply.index.names = DataModel.YEAR_IDX_NAMES
 
     exporter = Exporter(
         statistics=[energy_for_heat, generator_supply],
@@ -67,8 +72,9 @@ def view_demand_heat(
     )
 
     # view specific static settings:
-    exporter.defaults.plotly.chart = ESMBarChart
-    # exporter.defaults.plotly.chart = ESMGroupedBarChart
+    chart_class = getattr(plots, config["view"]["chart"])
+    exporter.defaults.plotly.chart = chart_class
+
     exporter.defaults.excel.pivot_index = [DataModel.LOCATION, DataModel.BUS_CARRIER]
     exporter.defaults.plotly.plot_category = DataModel.BUS_CARRIER
     exporter.defaults.plotly.pivot_index = [

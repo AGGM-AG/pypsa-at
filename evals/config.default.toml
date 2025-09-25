@@ -676,6 +676,7 @@ exports = []
 [view_demand_heat]
 name = "Energy Demand for Heat Production"
 unit = "TWh"
+chart = "ESMBarChart"
 file_name = "nodal_demand_heat_production_{location}"
 cutoff = 0.1  # TWh
 legend_order = [
@@ -709,21 +710,6 @@ exports = ["excel"]
 "urban decentral heat" = "Solar Power"
 "ambient heat" = "Ambient Heat"
 "latent heat" = "Ambient Heat"
-
-[view_fed_total]
-name = "Final Energy Demand"
-unit = "TWh"
-file_name = "nodal_fed_total_{location}"
-cutoff = 0.001
-legend_order = [
-    # from zero upwards:
-    ""
-]
-checks = []
-exports = ["excel"]
-
-[view_fed_total.categories]
-"" = ""
 
 [view_timeseries_electricity]
 name = "Electricity Production and Demand"
@@ -829,6 +815,8 @@ exports = []
 [view_final_energy_demand]
 
 [view_final_energy_demand.catagories]
+
+[view_sankey]
 name = "Sankey Diagram"
 unit = "TWh"
 file_name = "sankey_{location}_{year}"
