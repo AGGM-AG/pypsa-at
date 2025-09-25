@@ -83,7 +83,6 @@ if config["foresight"] == "perfect":
 
 rule all:
     input:
-        expand(RESULTS + "validity_report.html", run=config["run"]["name"]),
         expand(RESULTS + "graphs/costs.svg", run=config["run"]["name"]),
         expand(resources("maps/power-network.pdf"), run=config["run"]["name"]),
         expand(
@@ -146,8 +145,10 @@ rule all:
             run=config["run"]["name"],
             **config["scenario"],
         ),
+        # pypsa-at additions
+        expand(RESULTS + "test_report.html", run=config["run"]["name"]),
         expand(
-            RESULTS + "evaluation/HTML/sankey_diagram_EU_2050.html",
+            RESULTS + "evaluation/.run_by_snakemake",
             run=config["run"]["name"],
         ),
     default_target: True
