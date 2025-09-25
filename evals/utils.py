@@ -617,11 +617,11 @@ def calculate_input_share(
     """
 
     def _input_share(_df):
-        withdrawal = _df[_df.lt(0)]
+        demand = _df[_df.lt(0)]
         supply = _df[_df.ge(0)]
         bus_carrier_supply = filter_by(supply, bus_carrier=bus_carrier).sum()
         # scaling takes into account that Link inputs and outputs are not equally large
-        scaling = abs(supply.sum() / withdrawal.sum())
+        scaling = abs(supply.sum() / demand.sum())
         # share takes multiple outputs into account
         with np.errstate(divide="ignore", invalid="ignore"):  # silently divide by zero
             share = bus_carrier_supply / supply.sum()
@@ -629,14 +629,14 @@ def calculate_input_share(
             _carrier = _df.index.unique(DataModel.CARRIER).item()
             _bus_carrier = "ambient heat" if "heat pump" in _carrier else "latent heat"
             surplus = rename_aggregate(
-                withdrawal * (scaling - 1), _bus_carrier, level=DataModel.BUS_CARRIER
+                demand * (scaling - 1), _bus_carrier, level=DataModel.BUS_CARRIER
             )
-            return pd.concat([withdrawal, surplus]) * share
+            return pd.concat([demand, surplus]) * share
         else:
-            return withdrawal * scaling * share
+            return demand * scaling * share
 
-    wo_bus_carrier = [s for s in df.index.names if s != "bus_carrier"]
-    return df.groupby(wo_bus_carrier, group_keys=False).apply(_input_share).mul(-1)
+    groups = [s for s in df.index.names if s != "bus_carrier"]
+    return df.groupby(groups, group_keys=False).apply(_input_share).mul(-1)
 
 
 def filter_for_carrier_connected_to(df: pd.DataFrame, bus_carrier: str | list):

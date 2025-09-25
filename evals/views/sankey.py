@@ -32,7 +32,7 @@ from evals.utils import (
 )
 from evals.views.common import _parse_view_config_items
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__file__)
 
 IDX = ["year", "component", "location", "carrier"]
 pd.set_option("display.width", 250)

@@ -37,12 +37,13 @@ def view_demand_heat(
     """
     energy_for_heat = (
         collect_myopic_statistics(networks, comps="Link", statistic="energy_balance")
-        # todo: is dropping CO2 really justified? Discussions needed, or disclaimer in graph.
-        # .drop(["co2", "co2 stored"], level=DataModel.BUS_CARRIER)
-        .pipe(drop_from_multtindex_by_regex, "water tanks")
-        .pipe(filter_for_carrier_connected_to, BusCarrier.heat_buses(), kind="supply")
-        .pipe(calculate_input_share, BusCarrier.HEAT_RURAL)
+        .drop(["co2", "co2 stored"], level=DataModel.BUS_CARRIER)
+        .pipe(drop_from_multtindex_by_regex, "water tanks|water pits")
+        .pipe(filter_for_carrier_connected_to, BusCarrier.heat_buses())
+        .pipe(calculate_input_share, BusCarrier.heat_buses())
     )
+    # need to set energy balance unit
+    energy_for_heat.attrs["unit"] = "MWh_th"
 
     generator_supply = collect_myopic_statistics(
         networks,
@@ -52,7 +53,7 @@ def view_demand_heat(
     )
 
     exporter = Exporter(
-        statistics=[energy_for_heat.mul(-1), generator_supply],
+        statistics=[energy_for_heat, generator_supply],
         view_config=config["view"],
     )
 
