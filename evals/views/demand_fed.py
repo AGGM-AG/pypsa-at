@@ -6,15 +6,16 @@ from pathlib import Path
 
 import pandas as pd
 
+from evals import plots as plots
 from evals.constants import BusCarrier, DataModel
 from evals.fileio import Exporter
-from evals.plots import ESMBarChart
 from evals.statistic import collect_myopic_statistics
 from evals.utils import (
     calculate_input_share,
     drop_from_multtindex_by_regex,
     filter_by,
     filter_for_carrier_connected_to,
+    get_heat_loss_factor,
     rename_aggregate,
 )
 
@@ -37,7 +38,7 @@ def calculate_decentral_heat_mix(load: pd.Series, heat_share: pd.Series) -> pd.S
     return pd.concat(to_concat)
 
 
-def view_final_energy_demand(
+def view_demand_fed(
     result_path: str | Path,
     networks: dict,
     config: dict,
@@ -77,20 +78,23 @@ def view_final_energy_demand(
     heat_mix = heat_mix[heat_mix > 0]
     heat_share = heat_mix / heat_mix.groupby(["year", "location"]).transform("sum")
 
-    # loads bsed approach:
-    # easy, but sometimes behind the meter demands.
-    # need to add losses from Links, central heat distribution losses
-    # need to find the emergy mix ratio for bus_carrier supplying the rural/(de)central heat buses
     loads = collect_myopic_statistics(networks, "withdrawal", comps="Load")
+
+    # reduce central heat loads by distribution losses. Distribution losses
+    # are not metered and do not count as final energy demand
+    loss_factor = get_heat_loss_factor(networks)
+    central_heat_loads = filter_by(loads, bus_carrier="urban central heat")
+    loads.loc[central_heat_loads.index] = central_heat_loads / (1 + loss_factor)
+
     # transport Loads are final energy
     transport = loads.filter(regex="transport|shipping|aviation")
-    # # no need to harmonize V2g:
+    # no need to harmonize V2g:
     # bev_load = filter_by(transport, bus_carrier="EV battery")
     # v2g_demand = collect_myopic_statistics(networks, "withdrawal", comps="Link", bus_carrier="EV battery")
     # bev_charger = collect_myopic_statistics(networks, "supply", comps="Link", bus_carrier="EV battery")
     # bev_charger.loc[("2050", "SE")].item() - v2g_demand.loc[("2050", "SE")].item()
     # bev_load.loc[("2050", "SE")].item()
-    # # --> its the same
+    # --> they are equal, and we simply use the load
 
     # agriculture contains final energy Loads and useful energy Loads (heat)
     agriculture = loads.filter(regex="agriculture|NH3")
@@ -127,72 +131,24 @@ def view_final_energy_demand(
             rename_aggregate(transport, "Transport"),
             rename_aggregate(industry, "Industry"),
             rename_aggregate(agriculture, "Agriculture"),
-            rename_aggregate(base_load, "hh_service"),
-            rename_aggregate(heat, "hh_serivice"),
+            rename_aggregate(base_load, "HH & Service"),
+            rename_aggregate(heat, "HH & Service"),
         ]
     )
+    fed.attrs["unit"] = "MWh"
+    fed.attrs["name"] = "FED"
 
+    # swap carrier and bus_carrier to simplify plotting with GroupedBarChart
+    fed = fed.swaplevel("carrier", "bus_carrier")
+    fed.index.names = DataModel.YEAR_IDX_NAMES
+
+    # todo: localize agriculture loads
     # todo: base load load splitting
-    # todo: reduce urban central loads by
-    # loss_factor = get_heat_loss_factor(networks)
 
-    # link_supply_rural_heat = (
-    #     collect_myopic_statistics(
-    #         networks,
-    #         comps="Link",
-    #         statistic="energy_balance",
-    #     )
-    #     .pipe(filter_for_carrier_connected_to, BusCarrier.HEAT_RURAL)
-    #     .pipe(calculate_input_share, BusCarrier.HEAT_RURAL)
-    # )
-    #
-    # generator_supply_rural_heat = collect_myopic_statistics(
-    #     networks,
-    #     comps="Generator",
-    #     statistic="supply",
-    #     bus_carrier=BusCarrier.HEAT_RURAL,
-    # )
-    #
-    # load_withdrawal_urban_heat = collect_myopic_statistics(
-    #     networks,
-    #     "withdrawal",
-    #     comps="Load",
-    #     bus_carrier=[BusCarrier.HEAT_URBAN_CENTRAL, BusCarrier.HEAT_URBAN_DECENTRAL],
-    # ).drop(
-    #     Carrier.low_temperature_heat_for_industry,
-    #     level=DataModel.CARRIER,
-    # )
-    #
-    # # # The predecessor drops Italian urban heat technologies for unknown reasons.
-    # # load_withdrawal_urban_heat = load_withdrawal_urban_heat.drop(["IT0", "IT1", "IT2"], level=DataModel.LOCATION)
-    # # # todo: Is this correct? They probably had a good reason for that, but I just can't see it.
-    #
-    # loss_factor = get_heat_loss_factor(networks)
-    # load_split_urban_heat = split_urban_central_heat_losses_and_consumption(
-    #     load_withdrawal_urban_heat, loss_factor
-    # )
-    #
-    # fed_homes_and_trade = collect_myopic_statistics(
-    #     networks, statistic="ac_load_split"
-    # ).pipe(filter_by, carrier=Carrier.domestic_homes_and_trade)
-
-    # todo: need to map carrier names to sector names in grouped barchart
     exporter = Exporter(
         statistics=[fed],
         view_config=config["view"],
     )
-
-    # view specific static settings:
-    exporter.defaults.plotly.chart = ESMBarChart
-    exporter.defaults.excel.pivot_index = [
-        DataModel.LOCATION,
-        DataModel.BUS_CARRIER,
-    ]
-    exporter.defaults.plotly.plot_category = DataModel.BUS_CARRIER
-    exporter.defaults.plotly.pivot_index = [
-        DataModel.YEAR,
-        DataModel.LOCATION,
-        DataModel.BUS_CARRIER,
-    ]
-
+    exporter.defaults.plotly.chart = getattr(plots, config["view"]["chart"])
+    exporter.defaults.plotly.xaxis_title = ""
     exporter.export(result_path, subdir=subdir)

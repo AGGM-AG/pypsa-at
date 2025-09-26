@@ -702,7 +702,7 @@ COLOUR_SCHEME: dict = {
     "Heat for DAC": COLOUR.green_mint,
     "Direct Air Capture": COLOUR.green_mint,
     "Fuel Cell": COLOUR.blue_celestial,
-    "Hydrogen Fuel Cell": COLOUR.blue_celestial,  # fixme: yellow in old predecessor?!
+    "Hydrogen Fuel Cell": COLOUR.blue_celestial,
     # grey - losses, misc
     "Transformation Losses": COLOUR.grey_silver,
     "Miscellaneous": COLOUR.grey_dark,
@@ -753,9 +753,11 @@ COLOUR_SCHEME: dict = {
     "Agriculture": COLOUR.green_light,
     "Distribution Grid": COLOUR.grey_silver,
     "Ammonia Cracking": COLOUR.red_chestnut,
+    "Ammonia": COLOUR.red_chestnut,
     "Sabatier": COLOUR.yellow_canary,
     "Synth. Fuels": COLOUR.red,
     "Methanol Steam Reforming": COLOUR.salmon,
+    "Methanol": COLOUR.salmon,
     "H2 from Solid Biomass": COLOUR.green_mint,
 }
 

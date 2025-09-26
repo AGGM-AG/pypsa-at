@@ -711,6 +711,50 @@ exports = ["excel"]
 "ambient heat" = "Ambient Heat"
 "latent heat" = "Ambient Heat"
 
+[view_demand_fed]
+name = "Final Energy Demand by Sector"
+unit = "TWh"
+chart = "ESMGroupedBarChart"
+file_name = "demand_fed_sectoral_{location}"
+cutoff = 0.1  # TWh
+legend_order = [
+    # from zero upwards:
+    "Coal",
+    "Liquids",
+    "Ammonia",
+    "Methanol",
+    "Methane",
+    "Solid Biomass",
+    "Hydrogen",
+    "Electricity",
+    "Heat",
+    "Ambient Heat",
+]
+checks = []
+exports = []
+
+[view_demand_fed.categories]
+"EV battery"="Electricity"
+"H2"="Hydrogen"
+"agriculture machinery oil"="Liquids"
+"ambient heat"="Ambient Heat"
+"coal for industry"="Coal"
+"gas"="Methane"
+"gas for industry"="Methane"
+"kerosene for aviation"="Liquids"
+"land transport oil"="Liquids"
+"low voltage"="Electricity"
+"naphtha for industry"="Liquids"
+"shipping oil"="Liquids"
+"solid biomass"="Solid Biomass"
+"solid biomass for industry"="Solid Biomass"
+"NH3"="Ammonia"
+"industry methanol"="Methanol"
+"oil"="Liquids"
+"shipping methanol"="Methanol"
+"urban central heat"="Heat"
+
+
 [view_timeseries_electricity]
 name = "Electricity Production and Demand"
 unit = "MWh_el"
@@ -811,10 +855,6 @@ exports = []
 
 [view_grid_capacity.categories]
 "" = ""
-
-[view_final_energy_demand]
-
-[view_final_energy_demand.catagories]
 
 [view_sankey]
 name = "Sankey Diagram"
