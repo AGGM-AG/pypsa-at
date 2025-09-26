@@ -790,6 +790,13 @@ ALIAS_REGION: frozendict = frozendict(
         "DEE": "Saxony-Anhalt",
         "DEF": "Schleswig-Holstein",
         "DEG": "Thuringia",
+        # German custom region codes for DE5 clustering
+        # the 'GG' suffix is chosen arbitrarily in modify_nuts3_shapes.py
+        "DE1GG": "Baden-Württemberg",
+        "DE2GG": "Bavaria",
+        "DE3GG": "Midwest Germany",
+        "DE4GG": "Mideast Germany",
+        "DE5GG": "North Germany",
     }
 )
 ALIAS_REGION_REV: frozendict = frozendict({v: k for k, v in ALIAS_REGION.items()})

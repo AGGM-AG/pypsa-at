@@ -83,7 +83,7 @@ clustering:
     IT: 1 # +2 islands
     ES: 1 # +1 islands
   temporal:
-    resolution_sector: 3H
+    resolution_sector: 365H
 
 sector:
   v2g: true

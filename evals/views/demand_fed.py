@@ -110,7 +110,6 @@ def view_demand_fed(
     # agriculture contains final energy Loads and useful energy Loads (heat)
     agriculture = loads.filter(regex="agriculture|NH3")
     agriculture = apply_heat_mix_to_decentral_heat_buses(agriculture, heat_share)
-    # todo: localize agriculture NH3 loads. But how?
 
     # industry contains FED and useful energy (low-temperature heat for industry)
     industry = loads.filter(regex="industry")

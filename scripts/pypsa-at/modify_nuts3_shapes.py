@@ -93,27 +93,30 @@ if __name__ == "__main__":
     # DE: NUTS1 (19 regions) or NUTS3 as a proxy for 5 regions
     if admin_levels.get("DE") == 3:
         # update NUTS3 codes to contain 5 unique codes for clustering algorithm
+        # the 'GG' suffix is necessary to mark the custom region codes. the letter
+        # G is the highest value that still matches the NUTS regex in
+        # evals.constants.Regex.region and .country.
         # Baden-Württemberg (BW)
-        override_nuts("DE1", "DE1", level="level3")
+        override_nuts("DE1", "DE1GG", level="level3")
         # Bavaria
-        override_nuts("DE2", "DE2", level="level3")
+        override_nuts("DE2", "DE2GG", level="level3")
         # Midwest (HE, RP, SL, NW)
-        override_nuts("DE7", "DE3", level="level3")
-        override_nuts("DEB", "DE3", level="level3")
-        override_nuts("DEC", "DE3", level="level3")
-        override_nuts("DEA", "DE3", level="level3")
+        override_nuts("DE7", "DE3GG", level="level3")
+        override_nuts("DEB", "DE3GG", level="level3")
+        override_nuts("DEC", "DE3GG", level="level3")
+        override_nuts("DEA", "DE3GG", level="level3")
         # Mideast (BB, BE, MV, SN, ST, TH)
-        override_nuts("DE3", "DE4", level="level3")
-        override_nuts("DE4", "DE4", level="level3")
-        override_nuts("DE8", "DE4", level="level3")
-        override_nuts("DED", "DE4", level="level3")
-        override_nuts("DEE", "DE4", level="level3")
-        override_nuts("DEG", "DE4", level="level3")
+        override_nuts("DE3", "DE4GG", level="level3")
+        override_nuts("DE4", "DE4GG", level="level3")
+        override_nuts("DE8", "DE4GG", level="level3")
+        override_nuts("DED", "DE4GG", level="level3")
+        override_nuts("DEE", "DE4GG", level="level3")
+        override_nuts("DEG", "DE4GG", level="level3")
         # North (SH, HH, HB, NI)
-        override_nuts("DEF", "DE5", level="level3")
-        override_nuts("DE6", "DE5", level="level3")
-        override_nuts("DE9", "DE5", level="level3")
-        override_nuts("DE5", "DE5", level="level3")
+        override_nuts("DEF", "DE5GG", level="level3")
+        override_nuts("DE6", "DE5GG", level="level3")
+        override_nuts("DE9", "DE5GG", level="level3")
+        override_nuts("DE5", "DE5GG", level="level3")
 
         assert_expected_number_of_entries("DE", expected=5, lvl=3)
     # IT: italy is in test network but must not be clustered to reduce test complexity
