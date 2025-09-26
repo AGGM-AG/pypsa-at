@@ -20,10 +20,21 @@ from evals.utils import (
 )
 
 
-def calculate_decentral_heat_mix(load: pd.Series, heat_share: pd.Series) -> pd.Series:
-    decentral_heat = load.filter(
-        regex="decentral|rural"
-    )  # .droplevel(DataModel.BUS_CARRIER)
+def apply_heat_mix_to_decentral_heat_buses(
+    load: pd.Series, heat_share: pd.Series
+) -> pd.Series:
+    """
+
+    Parameters
+    ----------
+    load
+    heat_share
+
+    Returns
+    -------
+    :
+    """
+    decentral_heat = load.filter(regex="decentral|rural")
 
     load = load.drop(decentral_heat.index)
 
@@ -98,34 +109,22 @@ def view_demand_fed(
 
     # agriculture contains final energy Loads and useful energy Loads (heat)
     agriculture = loads.filter(regex="agriculture|NH3")
-    agriculture = calculate_decentral_heat_mix(agriculture, heat_share)
+    agriculture = apply_heat_mix_to_decentral_heat_buses(agriculture, heat_share)
+    # todo: localize agriculture NH3 loads. But how?
 
     # industry contains FED and useful energy (low-temperature heat for industry)
     industry = loads.filter(regex="industry")
-    industry = calculate_decentral_heat_mix(industry, heat_share)
+    industry = apply_heat_mix_to_decentral_heat_buses(industry, heat_share)
 
     # electricity base load contains loads not split
     base_load = filter_by(loads, carrier="electricity")
+    # todo: base load splitting
 
     # heat for buildings
-    heat = filter_by(
-        loads, carrier=BusCarrier.heat_buses()
-    )  # 'carrier' not 'bus_carrier' to prevent capturing agriculture or industry loads
-    heat = calculate_decentral_heat_mix(heat, heat_share)
+    heat = filter_by(loads, carrier=BusCarrier.heat_buses())
+    # filter by 'carrier' not 'bus_carrier' to prevent capturing agriculture or industry loads
+    heat = apply_heat_mix_to_decentral_heat_buses(heat, heat_share)
 
-    # idx = (
-    #     transport.index.union(agriculture.index)
-    #     .union(industry.index)
-    #     .union(base_load.index)
-    #     .union(heat.index)
-    # )
-    # assert loads.drop(idx).empty
-    # assert not (
-    #     transport.index.append(agriculture.index)
-    #     .append(industry.index)
-    #     .append(base_load.index)
-    #     .append(heat.index)
-    # ).has_duplicates
     fed = pd.concat(
         [
             rename_aggregate(transport, "Transport"),
@@ -141,9 +140,6 @@ def view_demand_fed(
     # swap carrier and bus_carrier to simplify plotting with GroupedBarChart
     fed = fed.swaplevel("carrier", "bus_carrier")
     fed.index.names = DataModel.YEAR_IDX_NAMES
-
-    # todo: localize agriculture loads
-    # todo: base load load splitting
 
     exporter = Exporter(
         statistics=[fed],

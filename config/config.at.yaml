@@ -110,7 +110,7 @@ sector:
       allam: true
     biomass_to_methanol: true
     biomass_to_methanol_cc: true
-  ammonia: true
+  ammonia: "regional"
   regional_co2_sequestration_potential:
     enable: true
     attribute:
