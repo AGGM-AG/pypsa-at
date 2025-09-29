@@ -70,12 +70,15 @@ def df_sort():
 def df_locations():
     """Produce a data frame to test location aggregation."""
     idx = [
-        ("FR0 0", "A"),
+        ("FR0", "A"),
         ("AT11", "A"),
         ("AT12", "A"),
         ("AT333", "B"),
         ("DE1", "A"),
-        ("DEA", "A"),
+        ("DE2", "A"),
+        ("DE3", "A"),
+        ("DE4", "A"),
+        ("DE5", "A"),
         ("", "A"),
     ]
     return pd.DataFrame(
@@ -1090,16 +1093,16 @@ def test_apply_cutoff(df, limit, drop, expected):
             pd.DataFrame(
                 {
                     "a": {
-                        ("", "A"): 6,
+                        ("", "A"): 9,
                         ("Burgenland (AT)", "A"): 1,
                         ("Lower Austria (AT)", "A"): 2,
                         ("East Tyrol (AT)", "B"): 3,
                         ("Austria", "A"): 3,
                         ("Austria", "B"): 3,
-                        ("Europe", "A"): 12,
+                        ("Europe", "A"): 33,
                         ("Europe", "B"): 3,
                         ("France", "A"): 0,
-                        ("Germany", "A"): 9,
+                        ("Germany", "A"): 30,
                     }
                 },
             ),
@@ -1112,14 +1115,14 @@ def test_apply_cutoff(df, limit, drop, expected):
             pd.DataFrame(
                 {
                     "a": {
-                        ("", "A"): 6,
+                        ("", "A"): 9,
                         ("AT", "A"): 3,
                         ("AT", "B"): 3,
                         ("AT11", "A"): 1,
                         ("AT12", "A"): 2,
                         ("AT333", "B"): 3,
-                        ("DE", "A"): 9,
-                        ("EU", "A"): 12,
+                        ("DE", "A"): 30,
+                        ("EU", "A"): 33,
                         ("EU", "B"): 3,
                         ("FR", "A"): 0,
                     }
@@ -1134,15 +1137,18 @@ def test_apply_cutoff(df, limit, drop, expected):
             pd.DataFrame(
                 {
                     "a": {
-                        ("", "A"): 6,
+                        ("", "A"): 9,
                         ("Austria", "A"): 3,
                         ("Austria", "B"): 3,
                         ("Baden-Württemberg", "A"): 4,
-                        ("North Rhine-Westphalia", "A"): 5,
-                        ("Europe", "A"): 12,
+                        ("Bavaria", "A"): 5,
+                        ("Midwest Germany", "A"): 6,
+                        ("Mideast Germany", "A"): 7,
+                        ("North Germany", "A"): 8,
+                        ("Europe", "A"): 33,
                         ("Europe", "B"): 3,
                         ("France", "A"): 0,
-                        ("Germany", "A"): 9,
+                        ("Germany", "A"): 30,
                     }
                 }
             ),
@@ -1170,13 +1176,13 @@ def test_apply_cutoff(df, limit, drop, expected):
             pd.DataFrame(
                 {
                     "a": {
-                        ("", "A"): 6,
+                        ("", "A"): 9,
                         ("Austria", "A"): 3,
                         ("Austria", "B"): 3,
-                        ("Europe", "A"): 12,
+                        ("Europe", "A"): 33,
                         ("Europe", "B"): 3,
                         ("France", "A"): 0,
-                        ("Germany", "A"): 9,
+                        ("Germany", "A"): 30,
                     }
                 }
             ),
