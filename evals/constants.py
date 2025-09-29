@@ -343,7 +343,7 @@ class Group:
     ch4_boiler: str = "Gas Boiler"
     chp_ch4: str = "Gas CHP"
     chp_ch4_cc: str = "Gas CHP CC"
-    global_market: str = "Global Market*"
+    global_market: str = "Global Market"
     grid_losses: str = "Grid Losses"
     hev_long: str = "HEV long"
     hev_short: str = "HEV short"
@@ -636,6 +636,7 @@ COLOUR_SCHEME: dict = {
     Group.solid_biomass_boiler: COLOUR.green,
     # brown - methane
     "Methane": COLOUR.brown,
+    "Methane Store": COLOUR.brown,
     "Gas PP": COLOUR.brown,
     "Gas Compression": COLOUR.brown_sallow,
     Group.chp_ch4: COLOUR.brown_dark,
@@ -645,10 +646,14 @@ COLOUR_SCHEME: dict = {
     "Gas Boiler": COLOUR.brown_sallow,
     Group.chp_ch4_cc: COLOUR.brown_light,
     "Methane Import": COLOUR.brown,
+    "Gas Production": COLOUR.brown,
+    "LNG Import": COLOUR.brown_light,
+    "Pipeline Import": COLOUR.brown_sallow,
     "Thermal Powerplants": COLOUR.brown,
     "OCGT": COLOUR.brown,
     # light grey - hydrogen
     "Hydrogen": COLOUR.blue_pastel,
+    "Hydrogen Store": COLOUR.blue_pastel,
     "H2": COLOUR.blue_pastel,
     "Electrolysis": COLOUR.blue_pastel,
     "SMR": COLOUR.yellow_bright,
@@ -752,13 +757,13 @@ COLOUR_SCHEME: dict = {
     "Haber-Bosch": COLOUR.red,
     "Agriculture": COLOUR.green_light,
     "Distribution Grid": COLOUR.grey_silver,
-    "Ammonia Cracking": COLOUR.red_chestnut,
+    "Ammonia Cracker": COLOUR.red_chestnut,
     "Ammonia": COLOUR.red_chestnut,
     "Sabatier": COLOUR.yellow_canary,
     "Synth. Fuels": COLOUR.red,
     "Methanol Steam Reforming": COLOUR.salmon,
     "Methanol": COLOUR.salmon,
-    "H2 from Solid Biomass": COLOUR.green_mint,
+    "Bio H2": COLOUR.green_mint,
 }
 
 ALIAS_REGION: frozendict = frozendict(

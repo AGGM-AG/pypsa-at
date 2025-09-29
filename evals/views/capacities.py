@@ -18,9 +18,14 @@ def view_capacity_gas_storage(
     """
     Evaluate optimal storage capacities for gas stores (CH4, H2).
 
-    Returns
-    -------
-    :
+    Parameters
+    ----------
+    result_path
+        Directory path where results will be saved
+    networks
+        Dictionary containing PyPSA network objects for analysis
+    config
+        Configuration dictionary containing model parameters
 
     Notes
     -----
@@ -35,11 +40,16 @@ def view_capacity_hydrogen_production(
     config: dict,
 ) -> None:
     """
-    Evaluate the optimal capacity for technologies that produce Hydrogen.
+    Evaluate the optimal capacity for technologies that produce hydrogen.
 
-    Returns
-    -------
-    :
+    Parameters
+    ----------
+    result_path
+        Directory path where results will be saved
+    networks
+        Dictionary containing PyPSA network objects for analysis
+    config
+        Configuration dictionary containing model parameters
     """
     simple_optimal_capacity(networks, config, result_path, kind="production")
 
@@ -50,11 +60,16 @@ def view_capacity_gas_production(
     config: dict,
 ) -> None:
     """
-    Evaluate the optimal capacity for technologies that produce Methane.
+    Evaluate the optimal capacity for technologies that produce methane.
 
-    Returns
-    -------
-    :
+    Parameters
+    ----------
+    result_path
+        Directory path where results will be saved
+    networks
+        Dictionary containing PyPSA network objects for analysis
+    config
+        Configuration dictionary containing model parameters
     """
     simple_optimal_capacity(networks, config, result_path, kind="production")
 
@@ -67,9 +82,14 @@ def view_capacity_electricity_production(
     """
     Evaluate the optimal capacity for AC technologies that produce electricity.
 
-    Returns
-    -------
-    :
+    Parameters
+    ----------
+    result_path
+        Directory path where results will be saved
+    networks
+        Dictionary containing PyPSA network objects for analysis
+    config
+        Configuration dictionary containing model parameters
     """
     simple_optimal_capacity(networks, config, result_path, kind="production")
 
@@ -82,9 +102,14 @@ def view_capacity_electricity_demand(
     """
     Evaluate the optimal capacity for AC technologies that withdraw electricity.
 
-    Returns
-    -------
-    :
+    Parameters
+    ----------
+    result_path
+        Directory path where results will be saved
+    networks
+        Dictionary containing PyPSA network objects for analysis
+    config
+        Configuration dictionary containing model parameters
     """
     simple_optimal_capacity(networks, config, result_path, kind="demand")
 
@@ -97,9 +122,14 @@ def view_capacity_electricity_storage(
     """
     Evaluate the optimal capacity for AC technologies that store electricity.
 
-    Returns
-    -------
-    :
+    Parameters
+    ----------
+    result_path
+        Directory path where results will be saved
+    networks
+        Dictionary containing PyPSA network objects for analysis
+    config
+        Configuration dictionary containing model parameters
 
     Notes
     -----
@@ -116,10 +146,18 @@ def view_capacity_heat_production(
     """
     Evaluate the optimal capacity for technologies that produce heat.
 
-    Returns
-    -------
-    :
-        Writes 2 Excel files and 1 BarChart per country.
+    Parameters
+    ----------
+    result_path
+        Directory path where results will be saved
+    networks
+        Dictionary containing PyPSA network objects for analysis
+    config
+        Configuration dictionary containing model parameters
+
+    Notes
+    -----
+    Writes 2 Excel files and 1 BarChart per country.
     """
     simple_optimal_capacity(networks, config, result_path, kind="production")
 
@@ -132,9 +170,17 @@ def view_capacity_heat_demand(
     """
     Evaluate the optimal capacity for technologies that withdraw heat.
 
-    Returns
-    -------
-    :
-        Writes 2 Excel files and 1 BarChart per country.
+    Parameters
+    ----------
+    result_path
+        Directory path where results will be saved
+    networks
+        Dictionary containing PyPSA network objects for analysis
+    config
+        Configuration dictionary containing model parameters
+
+    Notes
+    -----
+    Writes 2 Excel files and 1 BarChart per country.
     """
     simple_optimal_capacity(networks, config, result_path, kind="demand")

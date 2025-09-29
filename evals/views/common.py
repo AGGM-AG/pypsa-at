@@ -255,7 +255,7 @@ def simple_optimal_capacity(
         exporter.defaults.plotly.xaxis_title = ""
     elif chart_class == plots.ESMBarChart:
         # combine bus carrier to export netted technologies, although
-        # they have difference bus_carrier in index , e.g.
+        # they have difference bus_carrier in index, e.g.
         # electricity distribution grid, (AC, low voltage)
         exporter.statistics = [
             rename_aggregate(s, bus_carrier[0], level=DM.BUS_CARRIER)

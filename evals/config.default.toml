@@ -200,7 +200,7 @@ chart = "ESMBarChart"
 bus_carrier = ["H2", "gas"]  # "co2 sequestered"
 cutoff = 0.00001  # 1 MWh
 legend_order = ["Methane Store", "Hydrogen Store"]
-checks = ["balances_almost_zero"]
+checks = []
 exports = []
 
 [view_capacity_gas_storage.categories]
@@ -214,11 +214,28 @@ file_name = "capacity_hydrogen_production_{location}"
 bus_carrier = "H2"
 chart = "ESMBarChart"
 cutoff = 0.1  # GW
-legend_order = []
+legend_order = [
+    # zero to top
+    "Electrolysis",
+    "Methanol Steam Reforming",
+    "Ammonia Cracker",
+    "SMR",
+    "Bio H2",
+    "Global Market"
+]
 checks = []
 exports = []
 
 [view_capacity_hydrogen_production.categories]
+"Methanol steam reforming" = "Methanol Steam Reforming"
+"Methanol steam reforming CC" = "Methanol Steam Reforming"
+"SMR" = "SMR"
+"SMR CC" = "SMR"
+"ammonia cracker" = "Ammonia Cracker"
+"solid biomass to hydrogen" = "Bio H2"
+"import H2" = "Global Market"
+"H2 Electrolysis" = "Electrolysis"
+
 
 [view_capacity_gas_production]
 name = "Optimal Capacity Methane Production"
@@ -228,11 +245,28 @@ bus_carrier = ["gas"]
 storage_links = ["gas", "import gas"]  # drops Generator and Storage Components
 chart = "ESMBarChart"
 cutoff = 0.1  # GW
-legend_order = []
+legend_order = [
+    "Gas Production",
+    "Pipeline Import",
+    "LNG Import",
+    "SynGas",
+    "SynGas (CC)",
+    "Biogas",
+    "Biogas (CC)",
+    "Sabatier"
+]
 checks = []
 exports = []
 
 [view_capacity_gas_production.categories]
+"BioSNG" = "SynGas"
+"BioSNG CC" = "SynGas (CC)"
+"Sabatier" = "Sabatier"
+"biogas to gas" = "Biogas"
+"biogas to gas CC" = "Biogas (CC)"
+"production gas" = "Gas Production"
+"lng gas" = "LNG Import"
+"pipeline gas" = "Pipeline Import"
 
 # Balances
 
@@ -372,8 +406,8 @@ legend_order = [
     # production ordered from zero to outside
     "Electrolysis",
     "SMR",
-    "H2 from Solid Biomass",
-    "Ammonia Cracking",
+    "Bio H2",
+    "Ammonia Cracker",
     "Storage Out",
     "Import Domestic",
     "Import Foreign",
@@ -395,7 +429,7 @@ checks = ["balances_almost_zero"]
 exports = []
 
 [view_balance_hydrogen.categories]
-"ammonia cracker" = "Ammonia Cracking"
+"ammonia cracker" = "Ammonia Cracker"
 "Export Foreign" = "Export Foreign"
 "Export Domestic" = "Export Domestic"
 "Fischer-Tropsch" = "Fischer-Tropsch"
@@ -417,7 +451,7 @@ exports = []
 "land transport fuel cell" = "Transport"
 "methanolisation" = "Methanolisation"
 "Methanol steam reforming" = "Methanol Steam Reforming"
-"solid biomass to hydrogen" = "H2 from Solid Biomass"
+"solid biomass to hydrogen" = "Bio H2"
 
 [view_balance_methane]
 name = "Methane Energy Balance"
@@ -825,7 +859,7 @@ legend_order = [
     "Net Import",
     "Sabatier",
     "Storage Out",
-    "H2 from Solid Biomass",
+    "Bio H2",
     "Electrolysis",
     # --- zero ---
     "Storage In",
@@ -833,7 +867,7 @@ legend_order = [
     "Electricity",
     "Haber-Bosch",
     "Synth. Fuels",
-    "Ammonia Cracking",
+    "Ammonia Cracker",
     "Methanolisation",
     "SMR",
     "Fischer-Tropsch",
@@ -844,7 +878,7 @@ checks = ["balances_almost_zero"]
 exports = []
 
 [view_timeseries_hydrogen.categories]
-"ammonia cracker" = "Ammonia Cracking"
+"ammonia cracker" = "Ammonia Cracker"
 "Fischer-Tropsch" = "Fischer-Tropsch"
 "H2 Electrolysis" = "Electrolysis"
 "H2 Fuel Cell" = "Electricity"
@@ -858,7 +892,7 @@ exports = []
 "electrobiofuels" = "Synth. Fuels"
 "land transport fuel cell" = "Transport"
 "methanolisation" = "Methanolisation"
-"solid biomass to hydrogen" = "H2 from Solid Biomass"
+"solid biomass to hydrogen" = "Bio H2"
 "Net Export" = "Net Export"
 "Net Import" = "Net Import"
 "Storage In" = "Storage In"
