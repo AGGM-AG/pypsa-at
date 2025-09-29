@@ -687,7 +687,7 @@ legend_order = [
     "Waste",
     "Solid Biomass",
     "Electricity",
-    "Solar Power",
+    "Solar Thermal",
     "Hydrogen",
     "Ambient Heat"
 ]
@@ -704,10 +704,10 @@ exports = ["excel"]
 "low voltage" = "Electricity"
 "non-sequestered HVC" = "Waste"
 "oil" = "Oil"
-"rural heat" = "Solar Power"
+"rural heat" = "Solar Thermal"
 "solid biomass" = "Solid Biomass"
-"urban central heat" = "Solar Power"
-"urban decentral heat" = "Solar Power"
+"urban central heat" = "Solar Thermal"
+"urban decentral heat" = "Solar Thermal"
 "ambient heat" = "Ambient Heat"
 "latent heat" = "Ambient Heat"
 
@@ -725,7 +725,7 @@ legend_order = [
     "Waste",
     "Solid Biomass",
     "Electricity",
-    "Solar Power",
+    "Solar Thermal",
     "Hydrogen",
     "Ambient Heat"
 ]
@@ -736,7 +736,7 @@ exports = []
 "ambient heat"= "Ambient Heat"
 "gas" = "Methane"
 "low voltage" = "Electricity"
-"solar heat" = "Solar Power"
+"solar heat" = "Solar Thermal"
 "solid biomass" = "Solid Biomass"
 "AC" = "Electricity"
 "H2" = "Hydrogen"
@@ -762,6 +762,7 @@ legend_order = [
     "Solid Biomass",
     "Hydrogen",
     "Electricity",
+    "Solar Thermal",
     "Heat",
     "Ambient Heat",
 ]
@@ -776,6 +777,7 @@ exports = []
 "coal for industry"="Coal"
 "gas"="Methane"
 "gas for industry"="Methane"
+"gas for industry CC"="Methane"
 "kerosene for aviation"="Liquids"
 "land transport oil"="Liquids"
 "low voltage"="Electricity"
@@ -783,11 +785,13 @@ exports = []
 "shipping oil"="Liquids"
 "solid biomass"="Solid Biomass"
 "solid biomass for industry"="Solid Biomass"
+"solid biomass for industry CC"="Solid Biomass"
 "NH3"="Ammonia"
 "industry methanol"="Methanol"
 "oil"="Liquids"
 "shipping methanol"="Methanol"
 "urban central heat"="Heat"
+"solar heat"="Solar Thermal"
 
 
 [view_timeseries_electricity]

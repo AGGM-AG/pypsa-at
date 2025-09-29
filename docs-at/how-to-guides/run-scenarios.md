@@ -13,7 +13,7 @@ Running the model at high spatial and temporal resolution requires substantial r
 | AT10DE19 (65)  | 24                      |                   |                   |          |
 | AT10DE19 (65)  | 3                       |                   | 8.2               | 120      |
 | AT10DE19 (65)  | 1                       | 197116            | 54.7              | 370      |
-| AT35DE5 (77)   | 24                      | 2544              | 0.7               | 25       |
+| AT35DE5 (77)   | 24                      | 4318              | 1.2               | 25       |
 | AT35DE5 (77)   | 3                       | 32465             | 9.0               | 126      |
 | AT35DE19 (91)  | 365                     |                   |                   |          |
 | AT35DE19 (91)  | 120                     |                   |                   |          |
@@ -25,6 +25,8 @@ Running the model at high spatial and temporal resolution requires substantial r
 
 Benchmarks are for `INTEL(R) XEON(R) GOLD 6544Y` processor and using `threads: 8` with a gurobi solver and the default
 gurobi solver settings from `config/config.default.yaml`.
+
+Values in the benchmark are given for the longest runtime and highest memory usage for all networks in the myopic workflow.
 
 ## Run the workflow
 

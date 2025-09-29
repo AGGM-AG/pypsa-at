@@ -188,6 +188,7 @@ def view_demand_heat_system(
     # swap index levels to keep carrier information during plotting
     fed_for_heat = fed_for_heat.swaplevel(DataModel.CARRIER, DataModel.BUS_CARRIER)
     fed_for_heat.index.names = DataModel.YEAR_IDX_NAMES
+
     generator_supply = collect_myopic_statistics(
         networks,
         statistic="supply",
@@ -308,7 +309,18 @@ def view_demand_fed(
     # industry contains FED and useful energy (low-temperature heat for industry)
     industry = loads.filter(regex="industry|NH3")
     industry = apply_heat_mix_to_decentral_heat_buses(industry, heat_share)
-    # todo: include methane losses due to `gas for industry CC`
+
+    industry_cc = (
+        collect_myopic_statistics(networks, "energy_balance", comps="Link")
+        .filter(like="for industry CC")
+        .drop(["co2", "co2 stored"], level=DataModel.BUS_CARRIER)
+        .pipe(rename_aggregate, "CC losses", level=DataModel.BUS_CARRIER)
+        .mul(-1)
+    )
+    # swap levels to preserve carrier as bus_carrier
+    industry_cc = industry_cc.swaplevel(DataModel.CARRIER, DataModel.BUS_CARRIER)
+    industry_cc.index.names = DataModel.YEAR_IDX_NAMES
+    industry = pd.concat([industry, industry_cc])
 
     # electricity base load contains loads not split
     base_load = filter_by(loads, carrier="electricity")
