@@ -120,57 +120,60 @@ name = "Optimal Capacity Electricity"
 unit = "GW"
 file_name = "capacity_ac_production_{location}"
 bus_carrier = ["AC", "low voltage", "EV battery", "home battery"]
-storage_links = ["BEV charger", "V2G"]
+storage_links = ["BEV charger", "V2G", "battery discharger", "home battery charger", "home battery discharger"]
 chart = "ESMBarChart"
-cutoff = 0.0001
+cutoff = 0.1  # GW
 legend_order = [
     "Nuclear Power",
-    "Thermal Powerplants",
-    "Pumped Hydro Storage",
-    "Reservoir",
+    "CHP",
+    "Thermal Powerplant",
+#    "Reservoir",
     "Run-of-River",
     "Wind Power",
-    "Coal",
-    "Hydrogen",
-    "Solar Power",
-    "Solid Biomass",
-    "Biogas",
-    "Oil",
+    "Solar Power"
 ]
 checks = []
 exports = ["csv"]
 
 [view_capacity_electricity_production.categories]
-"CCGT" = "Thermal Powerplants"
-"H2 OCGT" = "Hydrogen"
-"H2 turbine" = "Hydrogen"
-"OCGT" = "Thermal Powerplants"
-"PHS" = "Pumped Hydro Storage"
-"allam gas" = "Thermal Powerplants"
-"biogas" = "Biogas"
-"coal" = "Coal"
-"hydro" = "Reservoir"
-"lignite" = "Coal"
+"CCGT" = "Thermal Powerplant"  # "PP (Methane)"
+"OCGT" = "Thermal Powerplant"  # "PP (Methane)"
+"CCGT methanol" = "Thermal Powerplant"  # "PP (Methanol)"
+"OCGT methanol" = "Thermal Powerplant"  # "PP (Methanol)"
+"allam methanol" = "Thermal Powerplant"  # "PP (Methanol)"
+"CCGT methanol CC" = "Thermal Powerplant"  # "PP (Methanol)"
+"H2 OCGT" = "Thermal Powerplant"  # "PP (Hydrogen)"
+"H2 CCGT" = "Thermal Powerplant"  # "PP (Hydrogen)"
+"H2 Fuel Cell" = "Thermal Powerplant"  # "PP (Hydrogen)"
+"H2 turbine" = "Thermal Powerplant"  # "PP (Hydrogen)"
+#"PHS" = "Pumped Hydro Storage"
+"allam gas" = "Thermal Powerplant"  # "PP (Methane)"
+#"biogas" = "Biogas"
+"coal" = "Thermal Powerplant"
+#"hydro" = "Reservoir"
+"lignite" = "Thermal Powerplant"
 "nuclear" = "Nuclear Power"
 "offwind-ac" = "Wind Power"
 "offwind-dc" = "Wind Power"
-"oil" = "Oil"
+"oil" = "Thermal Powerplant"
 "onwind" = "Wind Power"
 "ror" = "Run-of-River"
 "solar" = "Solar Power"
 "solar rooftop" = "Solar Power"
 "solar-hsat" = "Solar Power"
-"solid biomass" = "Solid Biomass"
-"urban central CHP" = "Thermal Powerplants"
-"urban central coal CHP" = "Thermal Powerplants"
-"urban central gas CHP" = "Thermal Powerplants"
-"urban central H2 CHP" = "Thermal Powerplants"
-"urban central H2 retrofit CHP" = "Thermal Powerplants"
-"urban central lignite CHP" = "Thermal Powerplants"
-"urban central oil CHP" = "Thermal Powerplants"
-"urban central solid biomass CHP" = "Thermal Powerplants"
-"waste CHP" = "Thermal Powerplants"
-"waste CHP CC" = "Thermal Powerplants"
+"solid biomass" = "Thermal Powerplant"
+"urban central CHP" = "CHP"  # "CHP (Methane)"
+"urban central coal CHP" = "CHP"  # "CHP (Coal)"
+"urban central gas CHP" = "CHP"  # "CHP (Methane)"
+"urban central gas CHP CC" = "CHP"  # "CHP (Methane)"
+"urban central H2 CHP" = "CHP"  # "CHP (Hydrogen)"
+"urban central H2 retrofit CHP" = "CHP"  # "CHP (Hydrogen)"
+"urban central lignite CHP" = "CHP"  # "CHP (Coal)"
+"urban central oil CHP" = "CHP"  # "CHP (Oil)"
+"urban central solid biomass CHP" = "CHP"  # "CHP (Biomass)"
+"urban central solid biomass CHP CC" = "CHP"  # "CHP (Biomass)"
+"waste CHP" = "CHP"  # "CHP (Waste)"
+"waste CHP CC" = "CHP"  # "CHP (Waste)"
 
 [view_capacity_electricity_storage]
 name = "Power Storage Volumes"
