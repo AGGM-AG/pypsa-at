@@ -1000,7 +1000,13 @@ def collect_secondary_energy():
     transform_link(technology="Powerplant", carrier=["CCGT", "OCGT"])
     transform_link(
         technology="Powerplant",
-        carrier=["H2 OCGT", "H2 CCGT", "H2 turbine", "H2 retrofit OCGT"],
+        carrier=[
+            "H2 OCGT",
+            "H2 CCGT",
+            "H2 turbine",
+            "H2 retrofit OCGT",
+            "H2 retrofit CCGT",
+        ],
     )
     transform_link(technology="Powerplant", carrier="H2 Fuel Cell")
     transform_link(
