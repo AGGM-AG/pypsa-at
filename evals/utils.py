@@ -23,6 +23,8 @@ from evals.constants import (
     TradeTypes,
 )
 
+logger = logging.getLogger(__file__)
+
 
 def verify_metric_format(metric: pd.DataFrame) -> None:
     """
@@ -489,12 +491,12 @@ def aggregate_locations(
     Parameters
     ----------
     df
-        The input data frame with a locations index level.
+        The input data frame with a location index level.
     keep_regions
-        A tuple of regions, that should be preserved in the output,
+        A tuple of regions which should be preserved in the output,
         i.e. they are added to the result as before the aggregation.
     nice_names
-        Whether, or not to use the nice country names instead of the
+        Whether or not to use the nice country names instead of the
         country codes.
 
     Returns
@@ -503,14 +505,13 @@ def aggregate_locations(
         A data frame with aggregated countries, plus any region in
         'keep_regions' and Europe/EU.
     """
-    country_code_map = {loc: loc[:2] for loc in df.index.unique(DataModel.LOCATION)}
-    if "EU" in country_code_map.values():
-        logger = logging.getLogger(__name__)
+    country_codes = {loc: loc[:2] for loc in df.index.unique(DataModel.LOCATION)}
+    if "EU" in country_codes.values():
         logger.warning(
             "Values for 'EU' node found in input data frame. "
             "This can lead to value doubling during location aggregation.",
         )
-    countries = rename_aggregate(df, country_code_map, level=DataModel.LOCATION)
+    countries = rename_aggregate(df, country_codes, level=DataModel.LOCATION)
     # domestic trade only makes sense between regions. Aggregated
     # countries could have domestic trade, but import and export nets
     # to zero.
