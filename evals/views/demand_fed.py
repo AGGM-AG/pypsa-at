@@ -108,11 +108,11 @@ def view_demand_fed(
     # --> they are equal, and we simply use the load
 
     # agriculture contains final energy Loads and useful energy Loads (heat)
-    agriculture = loads.filter(regex="agriculture|NH3")
+    agriculture = loads.filter(regex="agriculture")
     agriculture = apply_heat_mix_to_decentral_heat_buses(agriculture, heat_share)
 
     # industry contains FED and useful energy (low-temperature heat for industry)
-    industry = loads.filter(regex="industry")
+    industry = loads.filter(regex="industry|NH3")
     industry = apply_heat_mix_to_decentral_heat_buses(industry, heat_share)
 
     # electricity base load contains loads not split
