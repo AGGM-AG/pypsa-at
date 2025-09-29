@@ -90,8 +90,7 @@ if __name__ == "__main__":
     if admin_levels.get("AT") == 2:
         override_nuts("AT333", "AT333", "level2")
         assert_expected_number_of_entries("AT", expected=10, lvl=2)
-    # DE: NUTS1 (19 regions) or NUTS3 as a proxy for 5 regions
-    if admin_levels.get("DE") == 3:
+    if admin_levels.get("DE") == 3:  # NUTS3 is a proxy for 5 regions
         # update NUTS3 codes to contain 5 unique codes for clustering algorithm
         # the 'GG' suffix is necessary to mark the custom region codes. the letter
         # G is the highest value that still matches the NUTS regex in
@@ -120,7 +119,7 @@ if __name__ == "__main__":
         override_nuts("DE5", f"DE5{suffix}", level="level3")
 
         assert_expected_number_of_entries("DE", expected=5, lvl=3)
-    # IT: italy is in test network but must not be clustered to reduce test complexity
+    # IT: italy is in the test network but must not be clustered to reduce test complexity
     assert admin_levels.get("IT") == 1
     override_nuts("IT", "IT0")  # mainland
     override_nuts("ITG1", "IT1")  # Sicily
