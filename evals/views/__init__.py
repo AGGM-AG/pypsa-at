@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
-"""Expose view functions from inside the views package to the module."""
+"""Expose view functions from inside the `views` module."""
 
 from evals.views.balances import (
     view_balance_biomass,
@@ -26,14 +26,18 @@ from evals.views.capacities import (
     view_capacity_heat_demand,
     view_capacity_hydrogen_production,
 )
-from evals.views.demand import view_demand_heat
-from evals.views.demand_fed import view_demand_fed
+from evals.views.demand import (
+    view_demand_fed,
+    view_demand_heat,
+    view_demand_heat_system,
+)
 from evals.views.sankey import view_sankey
 from evals.views.transmission import view_grid_capacity
 
 __all__ = [
+    # demand
     "view_demand_heat",
-    # "view_demand_heat_sectoral",
+    "view_demand_heat_system",
     "view_demand_fed",
     # capacities
     "view_capacity_gas_storage",

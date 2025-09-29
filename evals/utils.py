@@ -515,8 +515,8 @@ def aggregate_locations(
         )
     countries = rename_aggregate(df, country_codes, level=DataModel.LOCATION)
     # domestic trade only makes sense between regions. Aggregated
-    # countries could have domestic trade, but import and export nets
-    # to zero.
+    # countries contain domestic trade, but import and export nets
+    # to zero and information is redundant.
     countries = countries.drop(
         [
             Carrier.export_domestic,

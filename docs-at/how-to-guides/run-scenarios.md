@@ -6,19 +6,20 @@ This section describes how to run the model.
 
 Running the model at high spatial and temporal resolution requires substantial resources.
 
-| Cluster (n) | Temporal Resolution (H) | Time to Solve (s) | Time to Solve (h) | RAM (GB) | 
-|-------------|-------------------------|-------------------|-------------------|----------|
-| 65          | 365                     |                   |                   |          |
-| 65          | 120                     |                   |                   |          |
-| 65          | 24                      |                   |                   |          |
-| 65          | 3                       |                   | 8                 | 120      |
-| 65          | 1                       | 197116            | 54.7              | 370      |
-| 77          | 3                       | 32465             | 9                 | 126      |
-| 91          | 365                     |                   |                   |          |
-| 91          | 120                     |                   |                   |          |
-| 91          | 24                      |                   |                   |          |
-| 91          | 3                       |                   | 12.5              | 170      |
-| 91          | 1                       |                   |                   |          |
+| Clustering (n) | Temporal Resolution (H) | Time to Solve (s) | Time to Solve (h) | RAM (GB) | 
+|----------------|-------------------------|-------------------|-------------------|----------|
+| AT10DE19 (65)  | 365                     |                   |                   |          |
+| AT10DE19 (65)  | 120                     |                   |                   |          |
+| AT10DE19 (65)  | 24                      |                   |                   |          |
+| AT10DE19 (65)  | 3                       |                   | 8.2               | 120      |
+| AT10DE19 (65)  | 1                       | 197116            | 54.7              | 370      |
+| AT35DE5 (77)   | 24                      | 2544              | 0.7               | 25       |
+| AT35DE5 (77)   | 3                       | 32465             | 9.0               | 126      |
+| AT35DE19 (91)  | 365                     |                   |                   |          |
+| AT35DE19 (91)  | 120                     |                   |                   |          |
+| AT35DE19 (91)  | 24                      |                   |                   |          |
+| AT35DE19 (91)  | 3                       |                   | 12.5              | 170      |
+| AT35DE19 (91)  | 1                       |                   |                   |          |
 
 **Table 1:** Required time and memory per network for productive pypsa-at model runs.
 

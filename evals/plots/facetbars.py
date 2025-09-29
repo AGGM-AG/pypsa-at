@@ -39,6 +39,8 @@ class ESMGroupedBarChart(ESMChart):
         # self.df is accessed below. location and col_values must be
         # set before the first access to the df property.
         ncols = len(self.df[DataModel.BUS_CARRIER].unique())
+        ncols = ncols or 1
+        # replace zero from empty_data to avoid errors
         column_widths = [0.85 / ncols] * ncols
         self.fig = make_subplots(
             rows=1, cols=ncols, shared_yaxes=True, column_widths=column_widths
@@ -84,13 +86,7 @@ class ESMGroupedBarChart(ESMChart):
             )
             df_list.append(sorted_sector)
         df = pd.concat(df_list)
-        # df = df.groupby(self.cfg.facet_column, sort=True).apply(
-        #     self.custom_sort,
-        #     by=self.cfg.plot_category,
-        #     values=self.cfg.category_orders,
-        #     ascending=True,
-        #     # include_groups=False,
-        # )
+
         # remove NaN categories again after sorting with all categories
         df = df.dropna(how="all", subset=self.col_values)
         df["display_value"] = df[self.col_values].apply(prettify_number)

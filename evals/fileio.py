@@ -20,6 +20,8 @@ from evals.configs import ViewDefaults
 from evals.constants import (
     ALIAS_COUNTRY,
     ALIAS_REGION,
+    ALIAS_REGION_DE5_CLUSTERING,
+    ALIAS_REGION_DE19_CLUSTERING,
     COLOUR_SCHEME,
     NOW,
     TITLE_SUFFIX,
@@ -210,20 +212,27 @@ def _add_dummy_rows(df: pd.DataFrame, keep_regions: tuple) -> pd.DataFrame:
     Parameters
     ----------
     df
-        The data frame with a locations index level.
+        The data frame with a location index level.
     keep_regions
         The regions to add empty rows for.
 
     Returns
     -------
     :
-        The input data frame one with additional emtpy row
+        The input dataframe one with additional emtpy row
         per missing country.
     """
     attrs = df.attrs
     years = df.index.unique(DataModel.YEAR)  # assuming all required years are present
     countries = list(ALIAS_COUNTRY.values())
-    regions = [loc for k, loc in ALIAS_REGION.items() if k.startswith(keep_regions)]
+
+    # this will export empty files for all German regions DE5 and DE19 clustering.
+    # A better solution is needed.
+    all_regions = (
+        ALIAS_REGION | ALIAS_REGION_DE5_CLUSTERING | ALIAS_REGION_DE19_CLUSTERING
+    )
+
+    regions = [loc for k, loc in all_regions.items() if k.startswith(keep_regions)]
     locations = countries + regions
 
     idx_names_required = DataModel.YEAR_IDX_NAMES[:2]  # year, location

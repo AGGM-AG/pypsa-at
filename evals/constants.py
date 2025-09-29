@@ -850,7 +850,8 @@ ALIAS_REGION_DE5_CLUSTERING = {
 
 ALIAS_REGION_REV: frozendict = frozendict({v: k for k, v in ALIAS_REGION.items()})
 
-ALIAS_LOCATION: frozendict = ALIAS_COUNTRY | ALIAS_REGION
+# DE19 clustering not supported to file names
+ALIAS_LOCATION: frozendict = ALIAS_COUNTRY | ALIAS_REGION | ALIAS_REGION_DE5_CLUSTERING
 ALIAS_LOCATION_REV: frozendict = frozendict({v: k for k, v in ALIAS_LOCATION.items()})
 
 
