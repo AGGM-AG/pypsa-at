@@ -14,6 +14,8 @@ from pypsa.statistics import get_transmission_carriers
 
 from evals.constants import (
     ALIAS_LOCATION,
+    ALIAS_REGION_DE5_CLUSTERING,
+    ALIAS_REGION_DE19_CLUSTERING,
     UNITS,
     BusCarrier,
     Carrier,
@@ -485,8 +487,8 @@ def aggregate_locations(
     """
     Aggregate to countries, including EU and keeping certain regions.
 
-    The input data frame is expected to contain locations as regions,
-    e.g. "AT0 1", "FR0 0", etc.
+    The input data frame is expected to contain locations as regions
+    e.g. "AT1", "FR0", etc.
 
     Parameters
     ----------
@@ -496,7 +498,7 @@ def aggregate_locations(
         A tuple of regions which should be preserved in the output,
         i.e. they are added to the result as before the aggregation.
     nice_names
-        Whether or not to use the nice country names instead of the
+        Whether to use the nice country names instead of the
         country codes.
 
     Returns
@@ -530,7 +532,17 @@ def aggregate_locations(
     regions = df.loc[mask, :]
     result = pd.concat([countries, regions, europe]).sort_index(axis=0)
     if nice_names:
-        result = result.rename(index=ALIAS_LOCATION, level=DataModel.LOCATION)
+        mapper = ALIAS_LOCATION
+        de_regions = result.index.unique(DataModel.LOCATION).str.startswith("DE")
+        if sum(de_regions) == 6:  # 5 regions + country
+            mapper = ALIAS_LOCATION | ALIAS_REGION_DE5_CLUSTERING
+        elif sum(de_regions) == 20:  # 19 regions + country
+            mapper = ALIAS_LOCATION | ALIAS_REGION_DE19_CLUSTERING
+        else:
+            logger.warning(
+                f"Unexpected clustered regions for Germany detected: {de_regions}"
+            )
+        result = result.rename(index=mapper, level=DataModel.LOCATION)
     return result
 
 
