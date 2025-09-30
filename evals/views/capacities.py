@@ -111,7 +111,6 @@ def view_capacity_electricity_demand(
     config
         Configuration dictionary containing model parameters
     """
-    # todo: continue here
     simple_optimal_capacity(networks, config, result_path, kind="demand")
 
 

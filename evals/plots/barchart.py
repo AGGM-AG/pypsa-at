@@ -122,6 +122,9 @@ class ESMBarChart(ESMChart):
             self._add_total_sum_trace("Upper Sum", orientation="up")
         elif self._has_negatives and not self._has_positives:
             self._add_total_sum_trace("Lower Sum", orientation="down")
+            # Move x-axis to top for negative-only charts and make some more space to the title
+            self.fig.update_xaxes(side="top")
+            self.fig.update_layout(margin=dict(t=150))
         elif self.barmode == "stack":  # works for positive only traces
             self._add_total_sum_trace("Sum")
         else:

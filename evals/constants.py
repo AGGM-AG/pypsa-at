@@ -638,7 +638,7 @@ COLOUR_SCHEME: dict = {
     "Methane": COLOUR.brown,
     "Methane Store": COLOUR.brown,
     "Gas PP": COLOUR.brown,
-    "Gas Compression": COLOUR.brown_sallow,
+    "Methane Compressors": COLOUR.brown_sallow,
     Group.chp_ch4: COLOUR.brown_dark,
     "CHP": COLOUR.brown,
     "Thermal Powerplant": COLOUR.brown_light,
@@ -675,6 +675,8 @@ COLOUR_SCHEME: dict = {
     # blue - heat
     "Resistive Heater": COLOUR.blue_persian,
     "Heat Pump": COLOUR.blue_celestial,
+    "Air Heat Pump": COLOUR.blue_celestial,
+    "Ground Heat Pump": COLOUR.blue_deepdark,
     "Fuel Cell (Heat)": COLOUR.blue_pastel,
     "Demand": COLOUR.grey_neutral,
     # yellow - solar
@@ -753,8 +755,7 @@ COLOUR_SCHEME: dict = {
     "Waste": COLOUR.raspberry,
     "Waste CHP": COLOUR.raspberry,
     "Methanolisation": COLOUR.salmon,
-    "Methane Compression": COLOUR.brown,
-    "Hydrogen Compression": COLOUR.blue_pastel,
+    "Hydrogen Compressors": COLOUR.blue_pastel,
     "Haber-Bosch": COLOUR.red,
     "Agriculture": COLOUR.green_light,
     "Distribution Grid": COLOUR.grey_silver,

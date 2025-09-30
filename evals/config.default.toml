@@ -190,10 +190,10 @@ legend_order = [
     "Air Heat Pump",
     "Ground Heat Pump",
     "Haber-Bosch",
+    "Methanolisation",
     "Direct Air Capture",
     "Hydrogen Compressors",
     "Methane Compressors",
-    "Methanolisation",
     "Battery Storage",
 ]
 checks = []
@@ -333,7 +333,7 @@ legend_order = [
     "CHP",
     "Sabatier",
     "Bioliquids (CC)",
-    "Gas Compression",
+    "Methane Compressors",
     "Biogas (CC)",
     "CO2 Sequestration",
     "Biofuels",
@@ -391,7 +391,7 @@ exports = []
 "coal" = "Electricity"
 "coal for industry" = "Industry"
 "electrobiofuels" = "Biofuels"
-"gas compressing" = "Gas Compression"
+"gas compressing" = "Methane Compressors"
 "gas for industry" = "Industry"
 "gas for industry CC" = "Industry (CC)"
 "industry methanol" = "Industry"
@@ -551,8 +551,8 @@ legend_order = [
     "Hydrogen",
     "Heat",
     "Distribution Grid", # demand and production!
-    "Hydrogen Compression",
-    "Methane Compression",
+    "Hydrogen Compressors",
+    "Methane CompressorsHydrogen Compressio",
     "Methanolisation",
     "Agriculture",
     "Haber-Bosch",
@@ -574,8 +574,8 @@ exports = []
 "Export Foreign" = "Export Foreign"
 "H2 Electrolysis" = "Electrolysis"
 "H2 OCGT" = "Hydrogen"
-"H2 pipeline" = "Hydrogen Compression"
-"H2 pipeline (Kernnetz)" = "Hydrogen Compression"
+"H2 pipeline" = "Hydrogen Compressors"
+"H2 pipeline (Kernnetz)" = "Hydrogen Compressors"
 "Haber-Bosch" = "Haber-Bosch"
 "Import Domestic" = "Import Domestic"
 "Import Foreign" = "Import Foreign"
@@ -586,7 +586,7 @@ exports = []
 "coal" = "Coal"
 "electricity" = "Base Load"
 "electricity distribution grid" = "Distribution Grid"
-"gas pipeline" = "Methane Compression"
+"gas pipeline" = "Methane Compressors"
 "hydro" = "Hydro Power"
 "industry electricity" = "Industry"
 "land transport EV" = "Transport"
