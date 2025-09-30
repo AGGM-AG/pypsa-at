@@ -495,20 +495,57 @@ bus_carrier = ["gas", "biogas", "gas for industry"]
 chart = "ESMBarChart"
 cutoff = 0.1
 legend_order = [
-    # production ordered from zero to outside
-
-    "Storage",
+    # from zero to top
+    "Sabatier",
+    "SynGas",
+    "Biogas",
+    "Production",
     "Import Domestic",
     "Import Foreign",
+    "Global Market",
+    "Storage Out",
     # demand ordered from zero to outside:
-
+    "Industry",
+    "Thermal Powerplant",
+    "CHP",
+    "Gas Boiler",
+    "SMR",
     "Export Domestic",
     "Export Foreign",
+    "Storage In",
 ]
 checks = ["balances_almost_zero"]
 exports = []
 
 [view_balance_methane.categories]
+"BioSNG" = "SynGas"
+"BioSNG CC" = "SynGas"
+"CCGT" = "Thermal Powerplant"
+"Export Foreign" = "Export Foreign"
+"Import Foreign" = "Import Foreign"
+"OCGT" = "Thermal Powerplant"
+"SMR" = "SMR"
+"SMR CC" = "SMR"
+"Sabatier" = "Sabatier"
+"Storage In" = "Storage In"
+"Storage Out" = "Storage Out"
+"gas for industry" = "Industry"
+"gas for industry CC" = "Industry"
+"rural gas boiler" = "Gas Boiler"
+"urban decentral gas boiler" = "Gas Boiler"
+"biogas to gas" = "Biogas"
+"biogas to gas CC" = "Biogas"
+"production gas" = "Production"
+"unsustainable biogas" = "Biogas"
+"urban central gas CHP" = "CHP"
+"urban central gas CHP CC" = "CHP"
+"urban central gas boiler" = "Gas Boiler"
+"Export Domestic" = "Export Domestic"
+"Import Domestic" = "Import Domestic"
+"import gas" = "Global Market"
+"lng gas" = "Global Market"
+"pipeline gas" = "Global Market"
+"biogas" = "Biogas"
 
 [view_balance_electricity]
 name = "Electricity Energy Balance"

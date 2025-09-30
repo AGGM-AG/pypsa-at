@@ -649,6 +649,7 @@ COLOUR_SCHEME: dict = {
     Group.chp_ch4_cc: COLOUR.brown_light,
     "Methane Import": COLOUR.brown,
     "Gas Production": COLOUR.brown,
+    "Production": COLOUR.brown,
     "LNG Import": COLOUR.brown_light,
     "Pipeline Import": COLOUR.brown_sallow,
     "Thermal Powerplants": COLOUR.brown,
