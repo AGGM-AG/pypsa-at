@@ -152,27 +152,3 @@ def view_capacity_heat_production(
         Configuration dictionary containing model parameters
     """
     simple_optimal_capacity(networks, config, result_path, kind="production")
-
-
-def view_capacity_heat_demand(
-    result_path: str | Path,
-    networks: dict,
-    config: dict,
-) -> None:
-    """
-    Evaluate the optimal capacity for technologies that withdraw heat.
-
-    Parameters
-    ----------
-    result_path
-        Directory path where results will be saved
-    networks
-        Dictionary containing PyPSA network objects for analysis
-    config
-        Configuration dictionary containing model parameters
-
-    Notes
-    -----
-    Writes 2 Excel files and 1 BarChart per country.
-    """
-    simple_optimal_capacity(networks, config, result_path, kind="demand")

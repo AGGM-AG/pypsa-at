@@ -88,60 +88,6 @@ exports = []
 "urban decentral resistive heater" = "Resistive Heater"
 "urban decentral solar thermal" = "Solar Thermal"
 
-[view_capacity_heat_demand]
-name = "District Heat Demand Capacities"
-unit = "GW"
-file_name = "capacity_heat_production_{location}"
-cutoff = 0.0001
-legend_order = [
-    "Storage Out",
-    "Solar Thermal",
-    "Fischer-Tropsch",
-    "Biomass CHP",
-    "Oil CHP",
-    "Waste CHP",
-    "Electrolysis",
-    "Haber-Bosch",
-    "Direct Air Capture",
-    "CHP",
-    "Heat Vent",
-    "Methanolisation",
-    "Fuel Cell",
-    "Resistive Heater",
-    "Gas Boiler",
-    "Gas CHP",
-    "Coal CHP",
-    "Heat Pump",
-    "Storage In",
-]
-checks = []
-exports = ["csv", "excel"]
-
-[view_capacity_heat_demand.categories]
-"DAC" = "Direct Air Capture"
-"Fischer-Tropsch" = "Fischer-Tropsch"
-"Haber-Bosch" = "Haber-Bosch"
-"H2 Electrolysis" = "Electrolysis"
-"H2 Fuel Cell" = "Fuel Cell"
-"methanolisation" = "Methanolisation"
-"urban central air heat pump" = "Heat Pump"
-"urban central CHP" = "CHP"
-"urban central coal CHP" = "Coal CHP"
-"urban central gas CHP" = "Gas CHP"
-"urban central oil CHP" = "Oil CHP"
-"waste CHP" = "Waste CHP"
-"waste CHP CC" = "Waste CHP"
-"urban central gas boiler" = "Gas Boiler"
-"urban central heat vent" = "Heat Vent"
-"urban central lignite CHP" = "Coal CHP"
-"urban central resistive heater" = "Resistive Heater"
-"urban central solar thermal" = "Solar Thermal"
-"urban central solid biomass CHP" = "Biomass CHP"
-"urban central water tanks charger" = "Storage In"
-"urban central water tanks discharger" = "Storage Out"
-"urban central water pits charger" = "Storage In"
-"urban central water pits discharger" = "Storage Out"
-
 [view_capacity_electricity_production]
 name = "Optimal Capacity Electricity Production"
 unit = "GW"
