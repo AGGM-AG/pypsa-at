@@ -407,7 +407,7 @@ exports = []
 name = "Fuel Balance"
 unit = "MWh_LHV"
 chart = "ESMGroupedBarChart"
-file_name = "nodal_balance_fuels_{location}"
+file_name = "balance_fuels_{location}"
 cutoff = 0.001
 legend_order = [
     # production ordered from zero to outside
@@ -427,7 +427,7 @@ exports = []
 [view_balance_hydrogen]
 name = "Hydrogen Energy Balance"
 unit = "TWh"
-file_name = "nodal_balance_hydrogen_{location}"
+file_name = "balance_hydrogen_{location}"
 bus_carrier = "H2"
 chart = "ESMBarChart"
 cutoff = 0.1
@@ -491,7 +491,7 @@ exports = []
 [view_balance_methane]
 name = "Methane Energy Balance"
 unit = "TWh"
-file_name = "nodal_balance_methane_{location}"
+file_name = "balance_methane_{location}"
 bus_carrier = ["gas", "biogas", "gas for industry"]
 chart = "ESMBarChart"
 cutoff = 0.1
@@ -551,7 +551,7 @@ exports = []
 [view_balance_electricity]
 name = "Electricity Energy Balance"
 unit = "TWh_el"
-file_name = "nodal_balance_electricity_{location}"
+file_name = "balance_electricity_{location}"
 bus_carrier = ["AC", "low voltage", "EV battery"]
 storage_links = ["BEV charger", "V2G"]
 chart = "ESMBarChart"
@@ -666,7 +666,7 @@ exports = []
 [view_balance_heat]
 name = "Heat Energy Balance"
 unit = "TWh_th"
-file_name = "nodal_balance_heat_{location}"
+file_name = "balance_heat_{location}"
 chart = "ESMGroupedBarChart"
 bus_carrier = ["urban central heat", "urban decentral heat", "rural heat"]
 cutoff = 0.1
@@ -731,7 +731,7 @@ exports = []
 [view_balance_biomass]
 name = "Solid Biomass Energy Balance"
 unit = "TWh_LHV"
-file_name = "nodal_balance_biomass_{location}"
+file_name = "balance_biomass_{location}"
 bus_carrier = "solid biomass"
 chart = "ESMBarChart"
 cutoff = 0.001

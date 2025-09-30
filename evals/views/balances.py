@@ -236,4 +236,4 @@ def view_balance_fuels(
     # show balances for coal, lignite, oil, waste, solid biomass, and other fuels
     # (any fuel that goes in to thermal powerplants or CHPs) in a grouped barchart
     # exclude gas and hydrogen, they have separate balance views
-    raise NotImplementedError
+    simple_bus_balance(networks, config, result_path)
