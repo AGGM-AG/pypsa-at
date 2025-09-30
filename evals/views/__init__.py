@@ -25,6 +25,7 @@ from evals.views.capacities import (
     view_capacity_gas_production,
     view_capacity_gas_storage,
     view_capacity_heat_demand,
+    view_capacity_heat_production,
     view_capacity_hydrogen_production,
 )
 from evals.views.demand import (
@@ -47,6 +48,7 @@ __all__ = [
     "view_capacity_electricity_production",
     "view_capacity_electricity_demand",
     "view_capacity_hydrogen_production",
+    "view_capacity_heat_production",
     "view_capacity_gas_production",
     # balances
     "view_balance_electricity",

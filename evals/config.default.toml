@@ -12,6 +12,8 @@ name = "District Heat Production Capacities"
 unit = "GW"
 file_name = "capacity_heat_production_{location}"
 cutoff = 0.0001
+chart = "ESMBarChart"
+bus_carrier = ["urban central heat", "rural heat", "urban decentral heat"]
 legend_order = [
     "Storage Out",
     "Solar Thermal",
@@ -227,7 +229,8 @@ cutoff = 0.1  # TWh
 legend_order = [
     "Pumped Hydro Storage",
     "Run-of-River",
-    "Car Battery"
+    "Car Battery",
+    "Home Battery"
 ]
 checks = []
 exports = []
@@ -236,6 +239,7 @@ exports = []
 "EV battery" = "Car Battery"
 "PHS" = "Pumped Hydro Storage"
 "hydro" = "Run-of-River"
+"home battery" = "Home Battery"
 
 [view_capacity_gas_storage]
 name = "Gas Storage Volumes"

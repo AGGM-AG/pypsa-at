@@ -130,10 +130,6 @@ def view_capacity_electricity_storage(
         Dictionary containing PyPSA network objects for analysis
     config
         Configuration dictionary containing model parameters
-
-    Notes
-    -----
-    Fixme: Run-of-River is much too high.
     """
     simple_storage_capacity(networks, config, result_path)
 
@@ -154,10 +150,6 @@ def view_capacity_heat_production(
         Dictionary containing PyPSA network objects for analysis
     config
         Configuration dictionary containing model parameters
-
-    Notes
-    -----
-    Writes 2 Excel files and 1 BarChart per country.
     """
     simple_optimal_capacity(networks, config, result_path, kind="production")
 
