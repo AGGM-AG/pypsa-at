@@ -26,11 +26,21 @@ def view_balance_carbon(
     config: dict,
 ) -> None:
     """
-    Evaluate the carbon balance.
+    Evaluate and export the carbon balance showing CO2 flows in the energy system.
 
-    Returns
-    -------
-    :
+    This function analyzes CO2 emissions, sequestration, and storage by calculating
+    the balance of carbon flows across the network. It delegates to the simple_bus_balance
+    function to collect and export supply and withdrawal statistics for CO2 buses.
+
+    Parameters
+    ----------
+    result_path
+        Path where the evaluation results will be saved.
+    networks
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    config
+        Configuration dictionary containing view settings including bus_carrier specification,
+        chart type, and export parameters.
     """
     simple_bus_balance(networks, config, result_path)
 
@@ -41,11 +51,21 @@ def view_balance_electricity(
     config: dict,
 ) -> None:
     """
-    Evaluate the electricity production and demand by country and year.
+    Evaluate and export electricity production and demand by country and year.
 
-    Returns
-    -------
-    :
+    This function calculates the electricity balance showing generation sources and
+    consumption patterns across the network. It delegates to the simple_bus_balance
+    function to collect and export supply and withdrawal statistics for electricity buses.
+
+    Parameters
+    ----------
+    result_path
+        Path where the evaluation results will be saved.
+    networks
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    config
+        Configuration dictionary containing view settings including bus_carrier specification,
+        chart type, and export parameters.
 
     Notes
     -----
@@ -60,17 +80,31 @@ def view_balance_heat(
     config: dict,
 ) -> None:
     """
-    Evaluate the heat balance.
+    Evaluate and export the heat balance showing heat production and consumption.
+
+    This function calculates the heat balance for specified heat bus carriers (urban central,
+    urban decentral, rural heat) by analyzing link energy flows and load withdrawals. Heat
+    supply is determined from link energy balance data, showing the input energy carriers
+    feeding heat production. Heat demand includes consumption loads, with central heat losses
+    separated from actual consumption. The function exports both supply and demand data with
+    appropriate chart formatting based on the configured chart type.
 
     Parameters
     ----------
     result_path
+        Path where the evaluation results will be saved.
     networks
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
     config
+        Configuration dictionary containing view settings including bus_carrier specification,
+        chart type, and export parameters. Must specify heat bus carriers in config["view"]["bus_carrier"].
 
-    Returns
-    -------
-    :
+    Notes
+    -----
+    Heat supply is calculated from link energy balances, excluding CO2 flows. For urban
+    central heat, distribution losses are separated from consumption using heat loss factors.
+    The function supports both ESMGroupedBarChart (preserving individual bus carriers) and
+    ESMBarChart (aggregating bus carriers) visualization modes.
     """
     bus_carrier = config["view"]["bus_carrier"]
     # todo: storage links
@@ -144,15 +178,23 @@ def view_balance_hydrogen(
     config: dict,
 ) -> None:
     """
-    Evaluate the Hydrogen balance.
+    Evaluate and export the hydrogen balance showing H2 production and consumption.
 
-    Returns
-    -------
-    :
+    This function analyzes hydrogen flows in the energy system, including production
+    from electrolyzers and other sources, as well as consumption from fuel cells,
+    industrial processes, and other hydrogen-using technologies. It delegates to the
+    simple_bus_balance function to collect and export supply and withdrawal statistics
+    for hydrogen buses.
 
-    Notes
-    -----
-    See eval module docstring for parameter description.
+    Parameters
+    ----------
+    result_path
+        Path where the evaluation results will be saved.
+    networks
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    config
+        Configuration dictionary containing view settings including bus_carrier specification,
+        chart type, and export parameters.
     """
     simple_bus_balance(networks, config, result_path)
 
@@ -163,11 +205,23 @@ def view_balance_methane(
     config: dict,
 ) -> None:
     """
-    Evaluate the methane balance.
+    Evaluate and export the methane balance showing natural gas and biogas flows.
 
-    Returns
-    -------
-    :
+    This function analyzes methane (CH4) flows in the energy system, including natural gas
+    supply from pipelines and storage, biogas production, methanation processes, and
+    consumption in gas boilers, combined heat and power plants, and other gas-consuming
+    technologies. It delegates to the simple_bus_balance function to collect and export
+    supply and withdrawal statistics for methane buses.
+
+    Parameters
+    ----------
+    result_path
+        Path where the evaluation results will be saved.
+    networks
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    config
+        Configuration dictionary containing view settings including bus_carrier specification,
+        chart type, and export parameters.
     """
     simple_bus_balance(networks, config, result_path)
 
@@ -178,10 +232,22 @@ def view_balance_biomass(
     config: dict,
 ) -> None:
     """
-    Evaluate the solid biomass balance.
+    Evaluate and export the solid biomass balance showing biomass supply and consumption.
 
-    Returns
-    -------
-    :
+    This function analyzes solid biomass flows in the energy system, including biomass
+    supply from forestry and agriculture, biomass imports, and consumption in biomass
+    boilers, combined heat and power plants, and other biomass-using technologies. It
+    delegates to the simple_bus_balance function to collect and export supply and
+    withdrawal statistics for solid biomass buses.
+
+    Parameters
+    ----------
+    result_path
+        Path where the evaluation results will be saved.
+    networks
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    config
+        Configuration dictionary containing view settings including bus_carrier specification,
+        chart type, and export parameters.
     """
     simple_bus_balance(networks, config, result_path)

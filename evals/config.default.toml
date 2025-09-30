@@ -298,102 +298,110 @@ bus_carrier = ["co2", "co2 sequestered", "co2 stored"]
 chart = "ESMBarChart"
 cutoff = 0.1
 legend_order = [
-    # production ordered from zero to outside
+    # from zero to top
+    "Transport",
+    "Industry",
+    "Heat",
+    "Waste",
     "Fischer-Tropsch",
-    "Bioliquids",
     "SynGas",
-    "SynGas (CC)",
     "DAC",
     "Agriculture",
     "CHP",
     "Sabatier",
-    "Bioliquids (CC)",
-    "Methane Compressors",
-    "Biogas (CC)",
     "CO2 Sequestration",
-    "Biofuels",
-    "HVC",
     "Methanol Steam Reforming",
-    "Biogas",
-    "Methanolisation",
     "SMR",
-    "CO2 Budget",
-    "CO2 ventilation",
+    "CO2 Ventilation",
     "Oil Refining",
-    "Transport",
-    "CO2 Store",
-    "Electricity",
-    "CHP (CC)",
-    "Industry (CC)",
-    "Waste",
-    "Heat",
-    "Industry",
+    "Thermal Powerplants",
+    "CO2 Ventilation",
+    "Storage Out",
     "Import Domestic",
     "Import Foreign",
-    # demand ordered from zero to outside:
-
+    # zero to bottom:
+    "Liquids",
+    "Biogas",
+    "CO2 Store",
+    "Storage In",
     "Export Domestic",
     "Export Foreign",
+    "Global Market",
 ]
 checks = []  # "balances_almost_zero" deactivated, because it is not applicable for carbon budgets
 exports = []
 
 [view_balance_carbon.categories]
-"co2" = "CO2 Budget"
+"agriculture machinery oil" = "Agriculture"
 "biogas to gas" = "Biogas"
-"biogas to gas CC" = "Biogas (CC)"
-"biomass to liquid" = "Bioliquids"
-"biomass to liquid CC" = "Bioliquids (CC)"
-"BioSNG" = "SynGas"
-"BioSNG CC" = "SynGas (CC)"
-"CCGT" = "Electricity"
+"biogas to gas CC" = "Biogas"
+"urban central CHP" = "CHP"
+"urban central coal CHP" = "CHP"
+"urban central gas CHP" = "CHP"
+"urban central lignite CHP" = "CHP"
+"urban central oil CHP" = "CHP"
+"waste CHP" = "CHP"
+"urban central gas CHP CC" = "CHP"
+"urban central solid biomass CHP CC" = "CHP"
+"waste CHP CC" = "CHP"
+"co2 sequestered" = "CO2 Sequestration"
+"co2 stored" = "CO2 Store"
+"co2 vent" = "CO2 Ventilation"
 "DAC" = "DAC"
 "Export Domestic" = "Export Domestic"
 "Export Foreign" = "Export Foreign"
 "Fischer-Tropsch" = "Fischer-Tropsch"
-"HVC to air" = "HVC"
-"Import Domestic" = "Import Domestic"
-"Import Foreign" = "Import Foreign"
-"Methanol steam reforming" = "Methanol Steam Reforming"
-"OCGT" = "Electricity"
-"SMR" = "SMR"
-"SMR CC" = "SMR"
-"Sabatier" = "Sabatier"
-"agriculture machinery oil" = "Agriculture"
-"co2 sequestered" = "CO2 Sequestration"
-"co2 stored" = "CO2 Store"
-"co2 vent" = "CO2 ventilation"
-"coal" = "Electricity"
-"coal for industry" = "Industry"
-"electrobiofuels" = "Biofuels"
-"gas compressing" = "Methane Compressors"
-"gas for industry" = "Industry"
-"gas for industry CC" = "Industry (CC)"
-"industry methanol" = "Industry"
-"kerosene for aviation" = "Transport"
-"land transport oil" = "Transport"
-"lignite" = "Electricity"
-"methanolisation" = "Methanolisation"
-"municipal solid waste" = "Waste"
-"oil refining" = "Oil Refining"
-"process emissions" = "Industry"
-"process emissions CC" = "Industry (CC)"
+"import gas" = "Global Market"
+"import methanol" = "Global Market"
+"import oil" = "Global Market"
 "rural gas boiler" = "Heat"
 "rural oil boiler" = "Heat"
-"shipping methanol" = "Transport"
-"shipping oil" = "Transport"
-"solid biomass for industry CC" = "Industry (CC)"
-"unsustainable bioliquids" = "Bioliquids"
-"urban central CHP" = "CHP"
-"urban central coal CHP" = "CHP"
-"urban central gas CHP" = "CHP"
 "urban central gas boiler" = "Heat"
-"urban central lignite CHP" = "CHP"
-"urban central oil CHP" = "CHP"
 "urban decentral gas boiler" = "Heat"
 "urban decentral oil boiler" = "Heat"
-"waste CHP" = "CHP"
-"waste CHP CC" = "CHP (CC)"
+"Import Domestic" = "Import Domestic"
+"Import Foreign" = "Import Foreign"
+"coal for industry" = "Industry"
+"gas for industry" = "Industry"
+"gas for industry CC" = "Industry"
+"industry methanol" = "Industry"
+"process emissions" = "Industry"
+"process emissions CC" = "Industry"
+"solid biomass for industry CC" = "Industry"
+"biomass to liquid" = "Liquids"
+"biomass to liquid CC" = "Liquids"
+"biomass-to-methanol" = "Liquids"
+"biomass-to-methanol CC" = "Liquids"
+"electrobiofuels" = "Liquids"
+"methanol-to-kerosene" = "Liquids"
+"methanolisation" = "Liquids"
+"unsustainable bioliquids" = "Liquids"
+#"gas compressing" = "Methane Compressors"
+"Methanol steam reforming" = "Methanol Steam Reforming"
+"Methanol steam reforming CC" = "Methanol Steam Reforming"
+"oil refining" = "Oil Refining"
+"Sabatier" = "Sabatier"
+"SMR" = "SMR"
+"SMR CC" = "SMR"
+"Storage In" = "Storage In"
+"Storage Out" = "Storage Out"
+"BioSNG" = "SynGas"
+"BioSNG CC" = "SynGas"
+"solid biomass to hydrogen" = "SynGas"
+"CCGT" = "Thermal Powerplants"
+"CCGT methanol" = "Thermal Powerplants"
+"CCGT methanol CC" = "Thermal Powerplants"
+"OCGT" = "Thermal Powerplants"
+"OCGT methanol" = "Thermal Powerplants"
+"allam methanol" = "Thermal Powerplants"
+"coal" = "Thermal Powerplants"
+"lignite" = "Thermal Powerplants"
+"kerosene for aviation" = "Transport"
+"land transport oil" = "Transport"
+"shipping methanol" = "Transport"
+"shipping oil" = "Transport"
+"HVC to air" = "Waste"
+"municipal solid waste" = "Waste"
 
 [view_balance_fuels]
 name = "Fuel Balance"

@@ -720,7 +720,7 @@ COLOUR_SCHEME: dict = {
     "Storage": COLOUR.grey_light,
     "DAC": COLOUR.red_chestnut,
     "co2 vent": COLOUR.grey_silver,
-    "CO2 ventilation": COLOUR.grey_silver,
+    "CO2 Ventilation": COLOUR.grey_silver,
     "CO2 Budget": COLOUR.grey_cool,
     "CO2 Sequestration": COLOUR.grey_silver,
     "CO2 Store": COLOUR.grey_silver,
