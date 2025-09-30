@@ -10,7 +10,6 @@ from evals.fileio import Exporter
 from evals.statistic import collect_myopic_statistics
 from evals.utils import (
     get_heat_loss_factor,
-    rename_aggregate,
     split_urban_central_heat_losses_and_consumption,
 )
 from evals.views.common import get_energy_for_heat_production, simple_bus_balance
@@ -129,22 +128,22 @@ def view_balance_heat(
     exporter = Exporter(
         statistics=[heat_mix, demand, generator_supply], view_config=config["view"]
     )
-
-    # static view settings:
-    chart_class = getattr(plots, config["view"]["chart"])
-    exporter.defaults.plotly.chart = chart_class
-    # exporter.defaults.plotly.pattern = {"Demand": "/"}
-
-    if chart_class == plots.ESMGroupedBarChart:
-        exporter.defaults.plotly.xaxis_title = ""
-    elif chart_class == plots.ESMBarChart:
-        # combine bus carrier to export netted technologies, although
-        # they have difference bus_carrier in index, e.g.
-        # electricity distribution grid, (AC, low voltage)
-        exporter.statistics = [
-            rename_aggregate(stat, bus_carrier[0], level=DM.BUS_CARRIER)
-            for stat in exporter.statistics
-        ]
+    #
+    # # static view settings:
+    # chart_class = getattr(plots, config["view"]["chart"])
+    # exporter.defaults.plotly.chart = chart_class
+    # # exporter.defaults.plotly.pattern = {"Demand": "/"}
+    #
+    # if chart_class == plots.ESMGroupedBarChart:
+    #     exporter.defaults.plotly.xaxis_title = ""
+    # elif chart_class == plots.ESMBarChart:
+    #     # combine bus carrier to export netted technologies, although
+    #     # they have difference bus_carrier in index, e.g.
+    #     # electricity distribution grid, (AC, low voltage)
+    #     exporter.statistics = [
+    #         rename_aggregate(stat, bus_carrier[0], level=DM.BUS_CARRIER)
+    #         for stat in exporter.statistics
+    #     ]
 
     exporter.export(result_path, config["global"]["subdir"])
 

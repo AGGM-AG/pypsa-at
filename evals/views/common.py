@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from evals import plots as plots
 from evals.constants import BusCarrier, DataModel, Group, TradeTypes
 from evals.constants import DataModel as DM
 from evals.fileio import Exporter
@@ -102,21 +101,6 @@ def simple_bus_balance(
         statistics=[supply, demand] + trade_statistics,
         view_config=config["view"],
     )
-
-    chart_class = getattr(plots, config["view"]["chart"])
-    exporter.defaults.plotly.chart = chart_class
-
-    if chart_class == plots.ESMGroupedBarChart:
-        exporter.defaults.plotly.xaxis_title = ""
-    elif chart_class == plots.ESMBarChart:
-        # combine bus carrier to export netted technologies, although
-        # they have difference bus_carrier in index, e.g.,
-        # electricity distribution grid, (AC, low voltage)
-        exporter.statistics = [
-            rename_aggregate(s, bus_carrier[0], level=DM.BUS_CARRIER)
-            for s in exporter.statistics
-        ]
-
     exporter.export(result_path, config["global"]["subdir"])
 
 
@@ -194,19 +178,19 @@ def simple_timeseries(
         statistics=[supply, demand, trade_saldo],
         view_config=config["view"],
     )
-
-    # view specific settings
-    exporter.defaults.excel.chart = None  # charts bloat the xlsx file
-    chart_class = getattr(plots, config["view"]["chart"])
-    exporter.defaults.plotly.chart = chart_class
-
-    exporter.defaults.plotly.plotby = [DM.YEAR, DM.LOCATION]
-    exporter.defaults.plotly.pivot_index = [
-        DM.YEAR,
-        DM.LOCATION,
-        DM.CARRIER,
-    ]
-    exporter.defaults.plotly.xaxis_title = ""
+    #
+    # # view specific settings
+    # exporter.defaults.excel.chart = None  # charts bloat the xlsx file
+    # chart_class = getattr(plots, config["view"]["chart"])
+    # exporter.defaults.plotly.chart = chart_class
+    #
+    # exporter.defaults.plotly.plotby = [DM.YEAR, DM.LOCATION]
+    # exporter.defaults.plotly.pivot_index = [
+    #     DM.YEAR,
+    #     DM.LOCATION,
+    #     DM.CARRIER,
+    # ]
+    # exporter.defaults.plotly.xaxis_title = ""
 
     exporter.export(result_path, config["global"]["subdir"])
 
@@ -252,20 +236,20 @@ def simple_optimal_capacity(
         view_config=config["view"],
     )
 
-    # view specific constant settings
-    chart_class = getattr(plots, config["view"]["chart"])
-    exporter.defaults.plotly.chart = chart_class
-
-    if chart_class == plots.ESMGroupedBarChart:
-        exporter.defaults.plotly.xaxis_title = ""
-    elif chart_class == plots.ESMBarChart:
-        # combine bus carrier to export netted technologies, although
-        # they have difference bus_carrier in index, e.g.
-        # electricity distribution grid, (AC, low voltage)
-        exporter.statistics = [
-            rename_aggregate(s, bus_carrier[0], level=DM.BUS_CARRIER)
-            for s in exporter.statistics
-        ]
+    # # view specific constant settings
+    # chart_class = getattr(plots, config["view"]["chart"])
+    # exporter.defaults.plotly.chart = chart_class
+    #
+    # if chart_class == plots.ESMGroupedBarChart:
+    #     exporter.defaults.plotly.xaxis_title = ""
+    # elif chart_class == plots.ESMBarChart:
+    #     # combine bus carrier to export netted technologies, although
+    #     # they have difference bus_carrier in index, e.g.
+    #     # electricity distribution grid, (AC, low voltage)
+    #     exporter.statistics = [
+    #         rename_aggregate(s, bus_carrier[0], level=DM.BUS_CARRIER)
+    #         for s in exporter.statistics
+    #     ]
 
     exporter.export(result_path, config["global"]["subdir"])
 
@@ -293,7 +277,7 @@ def simple_storage_capacity(
         view_config=config["view"],
     )
 
-    exporter.defaults.plotly.chart = getattr(plots, config["view"]["chart"])
+    # exporter.defaults.plotly.chart = getattr(plots, config["view"]["chart"])
     exporter.defaults.plotly.cutoff_drop = False  # prevent dropping empty years
 
     exporter.export(result_path, config["global"]["subdir"])

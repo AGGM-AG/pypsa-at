@@ -16,6 +16,7 @@ import pypsa
 import tomllib
 from pydantic.v1.utils import deep_update
 
+from evals import plots as plots
 from evals.configs import ViewDefaults
 from evals.constants import (
     ALIAS_COUNTRY,
@@ -419,6 +420,32 @@ class Exporter:
         -------
         :
         """
+
+        # apply configuration switches that depend on the requested chart
+        chart_class = getattr(plots, self.view_config["chart"])
+        self.defaults.plotly.chart = chart_class
+
+        if chart_class == plots.ESMGroupedBarChart:
+            self.defaults.plotly.xaxis_title = ""
+        elif chart_class == plots.ESMTimeSeriesChart:
+            self.defaults.plotly.xaxis_title = ""
+            self.defaults.excel.chart = None  # charts bloat the xlsx file
+            self.defaults.plotly.plotby = [DataModel.YEAR, DataModel.LOCATION]
+            self.defaults.plotly.pivot_index = [
+                DataModel.YEAR,
+                DataModel.LOCATION,
+                DataModel.CARRIER,
+            ]
+        elif chart_class == plots.ESMBarChart:
+            # combine bus carrier to export netted technologies, although
+            # they have difference bus_carrier in index, e.g.
+            # electricity distribution grid, (AC, low voltage)
+            first_bus_carrier = self.statistics[0].index.unique("bus_carrier")[0]
+            self.statistics = [
+                rename_aggregate(stat, first_bus_carrier, level=DataModel.BUS_CARRIER)
+                for stat in self.statistics
+            ]
+
         output_path = self.make_evaluation_result_directories(result_path, subdir)
 
         self.export_plotly(output_path)

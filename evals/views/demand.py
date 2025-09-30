@@ -81,8 +81,8 @@ def view_demand_heat(
     )
 
     # view specific static settings:
-    chart_class = getattr(plots, config["view"]["chart"])
-    exporter.defaults.plotly.chart = chart_class
+    # chart_class = getattr(plots, config["view"]["chart"])
+    # exporter.defaults.plotly.chart = chart_class
 
     exporter.defaults.excel.pivot_index = [DataModel.LOCATION, DataModel.BUS_CARRIER]
     exporter.defaults.plotly.plot_category = DataModel.BUS_CARRIER
@@ -156,8 +156,8 @@ def view_demand_heat_system(
         view_config=config["view"],
     )
 
-    exporter.defaults.plotly.chart = getattr(plots, config["view"]["chart"])
-    exporter.defaults.plotly.xaxis_title = ""
+    # exporter.defaults.plotly.chart = getattr(plots, config["view"]["chart"])
+    # exporter.defaults.plotly.xaxis_title = ""
     exporter.export(result_path, subdir=subdir)
 
 
@@ -302,12 +302,9 @@ def view_demand_fed(
     fed = fed.swaplevel(DataModel.CARRIER, DataModel.BUS_CARRIER)
     fed.index.names = DataModel.YEAR_IDX_NAMES
 
-    exporter = Exporter(
-        statistics=[fed],
-        view_config=config["view"],
-    )
-    exporter.defaults.plotly.chart = getattr(plots, config["view"]["chart"])
-    exporter.defaults.plotly.xaxis_title = ""
+    exporter = Exporter(statistics=[fed], view_config=config["view"])
+    # exporter.defaults.plotly.chart = getattr(plots, config["view"]["chart"])
+    # exporter.defaults.plotly.xaxis_title = ""
     exporter.export(result_path, subdir=subdir)
 
 
