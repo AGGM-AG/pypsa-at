@@ -4,7 +4,6 @@
 # For license information, see the LICENSE.txt file in the project root.
 from pathlib import Path
 
-from evals import plots as plots
 from evals.constants import DataModel as DM
 from evals.fileio import Exporter
 from evals.statistic import collect_myopic_statistics
@@ -227,3 +226,14 @@ def view_balance_biomass(
         chart type, and export parameters.
     """
     simple_bus_balance(networks, config, result_path)
+
+
+def view_balance_fuels(
+    result_path: str | Path,
+    networks: dict,
+    config: dict,
+) -> None:
+    # show balances for coal, lignite, oil, waste, solid biomass, and other fuels
+    # (any fuel that goes in to thermal powerplants or CHPs) in a grouped barchart
+    # exclude gas and hydrogen, they have separate balance views
+    raise NotImplementedError

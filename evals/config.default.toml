@@ -406,6 +406,7 @@ exports = []
 [view_balance_fuels]
 name = "Fuel Balance"
 unit = "MWh_LHV"
+chart = "ESMGroupedBarChart"
 file_name = "nodal_balance_fuels_{location}"
 cutoff = 0.001
 legend_order = [
@@ -735,36 +736,46 @@ bus_carrier = "solid biomass"
 chart = "ESMBarChart"
 cutoff = 0.001
 legend_order = [
-    #    # production ordered from zero to outside
-    #    "Electricity",
-    #    "Electricity (low voltage)",
-    #    "Oil",
-    #    "Solar Power",
-    #    "Methane",
-    #    "Hydrogen",
-    #    "Electrolysis",
-    #    "Sabatier",
-    #    "Methanolisation",
-    #    #    "CHP",
-    #    "Waste",
-    #    "CO2",
-    #    "Coal",
-    #    "Fischer-Tropsch",
-    #    "Haber-Bosch",
-    #    "Biomass",
-    #    "Solid Biomass",
-    #    # demand ordered from zero to outside
-    #    "Demand",
-    #    "Agriculture",
-    #    "Direct Air Capture",
-    #    "Industry",
-    #    "Distribution Losses",
-    #    "Heat Ventilation"
+    # from zero to top
+    "Solid Biomass",
+    "Unsustainable Solid Biomass",
+    "Import Domestic",
+    "Import Foreign",
+    # from zero to bottom
+    "Industry",
+    "SynGas",
+    "Bio H2",
+    "Liquids",
+    "Methanol",
+    "Biomass Boiler",
+    "CHP",
+    "Export Domestic",
+    "Export Foreign",
 ]
 checks = ["balances_almost_zero"]
 exports = []
 
 [view_balance_biomass.categories]
+"BioSNG" = "SynGas"
+"BioSNG CC" = "SynGas"
+"Export Foreign" = "Export Foreign"
+"Import Foreign" = "Import Foreign"
+"biomass to liquid" = "Liquids"
+"biomass to liquid CC" = "Liquids"
+"biomass-to-methanol" = "Methanol"
+"biomass-to-methanol CC" = "Methanol"
+"electrobiofuels" = "Liquids"
+"rural biomass boiler" = "Biomass Boiler"
+"solid biomass for industry" = "Industry"
+"solid biomass for industry CC" = "Industry"
+"solid biomass to hydrogen" = "Bio H2"
+"unsustainable solid biomass" = "Unsustainable Solid Biomass"
+"urban decentral biomass boiler" = "Biomass Boiler"
+"urban central solid biomass CHP" = "CHP"
+"urban central solid biomass CHP CC" = "CHP"
+"Export Domestic" = "Export Domestic"
+"Import Domestic" = "Import Domestic"
+"solid biomass" = "Solid Biomass"
 
 [view_demand_heat]
 name = "Energy Demand for Heat Production"

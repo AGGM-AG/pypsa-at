@@ -632,6 +632,7 @@ COLOUR_SCHEME: dict = {
     Group.biomass: COLOUR.green_light,
     "Wet Biomass": COLOUR.green_light,
     "Solid Biomass": COLOUR.green_light,
+    "Unsustainable Solid Biomass": COLOUR.green_sage,
     Group.chp_biomass: COLOUR.green_light,
     Group.solid_biomass_boiler: COLOUR.green,
     "Biomass Boiler": COLOUR.green,
