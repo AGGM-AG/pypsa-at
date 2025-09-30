@@ -47,9 +47,15 @@ class ESMBarChart(ESMChart):
             The barmode for the bar chart, either "relative" if there
             are both negative and positive values, or "stack" if not.
         """
-        has_negatives = self._df.lt(0).to_numpy().any()
-        has_positives = self._df.ge(0).to_numpy().any()
-        return "relative" if has_negatives and has_positives else "stack"
+        return "relative" if self._has_negatives and self._has_positives else "stack"
+
+    @cached_property
+    def _has_negatives(self):
+        return self._df.lt(0).to_numpy().any()
+
+    @cached_property
+    def _has_positives(self):
+        return self._df.ge(0).to_numpy().any()
 
     @cached_property
     def df(self) -> pd.DataFrame:
@@ -114,8 +120,12 @@ class ESMBarChart(ESMChart):
             self.fig.add_hline(y=0)  # visual separator between supply and withdrawal
             self._add_total_sum_trace("Lower Sum", orientation="down")
             self._add_total_sum_trace("Upper Sum", orientation="up")
-        else:
+        elif self._has_negatives and not self._has_positives:
+            self._add_total_sum_trace("Lower Sum", orientation="down")
+        elif self.barmode == "stack":  # works for positive only traces
             self._add_total_sum_trace("Sum")
+        else:
+            raise ValueError(f"Unexpected barmode: {self.barmode}")
 
     def _add_total_sum_trace(
         self,

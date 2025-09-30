@@ -116,7 +116,7 @@ exports = ["csv", "excel"]
 "urban central water pits discharger" = "Storage Out"
 
 [view_capacity_electricity_production]
-name = "Optimal Capacity Electricity"
+name = "Optimal Capacity Electricity Production"
 unit = "GW"
 file_name = "capacity_ac_production_{location}"
 bus_carrier = ["AC", "low voltage", "EV battery", "home battery"]
@@ -127,7 +127,7 @@ legend_order = [
     "Nuclear Power",
     "CHP",
     "Thermal Powerplant",
-#    "Reservoir",
+    #    "Reservoir",
     "Run-of-River",
     "Wind Power",
     "Solar Power"
@@ -174,6 +174,48 @@ exports = ["csv"]
 "urban central solid biomass CHP CC" = "CHP"  # "CHP (Biomass)"
 "waste CHP" = "CHP"  # "CHP (Waste)"
 "waste CHP CC" = "CHP"  # "CHP (Waste)"
+
+[view_capacity_electricity_demand]
+name = "Optimal Capacity Electricity Demand"
+unit = "GW"
+file_name = "capacity_ac_demand_{location}"
+bus_carrier = ["AC", "low voltage", "EV battery", "home battery"]
+storage_links = ["BEV charger", "V2G", "battery discharger", "home battery discharger", "electricity distribution grid"]
+chart = "ESMBarChart"
+cutoff = 0.1  # GW
+legend_order = [
+    # zero to negative bottom
+    "Electrolysis",
+    "Resistive Heater",
+    "Air Heat Pump",
+    "Ground Heat Pump",
+    "Haber-Bosch",
+    "Direct Air Capture",
+    "Hydrogen Compressors",
+    "Methane Compressors",
+    "Methanolisation",
+    "Battery Storage",
+]
+checks = []
+exports = []
+
+[view_capacity_electricity_demand.categories]
+"DAC" = "Direct Air Capture"
+"Haber-Bosch" = "Haber-Bosch"
+"methanolisation" = "Methanolisation"
+"rural air heat pump" = "Air Heat Pump"
+"urban decentral air heat pump" = "Air Heat Pump"
+"urban central air heat pump" = "Air Heat Pump"
+"rural ground heat pump" = "Ground Heat Pump"
+"rural resistive heater" = "Resistive Heater"
+"urban decentral resistive heater" = "Resistive Heater"
+"urban central resistive heater" = "Resistive Heater"
+"gas pipeline" = "Methane Compressors"
+"H2 Electrolysis" = "Electrolysis"
+"H2 pipeline" = "Hydrogen Compressors"
+"H2 pipeline (Kernnetz)" = "Hydrogen Compressors"
+"battery charger" = "Battery Storage"
+"home battery charger" = "Battery Storage"
 
 [view_capacity_electricity_storage]
 name = "Power Storage Volumes"
@@ -679,31 +721,31 @@ bus_carrier = "solid biomass"
 chart = "ESMBarChart"
 cutoff = 0.001
 legend_order = [
-#    # production ordered from zero to outside
-#    "Electricity",
-#    "Electricity (low voltage)",
-#    "Oil",
-#    "Solar Power",
-#    "Methane",
-#    "Hydrogen",
-#    "Electrolysis",
-#    "Sabatier",
-#    "Methanolisation",
-#    #    "CHP",
-#    "Waste",
-#    "CO2",
-#    "Coal",
-#    "Fischer-Tropsch",
-#    "Haber-Bosch",
-#    "Biomass",
-#    "Solid Biomass",
-#    # demand ordered from zero to outside
-#    "Demand",
-#    "Agriculture",
-#    "Direct Air Capture",
-#    "Industry",
-#    "Distribution Losses",
-#    "Heat Ventilation"
+    #    # production ordered from zero to outside
+    #    "Electricity",
+    #    "Electricity (low voltage)",
+    #    "Oil",
+    #    "Solar Power",
+    #    "Methane",
+    #    "Hydrogen",
+    #    "Electrolysis",
+    #    "Sabatier",
+    #    "Methanolisation",
+    #    #    "CHP",
+    #    "Waste",
+    #    "CO2",
+    #    "Coal",
+    #    "Fischer-Tropsch",
+    #    "Haber-Bosch",
+    #    "Biomass",
+    #    "Solid Biomass",
+    #    # demand ordered from zero to outside
+    #    "Demand",
+    #    "Agriculture",
+    #    "Direct Air Capture",
+    #    "Industry",
+    #    "Distribution Losses",
+    #    "Heat Ventilation"
 ]
 checks = ["balances_almost_zero"]
 exports = []
@@ -770,7 +812,7 @@ checks = []
 exports = []
 
 [view_demand_heat_system.categories]
-"ambient heat"= "Ambient Heat"
+"ambient heat" = "Ambient Heat"
 "gas" = "Methane"
 "low voltage" = "Electricity"
 "solar heat" = "Solar Thermal"
@@ -807,28 +849,28 @@ checks = []
 exports = []
 
 [view_demand_fed.categories]
-"EV battery"="Electricity"
-"H2"="Hydrogen"
-"agriculture machinery oil"="Liquids"
-"ambient heat"="Ambient Heat"
-"coal for industry"="Coal"
-"gas"="Methane"
-"gas for industry"="Methane"
-"gas for industry CC"="Methane"
-"kerosene for aviation"="Liquids"
-"land transport oil"="Liquids"
-"low voltage"="Electricity"
-"naphtha for industry"="Liquids"
-"shipping oil"="Liquids"
-"solid biomass"="Solid Biomass"
-"solid biomass for industry"="Solid Biomass"
-"solid biomass for industry CC"="Solid Biomass"
-"NH3"="Ammonia"
-"industry methanol"="Methanol"
-"oil"="Liquids"
-"shipping methanol"="Methanol"
-"urban central heat"="Heat"
-"solar heat"="Solar Thermal"
+"EV battery" = "Electricity"
+"H2" = "Hydrogen"
+"agriculture machinery oil" = "Liquids"
+"ambient heat" = "Ambient Heat"
+"coal for industry" = "Coal"
+"gas" = "Methane"
+"gas for industry" = "Methane"
+"gas for industry CC" = "Methane"
+"kerosene for aviation" = "Liquids"
+"land transport oil" = "Liquids"
+"low voltage" = "Electricity"
+"naphtha for industry" = "Liquids"
+"shipping oil" = "Liquids"
+"solid biomass" = "Solid Biomass"
+"solid biomass for industry" = "Solid Biomass"
+"solid biomass for industry CC" = "Solid Biomass"
+"NH3" = "Ammonia"
+"industry methanol" = "Methanol"
+"oil" = "Liquids"
+"shipping methanol" = "Methanol"
+"urban central heat" = "Heat"
+"solar heat" = "Solar Thermal"
 
 
 [view_timeseries_electricity]

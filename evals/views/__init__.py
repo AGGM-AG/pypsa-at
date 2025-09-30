@@ -19,6 +19,7 @@ from evals.views.balances_timeseries import (
     view_timeseries_methane,
 )
 from evals.views.capacities import (
+    view_capacity_electricity_demand,
     view_capacity_electricity_production,
     view_capacity_electricity_storage,
     view_capacity_gas_production,
@@ -44,6 +45,7 @@ __all__ = [
     "view_capacity_heat_demand",
     "view_capacity_electricity_storage",
     "view_capacity_electricity_production",
+    "view_capacity_electricity_demand",
     "view_capacity_hydrogen_production",
     "view_capacity_gas_production",
     # balances

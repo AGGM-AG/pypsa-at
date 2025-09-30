@@ -360,15 +360,34 @@ def apply_heat_mix_to_decentral_heat_buses(
     load: pd.Series, heat_share: pd.Series
 ) -> pd.Series:
     """
+    Apply heat production mix ratios to decentral heat loads to disaggregate by energy carrier.
+
+    This function transforms decentral heat loads (rural and urban decentral heat buses) by
+    breaking them down into their constituent energy carrier contributions based on the
+    actual heat production mix. Non-decentral loads are passed through unchanged.
 
     Parameters
     ----------
     load
+        Series containing heat load data indexed by year, location, carrier, and bus_carrier.
+        Should include loads from both decentral and non-decentral heat buses.
     heat_share
+        Series containing the fractional share of each energy carrier in the heat production
+        mix for decentral heat buses, indexed by year, location, carrier, and bus_carrier.
+        Values should sum to 1.0 for each (year, location) combination.
 
     Returns
     -------
     :
+        Series combining unchanged non-decentral loads with disaggregated decentral loads,
+        where each decentral heat load has been multiplied by the heat production mix ratios
+        and expanded into separate entries for each contributing energy carrier.
+
+    Notes
+    -----
+    Decentral heat buses are identified by regex pattern matching for "decentral" or "rural"
+    in the index. Each decentral load value is multiplied by all applicable heat share ratios
+    to produce a detailed breakdown of the energy carriers feeding that heat demand.
     """
     decentral_heat = load.filter(regex="decentral|rural")
 

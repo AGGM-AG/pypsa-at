@@ -7,6 +7,7 @@
 import logging
 import re
 from contextlib import contextmanager
+from itertools import product
 
 import numpy as np
 import pandas as pd
@@ -1042,9 +1043,8 @@ def get_storage_carriers(networks: dict) -> list[str]:
         A list of storage carrier names.
     """
     storage_carriers = set()
-    for n in networks.values():
-        for c in ("Store", "StorageUnit"):
-            storage_carriers = storage_carriers.union(n.static(c)["carrier"].unique())
+    for n, c in product(networks.values(), ("Store", "StorageUnit")):
+        storage_carriers = storage_carriers.union(n.static(c)["carrier"].unique())
 
     return sorted(storage_carriers)
 
