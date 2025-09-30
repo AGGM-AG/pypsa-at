@@ -634,6 +634,7 @@ COLOUR_SCHEME: dict = {
     "Solid Biomass": COLOUR.green_light,
     Group.chp_biomass: COLOUR.green_light,
     Group.solid_biomass_boiler: COLOUR.green,
+    "Biomass Boiler": COLOUR.green,
     # brown - methane
     "Methane": COLOUR.brown,
     "Methane Store": COLOUR.brown,
@@ -656,6 +657,7 @@ COLOUR_SCHEME: dict = {
     "Hydrogen": COLOUR.blue_pastel,
     "Hydrogen Store": COLOUR.blue_pastel,
     "H2": COLOUR.blue_pastel,
+    "H2 CHP": COLOUR.blue_sky,
     "Electrolysis": COLOUR.blue_pastel,
     "SMR": COLOUR.yellow_bright,
     "Hydrogen Tube Storage": COLOUR.blue_pastel,
