@@ -26,6 +26,30 @@ def simple_bus_balance(
     config: dict,
     result_path,
 ) -> None:
+    """
+    Calculate and export simple bus balance statistics for energy supply and demand.
+
+    This function computes the energy balance for specified bus carriers by collecting
+    supply and withdrawal statistics, filtering out transmission components, and handling
+    storage links. It also calculates trade statistics for both foreign and domestic
+    imports and exports, then exports all data according to the view configuration.
+
+    Parameters
+    ----------
+    networks
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    config
+        Configuration dictionary containing view settings including bus_carrier, storage_links,
+        and export parameters.
+    result_path
+        Path where the evaluation results will be saved.
+
+    Notes
+    -----
+    Supply values are positive and represent energy production or imports.
+    Demand values are negated to show as negative for visualization purposes.
+    The function exports data via Exporter using configured format settings.
+    """
     (
         bus_carrier,
         transmission_comps,
@@ -50,6 +74,10 @@ def simple_bus_balance(
         .droplevel(DM.COMPONENT)
     )
 
+    # quick fix to allow mixed bus_carrier units
+    if supply.attrs["unit"] == "carrier dependent":
+        supply.attrs["unit"] = "MWh"
+
     demand = (
         collect_myopic_statistics(
             networks,
@@ -67,6 +95,9 @@ def simple_bus_balance(
         .mul(-1)
         .droplevel(DM.COMPONENT)
     )
+
+    if demand.attrs["unit"] == "carrier dependent":
+        demand.attrs["unit"] = supply.attrs["unit"]
 
     trade_statistics = []
     for scope, direction, alias in [
@@ -97,10 +128,15 @@ def simple_bus_balance(
         trade.attrs["unit"] = supply.attrs["unit"]
         trade_statistics.append(trade)
 
-    exporter = Exporter(
-        statistics=[supply, demand] + trade_statistics,
-        view_config=config["view"],
-    )
+    # aggregate bus carriers by group
+    statistics = [supply, demand] + trade_statistics
+    if bus_carrier_groups := config["view"].get("bus_carrier_groups", {}):
+        statistics = [
+            rename_aggregate(stat, bus_carrier_groups, level=DM.BUS_CARRIER)
+            for stat in statistics
+        ]
+
+    exporter = Exporter(statistics=statistics, view_config=config["view"])
     exporter.export(result_path, config["global"]["subdir"])
 
 
@@ -109,7 +145,30 @@ def simple_timeseries(
     config: dict,
     result_path: str | Path,
 ) -> None:
-    """Export simple time series views."""
+    """
+    Calculate and export time series data for energy supply, demand, and trade balance.
+
+    This function collects hourly time series statistics for supply and withdrawal,
+    along with net trade saldo (imports minus exports) for specified bus carriers.
+    Unlike simple_bus_balance, this function preserves temporal resolution and does
+    not aggregate over time periods.
+
+    Parameters
+    ----------
+    networks
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    config
+        Configuration dictionary containing view settings including bus_carrier, storage_links,
+        and export parameters.
+    result_path
+        Path where the evaluation results will be saved.
+
+    Notes
+    -----
+    Trade saldo combines both foreign and domestic trade into a single net balance.
+    Time series data is not aggregated over time, preserving hourly or sub-hourly resolution.
+    This function is useful for analyzing temporal patterns and system operation.
+    """
     (
         bus_carrier,
         transmission_comps,
@@ -198,7 +257,32 @@ def simple_timeseries(
 def simple_optimal_capacity(
     networks: dict, config: dict, result_path: str | Path, kind: str = None
 ) -> None:
-    """Export optimal capacities for production or demand or both."""
+    """
+    Calculate and export optimal capacity statistics for energy system components.
+
+    This function collects optimal capacity data for components connected to specified
+    bus carriers, filtering out transmission and storage links. The capacity data can be
+    filtered to show only production capacities (positive values), demand capacities
+    (negative values), or both.
+
+    Parameters
+    ----------
+    networks
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    config
+        Configuration dictionary containing view settings including bus_carrier, storage_links,
+        and export parameters.
+    result_path
+        Path where the evaluation results will be saved.
+    kind
+        Optional filter for capacity type. Use "production" for positive capacities only,
+        "demand" for negative capacities only, or None for both.
+
+    Notes
+    -----
+    The function corrects a known issue where optimal_capacity returns MWh units
+    instead of MW units, by replacing the unit string accordingly.
+    """
     (
         bus_carrier,
         transmission_comps,
@@ -257,7 +341,28 @@ def simple_optimal_capacity(
 def simple_storage_capacity(
     networks: dict, config: dict, result_path: str | Path
 ) -> None:
-    """Export optimal storage capacities."""
+    """
+    Calculate and export optimal storage capacity statistics.
+
+    This function collects optimal capacity data specifically for storage components
+    (stores and storage units) connected to specified bus carriers. It filters the
+    results to include only carriers that match the configured storage_links list.
+
+    Parameters
+    ----------
+    networks
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    config
+        Configuration dictionary containing view settings including bus_carrier, storage_links,
+        and export parameters.
+    result_path
+        Path where the evaluation results will be saved.
+
+    Notes
+    -----
+    The function sets cutoff_drop to False to prevent dropping empty years from the output,
+    which is important for storage capacity evolution visualization across time periods.
+    """
     (
         bus_carrier,
         transmission_comps,
@@ -284,6 +389,36 @@ def simple_storage_capacity(
 
 
 def _parse_view_config_items(networks: dict, config: dict) -> tuple:
+    """
+    Parse and extract view configuration items for statistics collection.
+
+    This internal helper function extracts and processes configuration parameters needed
+    for collecting energy statistics from PyPSA networks. It identifies bus carriers,
+    transmission components, and storage links that should be filtered or aggregated.
+
+    Parameters
+    ----------
+    networks
+        Dictionary containing PyPSA network objects, used to identify transmission
+        technologies and storage carriers.
+    config
+        Configuration dictionary containing view settings. Must include a "view" key
+        with optional "bus_carrier" and "storage_links" parameters.
+
+    Returns
+    -------
+    :
+        Tuple containing (bus_carrier, transmission_comps, transmission_carrier, storage_links).
+        bus_carrier is the configured bus carrier filter or None for all carriers.
+        transmission_comps is a list of transmission component names to filter.
+        transmission_carrier is a list of transmission carrier names to filter.
+        storage_links is a list of storage link carrier names for aggregation.
+
+    Notes
+    -----
+    TOML configuration files cannot represent None values, so empty strings are
+    converted to None for bus_carrier filtering.
+    """
     bus_carrier = (
         config["view"]["bus_carrier"] or None
     )  # replace '' by None because TOML has no None type
@@ -349,3 +484,115 @@ def get_energy_for_heat_production(
     heat_mix.attrs["unit"] = "MWh_th"  # overwrite mixed units
 
     return heat_mix
+
+
+def get_supply_demand_trade_energy(networks: dict, config: dict):
+    """
+    Calculate and return supply, demand, and trade energy statistics without exporting.
+
+    This function is similar to simple_bus_balance but returns the statistics as a tuple
+    instead of exporting them directly. It computes energy supply, withdrawal (demand),
+    and trade statistics for foreign and domestic imports and exports. This is useful
+    when the statistics need to be further processed before export.
+
+    Parameters
+    ----------
+    networks
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    config
+        Configuration dictionary containing view settings including bus_carrier, storage_links,
+        and export parameters.
+
+    Returns
+    -------
+    :
+        Tuple containing (supply, demand, trade_statistics).
+        supply is a Series with positive energy production values.
+        demand is a Series with negative energy consumption values.
+        trade_statistics is a list of Series containing import and export data for
+        both foreign and domestic trade.
+
+    Notes
+    -----
+    Demand values are multiplied by -1 to represent energy consumption as negative values.
+    This function is typically used internally by view functions that need to combine
+    or further process statistics before exporting.
+    """
+    (
+        bus_carrier,
+        transmission_comps,
+        transmission_carrier,
+        storage_links,
+    ) = _parse_view_config_items(networks, config)
+
+    supply = (
+        collect_myopic_statistics(
+            networks,
+            statistic="supply",
+            bus_carrier=bus_carrier,
+            aggregate_components=None,
+        )
+        .pipe(
+            filter_by,
+            component=transmission_comps,
+            carrier=transmission_carrier,
+            exclude=True,
+        )
+        .pipe(rename_aggregate, dict.fromkeys(storage_links, Group.storage_out))
+        .droplevel(DM.COMPONENT)
+    )
+
+    if supply.attrs["unit"] == "carrier dependent":
+        supply.attrs["unit"] = "MWh"
+
+    demand = (
+        collect_myopic_statistics(
+            networks,
+            statistic="withdrawal",
+            bus_carrier=bus_carrier,
+            aggregate_components=None,
+        )
+        .pipe(
+            filter_by,
+            component=transmission_comps,
+            carrier=transmission_carrier,
+            exclude=True,
+        )
+        .pipe(rename_aggregate, dict.fromkeys(storage_links, Group.storage_in))
+        .mul(-1)
+        .droplevel(DM.COMPONENT)
+    )
+
+    if demand.attrs["unit"] == "carrier dependent":
+        demand.attrs["unit"] = supply.attrs["unit"]
+
+    trade_statistics = []
+    for scope, direction, alias in [
+        (TradeTypes.FOREIGN, "import", Group.import_foreign),
+        (TradeTypes.FOREIGN, "export", Group.export_foreign),
+        (TradeTypes.DOMESTIC, "import", Group.import_domestic),
+        (TradeTypes.DOMESTIC, "export", Group.export_domestic),
+    ]:
+        trade = (
+            collect_myopic_statistics(
+                networks,
+                statistic="trade_energy",
+                scope=scope,
+                direction=direction,
+                bus_carrier=bus_carrier,
+                aggregate_components=None,
+            )
+            # the trade statistic finds transmission between EU -> country buses.
+            # Those are dropped by the filter_by statement.
+            .pipe(
+                filter_by,
+                component=transmission_comps,
+                carrier=transmission_carrier,
+            )
+            .pipe(rename_aggregate, alias)
+            .droplevel(DM.COMPONENT)
+        )
+        trade.attrs["unit"] = supply.attrs["unit"]
+        trade_statistics.append(trade)
+
+        return supply, demand, trade_statistics

@@ -405,24 +405,109 @@ exports = []
 
 [view_balance_fuels]
 name = "Fuel Balance"
-unit = "MWh_LHV"
-chart = "ESMGroupedBarChart"
+unit = "TWh"
 file_name = "balance_fuels_{location}"
+chart = "ESMGroupedBarChart"
+bus_carrier = [
+    "coal",
+    "lignite",
+    "oil",
+    "non-sequestered HVC",
+    "solid biomass",
+    "methanol",
+    "ammonia",
+]
 cutoff = 0.001
 legend_order = [
-    # production ordered from zero to outside
-
+    # from zero to top
+    "Methanol",
+    "Methanol Steam Reforming",
+    "Methanolisation",
+    "Oil Refining",
+    "Solid Biomass",
+    "Solid Waste",
+    "Unsustainable Solid Biomass",
     "Import Domestic",
     "Import Foreign",
-    # demand ordered from zero to outside:
-
+    "Global Market",
+    "Storage Out",
+    # from zero to bottom
+    "Industry",
+    "Transport",
+    "Agriculture",
+    "Liquids",
+    "Bio H2",
+    "Biomass Boiler",
+    "SynGas",
+    "Thermal Powerplant",
+    "Oil Boiler",
+    "CHP",
+    "Losses",
     "Export Domestic",
     "Export Foreign",
+    "Storage In",
 ]
 checks = ["balances_almost_zero"]
 exports = []
 
+[view_balance_fuels.bus_carrier_groups]
+"coal" = "Coal"
+"lignite" = "Coal"
+"non-sequestered HVC" = "Waste"
+
 [view_balance_fuels.categories]
+"BioSNG" = "SynGas"
+"BioSNG CC" = "SynGas"
+"CCGT methanol" = "Thermal Powerplant"
+"CCGT methanol CC" = "Thermal Powerplant"
+"Export Foreign" = "Export Foreign"
+"Fischer-Tropsch" = "Liquids"
+"HVC to air" = "Losses"
+"Import Foreign" = "Import Foreign"
+"Methanol steam reforming" = "Methanol Steam Reforming"
+"Methanol steam reforming CC" = "Methanol Steam Reforming"
+"OCGT methanol" = "Thermal Powerplant"
+"Storage Out" = "Storage Out"
+"agriculture machinery oil" = "Agriculture"
+"allam methanol" = "Thermal Powerplant"
+"biomass to liquid" = "Liquids"
+"biomass to liquid CC" = "Liquids"
+"biomass-to-methanol" = "Methanol"
+"biomass-to-methanol CC" = "Methanol"
+"coal for industry" = "Industry"
+"electrobiofuels" = "Liquids"
+"kerosene for aviation" = "Liquids"
+"land transport oil" = "Transport"
+"methanol-to-kerosene" = "Liquids"
+"methanolisation" = "Methanolisation"
+"municipal solid waste" = "Solid Waste"
+"naphtha for industry" = "Industry"
+"rural biomass boiler" = "Biomass Boiler"
+"shipping oil" = "Transport"
+"solid biomass for industry" = "Industry"
+"solid biomass for industry CC" = "Industry"
+"solid biomass to hydrogen" = "Bio H2"
+"unsustainable solid biomass" = "Unsustainable Solid Biomass"
+"urban decentral biomass boiler" = "Biomass Boiler"
+"waste CHP" = "Thermal Powerplant"
+"waste CHP CC" = "Thermal Powerplant"
+"industry methanol" = "Industry"
+"rural oil boiler" = "Oil Boiler"
+"unsustainable bioliquids" = "Liquids"
+"urban central coal CHP" = "CHP"
+"urban central solid biomass CHP" = "CHP"
+"urban central solid biomass CHP CC" = "CHP"
+"urban decentral oil boiler" = "Oil Boiler"
+"Export Domestic" = "Export Domestic"
+"Import Domestic" = "Import Domestic"
+"Storage In" = "Storage In"
+"urban central lignite CHP" = "CHP"
+"solid biomass" = "Solid Biomass"
+"urban central oil CHP" = "CHP"
+"import methanol" = "Global Market"
+"import oil" = "Global Market"
+"oil refining" = "Oil Refining"
+"shipping methanol" = "Transport"
 
 [view_balance_hydrogen]
 name = "Hydrogen Energy Balance"

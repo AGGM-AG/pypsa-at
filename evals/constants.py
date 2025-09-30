@@ -618,6 +618,7 @@ COLOUR_SCHEME: dict = {
     "Fischer-Tropsch": COLOUR.red,
     "Oil Import": COLOUR.red,
     "Oil CHP": COLOUR.red,
+    "Oil Boiler": COLOUR.red,
     "Liquids": COLOUR.red_liquid,
     # dark green - biogas
     "Biogas": COLOUR.green,
@@ -759,6 +760,7 @@ COLOUR_SCHEME: dict = {
     "Accumulated Natural Inflow": COLOUR.blue_cerulean,
     "Residualload": COLOUR.red_fire,
     "Waste": COLOUR.raspberry,
+    "Solid Waste": COLOUR.raspberry,
     "Waste CHP": COLOUR.raspberry,
     "Methanolisation": COLOUR.salmon,
     "Hydrogen Compressors": COLOUR.blue_pastel,
