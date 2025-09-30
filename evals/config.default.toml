@@ -431,7 +431,7 @@ bus_carrier = "H2"
 chart = "ESMBarChart"
 cutoff = 0.1
 legend_order = [
-    # production ordered from zero to outside
+    # from zero to top
     "Electrolysis",
     "SMR",
     "Bio H2",
@@ -439,15 +439,15 @@ legend_order = [
     "Storage Out",
     "Import Domestic",
     "Import Foreign",
-    # demand ordered from zero to outside:
-    "Methanolisation",
-    "Methanol Steam Reforming",
+    "Global Market",
+    # from zero to bottom
     "Industry",
     "Transport",
     "Electricity",
-    "Haber-Bosch",
-    "Fischer-Tropsch",
+    "Ammonia",
     "Sabatier",
+    "Methanolisation",
+    "Methanol Steam Reforming",
     "Synth. Fuels",
     "Storage In",
     "Export Domestic",
@@ -460,25 +460,31 @@ exports = []
 "ammonia cracker" = "Ammonia Cracker"
 "Export Foreign" = "Export Foreign"
 "Export Domestic" = "Export Domestic"
-"Fischer-Tropsch" = "Fischer-Tropsch"
+"Fischer-Tropsch" = "Synth. Fuels"
 "H2 Electrolysis" = "Electrolysis"
 "H2 Fuel Cell" = "Electricity"
 "H2 OCGT" = "Electricity"
 "H2 for industry" = "Industry"
 "H2 turbine" = "Electricity"
+"H2 CCGT" = "Electricity"
+"urban central H2 CHP" = "Electricity"
+"urban central H2 retrofit CHP" = "Electricity"
 #"H2 Store" = "Storage"
 "Storage In" = "Storage In"
 "Storage Out" = "Storage Out"
-"Haber-Bosch" = "Haber-Bosch"
+"Haber-Bosch" = "Ammonia"
 "Import Foreign" = "Import Foreign"
 "Import Domestic" = "Import Domestic"
+"import H2" = "Global Market"
 "SMR" = "SMR"
 "SMR CC" = "SMR"
 "Sabatier" = "Sabatier"
 "electrobiofuels" = "Synth. Fuels"
+"methanol-to-kerosene" = "Synth. Fuels"
 "land transport fuel cell" = "Transport"
 "methanolisation" = "Methanolisation"
 "Methanol steam reforming" = "Methanol Steam Reforming"
+"Methanol steam reforming CC" = "Methanol Steam Reforming"
 "solid biomass to hydrogen" = "Bio H2"
 
 [view_balance_methane]
@@ -842,7 +848,6 @@ exports = []
 "shipping methanol" = "Methanol"
 "urban central heat" = "Heat"
 "solar heat" = "Solar Thermal"
-
 
 [view_timeseries_electricity]
 name = "Electricity Production and Demand"
