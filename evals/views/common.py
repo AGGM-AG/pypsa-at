@@ -4,13 +4,18 @@
 # For license information, see the LICENSE.txt file in the project root.
 from pathlib import Path
 
+import pandas as pd
+
 from evals import plots as plots
+from evals.constants import BusCarrier, DataModel, Group, TradeTypes
 from evals.constants import DataModel as DM
-from evals.constants import Group, TradeTypes
 from evals.fileio import Exporter
 from evals.statistic import collect_myopic_statistics
 from evals.utils import (
+    calculate_input_share,
+    drop_from_multtindex_by_regex,
     filter_by,
+    filter_for_carrier_connected_to,
     get_storage_carriers,
     get_transmission_techs,
     rename_aggregate,
@@ -310,3 +315,53 @@ def _parse_view_config_items(networks: dict, config: dict) -> tuple:
         transmission_carrier,
         storage_links,
     )
+
+
+def get_energy_for_heat_production(
+    networks: dict, drop_regex: str = "water tanks|water pits"
+) -> pd.Series:
+    """
+    Calculate the energy input share for heat production across all heat bus carriers.
+
+    This function analyzes the energy balance of link components connected to heat buses
+    to determine the input energy carrier mix used for heat production. It processes
+    energy balance data by filtering for heat-related carriers and calculating input
+    shares for each heat bus carrier type.
+
+    Parameters
+    ----------
+    networks
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+        Each network should contain Link components with energy balance data.
+    drop_regex
+        A regular expression to exclude certain carriers from analysis.
+
+    Returns
+    -------
+    :
+        Series containing energy input shares for heat production, indexed by year,
+        location, and bus carrier. Only positive values are included. The series has
+        'MWh_th' units set in attrs.
+
+    Notes
+    -----
+    The function excludes CO2 and CO2 storage carriers, as well as water storage
+    components (tanks and pits) from the analysis. It focuses specifically on
+    energy carriers that directly contribute to heat production.
+    """
+    energy_balance = (
+        collect_myopic_statistics(networks, comps="Link", statistic="energy_balance")
+        .drop(["co2", "co2 stored"], level=DataModel.BUS_CARRIER)
+        .pipe(drop_from_multtindex_by_regex, drop_regex)
+        .pipe(filter_for_carrier_connected_to, BusCarrier.heat_buses())
+    )
+    heat_mix = pd.concat(
+        [
+            calculate_input_share(energy_balance, bc).pipe(rename_aggregate, bc)
+            for bc in BusCarrier.heat_buses()
+        ]
+    )
+    heat_mix = heat_mix[heat_mix > 0]  # supply only
+    heat_mix.attrs["unit"] = "MWh_th"  # overwrite mixed units
+
+    return heat_mix

@@ -18,52 +18,7 @@ from evals.utils import (
     get_heat_loss_factor,
     rename_aggregate,
 )
-
-
-def get_energy_for_heat_production(networks: dict) -> pd.Series:
-    """
-    Calculate the energy input share for heat production across all heat bus carriers.
-
-    This function analyzes the energy balance of link components connected to heat buses
-    to determine the input energy carrier mix used for heat production. It processes
-    energy balance data by filtering for heat-related carriers and calculating input
-    shares for each heat bus carrier type.
-
-    Parameters
-    ----------
-    networks
-        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
-        Each network should contain Link components with energy balance data.
-
-    Returns
-    -------
-    :
-        Series containing energy input shares for heat production, indexed by year,
-        location, and bus carrier. Only positive values are included. The series has
-        'MWh_th' units set in attrs.
-
-    Notes
-    -----
-    The function excludes CO2 and CO2 storage carriers, as well as water storage
-    components (tanks and pits) from the analysis. It focuses specifically on
-    energy carriers that directly contribute to heat production.
-    """
-    energy_balance = (
-        collect_myopic_statistics(networks, comps="Link", statistic="energy_balance")
-        .drop(["co2", "co2 stored"], level=DataModel.BUS_CARRIER)
-        .pipe(drop_from_multtindex_by_regex, "water tanks|water pits")
-        .pipe(filter_for_carrier_connected_to, BusCarrier.heat_buses())
-    )
-    heat_mix = pd.concat(
-        [
-            calculate_input_share(energy_balance, bc).pipe(rename_aggregate, bc)
-            for bc in BusCarrier.heat_buses()
-        ]
-    )
-    heat_mix = heat_mix[heat_mix > 0]  # supply only
-    heat_mix.attrs["unit"] = "MWh_th"  # overwrite mixed units
-
-    return heat_mix
+from evals.views.common import get_energy_for_heat_production
 
 
 def view_demand_heat(

@@ -770,6 +770,9 @@ def drop_from_multtindex_by_regex(
     :
         The input data where the regular expression does not match.
     """
+    if not pattern:
+        return df
+
     mask = df.index.get_level_values(level).str.contains(pattern, regex=True)
     return df[~mask]
 
