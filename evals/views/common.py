@@ -195,23 +195,33 @@ def simple_timeseries(
         bus_carrier,
         transmission_comps,
         transmission_carrier,
+        storage_carrier,
         storage_links,
     ) = _parse_view_config_items(networks, config)
 
-    supply = collect_myopic_statistics(
-        networks,
-        statistic="supply",
-        bus_carrier=bus_carrier,
-        aggregate_time=False,
-        aggregate_components=None,
-    ).pipe(
-        filter_by,
-        component=transmission_comps,
-        carrier=transmission_carrier,
-        exclude=True,
+    supply = (
+        collect_myopic_statistics(
+            networks,
+            statistic="supply",
+            bus_carrier=bus_carrier,
+            aggregate_time=False,
+            aggregate_components=None,
+        )
+        .pipe(
+            filter_by,
+            component=transmission_comps,
+            carrier=transmission_carrier,
+            exclude=True,
+        )
+        .pipe(
+            # combine all bus carrier to export netted technologies
+            rename_aggregate,
+            bus_carrier[0],
+            level=DM.BUS_CARRIER,
+        )
     )
     storage_supply = filter_by(
-        supply, component=("Store", "StorageUnit"), carrier=storage_links
+        supply, component=("Store", "StorageUnit"), carrier=storage_carrier
     )
     supply = pd.concat(
         [
@@ -234,10 +244,17 @@ def simple_timeseries(
             carrier=transmission_carrier,
             exclude=True,
         )
+        .pipe(
+            # combine all bus carrier to export netted technologies
+            rename_aggregate,
+            bus_carrier[0],
+            level=DM.BUS_CARRIER,
+        )
         .mul(-1)
     )
+
     storage_demand = filter_by(
-        demand, component=("Store", "StorageUnit"), carrier=storage_links
+        demand, component=("Store", "StorageUnit"), carrier=storage_carrier
     )
     demand = pd.concat(
         [
@@ -245,6 +262,31 @@ def simple_timeseries(
             rename_aggregate(storage_demand, Group.storage_in),
         ]
     ).droplevel(DM.COMPONENT)
+
+    if storage_links:
+        supply = rename_aggregate(
+            supply, dict.fromkeys(storage_links, Group.storage_out), level=DM.CARRIER
+        )
+        demand = rename_aggregate(
+            demand, dict.fromkeys(storage_links, Group.storage_in), level=DM.CARRIER
+        )
+
+    # calculated netted storage time series for time series graphs
+    storage_supply = filter_by(supply, carrier=Group.storage_out).pipe(
+        rename_aggregate, "Storage"
+    )
+    supply = supply.drop(Group.storage_out, level=DataModel.CARRIER)
+    storage_demand = filter_by(demand, carrier=Group.storage_in).pipe(
+        rename_aggregate, "Storage"
+    )
+    demand = demand.drop(Group.storage_in, level=DataModel.CARRIER)
+    storage_balance = storage_supply.add(storage_demand, fill_value=0)
+    storage_in = rename_aggregate(
+        storage_balance[storage_balance < 0], Group.storage_in
+    )
+    storage_out = rename_aggregate(
+        storage_balance[storage_balance > 0], Group.storage_out
+    )
 
     trade_saldo = (
         collect_myopic_statistics(
@@ -267,22 +309,9 @@ def simple_timeseries(
     trade_saldo = rename_aggregate(trade_saldo, trade_saldo.attrs["name"])
 
     exporter = Exporter(
-        statistics=[supply, demand, trade_saldo],
+        statistics=[supply, demand, trade_saldo, storage_in, storage_out],
         view_config=config["view"],
     )
-    #
-    # # view specific settings
-    # exporter.defaults.excel.chart = None  # charts bloat the xlsx file
-    # chart_class = getattr(plots, config["view"]["chart"])
-    # exporter.defaults.plotly.chart = chart_class
-    #
-    # exporter.defaults.plotly.plotby = [DM.YEAR, DM.LOCATION]
-    # exporter.defaults.plotly.pivot_index = [
-    #     DM.YEAR,
-    #     DM.LOCATION,
-    #     DM.CARRIER,
-    # ]
-    # exporter.defaults.plotly.xaxis_title = ""
 
     exporter.export(result_path, config["global"]["subdir"])
 
@@ -448,7 +477,8 @@ def _parse_view_config_items(networks: dict, config: dict) -> tuple:
         bus_carrier is the configured bus carrier filter or None for all carriers.
         transmission_comps is a list of transmission component names to filter.
         transmission_carrier is a list of transmission carrier names to filter.
-        storage_links is a list of storage link carrier names for aggregation.
+        storage_carrier is a list of storage carrier names for aggregation.
+        storage_links is a list of storage Link carrier names for aggregation.
 
     Notes
     -----
@@ -461,13 +491,14 @@ def _parse_view_config_items(networks: dict, config: dict) -> tuple:
     transmission_techs = get_transmission_techs(networks, bus_carrier)
     transmission_comps = [comp for comp, carr in transmission_techs]
     transmission_carrier = [carr for comp, carr in transmission_techs]
-    storage_links = get_storage_carriers(networks) + config["view"].get(
-        "storage_links", []
-    )
+    storage_carrier = get_storage_carriers(networks)
+    storage_links = config["view"].get("storage_links", [])
+
     return (
         bus_carrier,
         transmission_comps,
         transmission_carrier,
+        storage_carrier,
         storage_links,
     )
 
