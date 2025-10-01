@@ -847,6 +847,7 @@ def collect_storage_imbalances():
         "non-sequestered HVC": "Waste",
         "battery": "Battery",
         "home battery": "Battery",
+        "EV battery": "Battery",
     }
 
     carrier_supply = filter_by(SUPPLY, component=comps).index.unique("carrier")
