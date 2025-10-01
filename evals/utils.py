@@ -1103,3 +1103,47 @@ def print_link_bus_efficiencies(networks, year, like) -> pd.Series:
         .iloc[0, :]
         .T.sort_index()
     )
+
+
+def get_regional_trade(
+    supply: pd.Series, demand: pd.DataFrame, bus_carrier: str | list
+) -> pd.Series:
+    """
+    Calculate regional trade balances for specific carriers.
+
+    Computes regional import/export balances by comparing supply and demand
+    for specific bus carriers (e.g., oil, coal, lignite, NH3) across locations.
+
+    Parameters
+    ----------
+    supply
+        Supply statistics series.
+    demand
+        Demand statistics series.
+    bus_carrier
+        Bus carrier name(s) to analyze for regional trade.
+
+    Returns
+    -------
+    :
+        List containing regional import and export series.
+        Imports are negative balances (deficit), exports are positive (surplus).
+    """
+    year_loc = [DataModel.YEAR, DataModel.LOCATION]
+    regional_supply = filter_by(supply, bus_carrier=bus_carrier).groupby(year_loc).sum()
+    regional_demand = filter_by(demand, bus_carrier=bus_carrier).groupby(year_loc).sum()
+    regional_balance = (
+        regional_supply.add(regional_demand, fill_value=0)
+        .pipe(insert_index_level, "Link", DataModel.COMPONENT, pos=1)
+        .pipe(insert_index_level, bus_carrier, DataModel.BUS_CARRIER, pos=3)
+        .pipe(insert_index_level, "trade", DataModel.CARRIER, pos=3)
+        .drop("EU", level=DataModel.LOCATION, errors="ignore")
+    )
+    regional_import = rename_aggregate(
+        regional_balance[regional_balance.le(0)], {"trade": "Global Import"}
+    ).mul(-1)
+    regional_export = rename_aggregate(
+        regional_balance[regional_balance.gt(0)], {"trade": "Global Export"}
+    ).mul(-1)
+
+    return pd.concat([regional_import, regional_export])

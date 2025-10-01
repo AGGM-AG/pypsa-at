@@ -413,9 +413,11 @@ bus_carrier = [
     "lignite",
     "oil",
     "non-sequestered HVC",
+    "municipal solid waste",
     "solid biomass",
     "methanol",
-    "ammonia",
+    "NH3",
+    "uranium"
 ]
 cutoff = 0.001
 legend_order = [
@@ -437,10 +439,12 @@ legend_order = [
     "Agriculture",
     "Liquids",
     "Bio H2",
-    "Biomass Boiler",
+    "Haber-Bosch",
+    "Ammonia Cracker",
     "SynGas",
     "Thermal Powerplant",
-    "Oil Boiler",
+    "Heat",
+    "Nuclear",
     "CHP",
     "Losses",
     "Export Domestic",
@@ -454,6 +458,12 @@ exports = []
 "coal" = "Coal"
 "lignite" = "Coal"
 "non-sequestered HVC" = "Waste"
+"municipal solid waste" = "Waste"
+"oil" = "Liquids"
+"methanol" = "Liquids"
+"NH3" = "Liquids"
+"solid biomass" = "Biomass"
+"uranium" = "Nuclear"
 
 [view_balance_fuels.categories]
 "BioSNG" = "SynGas"
@@ -472,8 +482,8 @@ exports = []
 "allam methanol" = "Thermal Powerplant"
 "biomass to liquid" = "Liquids"
 "biomass to liquid CC" = "Liquids"
-"biomass-to-methanol" = "Methanol"
-"biomass-to-methanol CC" = "Methanol"
+"biomass-to-methanol" = "Liquids"
+"biomass-to-methanol CC" = "Liquids"
 "coal for industry" = "Industry"
 "electrobiofuels" = "Liquids"
 "kerosene for aviation" = "Liquids"
@@ -482,22 +492,22 @@ exports = []
 "methanolisation" = "Methanolisation"
 "municipal solid waste" = "Solid Waste"
 "naphtha for industry" = "Industry"
-"rural biomass boiler" = "Biomass Boiler"
+"rural biomass boiler" = "Heat"
 "shipping oil" = "Transport"
 "solid biomass for industry" = "Industry"
 "solid biomass for industry CC" = "Industry"
 "solid biomass to hydrogen" = "Bio H2"
 "unsustainable solid biomass" = "Unsustainable Solid Biomass"
-"urban decentral biomass boiler" = "Biomass Boiler"
-"waste CHP" = "Thermal Powerplant"
-"waste CHP CC" = "Thermal Powerplant"
+"urban decentral biomass boiler" = "Heat"
+"waste CHP" = "CHP"
+"waste CHP CC" = "CHP"
 "industry methanol" = "Industry"
-"rural oil boiler" = "Oil Boiler"
+"rural oil boiler" = "Heat"
 "unsustainable bioliquids" = "Liquids"
 "urban central coal CHP" = "CHP"
 "urban central solid biomass CHP" = "CHP"
 "urban central solid biomass CHP CC" = "CHP"
-"urban decentral oil boiler" = "Oil Boiler"
+"urban decentral oil boiler" = "Heat"
 "Export Domestic" = "Export Domestic"
 "Import Domestic" = "Import Domestic"
 "Storage In" = "Storage In"
@@ -508,6 +518,16 @@ exports = []
 "import oil" = "Global Market"
 "oil refining" = "Oil Refining"
 "shipping methanol" = "Transport"
+"Haber-Bosch" = "Haber-Bosch"
+"NH3" = "Industry"
+"ammonia cracker" = "Ammonia Cracker"
+"import NH3" = "Global Market"
+"Global Import" = "Global Market"
+"Global Export" = "Global Market"
+"nuclear" = "Nuclear"
+"coal" = "Thermal Powerplant"
+"lignite" = "Thermal Powerplant"
+"oil" = "Thermal Powerplant"
 
 [view_balance_hydrogen]
 name = "Hydrogen Energy Balance"

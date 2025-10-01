@@ -224,7 +224,61 @@ def view_balance_fuels(
     # exclude gas and hydrogen, they have separate balance views
     simple_bus_balance(networks, config, result_path)
 
+    # todo: coal, methanol, uranium and oil need localization.
+    # # from evals.views.common import get_supply_demand_trade_energy, _parse_view_config_items
+    # # from evals.views.common import get_supply_demand_trade_energy, _parse_view_config_items
+    # from evals.utils import filter_by, rename_aggregate
+    # from evals.constants import Group
+    #
     # supply, demand, trade_statistics = get_supply_demand_trade_energy(networks, config)
+    #
+    # (
+    #     bus_carrier,
+    #     transmission_comps,
+    #     transmission_carrier,
+    #     storage_links,
+    # ) = _parse_view_config_items(networks, config)
+    #
+    # supply = (
+    #     collect_myopic_statistics(
+    #     networks,
+    #     statistic="supply",
+    #     bus_carrier=bus_carrier,
+    #     aggregate_components=None,
+    # )
+    # .pipe(
+    #     filter_by,
+    #     component=transmission_comps,
+    #     carrier=transmission_carrier,
+    #     exclude=True,
+    # )
+    # .pipe(rename_aggregate, dict.fromkeys(storage_links, Group.storage_out))
+    # )
+    #
+    # demand = (
+    #     collect_myopic_statistics(
+    #         networks,
+    #         statistic="withdrawal",
+    #         bus_carrier=bus_carrier,
+    #         aggregate_components=None,
+    #     )
+    #     .pipe(
+    #         filter_by,
+    #         component=transmission_comps,
+    #         carrier=transmission_carrier,
+    #         exclude=True,
+    #     )
+    #     .pipe(rename_aggregate, dict.fromkeys(storage_links, Group.storage_in))
+    #     .mul(-1)
+    # )
+    #
+    # regional_trade = [
+    #     get_regional_trade(supply, demand, bus_carrier)
+    #     for bus_carrier in BusCarrier.eu_buses()
+    # ]
+    # # drop all supply with EU location. They are in regional_trade.
+    # supply = filter_by(supply, location="EU", exclude=True)
+
     # statistics = [supply, demand] + trade_statistics
     #
     # bus_carrier_groups = {

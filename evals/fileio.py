@@ -76,7 +76,8 @@ def read_networks(
     from evals.statistic import ESMStatistics
 
     if isinstance(result_path, list):
-        file_paths = [Path(p) for p in result_path]  # assuming snakemake.input.networks
+        # expecting snakemake.input.networks
+        file_paths = [Path(p) for p in result_path]
     else:
         input_path = Path(result_path) / sub_directory
         file_paths = input_path.glob(r"*[0-9].nc")
@@ -85,7 +86,12 @@ def read_networks(
     for file_path in file_paths:
         year = re.search(Regex.year, file_path.stem).group()
         n = pypsa.Network(file_path)
+        # extend the statistic module with custom statistics
         n.statistics = ESMStatistics(n, result_path)
+        # todo: apply preprocessing steps to simplify evaluations:
+        # AC Load splitting: extract electricity rail and industry components
+        # PHS and Hydro splitting: Power from Inflow, Losses from Spill and,
+        # Oil, Coal, Methanol, Uranium and Ammonium regionalizations.
         n.name = f"PyPSA-AT Network {year}"
         n.year = year
         networks[year] = n

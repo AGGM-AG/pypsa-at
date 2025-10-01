@@ -27,6 +27,7 @@ from evals.statistic import collect_myopic_statistics
 from evals.utils import (
     drop_from_multtindex_by_regex,
     filter_by,
+    get_regional_trade,
     insert_index_level,
     rename_aggregate,
 )
@@ -368,53 +369,6 @@ def get_link_losses(supply: pd.Series, demand: pd.DataFrame) -> list[pd.Series]:
     return link_losses
 
 
-def get_regional_trade(
-    supply: pd.Series, demand: pd.DataFrame, bus_carrier: str | list
-) -> pd.Series:
-    """
-    Calculate regional trade balances for specific carriers.
-
-    Computes regional import/export balances by comparing supply and demand
-    for specific bus carriers (e.g., oil, coal, lignite, NH3) across locations.
-
-    Parameters
-    ----------
-    supply
-        Supply statistics series.
-    demand
-        Demand statistics series.
-    bus_carrier
-        Bus carrier name(s) to analyze for regional trade.
-
-    Returns
-    -------
-    :
-        List containing regional import and export series.
-        Imports are negative balances (deficit), exports are positive (surplus).
-    """
-    regional_supply = (
-        filter_by(supply, bus_carrier=bus_carrier).groupby(["year", "location"]).sum()
-    )
-    regional_demand = (
-        filter_by(demand, bus_carrier=bus_carrier).groupby(["year", "location"]).sum()
-    )
-    regional_balance = (
-        regional_supply.add(regional_demand, fill_value=0)
-        .pipe(insert_index_level, "Link", "component", pos=1)
-        .pipe(insert_index_level, bus_carrier, "bus_carrier", pos=3)
-        .pipe(insert_index_level, "trade", "carrier", pos=3)
-        .drop("EU", level="location", errors="ignore")
-    )
-    regional_import = rename_aggregate(
-        regional_balance[regional_balance.le(0)], {"trade": "Import Foreign"}
-    ).mul(-1)
-    regional_export = rename_aggregate(
-        regional_balance[regional_balance.gt(0)], {"trade": "Export Foreign"}
-    ).mul(-1)
-
-    return pd.concat([regional_import, regional_export])
-
-
 def view_sankey(
     result_path: str | Path,
     networks: dict,
@@ -481,7 +435,12 @@ def view_sankey(
 
     regional_trade = [
         get_regional_trade(supply, demand, bus_carrier)
-        for bus_carrier in ("oil", "coal", "lignite", "NH3")
+        for bus_carrier in (
+            "oil",
+            "coal",
+            "lignite",
+            "NH3",
+        )  # todo: missing methanol and uranium?
     ]
 
     exporter = Exporter(

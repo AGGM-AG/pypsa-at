@@ -15,6 +15,7 @@ from evals.utils import (
     drop_from_multtindex_by_regex,
     filter_by,
     filter_for_carrier_connected_to,
+    get_regional_trade,
     get_storage_carriers,
     get_transmission_techs,
     rename_aggregate,
@@ -57,22 +58,26 @@ def simple_bus_balance(
         storage_links,
     ) = _parse_view_config_items(networks, config)
 
-    supply = (
-        collect_myopic_statistics(
-            networks,
-            statistic="supply",
-            bus_carrier=bus_carrier,
-            aggregate_components=None,
-        )
-        .pipe(
-            filter_by,
-            component=transmission_comps,
-            carrier=transmission_carrier,
-            exclude=True,
-        )
-        .pipe(rename_aggregate, dict.fromkeys(storage_links, Group.storage_out))
-        .droplevel(DM.COMPONENT)
+    supply = collect_myopic_statistics(
+        networks,
+        statistic="supply",
+        bus_carrier=bus_carrier,
+        aggregate_components=None,
+    ).pipe(
+        filter_by,
+        component=transmission_comps,
+        carrier=transmission_carrier,
+        exclude=True,
     )
+    storage_supply = filter_by(
+        supply, component=("Store", "StorageUnit"), carrier=storage_links
+    )
+    supply = pd.concat(
+        [
+            supply.drop(storage_supply.index),
+            rename_aggregate(storage_supply, Group.storage_out),
+        ]
+    ).droplevel(DM.COMPONENT)
 
     # quick fix to allow mixed bus_carrier units
     if supply.attrs["unit"] == "carrier dependent":
@@ -91,13 +96,30 @@ def simple_bus_balance(
             carrier=transmission_carrier,
             exclude=True,
         )
-        .pipe(rename_aggregate, dict.fromkeys(storage_links, Group.storage_in))
+        # .pipe(rename_aggregate, dict.fromkeys(storage_links, Group.storage_in))
         .mul(-1)
-        .droplevel(DM.COMPONENT)
+        # .droplevel(DM.COMPONENT)
     )
+    storage_demand = filter_by(
+        demand, component=("Store", "StorageUnit"), carrier=storage_links
+    )
+    demand = pd.concat(
+        [
+            demand.drop(storage_demand.index),
+            rename_aggregate(storage_demand, Group.storage_in),
+        ]
+    ).droplevel(DM.COMPONENT)
 
     if demand.attrs["unit"] == "carrier dependent":
         demand.attrs["unit"] = supply.attrs["unit"]
+
+    regional_trade = [
+        get_regional_trade(supply, demand, bus_carrier).droplevel(DataModel.COMPONENT)
+        for bus_carrier in BusCarrier.eu_buses()
+    ]
+    # drop all supply with EU location. They are in regional_trade.
+    supply = filter_by(supply, location="EU", exclude=True)
+    demand = filter_by(demand, location="EU", exclude=True)
 
     trade_statistics = []
     for scope, direction, alias in [
@@ -128,8 +150,8 @@ def simple_bus_balance(
         trade.attrs["unit"] = supply.attrs["unit"]
         trade_statistics.append(trade)
 
-    # aggregate bus carriers by group
-    statistics = [supply, demand] + trade_statistics
+    # group bus carriers by groups defined in config.toml
+    statistics = [supply, demand] + trade_statistics + regional_trade
     if bus_carrier_groups := config["view"].get("bus_carrier_groups", {}):
         statistics = [
             rename_aggregate(stat, bus_carrier_groups, level=DM.BUS_CARRIER)
@@ -176,23 +198,27 @@ def simple_timeseries(
         storage_links,
     ) = _parse_view_config_items(networks, config)
 
-    supply = (
-        collect_myopic_statistics(
-            networks,
-            statistic="supply",
-            bus_carrier=bus_carrier,
-            aggregate_time=False,
-            aggregate_components=None,
-        )
-        .pipe(
-            filter_by,
-            component=transmission_comps,
-            carrier=transmission_carrier,
-            exclude=True,
-        )
-        .pipe(rename_aggregate, dict.fromkeys(storage_links, Group.storage_out))
-        .droplevel(DM.COMPONENT)
+    supply = collect_myopic_statistics(
+        networks,
+        statistic="supply",
+        bus_carrier=bus_carrier,
+        aggregate_time=False,
+        aggregate_components=None,
+    ).pipe(
+        filter_by,
+        component=transmission_comps,
+        carrier=transmission_carrier,
+        exclude=True,
     )
+    storage_supply = filter_by(
+        supply, component=("Store", "StorageUnit"), carrier=storage_links
+    )
+    supply = pd.concat(
+        [
+            supply.drop(storage_supply.index),
+            rename_aggregate(storage_supply, Group.storage_out),
+        ]
+    ).droplevel(DM.COMPONENT)
 
     demand = (
         collect_myopic_statistics(
@@ -208,10 +234,17 @@ def simple_timeseries(
             carrier=transmission_carrier,
             exclude=True,
         )
-        .pipe(rename_aggregate, dict.fromkeys(storage_links, Group.storage_in))
-        .droplevel(DM.COMPONENT)
         .mul(-1)
     )
+    storage_demand = filter_by(
+        demand, component=("Store", "StorageUnit"), carrier=storage_links
+    )
+    demand = pd.concat(
+        [
+            demand.drop(storage_demand.index),
+            rename_aggregate(storage_demand, Group.storage_in),
+        ]
+    ).droplevel(DM.COMPONENT)
 
     trade_saldo = (
         collect_myopic_statistics(
@@ -303,7 +336,12 @@ def simple_optimal_capacity(
             carrier=transmission_carrier,
             exclude=True,
         )
-        .pipe(filter_by, carrier=storage_links, exclude=True)
+        .pipe(
+            filter_by,
+            component=("Store", "StorageUnit"),
+            carrier=storage_links,
+            exclude=True,
+        )
         .droplevel(DM.COMPONENT)
     )
 
@@ -365,8 +403,8 @@ def simple_storage_capacity(
     """
     (
         bus_carrier,
-        transmission_comps,
-        transmission_carrier,
+        _,
+        _,
         storage_links,
     ) = _parse_view_config_items(networks, config)
 
@@ -382,9 +420,7 @@ def simple_storage_capacity(
         view_config=config["view"],
     )
 
-    # exporter.defaults.plotly.chart = getattr(plots, config["view"]["chart"])
     exporter.defaults.plotly.cutoff_drop = False  # prevent dropping empty years
-
     exporter.export(result_path, config["global"]["subdir"])
 
 
@@ -486,113 +522,107 @@ def get_energy_for_heat_production(
     return heat_mix
 
 
-def get_supply_demand_trade_energy(networks: dict, config: dict):
-    """
-    Calculate and return supply, demand, and trade energy statistics without exporting.
-
-    This function is similar to simple_bus_balance but returns the statistics as a tuple
-    instead of exporting them directly. It computes energy supply, withdrawal (demand),
-    and trade statistics for foreign and domestic imports and exports. This is useful
-    when the statistics need to be further processed before export.
-
-    Parameters
-    ----------
-    networks
-        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
-    config
-        Configuration dictionary containing view settings including bus_carrier, storage_links,
-        and export parameters.
-
-    Returns
-    -------
-    :
-        Tuple containing (supply, demand, trade_statistics).
-        supply is a Series with positive energy production values.
-        demand is a Series with negative energy consumption values.
-        trade_statistics is a list of Series containing import and export data for
-        both foreign and domestic trade.
-
-    Notes
-    -----
-    Demand values are multiplied by -1 to represent energy consumption as negative values.
-    This function is typically used internally by view functions that need to combine
-    or further process statistics before exporting.
-    """
-    (
-        bus_carrier,
-        transmission_comps,
-        transmission_carrier,
-        storage_links,
-    ) = _parse_view_config_items(networks, config)
-
-    supply = (
-        collect_myopic_statistics(
-            networks,
-            statistic="supply",
-            bus_carrier=bus_carrier,
-            aggregate_components=None,
-        )
-        .pipe(
-            filter_by,
-            component=transmission_comps,
-            carrier=transmission_carrier,
-            exclude=True,
-        )
-        .pipe(rename_aggregate, dict.fromkeys(storage_links, Group.storage_out))
-        .droplevel(DM.COMPONENT)
-    )
-
-    if supply.attrs["unit"] == "carrier dependent":
-        supply.attrs["unit"] = "MWh"
-
-    demand = (
-        collect_myopic_statistics(
-            networks,
-            statistic="withdrawal",
-            bus_carrier=bus_carrier,
-            aggregate_components=None,
-        )
-        .pipe(
-            filter_by,
-            component=transmission_comps,
-            carrier=transmission_carrier,
-            exclude=True,
-        )
-        .pipe(rename_aggregate, dict.fromkeys(storage_links, Group.storage_in))
-        .mul(-1)
-        .droplevel(DM.COMPONENT)
-    )
-
-    if demand.attrs["unit"] == "carrier dependent":
-        demand.attrs["unit"] = supply.attrs["unit"]
-
-    trade_statistics = []
-    for scope, direction, alias in [
-        (TradeTypes.FOREIGN, "import", Group.import_foreign),
-        (TradeTypes.FOREIGN, "export", Group.export_foreign),
-        (TradeTypes.DOMESTIC, "import", Group.import_domestic),
-        (TradeTypes.DOMESTIC, "export", Group.export_domestic),
-    ]:
-        trade = (
-            collect_myopic_statistics(
-                networks,
-                statistic="trade_energy",
-                scope=scope,
-                direction=direction,
-                bus_carrier=bus_carrier,
-                aggregate_components=None,
-            )
-            # the trade statistic finds transmission between EU -> country buses.
-            # Those are dropped by the filter_by statement.
-            .pipe(
-                filter_by,
-                component=transmission_comps,
-                carrier=transmission_carrier,
-            )
-            .pipe(rename_aggregate, alias)
-            .droplevel(DM.COMPONENT)
-        )
-        trade.attrs["unit"] = supply.attrs["unit"]
-        trade_statistics.append(trade)
-
-        return supply, demand, trade_statistics
+# def get_supply_demand_trade_energy(networks: dict, config: dict):
+#     """
+#     Calculate and return supply, demand, and trade energy statistics without exporting.
+#
+#     This function is similar to simple_bus_balance but returns the statistics as a tuple
+#     instead of exporting them directly. It computes energy supply, withdrawal (demand),
+#     and trade statistics for foreign and domestic imports and exports. This is useful
+#     when the statistics need to be further processed before export.
+#
+#     Parameters
+#     ----------
+#     networks
+#         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+#     config
+#         Configuration dictionary containing view settings including bus_carrier, storage_links,
+#         and export parameters.
+#
+#     Returns
+#     -------
+#     :
+#         Tuple containing (supply, demand, trade_statistics).
+#         supply is a Series with positive energy production values.
+#         demand is a Series with negative energy consumption values.
+#         trade_statistics is a list of Series containing import and export data for
+#         both foreign and domestic trade.
+#
+#     Notes
+#     -----
+#     Demand values are multiplied by -1 to represent energy consumption as negative values.
+#     This function is typically used internally by view functions that need to combine
+#     or further process statistics before exporting.
+#     """
+#     (
+#         bus_carrier,
+#         transmission_comps,
+#         transmission_carrier,
+#         storage_links,
+#     ) = _parse_view_config_items(networks, config)
+#
+#     supply = (
+#         collect_myopic_statistics(
+#             networks,
+#             statistic="supply",
+#             bus_carrier=bus_carrier,
+#             aggregate_components=None,
+#         )
+#         .pipe(
+#             filter_by,
+#             component=transmission_comps,
+#             carrier=transmission_carrier,
+#             exclude=True,
+#         )
+#         .pipe(rename_aggregate, dict.fromkeys(storage_links, Group.storage_out))
+#         .droplevel(DM.COMPONENT)
+#     )
+#
+#     demand = (
+#         collect_myopic_statistics(
+#             networks,
+#             statistic="withdrawal",
+#             bus_carrier=bus_carrier,
+#             aggregate_components=None,
+#         )
+#         .pipe(
+#             filter_by,
+#             component=transmission_comps,
+#             carrier=transmission_carrier,
+#             exclude=True,
+#         )
+#         .pipe(rename_aggregate, dict.fromkeys(storage_links, Group.storage_in))
+#         .mul(-1)
+#         .droplevel(DM.COMPONENT)
+#     )
+#
+#     trade_statistics = []
+#     for scope, direction, alias in [
+#         (TradeTypes.FOREIGN, "import", Group.import_foreign),
+#         (TradeTypes.FOREIGN, "export", Group.export_foreign),
+#         (TradeTypes.DOMESTIC, "import", Group.import_domestic),
+#         (TradeTypes.DOMESTIC, "export", Group.export_domestic),
+#     ]:
+#         trade = (
+#             collect_myopic_statistics(
+#                 networks,
+#                 statistic="trade_energy",
+#                 scope=scope,
+#                 direction=direction,
+#                 bus_carrier=bus_carrier,
+#                 aggregate_components=None,
+#             )
+#             # the trade statistic finds transmission between EU -> country buses.
+#             # Those are dropped by the filter_by statement.
+#             .pipe(
+#                 filter_by,
+#                 component=transmission_comps,
+#                 carrier=transmission_carrier,
+#             )
+#             .pipe(rename_aggregate, alias)
+#             .droplevel(DM.COMPONENT)
+#         )
+#         trade.attrs["unit"] = supply.attrs["unit"]
+#         trade_statistics.append(trade)
+#
+#         return supply, demand, trade_statistics

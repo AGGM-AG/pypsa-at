@@ -40,8 +40,14 @@ class BusCarrier:
     DC: str = "DC"
     CH4: str = "gas"
     H2: str = "H2"
-    TRANSPORT_P: str = "passenger transport"
-    TRANSPORT_P_LONG: str = "passenger transport long"
+    OIL: str = "oil"
+    LIGNITE: str = "lignite"
+    COAL: str = "coal"
+    NH3: str = "NH3"
+    METHANOL: str = "methanol"
+    URANIUM: str = "uranium"
+    # TRANSPORT_P: str = "passenger transport"
+    # TRANSPORT_P_LONG: str = "passenger transport long"
     FT: str = "Fischer-Tropsch"
     FT_1: str = "Fischer-Tropsch 1"
     FT_2: str = "Fischer-Tropsch 2"
@@ -73,6 +79,11 @@ class BusCarrier:
     @classmethod
     def heat_buses(cls) -> list:
         return [cls.HEAT_URBAN_CENTRAL, cls.HEAT_URBAN_DECENTRAL, cls.HEAT_RURAL]
+
+    @classmethod
+    def eu_buses(cls) -> list:
+        """Return all buses bus_carrier that only have EU locations."""
+        return [cls.OIL, cls.LIGNITE, cls.COAL, cls.METHANOL, cls.URANIUM]
 
 
 class Carrier:
