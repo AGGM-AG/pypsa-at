@@ -219,78 +219,30 @@ def view_balance_fuels(
     networks: dict,
     config: dict,
 ) -> None:
-    # show balances for coal, lignite, oil, waste, solid biomass, and other fuels
-    # (any fuel that goes in to thermal powerplants or CHPs) in a grouped barchart
-    # exclude gas and hydrogen, they have separate balance views
+    """
+    Evaluate and export the fuel balance showing primary fuel supply and consumption.
+
+    This function calculates the energy balance for primary fuel carriers including coal,
+    lignite, oil, solid biomass, methanol, ammonia, waste, and uranium. It delegates to
+    the simple_bus_balance function to collect and export supply and withdrawal statistics
+    for specified fuel bus carriers. The view supports grouping of related fuels (e.g.,
+    coal and lignite) through the bus_carrier_groups configuration.
+
+    Parameters
+    ----------
+    result_path
+        Path where the evaluation results will be saved.
+    networks
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    config
+        Configuration dictionary containing view settings including bus_carrier specification,
+        bus_carrier_groups for aggregating related fuels, chart type, and export parameters.
+
+    Notes
+    -----
+    This view is particularly useful for analyzing primary energy supply and fuel consumption
+    patterns across different sectors (industry, transport, heat, power generation). The
+    bus_carrier_groups configuration allows aggregation of similar fuels for clearer
+    visualization, such as combining coal and lignite into a single "Coal" category.
+    """
     simple_bus_balance(networks, config, result_path)
-
-    # todo: coal, methanol, uranium and oil need localization.
-    # # from evals.views.common import get_supply_demand_trade_energy, _parse_view_config_items
-    # # from evals.views.common import get_supply_demand_trade_energy, _parse_view_config_items
-    # from evals.utils import filter_by, rename_aggregate
-    # from evals.constants import Group
-    #
-    # supply, demand, trade_statistics = get_supply_demand_trade_energy(networks, config)
-    #
-    # (
-    #     bus_carrier,
-    #     transmission_comps,
-    #     transmission_carrier,
-    #     storage_links,
-    # ) = _parse_view_config_items(networks, config)
-    #
-    # supply = (
-    #     collect_myopic_statistics(
-    #     networks,
-    #     statistic="supply",
-    #     bus_carrier=bus_carrier,
-    #     aggregate_components=None,
-    # )
-    # .pipe(
-    #     filter_by,
-    #     component=transmission_comps,
-    #     carrier=transmission_carrier,
-    #     exclude=True,
-    # )
-    # .pipe(rename_aggregate, dict.fromkeys(storage_links, Group.storage_out))
-    # )
-    #
-    # demand = (
-    #     collect_myopic_statistics(
-    #         networks,
-    #         statistic="withdrawal",
-    #         bus_carrier=bus_carrier,
-    #         aggregate_components=None,
-    #     )
-    #     .pipe(
-    #         filter_by,
-    #         component=transmission_comps,
-    #         carrier=transmission_carrier,
-    #         exclude=True,
-    #     )
-    #     .pipe(rename_aggregate, dict.fromkeys(storage_links, Group.storage_in))
-    #     .mul(-1)
-    # )
-    #
-    # regional_trade = [
-    #     get_regional_trade(supply, demand, bus_carrier)
-    #     for bus_carrier in BusCarrier.eu_buses()
-    # ]
-    # # drop all supply with EU location. They are in regional_trade.
-    # supply = filter_by(supply, location="EU", exclude=True)
-
-    # statistics = [supply, demand] + trade_statistics
-    #
-    # bus_carrier_groups = {
-    #     "coal": "Coal",
-    #     "lignite": "Coal",
-    #     "non-sequestered HVC": "Waste",
-    # }
-    #
-    # statistics = [
-    #     rename_aggregate(stat, bus_carrier_groups, level=DM.BUS_CARRIER)
-    #     for stat in statistics
-    # ]
-    #
-    # exporter = Exporter(statistics=statistics, view_config=config["view"])
-    # exporter.export(result_path, config["global"]["subdir"])
