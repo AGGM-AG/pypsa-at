@@ -55,6 +55,7 @@ def simple_bus_balance(
         bus_carrier,
         transmission_comps,
         transmission_carrier,
+        storage_carrier,
         storage_links,
     ) = _parse_view_config_items(networks, config)
 
@@ -70,7 +71,7 @@ def simple_bus_balance(
         exclude=True,
     )
     storage_supply = filter_by(
-        supply, component=("Store", "StorageUnit"), carrier=storage_links
+        supply, component=("Store", "StorageUnit"), carrier=storage_carrier
     )
     supply = pd.concat(
         [
@@ -101,7 +102,7 @@ def simple_bus_balance(
         # .droplevel(DM.COMPONENT)
     )
     storage_demand = filter_by(
-        demand, component=("Store", "StorageUnit"), carrier=storage_links
+        demand, component=("Store", "StorageUnit"), carrier=storage_carrier
     )
     demand = pd.concat(
         [
@@ -349,6 +350,7 @@ def simple_optimal_capacity(
         bus_carrier,
         transmission_comps,
         transmission_carrier,
+        storage_carrier,
         storage_links,
     ) = _parse_view_config_items(networks, config)
 
@@ -368,6 +370,13 @@ def simple_optimal_capacity(
         .pipe(
             filter_by,
             component=("Store", "StorageUnit"),
+            carrier=storage_carrier,
+            exclude=True,
+        )
+        .pipe(
+            filter_by,
+            component=("Link", "Generator"),
+            # Include Generator to drop heat vents
             carrier=storage_links,
             exclude=True,
         )
@@ -434,7 +443,8 @@ def simple_storage_capacity(
         bus_carrier,
         _,
         _,
-        storage_links,
+        storage_carrier,
+        _,
     ) = _parse_view_config_items(networks, config)
 
     stores = collect_myopic_statistics(
@@ -442,7 +452,7 @@ def simple_storage_capacity(
         statistic="optimal_capacity",
         bus_carrier=bus_carrier,
         storage=True,
-    ).pipe(filter_by, carrier=storage_links)
+    ).pipe(filter_by, carrier=storage_carrier)
 
     exporter = Exporter(
         statistics=[stores],

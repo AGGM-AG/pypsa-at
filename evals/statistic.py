@@ -28,7 +28,7 @@ from evals.constants import (
     Group,
     Regex,
 )
-from evals.fileio import get_resources_directory, read_csv_files
+from evals.fileio import read_csv_files, resource_getter
 from evals.utils import (
     add_grid_lines,
     align_edge_directions,
@@ -296,7 +296,7 @@ class ESMStatistics(StatisticsAccessor):
         year = self._n.meta["wildcards"]["planning_horizons"]
         clusters = self._n.meta["wildcards"]["clusters"]
         run = self._n.meta["run"]
-        res = get_resources_directory(self._n)(run["prefix"])
+        res = resource_getter(self._n)
 
         indu = read_csv_files(
             res,
@@ -757,7 +757,7 @@ class ESMStatistics(StatisticsAccessor):
         Notes
         -----
         The "pypsa.statistics.transmission" statistic does not work here
-        because it returns energy amounts whereas this statistic returns
+        because it returns energy the amounts whereas this statistic returns
         the optimal capacity.
         """
         n = self._n
@@ -767,7 +767,7 @@ class ESMStatistics(StatisticsAccessor):
             bus_carrier=bus_carrier,
             groupby=["bus0", "bus1", "carrier", "bus_carrier"],
         )
-        result = filter_by(capacities, carrier=carrier)
+        result = filter_by(capacities, carrier=list(carrier))
 
         result.attrs["name"] = "Capacity"
         result.attrs["unit"] = "MW"

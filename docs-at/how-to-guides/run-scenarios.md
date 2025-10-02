@@ -15,6 +15,7 @@ Running the model at high spatial and temporal resolution requires substantial r
 | AT10DE19 (65)  | 1                       | 197116            | 54.7              | 370      |
 | AT35DE5 (77)   | 24                      | 4318              | 1.2               | 25       |
 | AT35DE5 (77)   | 3                       | 32465             | 9.0               | 126      |
+| AT35DE5 (77)   | 1                       |                   |                   | 390      |
 | AT35DE19 (91)  | 365                     |                   |                   |          |
 | AT35DE19 (91)  | 120                     |                   |                   |          |
 | AT35DE19 (91)  | 24                      |                   |                   |          |
@@ -26,9 +27,10 @@ Running the model at high spatial and temporal resolution requires substantial r
 Benchmarks are for `INTEL(R) XEON(R) GOLD 6544Y` processor and using `threads: 8` with a gurobi solver and the default
 gurobi solver settings from `config/config.default.yaml`.
 
-Values in the benchmark are given for the longest runtime and highest memory usage for all networks in the myopic workflow.
+Values in the benchmark are given for the longest runtime and highest memory usage for all networks in the myopic
+workflow.
 
-## Run the workflow
+## Run the workflow from source
 
 Log in to the server that should perform the model run. Then enter a tmux session:
 

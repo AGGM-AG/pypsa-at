@@ -9,6 +9,7 @@ import pathlib
 from dataclasses import dataclass, field
 from math import copysign
 from pathlib import Path
+from typing import Callable
 
 import folium
 import geopandas as gpd
@@ -22,6 +23,10 @@ from evals.utils import filter_by, prettify_number
 @dataclass
 class GridMapConfig:
     """Transmission grip map configuration."""
+
+    # todo: merge into config.toml
+
+    res: Callable
 
     # This layer will be visible by default
     show_year: str = "2030"
@@ -123,7 +128,7 @@ class TransmissionGridMap:
         self.grid = grid
         self.import_energy = import_energy
         self.import_capacity = import_capacity
-        self.buses = buses  # todo: do not uses buses from one year
+        self.buses = buses
         self.cfg = config
         self.fmap = folium.Map(
             tiles=None,
@@ -136,14 +141,14 @@ class TransmissionGridMap:
             min_lon=self.cfg.bounds["W"],
         )
 
-        # feature groups are layers in the map and can be shown or hid
+        # feature groups are layers in the map and can be toggled to show/hide
         self.feature_groups = {}
         for year in sorted(grid.index.unique(DataModel.YEAR)):
             fg = folium.FeatureGroup(name=year, show=True)
             self.feature_groups[year] = fg
             self.fmap.add_child(fg)  # register the feature group
 
-    def save(
+    def export(
         self, output_path: pathlib.Path, file_name: str, subdir: str = "HTML"
     ) -> None:
         """
@@ -164,31 +169,11 @@ class TransmissionGridMap:
             An optional subdirectory to store files at. Leave emtpy
             to skip, or change to html.
         """
-        output_path = self.make_evaluation_result_directories(output_path, subdir)
-        self.fmap.save(output_path / f"{file_name}.html")
+        from evals.fileio import Exporter  # avoids circular import
 
-    def make_evaluation_result_directories(
-        self, result_path: Path, subdir: Path | str
-    ) -> Path:
-        """
-        Create all directories needed to store evaluations results.
-
-        Parameters
-        ----------
-        result_path
-            The path of the result folder.
-        subdir
-            A relative path inside the result folder.
-
-        Returns
-        -------
-        :
-            The joined path: result_dir / subdir.
-        """
-        output_path = self.make_directory(result_path, subdir)
-        output_path = self.make_directory(output_path, "HTML")
-
-        return output_path
+        target_directory = Exporter.make_directory(output_path, "HTML")
+        self.fmap.save(target_directory / f"{file_name}.html")
+        # todo: add metadata tags
 
     def draw_grid_by_carrier_groups_myopic(self) -> None:
         """Plot carrier groups for all years to one map."""
@@ -209,7 +194,7 @@ class TransmissionGridMap:
         )
 
         self.draw_country_markers()
-        # self.draw_import_locations()
+        # self.draw_import_locations()  # use import locations from CSV resource files
         self.add_control_widgets()
 
     def add_control_widgets(self) -> None:
@@ -546,7 +531,7 @@ class TransmissionGridMap:
         color = style["color"]
         unit = grid.attrs["unit"]
 
-        col = f"{grid.attrs['name']} ({grid.attrs['unit']})"
+        col = f"{grid.attrs['name']} ({unit})"
         significant_edges = grid[grid[col] >= self.cfg.line_capacity_threshold]
 
         for _, row in significant_edges.iterrows():
@@ -607,37 +592,10 @@ class TransmissionGridMap:
         style
             The style dictionary to pass to the geojson layer.
         """
-        # res = resources.files("evals") / "data"
-        # gdf = gpd.read_file(res / file_name).to_crs(crs=f"EPSG:{self.cfg.crs}")
-        gdf = gpd.read_file(Path("resources") / file_name).to_crs(
-            crs=f"EPSG:{self.cfg.crs}"
-        )
+        file_path = Path(self.cfg.res(file_name)).resolve()
+        gdf = gpd.read_file(file_path).to_crs(crs=f"EPSG:{self.cfg.crs}")
         if style:  # applies the same style to all features
             gdf["style"] = [style] * gdf.shape[0]
 
         gj = GeoJson(gdf, control=False, overlay=True)
         gj.add_to(self.fmap)
-
-    @staticmethod
-    def make_directory(base: Path, subdir: Path | str) -> Path:
-        """
-        Create a directory and return its path.
-
-        Parameters
-        ----------
-        base
-            The path to base of the new folder.
-        subdir
-            A relative path inside the base folder.
-
-        Returns
-        -------
-        :
-            The joined path: result_dir / subdir / now.
-        """
-        base = Path(base).resolve()
-        assert base.is_dir(), f"Base path does not exist: {base}."
-        directory_path = base / subdir
-        directory_path.mkdir(parents=True, exist_ok=True)
-
-        return directory_path

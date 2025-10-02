@@ -17,7 +17,7 @@ storage_links = [
     "rural heat vent",
     "urban central heat vent",
     "urban decentral heat vent",
-    # Heat Vent Ts a Generator that withdraws from heat buses.
+    # Heat Vent is a Generator that withdraws from heat buses.
     # The "optimal_capacity" statistic wrongly reports positive capacities for
     # heat vent carrier. We explicitly drop them here.
     "urban central water pits discharger",
@@ -394,6 +394,7 @@ exports = []
 "OCGT methanol" = "Thermal Powerplants"
 "allam methanol" = "Thermal Powerplants"
 "coal" = "Thermal Powerplants"
+"oil" = "Thermal Powerplants"
 "lignite" = "Thermal Powerplants"
 "kerosene for aviation" = "Transport"
 "land transport oil" = "Transport"
@@ -421,7 +422,6 @@ bus_carrier = [
 cutoff = 0.001
 legend_order = [
     # from zero to top
-    "Methanol",
     "Methanol Steam Reforming",
     "Methanolisation",
     "Oil Refining",
@@ -704,6 +704,7 @@ exports = []
 "electricity" = "Base Load"
 "coal" = "Coal"
 "lignite" = "Coal"
+"oil" = "Oil"
 "urban central coal CHP" = "Coal"
 "urban central lignite CHP" = "Coal"
 "DAC" = "Direct Air Capture"

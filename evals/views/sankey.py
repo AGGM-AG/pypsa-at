@@ -20,8 +20,8 @@ from pathlib import Path
 import pandas as pd
 
 from evals import plots as plots
+from evals.constants import BusCarrier, Group, TradeTypes
 from evals.constants import DataModel as DM
-from evals.constants import Group, TradeTypes
 from evals.fileio import Exporter
 from evals.statistic import collect_myopic_statistics
 from evals.utils import (
@@ -415,7 +415,8 @@ def view_sankey(
         _,
         transmission_comps,
         transmission_carrier,
-        storage_links,
+        _,
+        _,
     ) = _parse_view_config_items(networks, config)
 
     supply = get_supply(networks, transmission_comps, transmission_carrier)
@@ -435,12 +436,7 @@ def view_sankey(
 
     regional_trade = [
         get_regional_trade(supply, demand, bus_carrier)
-        for bus_carrier in (
-            "oil",
-            "coal",
-            "lignite",
-            "NH3",
-        )  # todo: missing methanol and uranium?
+        for bus_carrier in BusCarrier.eu_buses()
     ]
 
     exporter = Exporter(

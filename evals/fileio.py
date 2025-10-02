@@ -196,15 +196,18 @@ def read_csv_files(
     return pd.concat(df_list, sort=True)
 
 
-def get_resources_directory(n: pypsa.Network) -> Callable:
+def resource_getter(n: pypsa.Network) -> Callable:
     """Return a path provider to the resources directory for a network."""
     run = n.meta["run"]
-    return path_provider(
-        "../resources/",  # assuming CWD is evals/cli.py
+    # expected to run from the project root or a subfolder one level deep
+    cd = "../" if Path("../resources").exists() else "./"
+    func = path_provider(
+        cd + "resources/",
         get_rdir(run),
         run["shared_resources"]["policy"],
         run["shared_resources"]["exclude"],
     )
+    return func
 
 
 def _add_dummy_rows(df: pd.DataFrame, keep_regions: tuple) -> pd.DataFrame:

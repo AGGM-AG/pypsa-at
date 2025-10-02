@@ -521,6 +521,7 @@ class SankeyChart(ESMChart):
             carrier=[
                 "Import Foreign",
                 "Import Domestic",
+                "Global Import",
             ],
         )
         self._flow_import(import_, name)
@@ -619,18 +620,18 @@ class SankeyChart(ESMChart):
         self._flow_secondary(secondary.item(), name)
 
         final = filter_by(self._df, bus_carrier=bus_carrier).abs()
-        self._flow_sector(final, "industry", name, "INDUSTRY")
+        self._flow_sector(final, "industry|NH3", name, "INDUSTRY")
         self._flow_sector(final, "Foreign|Domestic", name, "EXPORT", append_label=True)
         self._flow_sector(final, "rural|decentral", name, "HH_SERVICES")
         self._flow_sector(final, "transport|shipping|aviation", name, "TRANSPORT")
         self._flow_sector(final, "agriculture", name, "AGRICULTURE")
 
         if self.location == "Europe":
-            # assign EU Ammonia Loads to agriculture sector
-            nh3_load = filter_by(
-                self._df, bus_carrier="NH3", carrier="NH3", component="Load"
-            )
-            self._flow_sector(nh3_load, r"NH3", name, "AGRICULTURE")
+            # # assign EU Ammonia Loads to agriculture sector
+            # nh3_load = filter_by(
+            #     self._df, bus_carrier="NH3", carrier="NH3", component="Load"
+            # )
+            # self._flow_sector(nh3_load, r"NH3", name, "AGRICULTURE")
             # drop oil refining process
             oil_refining = filter_by(
                 self._df, bus_carrier="oil", carrier="oil refining", component="Link"
@@ -653,12 +654,14 @@ class SankeyChart(ESMChart):
         bus_carrier = "uranium"
         name = "URANIUM"
 
-        # abusing nuclear PP demand as regional uranium import
-        import_ = filter_by(self._df, bus_carrier=bus_carrier, carrier="nuclear").mul(
-            -1
-        )
+        # Global Import is the regionalized for Uranium imports
+        import_ = filter_by(
+            self._df, bus_carrier=bus_carrier, carrier="Global Import"
+        ).mul(-1)
         self._flow_import(import_, name)
         self._flow_primary(import_, name)
+
+        # todo: connect Link      nuclear uranium     -35.201016 as transformation IN
         self._forward(
             "URANIUM_PRIMARY_OUT",
             "TRANS_IN",

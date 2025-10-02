@@ -710,6 +710,7 @@ COLOUR_SCHEME: dict = {
     "AC": COLOUR.blue_celestial,
     "Electricity CHP": COLOUR.blue_celestial,
     "Battery Storage": COLOUR.coral,
+    "Home Battery": COLOUR.coral,
     "Car Battery": COLOUR.coral,
     "Electricity Import": COLOUR.blue_celestial,
     "Electricity OCGT": COLOUR.blue_celestial,
