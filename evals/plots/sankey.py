@@ -589,12 +589,15 @@ class SankeyChart(ESMChart):
             "NH3",
             "electrobiofuels",
         ]
+        # WARNING - /IdeaProjects/pypsa-at/evals/plots/sankey.py - Warning[Italy 2050]: LIQUIDS_PRIMARY_OUT has a discrepancy of 19.48 TWh
+        # WARNING - /IdeaProjects/pypsa-at/evals/plots/sankey.py - Warning[Italy 2050]: LIQUIDS_SECONDARY_IN has a discrepancy of -19.48 TWh
         import_ = filter_by(
             self._df,
             bus_carrier=bus_carrier,
             carrier=[
                 "Import Foreign",
                 "Import Domestic",
+                "Global Import",
                 "import NH3",
                 "import oil",
                 "import methanol",
@@ -608,7 +611,7 @@ class SankeyChart(ESMChart):
             component="Link",
         ).pipe(
             drop_from_multtindex_by_regex,
-            "Foreign|Domestic|decentral|rural|industry|shipping|agriculture|transport|aviation|refining",
+            "decentral|rural|industry|shipping|agriculture|transport|aviation|refining",
         )
 
         transformation_demand = self._flow_transformation_in(transformation, name)
@@ -654,19 +657,23 @@ class SankeyChart(ESMChart):
         bus_carrier = "uranium"
         name = "URANIUM"
 
-        # Global Import is the regionalized for Uranium imports
-        import_ = filter_by(
-            self._df, bus_carrier=bus_carrier, carrier="Global Import"
-        ).mul(-1)
+        # Global Import is the regionalized carrier for Uranium EU imports
+        import_ = filter_by(self._df, bus_carrier=bus_carrier, carrier="Global Import")
         self._flow_import(import_, name)
         self._flow_primary(import_, name)
 
-        # todo: connect Link      nuclear uranium     -35.201016 as transformation IN
-        self._forward(
-            "URANIUM_PRIMARY_OUT",
-            "TRANS_IN",
-            import_.sum().item(),
+        transformation = filter_by(
+            self._df,
+            bus_carrier=bus_carrier,
+            component="Link",
         )
+        self._flow_transformation_in(transformation, name)
+        # # todo: connect Link      nuclear uranium     -35.201016 as transformation IN
+        # self._forward(
+        #     "URANIUM_PRIMARY_OUT",
+        #     "TRANS_IN",
+        #     import_.sum().item(),
+        # )
 
         # drop EU components
         if self.location == "Europe":
@@ -847,7 +854,7 @@ class SankeyChart(ESMChart):
             node_in = filter_by(self.flows, source=node)
             node_out = filter_by(self.flows, target=node)
             diff = node_in["value"].sum() - node_out["value"].sum()
-            if abs(diff) > self.cfg.cutoff:
+            if abs(diff) > 0.1:  # self.cfg.cutoff
                 logger.warning(
                     f"Warning[{self.location} {self.year}]: {node} has a "
                     f"discrepancy of {diff:.2f} {self.unit}"
@@ -1476,7 +1483,7 @@ class SankeyChart(ESMChart):
         # increase BEV charger withdrawal by V2G amounts and drop it from
         # transformation demand since its transport load
         bev = ("Link", "BEV charger", "low voltage")
-        transformation_demand.drop(bev, inplace=True)
+        transformation_demand.drop(bev, inplace=True, errors="ignore")
         if not v2g_demand.empty:
             self._df.loc[bev, "value"] -= v2g_demand["value"].item()
             # add V2G as a transformation (storage) demand

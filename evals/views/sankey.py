@@ -424,10 +424,6 @@ def view_sankey(
         networks, transmission_comps, transmission_carrier, unit=supply.attrs["unit"]
     )
 
-    # todo:
-    #  - calculate regional oil import from regional oil demand
-    #  - calculate regional NH3 Load from regional NH3 production
-
     grid_losses = net_distribution_grid_losses(supply, demand)
     trade_statistics = get_trade_statistics(
         networks, transmission_comps, transmission_carrier, unit=supply.attrs["unit"]
@@ -451,8 +447,7 @@ def view_sankey(
         view_config=config["view"],
     )
 
-    chart_class = getattr(plots, config["view"]["chart"])
-    exporter.defaults.plotly.chart = chart_class
+    exporter.defaults.plotly.chart = getattr(plots, config["view"]["chart"])
     exporter.defaults.plotly.xaxis_title = ""
     exporter.defaults.plotly.plotby = [DM.YEAR, DM.LOCATION]
     exporter.defaults.plotly.pivot_index = [
