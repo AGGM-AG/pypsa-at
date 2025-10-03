@@ -589,6 +589,10 @@ class SankeyChart(ESMChart):
             "NH3",
             "electrobiofuels",
         ]
+        # WARNING - /IdeaProjects/pypsa-at/evals/plots/sankey.py - Warning[Balearic Islands 2030]: ELECTRICITY_PRIMARY_OUT has a discrepancy of 12.64 TWh
+        # WARNING - /IdeaProjects/pypsa-at/evals/plots/sankey.py - Warning[Balearic Islands 2030]: ELECTRICITY_SECONDARY_IN has a discrepancy of -12.64 TWh
+        # WARNING - /IdeaProjects/pypsa-at/evals/plots/sankey.py - Warning[Balearic Islands 2030]: LIQUIDS_PRIMARY_OUT has a discrepancy of 55.85 TWh
+        # WARNING - /IdeaProjects/pypsa-at/evals/plots/sankey.py - Warning[Balearic Islands 2030]: LIQUIDS_SECONDARY_IN has a discrepancy of -55.85 TWh
         # WARNING - /IdeaProjects/pypsa-at/evals/plots/sankey.py - Warning[Italy 2050]: LIQUIDS_PRIMARY_OUT has a discrepancy of 19.48 TWh
         # WARNING - /IdeaProjects/pypsa-at/evals/plots/sankey.py - Warning[Italy 2050]: LIQUIDS_SECONDARY_IN has a discrepancy of -19.48 TWh
         import_ = filter_by(

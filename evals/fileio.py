@@ -19,7 +19,6 @@ from pydantic.v1.utils import deep_update
 from evals import plots as plots
 from evals.configs import ViewDefaults
 from evals.constants import (
-    ALIAS_COUNTRY,
     COLOUR_SCHEME,
     NOW,
     TITLE_SUFFIX,
@@ -29,7 +28,6 @@ from evals.constants import (
 from evals.excel import export_excel_countries, export_excel_regions_at
 from evals.utils import (
     combine_statistics,
-    get_location_alias,
     insert_index_level,
     rename_aggregate,
 )
@@ -208,58 +206,6 @@ def resource_getter(n: pypsa.Network) -> Callable:
     return func
 
 
-def _add_dummy_rows(df: pd.DataFrame, keep_regions: tuple) -> pd.DataFrame:
-    """
-    Add rows for missing year - country combinations.
-
-    This is required to export empty figures. Empty figures
-    no data for a country. For example, Italy has no district
-    heat network and, as a result, no data in the respective
-    district heat production capacities evaluation chart.
-
-    Parameters
-    ----------
-    df
-        The data frame with a location index level.
-    keep_regions
-        The regions to add empty rows for.
-
-    Returns
-    -------
-    :
-        The input dataframe one with additional emtpy row
-        per missing country.
-    """
-    attrs = df.attrs
-    years = df.index.unique(DataModel.YEAR)  # assuming all required years are present
-    countries = list(ALIAS_COUNTRY.values())
-
-    # this will export empty files for all German regions DE5 and DE19 clustering.
-    location_alias = get_location_alias(df.index.unique(DataModel.LOCATION))
-    regions = [loc for k, loc in location_alias.items() if k.startswith(keep_regions)]
-    locations = countries + regions
-
-    idx_names_required = DataModel.YEAR_IDX_NAMES[:2]  # year, location
-    n_levels_to_add = df.index.nlevels - len(idx_names_required)
-    idx_required = pd.MultiIndex.from_product(
-        [years, locations], names=idx_names_required
-    )
-
-    idx_present = df.reset_index().set_index(idx_names_required).index.unique()
-    idx_missing_year_loc = idx_required.difference(idx_present)
-
-    if idx_missing_year_loc.empty:
-        return df
-
-    missing_items = [idx + ("",) * n_levels_to_add for idx in idx_missing_year_loc]
-    idx_missing = pd.MultiIndex.from_tuples(missing_items, names=df.index.names)
-    rows_missing = pd.DataFrame(index=idx_missing, columns=df.columns, data=pd.NA)
-    result = pd.concat([rows_missing, df])
-    result.attrs = attrs
-
-    return result
-
-
 class Exporter:
     """
     A class to export statistics.
@@ -355,8 +301,6 @@ class Exporter:
         df_plot = df.pivot_table(
             index=cfg.pivot_index, columns=cfg.pivot_columns, aggfunc="sum"
         )
-
-        # df_plot = _add_dummy_rows(df_plot, self.keep_regions)
 
         for idx, data in df_plot.groupby(cfg.plotby):
             chart = cfg.chart(data, cfg)
