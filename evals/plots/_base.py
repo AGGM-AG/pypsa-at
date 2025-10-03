@@ -27,12 +27,9 @@ class ESMChart:
         The data frame with the plot data. The class expects a data
         frame that complies with the metric data model, i.e. has
         the expected column and index labels.
-
     cfg
         The plotly configuration.
     """
-
-    # todo: avoid inheritance and use MixIns instead
 
     def __init__(self, df: pd.DataFrame, cfg: PlotConfig):
         self._df = df
@@ -146,7 +143,7 @@ class ESMChart:
         Returns
         -------
         :
-            The constructed file name based on the template and
+            The constructed filename based on the template and
             provided values.
         """
         idx = [idx] if isinstance(idx, str) else idx

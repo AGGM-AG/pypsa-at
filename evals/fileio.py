@@ -20,9 +20,6 @@ from evals import plots as plots
 from evals.configs import ViewDefaults
 from evals.constants import (
     ALIAS_COUNTRY,
-    ALIAS_REGION,
-    ALIAS_REGION_DE5_CLUSTERING,
-    ALIAS_REGION_DE19_CLUSTERING,
     COLOUR_SCHEME,
     NOW,
     TITLE_SUFFIX,
@@ -32,6 +29,7 @@ from evals.constants import (
 from evals.excel import export_excel_countries, export_excel_regions_at
 from evals.utils import (
     combine_statistics,
+    get_location_alias,
     insert_index_level,
     rename_aggregate,
 )
@@ -237,12 +235,8 @@ def _add_dummy_rows(df: pd.DataFrame, keep_regions: tuple) -> pd.DataFrame:
     countries = list(ALIAS_COUNTRY.values())
 
     # this will export empty files for all German regions DE5 and DE19 clustering.
-    # A better solution is needed.
-    all_regions = (
-        ALIAS_REGION | ALIAS_REGION_DE5_CLUSTERING | ALIAS_REGION_DE19_CLUSTERING
-    )
-
-    regions = [loc for k, loc in all_regions.items() if k.startswith(keep_regions)]
+    location_alias = get_location_alias(df.index.unique(DataModel.LOCATION))
+    regions = [loc for k, loc in location_alias.items() if k.startswith(keep_regions)]
     locations = countries + regions
 
     idx_names_required = DataModel.YEAR_IDX_NAMES[:2]  # year, location
@@ -362,7 +356,7 @@ class Exporter:
             index=cfg.pivot_index, columns=cfg.pivot_columns, aggfunc="sum"
         )
 
-        df_plot = _add_dummy_rows(df_plot, self.keep_regions)
+        # df_plot = _add_dummy_rows(df_plot, self.keep_regions)
 
         for idx, data in df_plot.groupby(cfg.plotby):
             chart = cfg.chart(data, cfg)

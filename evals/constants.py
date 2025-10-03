@@ -801,41 +801,6 @@ ALIAS_REGION: frozendict = frozendict(
         "AT32": "Salzburg (AT)",
         "AT33": "Tyrol (AT)",
         "AT34": "Vorarlberg (AT)",
-        "AT223": "Östliche Obersteiermark",
-        "AT212": "Oberkärnten",
-        "AT111": "Mittelburgenland",
-        "AT213": "Unterkärnten",
-        "AT130": "Wien",
-        "AT112": "Nordburgenland",
-        "AT113": "Südburgenland",
-        "AT315": "Traunviertel",
-        "AT323": "Salzburg und Umgebung",
-        "AT311": "Innviertel",
-        "AT314": "Steyr-Kirchdorf",
-        "AT332": "Innsbruck",
-        "AT333": "East Tyrol (AT)",
-        "AT226": "Westliche Obersteiermark",
-        "AT335": "Tiroler Unterland",
-        "AT312": "Linz-Wels",
-        "AT122": "Niederösterreich-Süd",
-        "AT321": "Lungau",
-        "AT211": "Klagenfurt-Villach",
-        "AT125": "Weinviertel",
-        "AT322": "Pinzgau-Pongau",
-        "AT342": "Rheintal-Bodenseegebiet",
-        "AT224": "Oststeiermark",
-        "AT221": "Graz",
-        "AT331": "Außerfern",
-        "AT341": "Bludenz-Bregenzer Wald",
-        "AT124": "Waldviertel",
-        "AT127": "Wiener Umland/Südteil",
-        "AT313": "Mühlviertel",
-        "AT121": "Mostviertel-Eisenwurzen",
-        "AT222": "Liezen",
-        "AT123": "Sankt Pölten",
-        "AT334": "Tiroler Oberland",
-        "AT126": "Wiener Umland/Nordteil",
-        "AT225": "West- und Südsteiermark",
         # fixed custom administrative clustering regions
         "IT0": "Italy (mainland)",
         "IT1": "Sicily",
@@ -850,6 +815,55 @@ ALIAS_REGION: frozendict = frozendict(
         "ES1": "Balearic Islands",
     }
 )
+ALIAS_REGION_AT10_CLUSTERING = {
+    "AT11": "Burgenland (AT)",
+    "AT12": "Lower Austria (AT)",
+    "AT13": "Vienna (AT)",
+    "AT21": "Carinthia (AT)",
+    "AT22": "Styria (AT)",
+    "AT31": "Upper Austria (AT)",
+    "AT32": "Salzburg (AT)",
+    "AT33": "Tyrol (AT)",
+    "AT34": "Vorarlberg (AT)",
+    "AT333": "East Tyrol (AT)",
+}
+ALIAS_REGION_AT35_CLUSTERING = {
+    "AT223": "Östliche Obersteiermark",
+    "AT212": "Oberkärnten",
+    "AT111": "Mittelburgenland",
+    "AT213": "Unterkärnten",
+    "AT130": "Wien",
+    "AT112": "Nordburgenland",
+    "AT113": "Südburgenland",
+    "AT315": "Traunviertel",
+    "AT323": "Salzburg und Umgebung",
+    "AT311": "Innviertel",
+    "AT314": "Steyr-Kirchdorf",
+    "AT332": "Innsbruck",
+    "AT333": "East Tyrol (AT)",
+    "AT226": "Westliche Obersteiermark",
+    "AT335": "Tiroler Unterland",
+    "AT312": "Linz-Wels",
+    "AT122": "Niederösterreich-Süd",
+    "AT321": "Lungau",
+    "AT211": "Klagenfurt-Villach",
+    "AT125": "Weinviertel",
+    "AT322": "Pinzgau-Pongau",
+    "AT342": "Rheintal-Bodenseegebiet",
+    "AT224": "Oststeiermark",
+    "AT221": "Graz",
+    "AT331": "Außerfern",
+    "AT341": "Bludenz-Bregenzer Wald",
+    "AT124": "Waldviertel",
+    "AT127": "Wiener Umland/Südteil",
+    "AT313": "Mühlviertel",
+    "AT121": "Mostviertel-Eisenwurzen",
+    "AT222": "Liezen",
+    "AT123": "Sankt Pölten",
+    "AT334": "Tiroler Oberland",
+    "AT126": "Wiener Umland/Nordteil",
+    "AT225": "West- und Südsteiermark",
+}
 ALIAS_REGION_DE19_CLUSTERING = {  # NUTS1
     "DE1": "Baden-Württemberg",
     "DE2": "Bavaria",
@@ -876,12 +890,21 @@ ALIAS_REGION_DE5_CLUSTERING = {
     "DE5": "North Germany",
 }
 
-ALIAS_REGION_REV: frozendict = frozendict({v: k for k, v in ALIAS_REGION.items()})
-
-# DE19 clustering not supported to file names
-ALIAS_LOCATION: frozendict = ALIAS_COUNTRY | ALIAS_REGION | ALIAS_REGION_DE5_CLUSTERING
-ALIAS_LOCATION_REV: frozendict = frozendict({v: k for k, v in ALIAS_LOCATION.items()})
-
+# reverse and then combine all dictionaries to prevent overwriting DE1-5 keys
+ALIAS_LOCATION_REV = frozendict(
+    {
+        v: k
+        for dict_ in (
+            ALIAS_COUNTRY,
+            ALIAS_REGION,
+            ALIAS_REGION_DE5_CLUSTERING,
+            ALIAS_REGION_DE19_CLUSTERING,
+            ALIAS_REGION_AT10_CLUSTERING,
+            ALIAS_REGION_AT35_CLUSTERING,
+        )
+        for k, v in dict_.items()
+    }
+)
 
 try:
     repo = git.Repo(search_parent_directories=True)

@@ -9,12 +9,16 @@ import re
 from contextlib import contextmanager
 from itertools import product
 
+import frozendict
 import numpy as np
 import pandas as pd
 from pypsa.statistics import get_transmission_carriers
 
 from evals.constants import (
-    ALIAS_LOCATION,
+    ALIAS_COUNTRY,
+    ALIAS_REGION,
+    ALIAS_REGION_AT10_CLUSTERING,
+    ALIAS_REGION_AT35_CLUSTERING,
     ALIAS_REGION_DE5_CLUSTERING,
     ALIAS_REGION_DE19_CLUSTERING,
     UNITS,
@@ -533,16 +537,16 @@ def aggregate_locations(
     regions = df.loc[mask, :]
     result = pd.concat([countries, regions, europe]).sort_index(axis=0)
     if nice_names:
-        mapper = ALIAS_LOCATION
-        de_regions = result.index.unique(DataModel.LOCATION).str.startswith("DE")
-        if sum(de_regions) == 6:  # 5 regions + country
-            mapper = ALIAS_LOCATION | ALIAS_REGION_DE5_CLUSTERING
-        elif sum(de_regions) == 20:  # 19 regions + country
-            mapper = ALIAS_LOCATION | ALIAS_REGION_DE19_CLUSTERING
-        else:
-            logger.warning(
-                f"Unexpected clustered regions for Germany detected: {de_regions}"
-            )
+        mapper = get_location_alias(result.index.unique(DataModel.LOCATION))
+        # de_regions = result.index.unique(DataModel.LOCATION).str.startswith("DE")
+        # if sum(de_regions) == 6:  # 5 regions + country
+        #     mapper = ALIAS_LOCATION | ALIAS_REGION_DE5_CLUSTERING
+        # elif sum(de_regions) == 20:  # 19 regions + country
+        #     mapper = ALIAS_LOCATION | ALIAS_REGION_DE19_CLUSTERING
+        # else:
+        #     logger.warning(
+        #         f"Unexpected clustered regions for Germany detected: {de_regions}"
+        #     )
         result = result.rename(index=mapper, level=DataModel.LOCATION)
     return result
 
@@ -1147,3 +1151,51 @@ def get_regional_trade(
     ).mul(-1)
 
     return pd.concat([regional_import, regional_export])
+
+
+def get_location_alias(locations: pd.Index, reversed: bool = False) -> dict:
+    """
+    Return the location alias mapping depending on the clustering.
+
+    Constructs a mapping dictionary from location codes to human-readable
+    names based on the detected clustering configuration. Automatically
+    detects DE5/DE19 and AT10/AT35 clustering levels by counting the
+    number of regional locations in the index.
+
+    Parameters
+    ----------
+    locations
+        Index containing location codes (e.g., 'DE1', 'AT211', 'EU').
+    reversed
+        If True, returns an inverted mapping from names to codes.
+
+    Returns
+    -------
+    :
+        Dictionary mapping location codes to human-readable names
+        (or vice versa if reversed=True). Includes country, region,
+        and clustering-specific aliases.
+
+    Raises
+    ------
+    ValueError
+        If the number of DE or AT regions doesn't match expected
+        clustering configurations (DE5/DE19 or AT10/AT35).
+    """
+    de_regions = [loc for loc in locations if loc.startswith("DE")]
+    if len(de_regions) == 6:  # DE5 clustering + Germany
+        alias = ALIAS_COUNTRY | ALIAS_REGION | ALIAS_REGION_DE5_CLUSTERING
+    elif len(de_regions) == 20:  # DE19 clustering + Germany
+        alias = ALIAS_COUNTRY | ALIAS_REGION | ALIAS_REGION_DE19_CLUSTERING
+    else:
+        raise ValueError(f"Unexpected number of locations for DE: {len(de_regions)}.")
+    at_regions = [loc for loc in locations if loc.startswith("AT")]
+    if len(at_regions) == 11:  # AT10 + Austria
+        alias = alias | ALIAS_REGION_AT10_CLUSTERING
+    elif len(at_regions) == 36:  # AT35 + Austria
+        alias = alias | ALIAS_REGION_AT35_CLUSTERING
+    else:
+        raise ValueError(f"Unexpected number of locations for AT: {len(at_regions)}.")
+    if reversed:
+        return frozendict({v: k for k, v in alias.items()})
+    return alias

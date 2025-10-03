@@ -10,8 +10,8 @@ from pandas import ExcelWriter
 from xlsxwriter.utility import xl_col_to_name, xl_rowcol_to_cell
 
 from evals.configs import ExcelConfig
-from evals.constants import ALIAS_COUNTRY_REV, ALIAS_REGION_REV, DataModel
-from evals.utils import filter_by, rename_aggregate
+from evals.constants import ALIAS_COUNTRY_REV, DataModel
+from evals.utils import filter_by, get_location_alias, rename_aggregate
 
 
 def export_excel_countries(
@@ -80,7 +80,8 @@ def export_excel_regions_at(
     categories = view_config["categories"]
     carrier = metric.index.unique(DataModel.CARRIER)
     df = rename_aggregate(metric, level=DataModel.CARRIER, mapper=categories)
-    df = filter_by(df, location=list(ALIAS_REGION_REV))
+    location = get_location_alias(df.index.unique(DataModel.LOCATION)).values()
+    df = filter_by(df, location=location)
     df_xlsx = df.pivot_table(
         index=excel_defaults.pivot_index,
         columns=excel_defaults.pivot_columns,
