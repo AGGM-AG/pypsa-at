@@ -470,7 +470,7 @@ def aggregate_eu(df: pd.DataFrame, agg: str = "sum") -> pd.DataFrame:
     """
     df = df.query(f"{DataModel.LOCATION} not in ['EU', '']")
     totals = rename_aggregate(df, "EU", level=DataModel.LOCATION, agg=agg)
-    transmission = dict.fromkeys(
+    transmission_losses = dict.fromkeys(
         [
             Group.import_net,
             Group.export_net,
@@ -481,7 +481,7 @@ def aggregate_eu(df: pd.DataFrame, agg: str = "sum") -> pd.DataFrame:
         ],
         "Transmission Losses",
     )
-    return rename_aggregate(totals, transmission)
+    return rename_aggregate(totals, transmission_losses)
 
 
 def aggregate_locations(

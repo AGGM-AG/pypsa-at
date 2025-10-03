@@ -695,7 +695,6 @@ legend_order = [
     "Methane Compressors",
     "Methanolisation",
     "Agriculture",
-    "Haber-Bosch",
     "Direct Air Capture",
     "Pumped Hydro Storage",
     "Transmission Losses",
@@ -722,7 +721,7 @@ exports = []
 "Export Domestic" = "Export Domestic"
 "Export Foreign" = "Export Foreign"
 "urban central gas CHP CC" = "Methane"
-"Haber-Bosch" = "Haber-Bosch"
+"Haber-Bosch" = "Industry"
 "rural air heat pump" = "Heat"
 "rural ground heat pump" = "Heat"
 "rural resistive heater" = "Heat"
