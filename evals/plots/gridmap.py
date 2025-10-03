@@ -171,7 +171,7 @@ class TransmissionGridMap:
         """
         from evals.fileio import Exporter  # avoids circular import
 
-        target_directory = Exporter.make_directory(output_path / "evaluation", "HTML")
+        target_directory = Exporter.make_directory(output_path, "evaluation/HTML")
         self.fmap.save(target_directory / f"{file_name}.html")
         # todo: add metadata tags
 

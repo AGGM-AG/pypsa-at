@@ -300,12 +300,13 @@ legend_order = [
     # from zero to top
     "Transport",
     "Industry",
+    "Agriculture",
     "Heat",
     "Waste",
     "Fischer-Tropsch",
     "SynGas",
     "DAC",
-    "Agriculture",
+    "Transmission Losses",
     "CHP",
     "Sabatier",
     "CO2 Sequestration",
@@ -402,6 +403,7 @@ exports = []
 "shipping oil" = "Transport"
 "HVC to air" = "Waste"
 "municipal solid waste" = "Waste"
+"Transmission Losses" = "Transmission Losses"
 
 [view_balance_fuels]
 name = "Fuel Balance"
@@ -428,6 +430,7 @@ legend_order = [
     "Solid Biomass",
     "Solid Waste",
     "Unsustainable Solid Biomass",
+    "Transmission Losses",
     "Import Domestic",
     "Import Foreign",
     "Global Market",
@@ -483,6 +486,7 @@ exports = []
 "biomass to liquid CC" = "Liquids"
 "biomass-to-methanol" = "Liquids"
 "biomass-to-methanol CC" = "Liquids"
+"Transmission Losses" = "Transmission Losses"  # solid biomass transport
 "coal for industry" = "Industry"
 "electrobiofuels" = "Liquids"
 "kerosene for aviation" = "Liquids"
@@ -554,6 +558,7 @@ legend_order = [
     "Methanolisation",
     "Methanol Steam Reforming",
     "Synth. Fuels",
+    "Transmission Losses",
     "Storage In",
     "Export Domestic",
     "Export Foreign",
@@ -591,6 +596,7 @@ exports = []
 "Methanol steam reforming" = "Methanol Steam Reforming"
 "Methanol steam reforming CC" = "Methanol Steam Reforming"
 "solid biomass to hydrogen" = "Bio H2"
+"Transmission Losses" = "Transmission Losses"
 
 [view_balance_methane]
 name = "Methane Energy Balance"
@@ -615,6 +621,7 @@ legend_order = [
     "CHP",
     "Gas Boiler",
     "SMR",
+    "Transmission Losses",
     "Export Domestic",
     "Export Foreign",
     "Storage In",
@@ -651,6 +658,7 @@ exports = []
 "lng gas" = "Global Market"
 "pipeline gas" = "Global Market"
 "biogas" = "Biogas"
+"Transmission Losses" = "Transmission Losses"
 
 [view_balance_electricity]
 name = "Electricity Energy Balance"
@@ -709,6 +717,7 @@ exports = []
 "urban central lignite CHP" = "Coal"
 "DAC" = "Direct Air Capture"
 "electricity distribution grid" = "Transmission Losses"
+"Transmission Losses" = "Transmission Losses"
 "H2 Electrolysis" = "Electrolysis"
 "Export Domestic" = "Export Domestic"
 "Export Foreign" = "Export Foreign"
@@ -854,6 +863,7 @@ legend_order = [
     "Methanol",
     "Biomass Boiler",
     "CHP",
+    "Transmission Losses",
     "Export Domestic",
     "Export Foreign",
 ]
@@ -875,6 +885,7 @@ exports = []
 "solid biomass for industry CC" = "Industry"
 "solid biomass to hydrogen" = "Bio H2"
 "unsustainable solid biomass" = "Unsustainable Solid Biomass"
+"Transmission Losses" = "Transmission Losses"
 "urban decentral biomass boiler" = "Biomass Boiler"
 "urban central solid biomass CHP" = "CHP"
 "urban central solid biomass CHP CC" = "CHP"
@@ -901,7 +912,7 @@ legend_order = [
     "Ambient Heat"
 ]
 checks = []
-exports = ["excel"]
+exports = []
 
 [view_demand_heat.categories]
 "AC" = "Electricity"

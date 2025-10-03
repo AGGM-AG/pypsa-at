@@ -354,6 +354,7 @@ class SankeyChart(ESMChart):
             self._df,
             carrier=[
                 "electricity distribution grid",
+                "Transmission Losses",
                 "gas pipeline",
                 "H2 pipeline",
                 "H2 pipeline (Kernnetz)",

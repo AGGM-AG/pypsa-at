@@ -470,18 +470,18 @@ def aggregate_eu(df: pd.DataFrame, agg: str = "sum") -> pd.DataFrame:
     """
     df = df.query(f"{DataModel.LOCATION} not in ['EU', '']")
     totals = rename_aggregate(df, "EU", level=DataModel.LOCATION, agg=agg)
-    excluded = [
-        Group.import_net,
-        Group.export_net,
-        Group.import_foreign,
-        Group.export_foreign,
-        # exclude domestic trade for EU region
-        Group.import_domestic,
-        Group.export_domestic,
-        Carrier.import_domestic,
-        Carrier.export_domestic,
-    ]
-    return totals.drop(excluded, level=DataModel.CARRIER, errors="ignore")
+    transmission = dict.fromkeys(
+        [
+            Group.import_net,
+            Group.export_net,
+            Group.import_foreign,
+            Group.export_foreign,
+            Group.import_domestic,
+            Group.export_domestic,
+        ],
+        "Transmission Losses",
+    )
+    return rename_aggregate(totals, transmission)
 
 
 def aggregate_locations(
@@ -516,7 +516,8 @@ def aggregate_locations(
     if "EU" in country_codes.values():
         logger.warning(
             "Values for 'EU' node found in input data frame. "
-            "This can lead to value doubling during location aggregation.",
+            "This can lead to value duplication during location "
+            "aggregation.",
         )
     countries = rename_aggregate(df, country_codes, level=DataModel.LOCATION)
     # domestic trade only makes sense between regions. Aggregated
