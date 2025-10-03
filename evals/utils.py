@@ -9,9 +9,9 @@ import re
 from contextlib import contextmanager
 from itertools import product
 
-import frozendict
 import numpy as np
 import pandas as pd
+from frozendict import frozendict
 from pypsa.statistics import get_transmission_carriers
 
 from evals.constants import (
@@ -468,10 +468,10 @@ def aggregate_eu(df: pd.DataFrame, agg: str = "sum") -> pd.DataFrame:
     :
         Summed metric with one location named 'EU'.
     """
-    df = df.query(f"{DataModel.LOCATION} not in ['EU', '']")  # valid countries only
+    df = df.query(f"{DataModel.LOCATION} not in ['EU', '']")
     totals = rename_aggregate(df, "EU", level=DataModel.LOCATION, agg=agg)
     excluded = [
-        Group.import_net,  # required for CH4 and H2!
+        Group.import_net,
         Group.export_net,
         Group.import_foreign,
         Group.export_foreign,
@@ -522,16 +522,20 @@ def aggregate_locations(
     # domestic trade only makes sense between regions. Aggregated
     # countries contain domestic trade, but import and export nets
     # to zero and information is redundant.
-    countries = countries.drop(
-        [
-            Carrier.export_domestic,
-            Carrier.import_domestic,
-            Group.import_domestic,
-            Group.export_domestic,
-        ],
-        level=DataModel.CARRIER,
-        errors="ignore",
+    mapper_losses = dict.fromkeys(
+        [Group.import_domestic, Group.export_domestic], "Transmission Losses"
     )
+    countries = rename_aggregate(countries, mapper_losses)
+    # countries = countries.drop(
+    #     [
+    #         Carrier.export_domestic,  # todo: redundant?
+    #         Carrier.import_domestic,  # todo: redundant?
+    #         Group.import_domestic,
+    #         Group.export_domestic,
+    #     ],
+    #     level=DataModel.CARRIER,
+    #     errors="ignore",
+    # )
     europe = aggregate_eu(df)
     mask = df.index.get_level_values(DataModel.LOCATION).str.startswith(keep_regions)
     regions = df.loc[mask, :]
@@ -1109,11 +1113,11 @@ def print_link_bus_efficiencies(networks, year, like) -> pd.Series:
     )
 
 
-def get_regional_trade(
+def regionalize_statistics(
     supply: pd.Series, demand: pd.DataFrame, bus_carrier: str | list
 ) -> pd.Series:
     """
-    Calculate regional trade balances for specific carriers.
+    Calculate regional balances for specific carriers.
 
     Computes regional import/export balances by comparing supply and demand
     for specific bus carriers (e.g., oil, coal, lignite, NH3) across locations.
@@ -1153,7 +1157,7 @@ def get_regional_trade(
     return pd.concat([regional_import, regional_export])
 
 
-def get_location_alias(locations: pd.Index, reversed: bool = False) -> dict:
+def get_location_alias(locations: pd.Index) -> dict:
     """
     Return the location alias mapping depending on the clustering.
 
@@ -1166,15 +1170,12 @@ def get_location_alias(locations: pd.Index, reversed: bool = False) -> dict:
     ----------
     locations
         Index containing location codes (e.g., 'DE1', 'AT211', 'EU').
-    reversed
-        If True, returns an inverted mapping from names to codes.
 
     Returns
     -------
     :
-        Dictionary mapping location codes to human-readable names
-        (or vice versa if reversed=True). Includes country, region,
-        and clustering-specific aliases.
+        Dictionary mapping location codes to human-readable names.
+        Includes country, region, and clustering-specific aliases.
 
     Raises
     ------
@@ -1189,6 +1190,7 @@ def get_location_alias(locations: pd.Index, reversed: bool = False) -> dict:
         alias = ALIAS_COUNTRY | ALIAS_REGION | ALIAS_REGION_DE19_CLUSTERING
     else:
         raise ValueError(f"Unexpected number of locations for DE: {len(de_regions)}.")
+
     at_regions = [loc for loc in locations if loc.startswith("AT")]
     if len(at_regions) == 11:  # AT10 + Austria
         alias = alias | ALIAS_REGION_AT10_CLUSTERING
@@ -1196,6 +1198,5 @@ def get_location_alias(locations: pd.Index, reversed: bool = False) -> dict:
         alias = alias | ALIAS_REGION_AT35_CLUSTERING
     else:
         raise ValueError(f"Unexpected number of locations for AT: {len(at_regions)}.")
-    if reversed:
-        return frozendict({v: k for k, v in alias.items()})
-    return alias
+
+    return frozendict(alias)

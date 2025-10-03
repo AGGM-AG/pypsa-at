@@ -15,9 +15,9 @@ from evals.utils import (
     drop_from_multtindex_by_regex,
     filter_by,
     filter_for_carrier_connected_to,
-    get_regional_trade,
     get_storage_carriers,
     get_transmission_techs,
+    regionalize_statistics,
     rename_aggregate,
 )
 
@@ -115,7 +115,9 @@ def simple_bus_balance(
         demand.attrs["unit"] = supply.attrs["unit"]
 
     regional_trade = [
-        get_regional_trade(supply, demand, bus_carrier).droplevel(DataModel.COMPONENT)
+        regionalize_statistics(supply, demand, bus_carrier).droplevel(
+            DataModel.COMPONENT
+        )
         for bus_carrier in BusCarrier.eu_buses()
     ]
     # drop all supply with EU location. They are in regional_trade.

@@ -848,7 +848,7 @@ class SankeyChart(ESMChart):
         checks = (
             "PRIMARY",
             "SECONDARY",
-            "TRANSFORMATION",
+            "TRANS_",
         )
         for node in self.nodes.index:
             # skip left and right border nodes because they are never balanced

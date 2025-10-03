@@ -27,8 +27,8 @@ from evals.statistic import collect_myopic_statistics
 from evals.utils import (
     drop_from_multtindex_by_regex,
     filter_by,
-    get_regional_trade,
     insert_index_level,
+    regionalize_statistics,
     rename_aggregate,
 )
 from evals.views.common import _parse_view_config_items
@@ -431,7 +431,7 @@ def view_sankey(
     link_losses = get_link_losses(supply, demand)
 
     regional_trade = [
-        get_regional_trade(supply, demand, bus_carrier)
+        regionalize_statistics(supply, demand, bus_carrier)
         for bus_carrier in BusCarrier.eu_buses()
     ]
 

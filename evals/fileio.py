@@ -290,7 +290,7 @@ class Exporter:
         Parameters
         ----------
         output_path
-            The path to the HTML folder with all the html files are
+            The path to the HTML folder where all the .html files are
             stored.
         """
         cfg = self.defaults.plotly
