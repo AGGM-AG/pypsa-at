@@ -171,7 +171,7 @@ solving:
 mods:
 
   # AT10 administrative clustering
-  modify_nuts3_shapes: true
+  modify_nuts3_shapes: AT10DE5
 
   # scale_capacity does not work for Line components, hence we use this
   # modification to update any transmission capacity (Links or Lines)

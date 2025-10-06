@@ -213,7 +213,7 @@ def json_path(eval_path: pathlib.Path) -> pathlib.Path:
 
 @pytest.fixture(scope="session")
 def networks(result_path: pathlib.Path) -> dict:
-    """Load the network."""
+    """Load the networks."""
     return read_networks(result_path)
 
 

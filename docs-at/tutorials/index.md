@@ -4,8 +4,6 @@ get started with the code in this project.
 
 > **Note:** Expand this section by considering the
 > following points:
-exit
-> 
 - Help newcomers with getting started
 - Teach readers about your library by making them
     write code

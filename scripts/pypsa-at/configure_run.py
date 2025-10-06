@@ -42,7 +42,7 @@ def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
     Notes
     -----
     This function is expected to run using pipelines and the dumped configuration
-    yaml is not expected to be check in to VCS.
+    yaml is not expected to be checked in to VCS.
     """
     # validate inputs
     accepted_solver = ("highs-default", "gurobi-default")
@@ -65,6 +65,8 @@ def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
         )
 
     file_path = Path("config/config.at.yaml")
+
+    # setting up logger for gitlab CI pipeline
     logging.basicConfig(
         level=logging.INFO,
         format="{levelname} - {name} - {message}",
@@ -76,6 +78,9 @@ def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
 
     with file_path.open("r") as fh:
         config = yaml.safe_load(fh)
+
+    logger.info(f"Configuring PyPSA-AT model for clustering {clustering}.")
+    config["mods"]["modify_nuts3_shapes"] = clustering
 
     nuts_at = 2 if "AT10" in clustering else 3  # AT35
     nuts_de = 1 if "DE19" in clustering else 3  # DE5
