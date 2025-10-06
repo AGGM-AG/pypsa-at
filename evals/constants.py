@@ -130,33 +130,17 @@ class Carrier:
 
     # Electricity carriers
     AC: str = "AC"
+    DC: str = "DC"
 
     # Gas carriers
-    CH4: str = "gas"
     gas_pipepline: str = "gas pipeline"
     gas_pipepline_new: str = "gas pipeline new"
 
     # Hydrogen carriers
     H2: str = "H2"
-    h2_pipeline: str = "H2 pipeline"
-    h2_pipeline_retro: str = "H2 pipeline retrofitted"
-    h2_pipeline_kernnetz: str = "H2 pipeline (Kernnetz)"
-
-    # Heat carriers
-    HEAT_URBAN_CENTRAL: str = "urban central heat"
-    HEAT_URBAN_DECENTRAL: str = "urban decentral heat"
-    HEAT_RURAL: str = "rural heat"
 
     # Storage carriers
     LI_ION: str = "Li ion"
-
-    # Industry and demand
-    domestic_homes_and_trade: str = "domestic homes and trade"
-    electricity_rail: str = "electricity rail"
-    industry: str = "industry"
-
-    # Grid losses
-    grid_losses: str = "urban central heat losses"
 
     # Vehicle-to-grid
     v2g: str = "V2G"
@@ -257,11 +241,11 @@ UNITS: frozendict = frozendict(
 TRANSMISSION_CARRIER: tuple = (
     "AC",
     "DC",
-    Carrier.gas_pipepline,
-    Carrier.gas_pipepline_new,
-    Carrier.h2_pipeline,
-    Carrier.h2_pipeline_retro,
-    Carrier.h2_pipeline_kernnetz,
+    "gas pipeline",
+    "gas pipeline new",
+    "H2 pipeline",
+    "H2 pipeline retrofitted",
+    "H2 pipeline (Kernnetz)",
 )
 
 

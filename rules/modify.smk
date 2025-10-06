@@ -81,5 +81,5 @@ rule validate_pypsa_at:
     resources:
         mem_mb=16000,
     shell:
-        # fixme: remove unit mark once all tests pass
-        "pytest -m unit --html {params.rdir}/test_report.html --result-path={params.rdir}"
+        # FixMe: maybe run pytest -m unit in advance?
+        'pytest -m "unit or integration" --html {params.rdir}/test_report.html --result-path={params.rdir}'

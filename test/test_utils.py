@@ -1192,8 +1192,28 @@ def test_apply_cutoff(df, limit, drop, expected):
         pytest.param(pd.DataFrame(), (), True, KeyError, id="empty_data"),
     ],
 )
-def test_aggregate_locations(df, keep_regions, nice_names, expected):
+def test_aggregate_locations(df, keep_regions, nice_names, expected, monkeypatch):
     """Test the aggregation logic for locations aka nodes."""
+
+    def mock_get_location_alias(_):
+        """Return fixed location alias mapping for testing."""
+        return {
+            "EU": "Europe",
+            "AT": "Austria",
+            "AT11": "Burgenland (AT)",
+            "AT12": "Lower Austria (AT)",
+            "AT333": "East Tyrol (AT)",
+            "DE": "Germany",
+            "DE1": "Baden-Württemberg",
+            "DE2": "Bavaria",
+            "DE3": "Midwest Germany",
+            "DE4": "Mideast Germany",
+            "DE5": "North Germany",
+            "FR": "France",
+        }
+
+    monkeypatch.setattr("evals.utils.get_location_alias", mock_get_location_alias)
+
     # sourcery skip: no-conditionals-in-tests
     if not isinstance(expected, pd.DataFrame):
         with pytest.raises(expected):

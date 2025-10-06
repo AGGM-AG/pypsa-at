@@ -23,7 +23,6 @@ from evals.constants import (
     ALIAS_REGION_DE19_CLUSTERING,
     UNITS,
     BusCarrier,
-    Carrier,
     DataModel,
     Group,
     Regex,
@@ -710,7 +709,7 @@ def split_urban_central_heat_losses_and_consumption(
     rest = filter_by(df, bus_carrier=urban_heat_bus_carrier, exclude=True)
     consumption = urban_heat.mul(1 - loss_factor)
     losses = urban_heat.mul(loss_factor)
-    losses_mapper = dict.fromkeys(urban_heat_bus_carrier, Carrier.grid_losses)
+    losses_mapper = dict.fromkeys(urban_heat_bus_carrier, "urban central heat losses")
     losses = losses.rename(losses_mapper, level=DataModel.CARRIER)
 
     return pd.concat([rest, consumption, losses]).sort_index()

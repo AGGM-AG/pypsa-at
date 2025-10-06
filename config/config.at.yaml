@@ -73,10 +73,8 @@ clustering:
   mode: administrative
   administrative:
     level: 0 # countries
-    AT: 2 # 10 regions
-#    AT: 3 # 35 regions
+    AT: 2 # 10 regions if NUTS 2, 35 if NUTS 3
     DE: 3 # NUTS3 as a proxy for 5 regions
-#    DE: 1 # 16 regions
     DK: 1 # +1 islands
     GB: 1 # +1 North Ireland
     FR: 1 # +1 islands
@@ -158,8 +156,8 @@ solving:
             2040: 1
             2050: 1
   solver:
-    name: gurobi
-    options: gurobi-default
+    name: highs
+    options: highs-default
   solver_options:
     # https://ergo-code.github.io/HiGHS/dev/options/definitions/
     highs-default:

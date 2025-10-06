@@ -105,9 +105,7 @@ def read_networks(
         # extend the statistic module with custom statistics
         n.statistics = ESMStatistics(n, result_path)
         # todo: apply preprocessing steps to simplify evaluations:
-        # AC Load splitting: extract electricity rail and industry components
-        # PHS and Hydro splitting: Power from Inflow, Losses from Spill and,
-        # Oil, Coal, Methanol, Uranium and Ammonium regionalizations.
+        # AC Load splitting: extract electricity rail and industry from electricity base load
         n.name = f"PyPSA-AT Network {year}"
         n.year = year
         networks[year] = n

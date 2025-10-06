@@ -55,7 +55,21 @@ def main():
     ]
     run(["pixi", "add"] + packages, check=True)
 
-    pypi_packages = ["highspy", "xpress", "tsam", "mkdocs-badges"]
+    pypi_packages = [
+        "highspy",
+        "xpress",
+        "tsam",
+        "mkdocs-badges",
+        "Pygments",
+        "mkdocs",
+        "mkdocs-marimo",
+        "mkdocs-material",
+        "mkdocs-material-extensions",
+        "mkdocs-plotly-plugin",
+        "mkdocstrings-python",
+        "mknotebooks",
+        "pymdown-extensions",
+    ]
     run(["pixi", "add", "--pypi"] + pypi_packages, check=True)
 
     run(["pixi", "shell"])

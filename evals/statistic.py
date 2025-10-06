@@ -327,9 +327,9 @@ class ESMStatistics(StatisticsAccessor):
         # load p is negative, because it is demand (withdrawal), but csv
         # data (industry, transport) has positive values only. Must
         # reverse the sign for industry and rail demands.
-        homes_and_trade = Carrier.domestic_homes_and_trade
-        p[Carrier.industry] = indu.mul(-1)
-        p[Carrier.electricity_rail] = rail.mul(-1)
+        homes_and_trade = "domestic homes and trade"
+        p["industry"] = indu.mul(-1)
+        p["electricity rail"] = rail.mul(-1)
         p[homes_and_trade] = p["electricity"] + indu + rail
 
         if any(p[homes_and_trade] > 0):

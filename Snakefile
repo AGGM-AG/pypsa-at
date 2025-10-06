@@ -147,10 +147,10 @@ rule all:
         ),
         # pypsa-at additions
         expand(RESULTS + "test_report.html", run=config["run"]["name"]),
-        expand(
-            RESULTS + "evaluation/.run_by_snakemake",
-            run=config["run"]["name"],
-        ),
+        # expand(
+        #     RESULTS + "evaluation/.run_by_snakemake",
+        #     run=config["run"]["name"],
+        # ),
     default_target: True
 
 
