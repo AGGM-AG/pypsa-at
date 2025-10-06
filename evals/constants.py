@@ -126,229 +126,40 @@ class BusCarrier:
 
 
 class Carrier:
-    """Container to collect all carrier names."""
+    """Container to collect carrier names used in PyPSA-AT evaluations."""
 
-    chp_urban_central_lignite_cc: str = "urban central lignite CHP CC electric"
-    chp_urban_central_lignite: str = "urban central lignite CHP electric"
-    chp_urban_central_coal_cc: str = "urban central coal CHP CC electric"
-    chp_urban_central_coal: str = "urban central coal CHP electric"
-    chp_urban_central_ch4_cc: str = "urban central gas CHP CC electric"
-    chp_urban_central_ch4: str = "urban central gas CHP electric"
-    chp_urban_central_solid_biomass_cc: str = "urban central solid biomass CHP CC"
-    chp_urban_central_solid_biomass: str = "urban central solid biomass CHP"
-
-    chp_urban_decentral_micro_ch4: str = "residential urban decentral micro gas CHP"
-    chp_urban_decentral_services_micro_ch4: str = (
-        "services urban decentral micro gas CHP"
-    )
-
-    chp_rural_residential_micro_ch4: str = "residential rural micro gas CHP"
-    chp_rural_services_micro_ch4: str = "services rural micro gas CHP"
-
-    pemfc_urban_services_decentral_ch4_smr: str = (
-        "services urban decentral CH4-powered PEMFC with internal SMR"
-    )
-    pemfc_rural_services_decentral_ch4_smr: str = (
-        "residential rural CH4-powered PEMFC with internal SMR"
-    )
-    pemfc_rural_services_ch4_smr: str = (
-        "services rural CH4-powered PEMFC with internal SMR"
-    )
-    pemfc_urban_residential_decentral_ch4_smr: str = (
-        "residential urban decentral CH4-powered PEMFC with internal SMR"
-    )
-    pemfc_rural_services_h2_smr: str = "services rural H2-powered PEMFC"
-
-    pemfc_urban_services_decentral_h2: str = "services urban decentral H2-powered PEMFC"
-    pemfc_rural_residential_h2: str = "residential rural H2-powered PEMFC"
-    pemfc_urban_residential_decentral_h2_smr: str = (
-        "residential urban decentral H2-powered PEMFC"
-    )
-
-    pp_lignite_cc: str = "lignite power plant (CC)"
-    pp_lignite: str = "lignite power plant"
-    pp_coal: str = "coal power plant"
-    pp_coal_cc: str = "coal power plant (CC)"
-    pp_oil: str = "oil power plant"
-
-    ocgt: str = "OCGT"
-
-    nuclear: str = "nuclear"
-    onwind_1: str = "onwind-1"
-    onwind_2: str = "onwind-2"
-    onwind_3: str = "onwind-3"
-    onwind_4: str = "onwind-4"
-    offwind_ac: str = "offwind-ac"
-    offwind_dc: str = "offwind-dc"
-    ror: str = "ror"
-    phs: str = "PHS"
-    hydro: str = "hydro"
-
-    solar_rooftop: str = "solar-rooftop"
-    solar_utility: str = "solar-utility"
-    h2_fuel_cell: str = "H2 Fuel Cell"
-    lost_load: str = "value of lost load"
-    battery_discharger: str = "battery discharger"
-    battery: str = "battery"
-
-    ft_1: str = "Fischer-Tropsch 1"
-    ft_2: str = "Fischer-Tropsch 2"
-    h2_electrolysis: str = "H2 Electrolysis"
-    h2_electrolysis_ht: str = "H2 HT Electrolysis"
-    smr: str = "SMR"
-    smr_cc: str = "SMR CC"
-    sabatier: str = "Sabatier"
-    biogas_approximation: str = "biogas approximation"
-    helmeth: str = "helmeth"
-    ch4: str = "gas"
-    h2_cavern: str = "H2 cavern"
-    h2_tube: str = "H2 tube"
-    ft_import_link_1: str = "Fischer-Tropsch import link 1"
-    ft_import_link_2: str = "Fischer-Tropsch import link 2"
-    h2_import_capacity_foreign: str = "import capacity H2 foreign"
-    h2_import_capacity_domestic: str = "import capacity H2 domestic"
-    ch4_import_capacity_foreign: str = "import capacity gas foreign"
-    ch4_import_capacity_domestic: str = "import capacity gas domestic"
-    domestic_homes_and_trade: str = "domestic homes and trade"
-    road_freight_ac: str = "electricity road freight"
-    industry: str = "industry"
-    industry_new_electricity: str = "industry new electricity"
-    grid_losses: str = "urban central heat losses"
-    electricity_rail: str = "electricity rail"
-    phev_short: str = "PHEV short"
-    phev_long: str = "PHEV long"
-
-    v2g: str = "V2G"
-    bev: str = "BEV"
-    bev_charger: str = "BEV charger"
-    bev_passenger_withdrawal: str = "BEV to passenger used"
-    bev_charger_supply: str = "BEV charger out"
-    bev_charger_draw: str = "BEV charger in"
-    bev_charger_losses: str = "BEV charger losses"
-    v2g_supply: str = "V2G energy back to network"
-    v2g_withdrawal: str = "V2G energy draw"
-
-    dac: str = "DAC"
-    heat_pump_residential_rural_ground: str = "residential rural ground heat pump"
-    heat_pump_ground_services_rural: str = "services rural ground heat pump"
-    resistive_heater_rural_services: str = "services rural resistive heater"
-    resistive_heater_rural_residential: str = "residential rural resistive heater"
-    heat_pump_air_urban_residential_decentral: str = (
-        "residential urban decentral air heat pump"
-    )
-    resistive_heater_urban_decentral_residential: str = (
-        "residential urban decentral resistive heater"
-    )
-    heat_pump_air_services_urban_decentral: str = (
-        "services urban decentral air heat pump"
-    )
-    resistive_heater_services_urban_decentral: str = (
-        "services urban decentral resistive heater"
-    )
-
-    heat_pump_air_urban_central: str = "urban central air heat pump"
-    resistive_heater_urban_central: str = "urban central resistive heater"
-    export_foreign: str = "foreign export"
-    export_domestic: str = "domestic export"
-    phs_dispatched_power_inflow: str = "PHS Dispatched Power from Inflow"
-    hydro_dispatched_power: str = "hydro Dispatched Power"
-    import_domestic: str = "domestic import"
-    import_foreign: str = "foreign import"
-    ch4_from_sabatier: str = "Gas from Sabatier"
-    biogas_to_ch4: str = "biogas to gas"
+    # Electricity carriers
     AC: str = "AC"
-    DC: str = "DC"
+
+    # Gas carriers
+    CH4: str = "gas"
     gas_pipepline: str = "gas pipeline"
     gas_pipepline_new: str = "gas pipeline new"
-    ch4_generator: str = "gas generator"
-    ch4_import_foreign: str = "gas foreign import"
-    cng_long: str = "CNG long"
-    cng_short: str = "CNG short"
-    ch4_store: str = "gas Store"
-    ch4_navigation_domestic: str = "gas domestic navigation"
-    ch4_feedstock: str = "gas feedstock"
-    ch4_industry: str = "gas for industry"
-    ch4_industry_cc: str = "gas for industry CC"
-    ch4_navigation_international: str = "gas international navigation"
-    road_freight_ch4: str = "gas road freight"
-    ch4_boiler_residential_rural: str = "residential rural gas boiler"
-    ch4_boiler_services_rural: str = "services rural gas boiler"
 
-    chp_urban_central_ch4_heat_cc: str = "urban central gas CHP CC heat"
-    chp_urban_central_ch4_heat: str = "urban central gas CHP heat"
-    ch4_boiler_urban_central: str = "urban central gas boiler"
-    export_net: str = "Net Export"
-    ch4_for_smr_cc: str = "Gas for SMR CC"
-    ch4_for_smr: str = "Gas for SMR"
-    ch4_boiler_urban_decentral_services: str = "services urban decentral gas boiler"
-    ch4_boiler_urban_decentral_residential: str = (
-        "residential urban decentral gas boiler"
-    )
-    export_ch4_foreign: str = "gas foreign export"
-    export_ch4_domestic: str = "gas domestic export"
-    import_net: str = "Net Import"
-
-    h2_from_smr: str = "H2 from SMR"
-    h2_from_smr_cc: str = "H2 from SMR CC"
-    h2_import_russia: str = "H2 Import RU"
-    h2_import_naf: str = "H2 Import NAF"
-    h2_import_foreign: str = "H2 foreign import"
-    h2_import_domestic: str = "H2 domestic import"
-    h2_import_foreign_retro: str = "H2 retro foreign import"
-    h2_import_domestic_retro: str = "H2 retro domestic import"
-    fcev_long: str = "FCEV long"
-    fcev_short: str = "FCEV short"
-    h2_sabatier: str = "H2 for Sabatier"
+    # Hydrogen carriers
+    H2: str = "H2"
     h2_pipeline: str = "H2 pipeline"
     h2_pipeline_retro: str = "H2 pipeline retrofitted"
     h2_pipeline_kernnetz: str = "H2 pipeline (Kernnetz)"
-    road_freight_h2: str = "H2 road freight"
-    h2_industry: str = "H2 for industry"
-    h2_shipping: str = "H2 for shipping"
-    h2_rail: str = "H2 for rail"
-    h2_aviation: str = "H2 for aviation"
-    h2_export_foreign: str = "H2 foreign export"
-    h2_export_foreign_retro: str = "H2 retro foreign export"
-    h2_export_domestic: str = "H2 domestic export"
-    h2_export_domestic_retro: str = "H2 retro domestic export"
-    road_freight_ft: str = "Fischer-Tropsch road freight"
-    ft_rail: str = "Fischer-Tropsch rail"
-    ft_domestic_navigation: str = "Fischer-Tropsch domestic navigation"
-    ft_domestic_aviation: str = "Fischer-Tropsch domestic aviation"
-    ft_industry: str = "Fischer-Tropsch industry"
-    hard_coal_industry: str = "hard coal industry"
-    process_emissions: str = "process emissions"
-    process_emissions_cc: str = "process emissions CC"
-    ice_short: str = "ICE short"
-    ice_long: str = "ICE long"
-    hev_short: str = "HEV short"
-    hev_long: str = "HEV long"
 
-    chp_urban_central_coal_heat: str = "urban central coal CHP heat"
-    chp_urban_central_lignite_heat: str = "urban central lignite CHP heat"
-    chp_urban_central_coal_heat_cc: str = "urban central coal CHP CC heat"
-    chp_urban_central_lignite_heat_cc: str = "urban central lignite CHP CC heat"
-    oil: str = "oil"
-    oil_boiler_rural_services: str = "services rural oil boiler"
-    oil_boiler_rural_residential: str = "residential rural oil boiler"
-    oil_boiler_urban_residential: str = "residential urban decentral oil boiler"
-    ft_import_1: str = "Fischer-Tropsch import 1"
-    co2_vent: str = "co2 vent"
-    h2_store: str = "H2 Store"
-    solid_biomass_boiler_urban_central: str = "urban central solid biomass boiler"
-    solid_biomass_boiler_urban_central_cc: str = "urban central solid biomass boiler CC"
-    solar_thermal_collector_urban_central: str = "urban central solar thermal collector"
-    water_tanks_discharger_urban_central: str = "urban central water tanks discharger"
-    water_tanks_charger_urban_central: str = "urban central water tanks charger"
-    low_temperature_heat_for_industry: str = "low-temperature heat for industry"
-    hh_and_services: str = "hh and services"
-    value_lost_load: str = "value of lost load"
+    # Heat carriers
+    HEAT_URBAN_CENTRAL: str = "urban central heat"
+    HEAT_URBAN_DECENTRAL: str = "urban decentral heat"
+    HEAT_RURAL: str = "rural heat"
 
-    # derivative metric names
-    bev_demand: str = "BEV to passenger demand"
-    bev_losses: str = "BEV to passenger losses"
-    v2g_demand: str = "V2G energy demand"
-    v2g_losses: str = "V2G energy total losses"
+    # Storage carriers
+    LI_ION: str = "Li ion"
+
+    # Industry and demand
+    domestic_homes_and_trade: str = "domestic homes and trade"
+    electricity_rail: str = "electricity rail"
+    industry: str = "industry"
+
+    # Grid losses
+    grid_losses: str = "urban central heat losses"
+
+    # Vehicle-to-grid
+    v2g: str = "V2G"
 
 
 class Group:
