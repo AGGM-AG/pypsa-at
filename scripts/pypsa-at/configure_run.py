@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2023-2025 Austrian Gas Grid Management AG
+#
+# SPDX-License-Identifier: MIT
+# For license information, see the LICENSE.txt file in the project root.
+
 import logging
 import sys
 from pathlib import Path
@@ -97,6 +102,7 @@ def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
     key = "random_seed" if solver_name == "highs" else "Seed"  # else gurobi
     logger.info(f"Setting seed to '{seed}'")
     config["solving"]["solver_options"][solver][key] = seed
+    config["solving"].setdefault("options", {})
     config["solving"]["options"]["seed"] = seed  # duplicated default setting
 
     with file_path.open("w") as fh:

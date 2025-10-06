@@ -71,8 +71,8 @@ logger = logging.getLogger(__name__)
 def run_eval(
     result_path: click.Path,
     sub_directory: str,
-    names: list,
-    config_override: str,
+    names: tuple[str, ...],
+    config_override: str | None,
     fail_fast: bool,
 ) -> None:
     r"""
