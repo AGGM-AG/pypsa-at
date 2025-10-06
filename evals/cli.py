@@ -84,7 +84,7 @@ def run_eval(
 
     All evaluation function are expected to expose the same interface.
     The evaluation function arguments are listed in the evals module
-    [reference section](evals/index.md).
+    [reference section](index.md).
 
     Parameters
     ----------

@@ -24,6 +24,7 @@ nav:
     - cli.py: reference/evals/cli.md
     - configs.py: reference/evals/configs.md
     - constants.py: reference/evals/constants.md
+    - excel.py: reference/evals/excel.md
     - fileio.py: reference/evals/fileio.md
     - statistic.py: reference/evals/statistic.md
     - utils.py: reference/evals/utils.md
@@ -39,9 +40,9 @@ nav:
       - reference/evals/views/index.md
       - balances.py: reference/evals/views/balances.md
       - balances_timeseries.py: reference/evals/views/balances_timeseries.md
+      - common.py: reference/evals/views/common.md
       - capacities.py: reference/evals/views/capacities.md
       - demand.py: reference/evals/views/demand.md
-      - demand_fed.py: reference/evals/views/demand_fed.md
       - price.py: reference/evals/views/price.md
       - sankey.py: reference/evals/views/sankey.md
       - transmission.py: reference/evals/views/transmission.md

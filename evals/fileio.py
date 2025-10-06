@@ -246,8 +246,6 @@ class Exporter:
     statistics
         A list of Series for time aggregated statistics or list of
         data frames for statistics with snapshots as columns.
-    statistics_unit
-        The input statistics unit.
     keep_regions
         A tuple of location prefixes that are used to match
         locations to keep during aggregation.

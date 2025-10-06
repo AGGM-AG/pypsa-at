@@ -94,7 +94,7 @@ def view_balance_heat(
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
     config
         Configuration dictionary containing view settings including bus_carrier specification,
-        chart type, and export parameters. Must specify heat bus carriers in config["view"]["bus_carrier"].
+        chart type, and export parameters.
 
     Notes
     -----
