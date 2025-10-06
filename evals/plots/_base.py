@@ -19,16 +19,44 @@ from evals.constants import ALIAS_LOCATION_REV, RUN_META_DATA
 
 class ESMChart:
     """
-    A base class for Energy System Modeling graphs using Plotly.
+    Base class for Energy System Modeling charts using Plotly.
+
+    Provides common functionality for creating interactive energy
+    system visualizations including file I/O, styling, and layout
+    configuration. Subclasses implement specific chart types by
+    overriding the plot() method.
 
     Parameters
     ----------
     df
-        The data frame with the plot data. The class expects a data
-        frame that complies with the metric data model, i.e. has
-        the expected column and index labels.
+        Metric data frame complying with the evaluation data model.
+        Expected to have multi-level index with year, location, carrier,
+        and bus_carrier levels.
     cfg
-        The plotly configuration.
+        Plotly configuration object with styling and export settings.
+
+    Attributes
+    ----------
+    fig
+        Plotly Figure object for the chart.
+    unit
+        Display unit for values (from config or df.attrs).
+    metric_name
+        Name of the metric being plotted.
+    location
+        Geographic location being visualized.
+    col_values
+        Column name(s) containing the values to plot.
+
+    Examples
+    --------
+    Subclasses override the plot() method:
+
+    >>> class MyChart(ESMChart):
+    ...     def plot(self):
+    ...         # Custom plotting logic
+    ...         self.fig = go.Figure(...)
+    ...         self._set_base_layout()
     """
 
     def __init__(self, df: pd.DataFrame, cfg: PlotConfig):

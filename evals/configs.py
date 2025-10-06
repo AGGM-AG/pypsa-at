@@ -11,7 +11,87 @@ from evals.constants import COLOUR_SCHEME, DataModel, Group
 
 @dataclass()
 class PlotConfig:
-    """Holds configuration items for Plotly figures."""
+    """
+    Configuration for Plotly figure generation and styling.
+
+    This dataclass holds all configuration parameters for creating
+    interactive Plotly charts including layout, colors, patterns,
+    and export settings.
+
+    Attributes
+    ----------
+    title
+        Figure title template with placeholders for location and unit.
+    chart
+        Chart class instance (ESMBarChart, ESMGroupedBarChart, etc.).
+    file_name_template
+        Template for output file names with placeholder fields.
+    unit
+        Display unit for the metric, defaults to metric.df.attrs["unit"].
+    plotby
+        Index levels to group by before plotting. One figure per group.
+    pivot_index
+        Index levels to keep when pivoting the data frame.
+    pivot_columns
+        Column levels to create when pivoting the data frame.
+    plot_category
+        Index level name used for color/pattern assignment.
+    plot_xaxis
+        Index level name for the x-axis.
+    facet_column
+        Index level for creating subplot panels in GroupedBarChart.
+    category_orders
+        Tuple defining the display order of categories in legend.
+    colors
+        Dictionary mapping category names to hex color codes.
+    pattern
+        Dictionary mapping category names to fill patterns.
+    fill
+        Dictionary mapping category names to fill modes.
+    stacked
+        Whether to stack bars/areas in the chart.
+    line_dash
+        Dictionary mapping category names to line dash styles.
+    line_width
+        Dictionary mapping category names to line widths.
+    line_shape
+        Line interpolation shape ('hv', 'linear', 'spline').
+    legend_header
+        Text for the legend title.
+    xaxis_title
+        Text for the x-axis label.
+    yaxis_color
+        Color for y-axis elements.
+    footnotes
+        Tuple of two footnote strings for bottom annotations.
+    cutoff
+        Minimum absolute value threshold for displaying data.
+    cutoff_drop
+        Whether to drop values below cutoff (only for BarCharts).
+    legend_font_size
+        Font size for legend text in points.
+    title_font_size
+        Font size for figure title in points.
+    font_size
+        Base font size for figure text in points.
+    xaxis_font_size
+        Font size for x-axis labels in points.
+    yaxes_showgrid
+        Whether to display y-axis gridlines.
+    yaxes_visible
+        Whether y-axis is visible.
+
+    Examples
+    --------
+    Create a custom configuration:
+
+    >>> cfg = PlotConfig(
+    ...     title="Energy Balance {location}",
+    ...     unit="TWh",
+    ...     stacked=True,
+    ...     cutoff=0.01
+    ... )
+    """
 
     title: str = None
     chart = None  # ESMBarChart | ESMGroupedBarChart | ESMTimeSeriesChart
@@ -72,7 +152,34 @@ class PlotConfig:
 
 @dataclass()
 class ExcelConfig:
-    """Holds configuration items for Excel file."""
+    """
+    Configuration for Excel file generation and formatting.
+
+    Holds settings for Excel workbook creation including chart types,
+    styling, pivot table layouts, and color schemes.
+
+    Attributes
+    ----------
+    axis_labels
+        Labels for chart axes [x-axis, y-axis]. Defaults to
+        [metric.name, metric.unit].
+    chart
+        Chart type: 'stacked', 'clustered', 'standard',
+        'percentStacked', or None for no chart.
+    chart_title
+        Title displayed on the Excel chart.
+    chart_width
+        Chart width in centimeters.
+    chart_switch_axis
+        Whether to swap categories with x-axis values.
+    chart_colors
+        Dictionary mapping category names to hex color codes
+        (without '#' prefix for Excel).
+    pivot_index
+        Index level(s) for pivot table rows.
+    pivot_columns
+        Index level(s) for pivot table columns.
+    """
 
     axis_labels: list = None
     chart: str = "stacked"  # 'stacked', 'clustered', 'standard', 'percentStacked', None
@@ -92,11 +199,31 @@ class ExcelConfig:
 @dataclass()
 class ViewDefaults:
     """
-    Holds all configuration items needed to export Metrics.
+    Default configuration container for metric export operations.
 
-    The 'excel' and 'plotly' fields are processed by the export_excel
-    and export_plotly methods, respectively. Both configuration spaces
-    are kept separate to keep the variable space small during export.
+    Holds separate configuration spaces for Excel and Plotly exports,
+    allowing independent customization of each export format. Both
+    configurations are processed by their respective export methods.
+
+    Attributes
+    ----------
+    excel
+        Configuration for Excel file generation and formatting.
+    plotly
+        Configuration for Plotly chart generation and styling.
+
+    Notes
+    -----
+    The 'excel' and 'plotly' fields are kept separate to reduce
+    variable namespace complexity during export operations.
+
+    Examples
+    --------
+    Create defaults with custom Excel configuration:
+
+    >>> defaults = ViewDefaults()
+    >>> defaults.excel.chart = "clustered"
+    >>> defaults.plotly.cutoff = 0.1
     """
 
     excel: ExcelConfig = field(default_factory=lambda: ExcelConfig())

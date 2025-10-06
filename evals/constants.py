@@ -3,9 +3,23 @@
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
 """
-Collect constant values and identifiers used for evaluations.
+Constants and identifiers for PyPSA-AT energy system evaluations.
 
-Values in this module do not need to be changed during runtime.
+This module centralizes all constant values, color schemes, carrier names,
+and data model specifications used throughout the evaluation package.
+Values here should remain unchanged during runtime.
+
+Key Components
+--------------
+- DataModel: Column and index level name constants
+- BusCarrier: Bus carrier technology identifiers
+- Carrier: Component carrier technology identifiers
+- Group: Nice names for carrier groupings
+- Regex: Regular expression patterns for parsing
+- COLOUR: Hex color code definitions
+- COLOUR_SCHEME: Carrier-to-color mapping
+- ALIAS_*: Location code to name mappings
+- UNITS: Unit conversion factors
 """
 
 import re
@@ -66,7 +80,15 @@ class BusCarrier:
     SOLID_BIOMASS: str = "solid biomass"
 
     @classmethod
-    def ac_stores(cls) -> list:
+    def ac_stores(cls) -> list[str]:
+        """
+        Return all AC-connected storage bus carriers.
+
+        Returns
+        -------
+        List of bus carrier names for AC-connected storage systems
+        including batteries and EV batteries.
+        """
         return [
             cls.AC,
             cls.DC,
@@ -77,12 +99,29 @@ class BusCarrier:
         ]
 
     @classmethod
-    def heat_buses(cls) -> list:
+    def heat_buses(cls) -> list[str]:
+        """
+        Return all heat-related bus carriers.
+
+        Returns
+        -------
+        List of bus carrier names for heating systems including
+        central, decentral, and rural heat networks.
+        """
         return [cls.HEAT_URBAN_CENTRAL, cls.HEAT_URBAN_DECENTRAL, cls.HEAT_RURAL]
 
     @classmethod
-    def eu_buses(cls) -> list:
-        """Return all buses bus_carrier that only have EU locations."""
+    def eu_buses(cls) -> list[str]:
+        """
+        Return bus carriers that only exist at EU-level locations.
+
+        These carriers represent centralized EU-wide resources that are
+        not regionalized to individual countries.
+
+        Returns
+        -------
+        List of EU-level bus carrier names for fuels and uranium.
+        """
         return [cls.OIL, cls.LIGNITE, cls.COAL, cls.METHANOL, cls.URANIUM]
 
 

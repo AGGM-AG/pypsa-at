@@ -240,22 +240,3 @@ class ESMGroupedBarChart(ESMChart):
                 hoverinfo="skip",
             )
             self.fig.add_trace(scatter, col=int(idx) if idx else 1, row=1)
-
-        # totals = values.groupby(self.cfg.plot_xaxis).sum(numeric_only=True)
-        # totals["display_value"] = totals[self.col_values].apply(prettify_number)
-        # y_offset = totals[self.col_values].abs().max() / 100
-        #
-        # scatter = go.Scatter(
-        #     x=totals.index,
-        #     y=totals[self.col_values] + y_offset,
-        #     text=totals["display_value"],
-        #     texttemplate="<b>%{text}</b>",
-        #     mode="text",
-        #     textposition="top center",
-        #     showlegend=False,
-        #     name="Sum",
-        #     textfont={"size": 18},
-        #     hoverinfo="skip",
-        # )
-        #
-        # self.fig.add_trace(scatter, col=int(idx) if idx else 1, row=1)

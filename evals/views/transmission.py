@@ -79,22 +79,6 @@ def view_grid_capacity(
     - View country markers and import locations
     - Zoom and pan within configured bounds
     """
-
-    # # update bus coordinates to improve map readability
-    # for n in networks.values():  # FixMe: broken for AT35 clustering
-    #     # Lower Austria
-    #     n.df("Bus").loc["AT12", "x"] -= 0.1  # Lon, left
-    #     n.df("Bus").loc["AT12", "y"] += 0.3  # Lat, up
-    #     # Burgenland
-    #     n.df("Bus").loc["AT11", "x"] -= 0.1  # Lon, left
-    #     n.df("Bus").loc["AT11", "y"] -= 0.26  # Lat, down
-    #     # Salzburg
-    #     n.df("Bus").loc["AT32", "x"] += 0.35  # Lon, right
-    #     n.df("Bus").loc["AT32", "y"] -= 0.05  # Lat, down
-    #     # Vienna
-    #     n.df("Bus").loc["AT13", "x"] += 0.1  # Lon, right
-    #     n.df("Bus").loc["AT13", "y"] += 0.1  # Lat, up
-
     grid_capactiy = collect_myopic_statistics(
         networks,
         statistic="grid_capacity",

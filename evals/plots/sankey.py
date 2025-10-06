@@ -1450,7 +1450,8 @@ class SankeyChart(ESMChart):
 
         Returns
         -------
-        Color value for the specified node.
+        :
+            Color value for the specified node.
         """
         return self.nodes.at[node_id, "color"]
 
@@ -1536,7 +1537,8 @@ class SankeyChart(ESMChart):
 
         Returns
         -------
-        Formatted string for hover display.
+        :
+            Formatted string for hover display.
         """
         # padding = target_length - len(carrier)
         # return carrier + " " * padding + f"{prettify_number(value)} {unit}"

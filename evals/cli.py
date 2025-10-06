@@ -111,6 +111,23 @@ def run_eval(
     :
         Exits the program with the number of failed evaluations as exit
         code.
+
+    Examples
+    --------
+    Run a single evaluation by name:
+
+    >>> run_eval("/opt/data/esm/results", names=("view_balance_electricity",))
+
+    Run multiple evaluations:
+
+    >>> run_eval(
+    ...     "/opt/data/esm/results",
+    ...     names=("view_balance_electricity", "view_balance_heat")
+    ... )
+
+    Run all evaluations with custom config:
+
+    >>> run_eval("/opt/data/esm/results", config_override="custom_config.toml")
     """
     import evals.views as views
     from evals.fileio import read_networks, read_views_config

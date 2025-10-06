@@ -35,8 +35,8 @@ from scripts._helpers import get_rdir, path_provider
 
 
 def read_networks(
-    result_path: str | Path | list, sub_directory: str = "networks"
-) -> dict:
+    result_path: str | Path | list[str | Path], sub_directory: str = "networks"
+) -> dict[str, pypsa.Network]:
     """
     Read network results from NetCDF (.nc) files.
 
@@ -57,7 +57,7 @@ def read_networks(
     result_path
         Absolute or relative path to the run results folder that
         contains all model results (typically ends with "results",
-        or is a time-stamp).
+        or is a time-stamp), or list of .nc file paths to load.
     sub_directory
         The subdirectory name to read files from relative to the
         result folder.
@@ -65,8 +65,28 @@ def read_networks(
     Returns
     -------
     :
-        A Dictionary that contains pypsa.Network objects as values the
-        year from the end of the file name as keys.
+        Dictionary mapping planning horizon years (str) to loaded
+        pypsa.Network objects with extended statistics.
+
+    Raises
+    ------
+    AssertionError
+        If no network files are found in the specified location.
+
+    Examples
+    --------
+    Load networks from a results directory:
+
+    >>> networks = read_networks("results/scenario_2030")
+    >>> networks.keys()
+    dict_keys(['2030', '2040', '2050'])
+
+    Load specific network files:
+
+    >>> networks = read_networks([
+    ...     "results/elec_s_37_2030.nc",
+    ...     "results/elec_s_37_2040.nc"
+    ... ])
     """
     # delayed import to prevent circular dependency error
     from evals.statistic import ESMStatistics
@@ -98,7 +118,7 @@ def read_networks(
 
 
 def read_views_config(
-    func: Callable, config_override: str = "config.override.toml"
+    func: Callable, config_override: str | None = "config.override.toml"
 ) -> dict:
     """
     Return the configuration for a view function.
@@ -114,13 +134,20 @@ def read_views_config(
     func
         The view function to be called by the CLI module.
     config_override
-        A file name as a string as passed to the CLI module.
+        A file name as a string as passed to the CLI module, or None
+        to use only default configuration.
 
     Returns
     -------
     :
-        The default configuration with optional overrides from
-        a second configuration file.
+        Dictionary containing 'global' and 'view' configuration sections
+        with optional overrides applied from the second configuration file.
+
+    Examples
+    --------
+    >>> config = read_views_config(view_balance_electricity)
+    >>> config.keys()
+    dict_keys(['global', 'view'])
     """
     default_fp = resources.files("evals") / "config.default.toml"
     default = tomllib.load(default_fp.open("rb"))

@@ -527,31 +527,12 @@ def aggregate_locations(
         [Group.import_domestic, Group.export_domestic], "Transmission Losses"
     )
     countries = rename_aggregate(countries, mapper_losses)
-    # countries = countries.drop(
-    #     [
-    #         Carrier.export_domestic,  # todo: redundant?
-    #         Carrier.import_domestic,  # todo: redundant?
-    #         Group.import_domestic,
-    #         Group.export_domestic,
-    #     ],
-    #     level=DataModel.CARRIER,
-    #     errors="ignore",
-    # )
     europe = aggregate_eu(df)
     mask = df.index.get_level_values(DataModel.LOCATION).str.startswith(keep_regions)
     regions = df.loc[mask, :]
     result = pd.concat([countries, regions, europe]).sort_index(axis=0)
     if nice_names:
         mapper = get_location_alias(result.index.unique(DataModel.LOCATION))
-        # de_regions = result.index.unique(DataModel.LOCATION).str.startswith("DE")
-        # if sum(de_regions) == 6:  # 5 regions + country
-        #     mapper = ALIAS_LOCATION | ALIAS_REGION_DE5_CLUSTERING
-        # elif sum(de_regions) == 20:  # 19 regions + country
-        #     mapper = ALIAS_LOCATION | ALIAS_REGION_DE19_CLUSTERING
-        # else:
-        #     logger.warning(
-        #         f"Unexpected clustered regions for Germany detected: {de_regions}"
-        #     )
         result = result.rename(index=mapper, level=DataModel.LOCATION)
     return result
 
