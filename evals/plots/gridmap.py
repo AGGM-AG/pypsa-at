@@ -26,7 +26,7 @@ class GridMapConfig:
 
     # todo: merge into config.toml
 
-    res: Callable
+    resource_dir: Callable
 
     # This layer will be visible by default
     show_year: str = "2030"
@@ -56,7 +56,6 @@ class GridMapConfig:
     line_capacity_threshold: float = 0.1  # GWh
     line_weight_min: float = 2.0  # px
     line_weight_max: float = 20.0  # px
-    # ToDo: Add colors
     carrier_style: dict = field(
         default_factory=lambda: {
             "AC": {  # AC Lines
@@ -152,7 +151,7 @@ class TransmissionGridMap:
         self, output_path: pathlib.Path, file_name: str, subdir: str = "HTML"
     ) -> None:
         """
-        Write the map to a html file.
+        Write the map to a HTML file.
 
         We want to store the HTML inside the JSON folder by default,
         because Folium does not support the import of JSON files.

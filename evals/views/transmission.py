@@ -121,10 +121,12 @@ def view_grid_capacity(
     metric_name = f"{import_capacity.attrs['name']} ({import_capacity.attrs['unit']})"
     import_capacity.name = metric_name
 
-    year = sorted(networks)[-1]  # 2050 network
+    year = sorted(networks)[-1]  # 2050
     buses = networks[year].df("Bus")
-    res = resource_getter(networks[year])
-    config = GridMapConfig(show_year="2030", res=res)  # fixme: show_year is broken =(
+    resource_dir = resource_getter(networks[year])
+    config = GridMapConfig(
+        show_year="2030", resource_dir=resource_dir
+    )  # fixme: show_year is broken =(
 
     # every list item will become one HTML file with a map for the
     # specified carrier and bus_carrier

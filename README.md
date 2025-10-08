@@ -7,7 +7,8 @@
 
 # PyPSA-AT: A Sector-Coupled Open Optimisation Model of the Austrian Energy System
 
-**PyPSA-AT** is an Austrian adaptation of the open European energy system model [PyPSA-Eur](https://github.com/pypsa/pypsa-eur). It provides a detailed sector-coupled model of the Austrian energy system, including electricity, heating, and transport sectors.
+**PyPSA-AT** is an Austrian adaptation of the open European energy system model [PyPSA-Eur](https://github.com/pypsa/pypsa-eur). 
+It provides a detailed sector-coupled model of the Austrian energy system, including the majority of relevant energy carriers (electricity, gas, hydrogen, heat, coal, oil, methanol and Ammonia) and demand profiles for the sectors of industry, transport, residential, commercial, and agriculture.
 
 The project builds upon the methodologies developed in [PyPSA-DE](https://github.com/pypsa/pypsa-de) - the German adaptation of PyPSA-Eur - while incorporating Austrian-specific network topology, energy system characteristics, and regulatory frameworks.
 
@@ -17,19 +18,19 @@ For comprehensive documentation on the underlying PyPSA-Eur framework, model dec
 
 PyPSA-AT extends the PyPSA-Eur model with Austrian-specific enhancements:
 
-### Network Modifications
-- **Austrian Transmission Capacity Calibration**: Accurate representation of Austrian high-voltage transmission grid capacities based on AGGM data
-- **Enhanced Spatial Resolution**: Custom administrative clustering for Austrian regions (AT10/AT35) while maintaining European context
-- **Gas Import and Production Differentiation**: Separate modeling of LNG, pipeline gas, and domestic production with realistic cost structures
+### Network Modifications (work in progress)
+- **Austrian CO2 Goals**
+- **Austrian regulatory requirements**
+- **Austrian Transmission Capacity Calibration**: For all transport technologies in the model. 
+- **Enhanced Spatial Resolution**: Custom administrative clustering for Austrian regions (AT10/AT35; NUTS2/NUTS3) while maintaining European context
+- **many more planned**
 
-### Demand Calibration
-- **Industrial Demand Updates**: Austrian-specific industrial energy demand profiles
-- **Electricity Base Load Disaggregation**: Detailed sectoral breakdown of base electricity consumption
+### Demand Calibration (work in progress)
+- **Demand Updates for all sectors and austrian NUTS3 regions**
 
 ### Data Integration
 - **AGGM-Provided Input Data**: All necessary input data is either included in the repository under `/data` or retrieved automatically through workflow rules
 - **Population Layout Modifications**: Custom Austrian population distribution for improved spatial accuracy
-- **NUTS3 Shape Adjustments**: Refined administrative boundaries for Austrian regions
 
 For detailed implementation information, see the [mods module documentation](https://pypsa-at.readthedocs.io/en/latest/reference/mods/).
 
@@ -59,10 +60,6 @@ For detailed implementation information, see the [mods module documentation](htt
 4. Run the model using the default rule `all`:
    ```bash
    snakemake -call all --cores 'all'
-   ```
-   or simply:
-   ```bash
-   snakemake
    ```
 
 ## Documentation
