@@ -157,6 +157,9 @@ class ESMChart:
 
         return file_path
 
+    def to_db(self):
+        raise NotImplementedError
+
     def construct_file_name(self, groupby: list[str], idx: typing.Hashable) -> str:
         """
         Construct the file name based on the provided template.
