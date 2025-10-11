@@ -12,7 +12,7 @@ It provides a detailed sector-coupled model of the Austrian energy system, inclu
 
 The project builds upon the methodologies developed in [PyPSA-DE](https://github.com/pypsa/pypsa-de) - the German adaptation of PyPSA-Eur - while incorporating Austrian-specific network topology, energy system characteristics, and regulatory frameworks.
 
-For comprehensive documentation on the underlying PyPSA-Eur framework, model decisions, and implementation details, please refer to the [PyPSA-Eur documentation](https://pypsa-eur.readthedocs.io/) and [PyPSA-DE documentation](https://pypsa.readthedocs.io/en/stable/examples/sector-coupled-de.html).
+For comprehensive documentation on the underlying PyPSA-Eur framework, model decisions, and implementation details, please refer to the [PyPSA-Eur documentation](https://pypsa-eur.readthedocs.io/) and [PyPSA-DE documentation](https://ariadneprojekt.de/modell-dokumentation-pypsa/).
 
 ## Features
 
