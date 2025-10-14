@@ -14,8 +14,8 @@ gurobi.log
 .idea
 
 /bak
-/resources/*
-!/resources/ariadne_database.csv
+/resources*
+/resources
 /results
 /networks
 /benchmarks
