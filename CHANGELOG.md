@@ -1,5 +1,6 @@
 # Changelog
 
+- Added the IIASA database to the repository and disabled re-downloading it by default.
 - Simplified IIASA database download, rename `iiasa_database` config section to `pypsa-de`
 - Bugfix: Enforce stricter H2 derivative import limit to avoid that exports of one type of derivative compensate for imports of another
 - Added an option to source mobility demand from UBA MWMS (Projektionsbericht 2025) for the years 2025-2035
