@@ -18,7 +18,12 @@ import logging
 import pandas as pd
 
 from mods.network_updates import modify_austrian_industry_demand
-from scripts._helpers import configure_logging, mock_snakemake
+from scripts._helpers import (
+    configure_logging,
+    mock_snakemake,
+    set_scenario_config,
+    update_config_from_wildcards,
+)
 
 logger = logging.getLogger(__name__)
 if __name__ == "__main__":
@@ -35,6 +40,8 @@ if __name__ == "__main__":
         )
 
     configure_logging(snakemake)
+    set_scenario_config(snakemake)
+    update_config_from_wildcards(snakemake.config, snakemake.wildcards)
 
     year = snakemake.input.industrial_production_per_country_tomorrow.split("_")[
         -1

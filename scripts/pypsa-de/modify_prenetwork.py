@@ -11,7 +11,13 @@ from mods import (
     unravel_electricity_base_load,
     unravel_gas_import_and_production,
 )
-from scripts._helpers import configure_logging, mock_snakemake, sanitize_custom_columns
+from scripts._helpers import (
+    configure_logging,
+    mock_snakemake,
+    sanitize_custom_columns,
+    set_scenario_config,
+    update_config_from_wildcards,
+)
 from scripts.add_electricity import load_costs
 from scripts.prepare_sector_network import lossy_bidirectional_links
 
@@ -453,6 +459,9 @@ def unravel_carbonaceous_fuels(n):
         logger.error(
             "There are loads at the EU oil bus. Please set config[sector][regional_oil_demand] to True to enable energy balances for oil."
         )
+        raise ValueError(
+            "There are loads at the EU oil bus. Please set config[sector][regional_oil_demand] to True to enable energy balances for oil."
+        )
 
     ##########################################
     ### meoh bus
@@ -730,6 +739,9 @@ def unravel_gasbus(n, costs):
     # check if loads are connected to EU gas bus
     if "EU gas for industry" in n.loads.index:
         logger.error(
+            "There are loads at the EU gas bus. Please set config[sector][regional_gas_demand] to True to enable energy balances for gas."
+        )
+        raise ValueError(
             "There are loads at the EU gas bus. Please set config[sector][regional_gas_demand] to True to enable energy balances for gas."
         )
 
@@ -1183,6 +1195,9 @@ def force_connection_nep_offshore(n, current_year, costs):
                 logger.error(
                     f"Assuming all AC projects are connected at locations where other generators exists. That is not the case for {node_off}. Terminating"
                 )
+                raise ValueError(
+                    f"Assuming all AC projects are connected at locations where other generators exists. That is not the case for {node_off}. Terminating"
+                )
 
             n.generators.at[node_off, "p_nom_min"] += ac_power.loc[node]
             n.generators.at[node_off, "connection_overnight_cost"] = (
@@ -1274,6 +1289,8 @@ if __name__ == "__main__":
         )
 
     configure_logging(snakemake)
+    set_scenario_config(snakemake)
+    update_config_from_wildcards(snakemake.config, snakemake.wildcards)
     logger.info("Adding PyPSA-DE specific functionality")
 
     n = pypsa.Network(snakemake.input.network)
