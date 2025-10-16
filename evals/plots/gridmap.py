@@ -292,16 +292,6 @@ class TransmissionGridMap:
             },
         )
 
-        # self._load_geojson(
-        #     "neighbors.geojson",
-        #     style={
-        #         "weight": 0.5,
-        #         "color": "black",
-        #         "fillColor": "black",
-        #         "opacity": 0.2,
-        #     },
-        # )
-
     def draw_country_markers(self) -> None:
         """
         Draw markers for countries on the map.
@@ -591,7 +581,7 @@ class TransmissionGridMap:
         style
             The style dictionary to pass to the geojson layer.
         """
-        file_path = Path(self.cfg.res(file_name)).resolve()
+        file_path = Path(self.cfg.resource_dir(file_name)).resolve()
         gdf = gpd.read_file(file_path).to_crs(crs=f"EPSG:{self.cfg.crs}")
         if style:  # applies the same style to all features
             gdf["style"] = [style] * gdf.shape[0]

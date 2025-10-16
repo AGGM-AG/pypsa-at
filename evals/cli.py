@@ -44,7 +44,7 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M",
     style="{",
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__file__)
 
 
 @click.command()
