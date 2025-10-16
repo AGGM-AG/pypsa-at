@@ -126,7 +126,7 @@ def view_grid_capacity(
     resource_dir = resource_getter(networks[year])
     config = GridMapConfig(
         show_year="2030", resource_dir=resource_dir
-    )  # fixme: show_year is broken =(
+    )  # fixme: show_year is broken
 
     # every list item will become one HTML file with a map for the
     # specified carrier and bus_carrier
@@ -138,9 +138,9 @@ def view_grid_capacity(
         ([Carrier.gas_pipepline, Carrier.gas_pipepline_new], BusCarrier.CH4),
         (
             [  # todo: use get_transmission_techs() instead of hardcoding
-                Carrier.h2_pipeline,
-                Carrier.h2_pipeline_retro,
-                Carrier.h2_pipeline_kernnetz,
+                "H2 pipeline",
+                "H2 pipeline retrofit",
+                "H2 pipeline (Kernnetz)",
             ],
             BusCarrier.H2,
         ),
