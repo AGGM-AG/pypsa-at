@@ -3084,7 +3084,7 @@ def get_emissions(n, region, _energy_totals, industry_demand):
     )
 
     logger.info(
-        "Differences in accounting for CO2 emissions:",
+        "Differences in accounting for CO2 emissions: %s",
         emission_difference,
     )
 
