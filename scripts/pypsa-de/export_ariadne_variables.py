@@ -3102,7 +3102,7 @@ def get_emissions(n, region, _energy_totals, industry_demand):
     )
 
     logger.info(
-        "Differences in accounting for CO2 emissions:",
+        "Differences in accounting for CO2 emissions: %s",
         emission_difference,
     )
 
@@ -4327,7 +4327,7 @@ def get_economy(n, region):
     var = pd.Series()
 
     def get_tsc(n, country):
-        pypsa.options.set_option("params.statistics.drop_zero", False)
+        pypsa.options.params.statistics.drop_zero = False
         capex = n.statistics.capex(
             groupby=pypsa.statistics.groupers["name", "carrier"], nice_names=False
         )

@@ -70,6 +70,15 @@ Detailed documentation is available at [pypsa-at.readthedocs.io](https://pypsa-a
 
 **Note**: This project is currently in pre-release development. Pull requests are not being accepted until the first official release. After the initial release, we welcome contributions from the community.
 
+## Data sources
+
+`ariadne-data/ariadne-database.csv`
+
+* **Source:** Kopernikus Projekt Ariadne
+* **Link:** [Szenarien-Explorer](https://ariadne2.apps.ece.iiasa.ac.at/explorer)
+* **License:** CC-BY 4.0
+* **Description:** Results from the [Ariadne Report: Die Energiewende kosteneffizient gestalten](https://ariadneprojekt.de/publikation/report-szenarien-zur-klimaneutralitat-2045/)
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details.
