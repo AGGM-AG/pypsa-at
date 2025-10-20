@@ -125,7 +125,7 @@ def add_power_limits(n, investment_year, limits_power_max):
         """
 
         var_key = f"{idx.name}-{'s' if idx.name == 'Line' else 'p'}"
-        var = n.model[var_key].sel({idx.name: idx})
+        var = n.model[var_key].sel({"name": idx})
         aux_pos = n.model.add_variables(
             name=f"{var_key}-{infix}-aux-pos",
             lower=0,
@@ -160,15 +160,19 @@ def add_power_limits(n, investment_year, limits_power_max):
         incoming_lines = n.lines.query(
             f"not bus0.str.startswith('{ct}') and bus1.str.startswith('{ct}') and active"
         )
+        incoming_lines.index.name = "Line"
         outgoing_lines = n.lines.query(
             f"bus0.str.startswith('{ct}') and not bus1.str.startswith('{ct}') and active"
         )
+        outgoing_lines.index.name = "Line"
         incoming_links = n.links.query(
             f"not bus0.str.startswith('{ct}') and bus1.str.startswith('{ct}') and carrier == 'DC' and active"
         )
+        incoming_links.index.name = "Link"
         outgoing_links = n.links.query(
             f"bus0.str.startswith('{ct}') and not bus1.str.startswith('{ct}') and carrier == 'DC' and active"
         )
+        outgoing_links.index.name = "Link"
 
         # define auxiliary variables for positive and negative parts of line and link flows
 
