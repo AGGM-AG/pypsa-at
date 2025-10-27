@@ -202,9 +202,13 @@ class Regex:
     # ends with 4 digits
     year: re.Pattern = re.compile(r"\d{4}$")
 
-    # matches: startswith 2 capital letters, followed by up to 3 digits,
-    # 1 space, and any number of digits for optional subnets.
-    region: re.Pattern = re.compile(r"^(?!.*CH4)[A-Z]{2}[\d,A-G]{0,3}\s*\d*")
+    # matches:
+    # ^ : startswith
+    # [A-Z]{2} : 2 capital letters,
+    # [\d,A-G,+]{0,3} : up to 3 digits, letter (German NUTS2 codes),
+    # [+1]? : optional '+1' literal to match Austrian NUTS3 regions
+    # \s?\d* : 1 optional space, and any number of digits for subnets.
+    region: re.Pattern = re.compile(r"^(?!.*CH4)[A-Z]{2}[\d,A-G]{0,3}[+1]?\s?\d*")
 
     # matches: startswith 2 capital letters, followed by up to 3 digits,
     # groups: only the first 2 letters that are the country code
