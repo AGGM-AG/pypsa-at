@@ -3,15 +3,24 @@
 import pytest
 
 
+@pytest.fixture(scope="session")
+def is_testrun(networks):
+    return any(
+        n.meta["run"]["prefix"] == "test-sector-myopic-at10" for n in networks.values()
+    )
+
+
 @pytest.mark.integration
+@pytest.mark.xfail(
+    reason="Testrun has different countries and is expected to fail this test.",
+    condition=is_testrun,
+)
 def test_custom_clustering(networks):
     """
     Make sure the custom clustering yields the expected regions.
     """
     clusterings = set()
     for n in networks.values():
-        if n.meta["run"]["prefix"] == "test-sector-myopic-at10":
-            return True
         # check for unexpected configurations
         clustering = n.meta["mods"]["modify_nuts3_shapes"]
         clusterings.add(clustering)
