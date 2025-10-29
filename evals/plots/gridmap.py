@@ -5,6 +5,7 @@
 """Barchart organized in subplots (facets)."""
 
 import base64
+import json
 import pathlib
 from dataclasses import dataclass, field
 from math import copysign
@@ -148,7 +149,7 @@ class TransmissionGridMap:
             self.fmap.add_child(fg)  # register the feature group
 
     def export(
-        self, output_path: pathlib.Path, file_name: str, subdir: str = "HTML"
+        self, output_path: pathlib.Path, bus_carrier: str, subdir: str = "evaluation"
     ) -> None:
         """
         Write the map to a HTML file.
@@ -162,17 +163,27 @@ class TransmissionGridMap:
         ----------
         output_path
             The path to save the map in.
-        file_name
-            The name of the file to export the map to.
+        bus_carrier
+            The grid energy bus carrier.
         subdir
-            An optional subdirectory to store files at. Leave emtpy
-            to skip, or change to html.
+            An optional subdirectory to store files at.
         """
         from evals.fileio import Exporter  # avoids circular import
 
-        target_directory = Exporter.make_directory(output_path, "evaluation/HTML")
-        self.fmap.save(target_directory / f"{file_name}.html")
-        # todo: add metadata tags
+        target_directory = Exporter.make_directory(output_path, subdir)
+        file_name = f"gridmap_{bus_carrier}"
+        self.fmap.save(target_directory / "HTML" / f"{file_name}.html")
+        gridmap_json = {
+            "plot_type": "map",
+            "location": "EU",
+            "folium_html": self.fmap._repr_html_(),
+            "bus_carrier": bus_carrier,
+            "specifier": None,
+            "year": None,
+        }
+        json_file_path = target_directory / "JSON" / f"{file_name}.json"
+        with json_file_path.open("w", encoding="utf-8") as fh:
+            json.dump(gridmap_json, fh)
 
     def draw_grid_by_carrier_groups_myopic(self) -> None:
         """Plot carrier groups for all years to one map."""

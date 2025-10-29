@@ -49,6 +49,10 @@ legend_order = [
 ]
 checks = []
 exports = []
+# upload data model attributes
+database_plot_type = "capacity"
+database_bus_carrier = "heat"
+database_specifier = "production"
 
 [view_capacity_heat_production.categories]
 "DAC" = "Direct Air Capture"
@@ -107,6 +111,10 @@ legend_order = [
 ]
 checks = []
 exports = ["csv"]
+# upload data model attributes
+database_plot_type = "capacity"
+database_bus_carrier = "electricity"
+database_specifier = "production"
 
 [view_capacity_electricity_production.categories]
 "CCGT" = "Thermal Powerplant"  # "PP (Methane)"
@@ -172,6 +180,10 @@ legend_order = [
 ]
 checks = []
 exports = []
+# upload data model attributes
+database_plot_type = "capacity"
+database_bus_carrier = "electricity"
+database_specifier = "demand"
 
 [view_capacity_electricity_demand.categories]
 "DAC" = "Direct Air Capture"
@@ -206,6 +218,10 @@ legend_order = [
 ]
 checks = []
 exports = []
+# upload data model attributes
+database_plot_type = "capacity"
+database_bus_carrier = "electricity"
+database_specifier = "storage"
 
 [view_capacity_electricity_storage.categories]
 "EV battery" = "Car Battery"
@@ -223,6 +239,10 @@ cutoff = 0.00001  # 1 MWh
 legend_order = ["Methane Store", "Hydrogen Store"]
 checks = []
 exports = []
+# upload data model attributes
+database_plot_type = "capacity"
+database_bus_carrier = "gas"
+database_specifier = "storage"
 
 [view_capacity_gas_storage.categories]
 "H2 Store" = "Hydrogen Store"
@@ -246,6 +266,10 @@ legend_order = [
 ]
 checks = []
 exports = []
+# upload data model attributes
+database_plot_type = "capacity"
+database_bus_carrier = "hydrogen"
+database_specifier = "production"
 
 [view_capacity_hydrogen_production.categories]
 "Methanol steam reforming" = "Methanol Steam Reforming"
@@ -277,6 +301,10 @@ legend_order = [
 ]
 checks = []
 exports = []
+# upload data model attributes
+database_plot_type = "capacity"
+database_bus_carrier = "methane"
+database_specifier = "production"
 
 [view_capacity_gas_production.categories]
 "BioSNG" = "SynGas"
@@ -331,6 +359,10 @@ legend_order = [
 ]
 checks = []  # "balances_almost_zero" deactivated, because it is not applicable for carbon budgets
 exports = []
+# upload data model attributes
+database_plot_type = "balance"
+database_bus_carrier = "carbon"
+database_specifier = ""
 
 [view_balance_carbon.categories]
 "agriculture machinery oil" = "Agriculture"
@@ -456,6 +488,10 @@ legend_order = [
 ]
 checks = ["balances_almost_zero"]
 exports = []
+# upload data model attributes
+database_plot_type = "balance"
+database_bus_carrier = "fuels"
+database_specifier = ""
 
 [view_balance_fuels.bus_carrier_groups]
 "coal" = "Coal"
@@ -566,6 +602,10 @@ legend_order = [
 ]
 checks = ["balances_almost_zero"]
 exports = []
+# upload data model attributes
+database_plot_type = "balance"
+database_bus_carrier = "hydrogen"
+database_specifier = ""
 
 [view_balance_hydrogen.categories]
 "ammonia cracker" = "Ammonia Cracker"
@@ -630,6 +670,10 @@ legend_order = [
 ]
 checks = ["balances_almost_zero"]
 exports = []
+# upload data model attributes
+database_plot_type = "balance"
+database_bus_carrier = "methane"
+database_specifier = ""
 
 [view_balance_methane.categories]
 "BioSNG" = "SynGas"
@@ -706,6 +750,10 @@ legend_order = [
 ]
 checks = ["balances_almost_zero"]
 exports = []
+# upload data model attributes
+database_plot_type = "balance"
+database_bus_carrier = "electricity"
+database_specifier = ""
 
 [view_balance_electricity.categories]
 "agriculture electricity" = "Agriculture"
@@ -809,6 +857,10 @@ legend_order = [
 ]
 checks = ["balances_almost_zero"]
 exports = []
+# upload data model attributes
+database_plot_type = "balance"
+database_bus_carrier = "heat"
+database_specifier = ""
 
 [view_balance_heat.categories]
 "DAC" = "Direct Air Capture"
@@ -871,6 +923,10 @@ legend_order = [
 ]
 checks = ["balances_almost_zero"]
 exports = []
+# upload data model attributes
+database_plot_type = "balance"
+database_bus_carrier = "biomass"
+database_specifier = ""
 
 [view_balance_biomass.categories]
 "BioSNG" = "SynGas"
@@ -915,6 +971,10 @@ legend_order = [
 ]
 checks = []
 exports = []
+# upload data model attributes
+database_plot_type = "demand"
+database_bus_carrier = "heat"
+database_specifier = "total"
 
 [view_demand_heat.categories]
 "AC" = "Electricity"
@@ -953,6 +1013,10 @@ legend_order = [
 ]
 checks = []
 exports = []
+# upload data model attributes
+database_plot_type = "demand"
+database_bus_carrier = "heat"
+database_specifier = "system"
 
 [view_demand_heat_system.categories]
 "ambient heat" = "Ambient Heat"
@@ -990,6 +1054,10 @@ legend_order = [
 ]
 checks = []
 exports = []
+# upload data model attributes
+database_plot_type = "demand"
+database_bus_carrier = "fed"
+database_specifier = ""
 
 [view_demand_fed.categories]
 "EV battery" = "Electricity"
@@ -1054,6 +1122,10 @@ legend_order = [
 ]
 checks = ["balances_almost_zero"]
 exports = []
+# upload data model attributes
+database_plot_type = "timeseries"
+database_bus_carrier = "electricity"
+database_specifier = ""
 
 [view_timeseries_electricity.categories]
 #"BEV charger" = "Storage In"
@@ -1152,6 +1224,10 @@ legend_order = [
 ]
 checks = ["balances_almost_zero"]
 exports = []
+# upload data model attributes
+database_plot_type = "timeseries"
+database_bus_carrier = "hydrogen"
+database_specifier = ""
 
 [view_timeseries_hydrogen.categories]
 "ammonia cracker" = "Ammonia Cracker"
@@ -1211,6 +1287,10 @@ legend_order = [
 ]
 checks = ["balances_almost_zero"]
 exports = []
+# upload data model attributes
+database_plot_type = "timeseries"
+database_bus_carrier = "methane"
+database_specifier = ""
 
 [view_timeseries_methane.categories]
 "BioSNG" = "SynGas"
@@ -1276,6 +1356,10 @@ legend_order = [
 ]
 checks = []
 exports = []
+# upload data model attributes
+database_plot_type = "timeseries"
+database_bus_carrier = "carbon"
+database_specifier = ""
 
 [view_timeseries_carbon.categories]
 "BioSNG" = "Biogas"
@@ -1355,6 +1439,10 @@ cutoff = 0.00001  # 1 MWh
 legend_order = []
 checks = []
 exports = []
+# upload data model attributes
+database_plot_type = "map"
+database_bus_carrier = "mixed"
+database_specifier = ""
 
 [view_grid_capacity.categories]
 "" = ""
@@ -1371,5 +1459,9 @@ cutoff = 0.00001  # 1 MWh
 legend_order = []
 checks = []
 exports = []
+# upload data model attributes
+database_plot_type = "sankey"
+database_bus_carrier = "mixed"
+database_specifier = ""
 
 [view_sankey.categories]

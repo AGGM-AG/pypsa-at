@@ -22,7 +22,6 @@ Key Components
 - UNITS: Unit conversion factors
 """
 
-import os
 import re
 from datetime import datetime as dt
 from subprocess import CalledProcessError
@@ -32,9 +31,6 @@ from frozendict import frozendict
 
 # represents constants import time
 NOW: str = dt.now().strftime("%Y%m%d%H%M%S")
-
-# Database backend
-DB_URL = os.getenv("DATABASE_URL", "sqlite:///dev.db")
 
 
 class DataModel:

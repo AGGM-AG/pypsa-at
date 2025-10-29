@@ -4,12 +4,14 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Input - Output related functions."""
 
+import getpass
+import json
 import logging
 import re
+from collections.abc import Callable
 from functools import cached_property
 from importlib import resources
 from pathlib import Path
-from typing import Callable
 
 import pandas as pd
 import pypsa
@@ -21,6 +23,7 @@ from evals.configs import ViewDefaults
 from evals.constants import (
     COLOUR_SCHEME,
     NOW,
+    RUN_META_DATA,
     TITLE_SUFFIX,
     DataModel,
     Regex,
@@ -106,6 +109,7 @@ def read_networks(
         n.statistics = ESMStatistics(n, result_path)
         # todo: apply preprocessing steps to simplify evaluations:
         # AC Load splitting: extract electricity rail and industry from electricity base load
+        # attach required resources to network
         n.name = f"PyPSA-AT Network {year}"
         n.year = year
         networks[year] = n
@@ -122,8 +126,8 @@ def read_views_config(
     Return the configuration for a view function.
 
     The function reads the default configuration from the
-    TOML file and optionally updates it using the config
-    file from the override file. The configuration returned
+    TOML file and optionally updates it using the configuration
+    items in the override file. The configuration returned
     is stripped down to the relevant parts that matter for the
     called view function.
 
@@ -278,11 +282,15 @@ class Exporter:
         self.defaults = ViewDefaults()
 
         # update defaults from config for this view
-        self.defaults.excel.title = view_config["name"] + TITLE_SUFFIX
-        self.defaults.plotly.title = view_config["name"] + TITLE_SUFFIX
+        title = view_config["name"] + TITLE_SUFFIX
+        self.defaults.excel.title = title
+        self.defaults.plotly.title = title
         self.defaults.plotly.file_name_template = view_config["file_name"]
         self.defaults.plotly.cutoff = view_config["cutoff"]
         self.defaults.plotly.category_orders = view_config["legend_order"]
+        self.defaults.plotly.database_plot_type = view_config["database_plot_type"]
+        self.defaults.plotly.database_bus_carrier = view_config["database_bus_carrier"]
+        self.defaults.plotly.database_specifier = view_config["database_specifier"]
 
     @cached_property
     def df(self) -> pd.DataFrame:
@@ -306,15 +314,48 @@ class Exporter:
             self.region_nice_names,
         )
 
-    def export_plotly(self, output_path: Path) -> None:
+    @staticmethod
+    def write_run_json(output_path: Path) -> None:
+        """
+        Serialize the run attributes to a JSON file.
+
+        The run.json file holds all attributes required to identify a
+        run in the Run table of the database data model. All views and
+        variables will be associated with this run database object.
+
+        Parameters
+        ----------
+        output_path
+            The path to the evaluation folder in a scenario run.
+
+        Returns
+        -------
+        :
+        """
+        scenario_name = output_path.parent.name
+        run_prefix = output_path.parent.parent.name
+
+        run_data = {
+            "model": "PyPSA-AT",
+            "version": run_prefix,
+            "scenario": scenario_name,
+            # "description": "",  # currently not supported from automatic upload
+            "author": getpass.getuser(),
+            "custom_metadata": RUN_META_DATA,
+        }
+        run_file_path = output_path / "JSON" / "run.json"
+        with run_file_path.open("w", encoding="utf-8") as fh:
+            json.dump(run_data, fh, indent=4)
+
+    def export_views(self, output_path: Path) -> None:
         """
         Create the plotly figure and export it as HTML and JSON.
 
         Parameters
         ----------
         output_path
-            The path to the HTML folder where all the .html files are
-            stored.
+            The path to the folder where HTML, JSON and
+            CSV subdirectories are created.
         """
         cfg = self.defaults.plotly
         df = rename_aggregate(
@@ -324,6 +365,9 @@ class Exporter:
         df_plot = df.pivot_table(
             index=cfg.pivot_index, columns=cfg.pivot_columns, aggfunc="sum"
         )
+
+        # needed during upload API data bundle ingestion
+        self.write_run_json(output_path)
 
         for idx, data in df_plot.groupby(cfg.plotby):
             chart = cfg.chart(data, cfg)
@@ -418,7 +462,7 @@ class Exporter:
 
         output_path = self.make_evaluation_result_directories(result_path, subdir)
 
-        self.export_plotly(output_path)
+        self.export_views(output_path)
 
         export_formats = self.view_config.get("exports", [])
         if "excel" in export_formats:

@@ -83,7 +83,8 @@ ARCHIVE_PATH="$TEMP_DIR/$ARCHIVE_NAME"
 echo -e "${YELLOW}Creating archive: $ARCHIVE_NAME${NC}"
 
 # Create tar.gz archive of all JSON files
-tar -czf "$ARCHIVE_PATH" -C "$JSON_DIR" --transform 's|^|json/|' *.json
+# Need to cd into JSON_DIR for glob expansion to work
+(cd "$JSON_DIR" && tar -czf "$ARCHIVE_PATH" --transform 's|^|json/|' *.json)
 
 # Get archive size
 ARCHIVE_SIZE=$(du -h "$ARCHIVE_PATH" | cut -f1)

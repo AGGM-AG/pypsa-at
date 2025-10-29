@@ -4,6 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Common graph bases and emtpy figures."""
 
+import json
 import pathlib
 import typing
 
@@ -123,7 +124,7 @@ class ESMChart:
         with file_path.open("w", encoding="utf-8") as fh:
             fh.write(Template(template_html).render(fig=div, **RUN_META_DATA))
 
-        # need to write the plotly.js too, because to_html does not
+        # need to write the plotly.js too
         bundle_path = file_path.parent / "plotly.min.js"
         if not bundle_path.exists():
             bundle_path.write_text(get_plotlyjs(), encoding="utf-8")
@@ -143,7 +144,7 @@ class ESMChart:
         groupby
             List of groupby keys needed to fill the file name template.
         idx
-            The data frame index from the gropuby clause needed to fill
+            The data frame index from the groupby clause needed to fill
             the file name template.
 
         Returns
@@ -153,12 +154,17 @@ class ESMChart:
         """
         file_name = f"{self.construct_file_name(groupby, idx)}.json"
         file_path = output_path / "JSON" / file_name
-        self.fig.write_json(file_path, engine="auto")
+
+        with file_path.open("w", encoding="utf-8") as fh:
+            # Use Plotly's to_json() method which handles NumPy arrays correctly
+            json_fig = json.loads(self.fig.to_json())
+            json_fig["location"] = self.location
+            json_fig["plot_type"] = self.cfg.database_plot_type
+            json_fig["bus_carrier"] = self.cfg.database_bus_carrier
+            json_fig["specifier"] = self.cfg.database_specifier
+            json.dump(json_fig, fh)
 
         return file_path
-
-    def to_db(self):
-        raise NotImplementedError
 
     def construct_file_name(self, groupby: list[str], idx: typing.Hashable) -> str:
         """
@@ -269,9 +275,6 @@ class ESMChart:
         # trace order always needs to be reversed to show correct order
         # of legend entries for relative bar charts
         self.fig.update_layout(legend={"traceorder": "reversed"})
-
-        # export the metadata directly in the Layout property for JSON
-        self.fig.update_layout(meta=[RUN_META_DATA])
 
     def _append_footnotes(self) -> None:
         """Append the footnote(s) at the bottom of the figure."""
