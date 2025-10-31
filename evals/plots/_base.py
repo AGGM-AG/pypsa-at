@@ -15,7 +15,7 @@ from plotly import graph_objects as go
 from plotly.offline.offline import get_plotlyjs
 
 from evals.configs import PlotConfig
-from evals.constants import ALIAS_LOCATION_REV, RUN_META_DATA
+from evals.constants import ALIAS_LOCATION_REV, RUN_META_DATA, DataModel
 
 
 class ESMChart:
@@ -155,14 +155,25 @@ class ESMChart:
         file_name = f"{self.construct_file_name(groupby, idx)}.json"
         file_path = output_path / "JSON" / file_name
 
+        year = None
+        if DataModel.YEAR in groupby:
+            if DataModel.YEAR in self._df.index.names:
+                year = self._df.index.unique(DataModel.YEAR).item()
+            else:
+                # hotfix for sankey chart
+                year = self.year
+
         with file_path.open("w", encoding="utf-8") as fh:
             # Use Plotly's to_json() method which handles NumPy arrays correctly
-            json_fig = json.loads(self.fig.to_json())
-            json_fig["location"] = self.location
-            json_fig["plot_type"] = self.cfg.database_plot_type
-            json_fig["bus_carrier"] = self.cfg.database_bus_carrier
-            json_fig["specifier"] = self.cfg.database_specifier
-            json.dump(json_fig, fh)
+            json_content = {
+                "location": self.location,
+                "year": year,
+                "plot_type": self.cfg.database_plot_type,
+                "bus_carrier": self.cfg.database_bus_carrier,
+                "specifier": self.cfg.database_specifier,
+                "plotly_dict": self.fig.to_json(),
+            }
+            json.dump(json_content, fh)
 
         return file_path
 

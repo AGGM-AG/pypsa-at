@@ -331,6 +331,13 @@ class Exporter:
         Returns
         -------
         :
+
+        Notes
+        -----
+        todo: add myopic config file to metadata
+        todo: use version from myopic config file
+        todo: populate description DB field for card display
+        todo: only show latest run cards in home screen
         """
         scenario_name = output_path.parent.name
         run_prefix = output_path.parent.parent.name
