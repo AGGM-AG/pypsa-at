@@ -633,10 +633,10 @@ class ESMStatistics(StatisticsAccessor):
 
             p = buses.merge(
                 comp.query("carrier.isin(@carrier)"),
-                left_on="Bus",
+                left_on="name",
                 right_on=f"bus{port}",
                 suffixes=("_bus", ""),
-            ).merge(n.pnl(c).get(f"p{port}").T, on=c)
+            ).merge(n.pnl(c).get(f"p{port}").T, on="name")
 
             _location = (
                 DataModel.LOCATION + "_bus"
@@ -659,9 +659,7 @@ class ESMStatistics(StatisticsAccessor):
         result = pd.concat(results_comp)
 
         if aggregate_time:
-            # assuming Link and Line have the same weights
-            # weights = get_weightings(n, "Link")
-            weights = n.snapshot_weightings["links"]
+            weights = n.snapshot_weightings["objective"]
             result = result.multiply(weights, axis=1)
             result = result.agg(aggregate_time, axis=1)
 

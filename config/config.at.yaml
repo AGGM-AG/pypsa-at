@@ -35,6 +35,8 @@ snapshots:
   start: "2013-01-01"
   end: "2014-01-01"
   inclusive: 'left'
+enable:
+  retrieve: false
 atlite:
   cutout_directory: cutouts
   default_cutout: europe-2013-sarah3-era5
@@ -157,8 +159,8 @@ solving:
             2040: 1
             2050: 1
   solver:
-    name: highs
-    options: highs-default
+    name: gurobi
+    options: gurobi-default
   solver_options:
     # https://ergo-code.github.io/HiGHS/dev/options/definitions/
     highs-default:

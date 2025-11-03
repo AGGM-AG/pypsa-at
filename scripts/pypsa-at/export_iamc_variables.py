@@ -1207,7 +1207,7 @@ if __name__ == "__main__":
     if "snakemake" not in globals():
         snakemake = mock_snakemake(
             "export_iamc_variables",
-            run="AT10_KN2040",
+            run="AT_KN2040",
             # prefix="test-sector-myopic-at10",
             # config="config/test/config.at10.yaml",
         )
