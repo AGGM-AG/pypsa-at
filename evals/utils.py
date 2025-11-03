@@ -117,6 +117,7 @@ def insert_index_level(
     return result.reorder_levels(idx_names)
 
 
+# todo: this is no part of pypsa -> remove from here
 def calculate_cost_annuity(n: float, r: float | pd.Series = 0.07) -> float | pd.Series:
     """
     Calculate the annuity factor for an asset.

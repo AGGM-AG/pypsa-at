@@ -16,7 +16,6 @@ from pandas import DataFrame
 from pypsa.statistics import (
     StatisticsAccessor,
     get_transmission_carriers,
-    get_weightings,
     groupers,
 )
 
@@ -468,7 +467,8 @@ class ESMStatistics(StatisticsAccessor):
         phs = pd.DataFrame(index=idx)
         for time_series in ("p_dispatch", "p_store", "spill", "inflow"):
             p = n.pnl("StorageUnit")[time_series].reindex(columns=idx, fill_value=0)
-            weights = get_weightings(n, "StorageUnit")
+            # weights = get_weightings(n, "StorageUnit")
+            weights = n.snapshot_weightings["stores"]
             phs[time_series] = n.statistics._aggregate_timeseries(
                 p, weights, agg=aggregate_time
             )
@@ -538,7 +538,8 @@ class ESMStatistics(StatisticsAccessor):
             ("state_of_charge", None, Group.soc, None),
         ]
 
-        weights = get_weightings(n, "StorageUnit")
+        # weights = get_weightings(n, "StorageUnit")
+        weights = n.snapshot_weightings["stores"]
 
         su = n.static("StorageUnit").query("carrier in ['PHS', 'hydro']")
 
@@ -659,7 +660,8 @@ class ESMStatistics(StatisticsAccessor):
 
         if aggregate_time:
             # assuming Link and Line have the same weights
-            weights = get_weightings(n, "Link")
+            # weights = get_weightings(n, "Link")
+            weights = n.snapshot_weightings["links"]
             result = result.multiply(weights, axis=1)
             result = result.agg(aggregate_time, axis=1)
 
@@ -847,7 +849,8 @@ class ESMStatistics(StatisticsAccessor):
         if aggregate_time in ("max", "min"):
             result = result.agg(aggregate_time, axis=1)
         elif aggregate_time:  # mean, median, etc.
-            weights = get_weightings(n, comps)
+            # weights = get_weightings(n, comps)
+            weights = n.snapshot_weightings[comps]
             result = result.mul(weights, axis=1).agg(aggregate_time, axis=1)
             unit = "MWh"
 

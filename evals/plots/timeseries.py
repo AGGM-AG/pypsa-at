@@ -31,8 +31,10 @@ class ESMTimeSeriesChart(ESMChart):
         super().__init__(*args, **kwargs)
         self.fig = go.Figure()
         self.year = self._df.index.unique("year")[0]
-        self.yaxes_showgrid = self.yaxes_visible = True
         self.location = self._df.index.unique(DataModel.LOCATION)[0]
+
+        # overwrite default axis settings for timeseries plots
+        self.cfg.yaxes_showgrid = self.cfg.yaxes_visible = True
 
     @cached_property
     def df(self) -> pd.DataFrame:
