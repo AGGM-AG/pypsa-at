@@ -77,6 +77,8 @@ merger-todos.md
 
 *.html
 
+*.lp
+
 # DE model specific
 cidportal.jrc.ec.europa.eu
 zenodo.org
