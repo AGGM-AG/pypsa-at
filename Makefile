@@ -85,6 +85,15 @@ test:
 	snakemake -call all --configfile=config/test/config.at10.yaml
 	echo "All tests completed successfully."
 
+test-pixi:
+	set -e
+	echo "Running tests..."
+	echo "Build scenarios..."
+	pixi run snakemake -call build_scenarios
+	echo "Run AT10 test config..."
+	pixi run snakemake -call all --configfile=config/test/config.at10.yaml
+	echo "All tests completed successfully."
+
 unit-test:
 	pytest test
 
