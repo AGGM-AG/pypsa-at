@@ -16,12 +16,8 @@ dependencies:
 - ruamel.yaml
 - jpype1
 
-# pypsa-at specific
-- frozendict
-- pytest-html
-
 # Inhouse packages
-- pypsa==0.35.2
+- pypsa>=1.0.0
 - atlite>=0.3
 - linopy>=0.4.4
 - powerplantmatching>=0.5.15,<0.7 # restrict ppm until fix of https://github.com/PyPSA/powerplantmatching/issues/229
@@ -80,6 +76,3 @@ dependencies:
   - highspy
   - tsam>=2.3.1
   - entsoe-py
-
-  # pypsa-at specific
-  - sourcery
