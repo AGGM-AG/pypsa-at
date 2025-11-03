@@ -36,6 +36,20 @@ jobs:
     steps:
     - uses: actions/checkout@v5
 
+      # Add disk space cleanup at the beginning
+    - name: Free Disk Space (Ubuntu)
+      if: matrix.os == 'ubuntu'
+      uses: jlumbroso/free-disk-space@main
+      with:
+        # Remove tools that are not needed
+        tool-cache: false
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        docker-images: true
+        swap-storage: true
+
     - name: Setup env file path (ubuntu)
       if: matrix.os == 'ubuntu'
       run: |
