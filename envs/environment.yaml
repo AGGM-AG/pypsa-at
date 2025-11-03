@@ -73,6 +73,6 @@ dependencies:
 
 - pip:
   - gurobipy
-  - highspy
+  - highspy<1.12
   - tsam>=2.3.1
   - entsoe-py
