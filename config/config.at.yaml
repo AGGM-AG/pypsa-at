@@ -35,8 +35,6 @@ snapshots:
   start: "2013-01-01"
   end: "2014-01-01"
   inclusive: 'left'
-enable:
-  retrieve: false
 atlite:
   cutout_directory: cutouts
   default_cutout: europe-2013-sarah3-era5
