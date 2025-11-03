@@ -98,6 +98,11 @@ class PlotConfig:
     file_name_template: str = "{metric}_{year}_{location}"
     unit: str = ""  # default is metric.df.attrs["unit"]
 
+    # database column mapping picked up from config.toml
+    database_plot_type: str = ""
+    database_specifier: str = ""
+    database_bus_carrier: str = ""
+
     # the metric data frame is grouped this index level before plotting.
     # One html figure is created per resulting group.
     plotby: list = field(default_factory=lambda: [DataModel.LOCATION])
