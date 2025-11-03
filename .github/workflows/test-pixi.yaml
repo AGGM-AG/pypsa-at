@@ -1,6 +1,14 @@
 name: Test with Pixi
 
 on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+  schedule:
+  - cron: "0 5 * * 0"
   workflow_dispatch:
 
 # Cancel any in-progress runs when a new run is triggered
@@ -10,7 +18,7 @@ concurrency:
 
 jobs:
   test-pixi:
-    name: Run tests with pixi
+    name: PyPSA-AT CI Test Run
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/prefix-dev/pixi:latest
@@ -48,6 +56,9 @@ jobs:
 
     - name: Run AT10 test config
       run: pixi run snakemake -call all --configfile=config/test/config.at10.yaml
+
+    - name: Run unit tests
+      run: pixi run pytest test -m "unit or integration"
 
     - name: Upload artifacts
       if: always()
