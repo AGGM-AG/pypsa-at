@@ -43,8 +43,11 @@ jobs:
           cutouts
         key: data-cutouts-${{ env.WEEK }}
 
-    - name: Run tests
-      run: make test-pixi
+    - name: Build scenarios
+      run: pixi run snakemake -call build_scenarios
+
+    - name: Run AT10 test config
+      run: pixi run snakemake -call all --configfile=config/test/config.at10.yaml
 
     - name: Upload artifacts
       if: always()
