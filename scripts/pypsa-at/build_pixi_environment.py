@@ -56,7 +56,6 @@ def main():
     run(["pixi", "add"] + packages, check=True)
 
     pypi_packages = [
-        "highspy",
         "xpress",
         "tsam",
         "mkdocs-badges",
