@@ -1,6 +1,5 @@
 [![CodeQL](https://github.com/AGGM-AG/pypsa-at/actions/workflows/codeql.yaml/badge.svg?branch=main&event=push)](https://github.com/AGGM-AG/pypsa-at/actions/workflows/codeql.yaml)
 [![CI Testrun](https://github.com/AGGM-AG/pypsa-at/actions/workflows/test-pixi.yaml/badge.svg?branch=main)](https://github.com/AGGM-AG/pypsa-at/actions/workflows/test-pixi.yaml)
-[![Validator Bot](https://github.com/AGGM-AG/pypsa-at/actions/workflows/validate.yaml/badge.svg?branch=main&event=push)](https://github.com/AGGM-AG/pypsa-at/actions/workflows/validate.yaml)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Pixi Badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/prefix-dev/pixi/main/assets/badge/v0.json)](https://pixi.sh)
 [![MkDocs](https://img.shields.io/badge/docs-mkdocs-blue)](https://www.mkdocs.org/)
