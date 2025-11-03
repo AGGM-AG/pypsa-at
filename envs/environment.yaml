@@ -18,6 +18,8 @@ dependencies:
 
 # pypsa-at specific
 - highspy<1.12
+- frozendict
+- pytest-html
 
 # Inhouse packages
 - pypsa>=1.0.0
