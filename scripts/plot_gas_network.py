@@ -156,7 +156,7 @@ def plot_ch4_map(n):
         link_colors=pipe_colors["gas pipeline (available)"],
         link_widths=link_widths_rem,
         branch_components=["Link"],
-        color_geomap=False,
+        geomap_colors=False,
         boundaries=map_opts["boundaries"],
     )
 
@@ -166,7 +166,7 @@ def plot_ch4_map(n):
         link_colors=link_color_used,
         link_widths=link_widths_used,
         branch_components=["Link"],
-        color_geomap=False,
+        geomap_colors=False,
         boundaries=map_opts["boundaries"],
     )
 
