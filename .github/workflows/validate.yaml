@@ -54,6 +54,6 @@ jobs:
         # <scenario>/<plot_name>.png
         plots: >
           "
-          AT10_KN2040/evaluation/HTML/sankey_diagram_EU_2050.html
+          AT_KN2040/evaluation/HTML/sankey_EU_2050.html
           "
         validator_key: ${{ secrets.VALIDATOR_KEY }}
