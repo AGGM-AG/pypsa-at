@@ -17,7 +17,7 @@ clustering:
   mode: administrative
   administrative:
     level: 0 # countries
-    AT: 2  # 10 regions
+    AT: 3  # 10 regions
   temporal:
     resolution_sector: 24H
 
