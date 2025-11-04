@@ -83,7 +83,7 @@ def view_grid_capacity(
         drop_zeros=False,
         comps=["Link", "Line"],
         groupby=["bus0", "bus1", "carrier", "bus_carrier"],
-        append_grid=False,
+        append_grid=True,
     )
 
     # cannot use utils.scale(), because of the additional "line" column
