@@ -25,14 +25,14 @@ NC='\033[0m' # No Color
 
 # Parse arguments
 SCENARIO_PATH="${1:-}"
-API_URL="${2:-http://localhost:8080/api/upload}"
+API_URL="${2:-https://internal.aggm.at/api/upload}"
 TOKEN="${3:-${UPLOAD_TOKEN:-}}"
 
 # Validation
 if [[ -z "$SCENARIO_PATH" ]]; then
     echo -e "${RED}Error: Scenario path is required${NC}"
     echo "Usage: $0 <scenario_path> [api_url] [token]"
-    echo "Example: $0 results/high_res/scenario"
+    echo "Example: $0 results/v2025.04/KN2040_AT35DE5"
     exit 1
 fi
 

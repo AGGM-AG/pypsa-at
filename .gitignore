@@ -50,8 +50,10 @@ dconf
 /data/bundle/nuts*
 data/gas_network/scigrid-gas/
 data/costs_*.csv
+
 # PyPSA-AT specific data files
 #/data/austrian_transmission_capacities.csv
+__marimo__/
 
 dask-worker-space/
 publications.jrc.ec.europa.eu/
