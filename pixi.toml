@@ -3,7 +3,7 @@ authors = ["Philip Worschischek <philip.worschischek@aggm.at>"]
 channels = ["conda-forge", "bioconda"]
 name = "pypsa-at"
 platforms = ["linux-64"]
-version = "0.1.0"
+version = "v2025.04"
 
 [tasks]
 

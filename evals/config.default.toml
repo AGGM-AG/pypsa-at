@@ -992,6 +992,9 @@ database_specifier = "total"
 "urban decentral heat" = "Solar Thermal"
 "ambient heat" = "Ambient Heat"
 "latent heat" = "Ambient Heat"
+"rural solar thermal" = "Solar Thermal"
+"urban central solar thermal" = "Solar Thermal"
+"urban decentral solar thermal" = "Solar Thermal"
 
 [view_demand_heat_system]
 name = "Energy Demand per Heat System"
@@ -1496,7 +1499,6 @@ database_bus_carrier = "mixed"
 database_specifier = ""
 
 [view_grid_capacity.categories]
-"" = ""
 
 # energy flow
 

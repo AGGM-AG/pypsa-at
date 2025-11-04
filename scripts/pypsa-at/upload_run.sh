@@ -5,7 +5,7 @@
 #
 # Arguments:
 #   scenario_path - Path to scenario folder (e.g., results/high_res/scenario)
-#   api_url       - Optional: API endpoint URL (default: http://internal.aggm.at:8080/api/upload)
+#   api_url       - Optional: API endpoint URL (default: https://internal.aggm.at/api/upload)
 #   token         - Optional: Bearer token (default: from UPLOAD_TOKEN env var)
 #
 # Example:

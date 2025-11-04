@@ -5,13 +5,8 @@
 run:
   prefix: v2025.04
   name:
-#  - ExPol
-  - AT_KN2040
-#  - KN2045_Mix
-#  - KN2045_Elek
-#  - KN2045_H2
-#  - KN2045_NFniedrig
-#  - KN2045_NFhoch
+#  - KN2040_AT35DE5
+  - KN2040_AT35DE5_testrun
 
 countries: ['AL', 'AT', 'BA', 'BE', 'BG', 'CH', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'ME', 'MK', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'SE', 'SI', 'SK', 'XK']
 scenario:

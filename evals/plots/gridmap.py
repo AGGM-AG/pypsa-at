@@ -152,7 +152,7 @@ class TransmissionGridMap:
         self, output_path: pathlib.Path, bus_carrier: str, subdir: str = "evaluation"
     ) -> None:
         """
-        Write the map to a HTML file.
+        Write the map to an HTML file.
 
         We want to store the HTML inside the JSON folder by default,
         because Folium does not support the import of JSON files.

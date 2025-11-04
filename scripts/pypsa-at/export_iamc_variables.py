@@ -864,7 +864,7 @@ def collect_storage_imbalances():
                 f"total imbalance of {balance.groupby('year').sum()}."
             )
             bc = balance.index.unique("bus_carrier").item()
-            label = f"{SECONDARY}|Losses|{BC_ALIAS[bc]}|{imbalanced_techs[carrier]}"
+            label = f"{SECONDARY}|Losses|{BC_ALIAS[bc]}|{imbalanced_techs.get(carrier, carrier)}"
             var[label] = balance.groupby(IDX).sum()
         else:
             logger.debug(f"No Store imbalances detected for carrier: {carrier}.")

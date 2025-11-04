@@ -4,19 +4,22 @@
 # For license information, see the LICENSE.txt file in the project root.
 
 import logging
+import random
 import sys
 from pathlib import Path
 
 import click
+import tomllib
 import yaml
 
 
 @click.command(short_help="Overwrite existing values in config/config.at.yaml")
-@click.option("--clustering", "-c", type=str, required=True)
-@click.option("--resolution", "-r", type=str, required=True)
-@click.option("--solver", "-s", type=str, required=True)
-@click.option("--seed", "-e", type=int, required=True)
-def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
+@click.option("--scenario", "-s", type=str, required=True)
+@click.option("--runner-tag", "-t", type=str, required=True)
+# @click.option("--resolution", "-r", type=str, required=True)
+# @click.option("--solver", "-s", type=str, required=True)
+@click.option("--randomize", "-r", type=bool, required=True)
+def configure(scenario: str, runner_tag: str, randomize: bool) -> None:
     """
     Configure PyPSA-AT model run by updating configuration parameters.
 
@@ -25,14 +28,9 @@ def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
 
     Parameters
     ----------
-    clustering : {'AT10DE5', 'AT35DE5', 'AT10DE19', 'AT35DE19'}
-        The name of the administrative custom clustering.
-    resolution
-        The temporal resolution in hours to set as the `sectoral_resolution`.
-    solver : {'highs-default', 'gurobi-default'}
-        The solver to use. Sets `solver_name` and `solver-options` in the configuration.
-    seed
-        The random seed for the random number generator.
+    scenario
+    runner_tag
+    randomize
 
     Returns
     -------
@@ -44,27 +42,28 @@ def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
     This function is expected to run using pipelines and the dumped configuration
     yaml is not expected to be checked in to VCS.
     """
-    # validate inputs
-    accepted_solver = ("highs-default", "gurobi-default")
-    if solver not in accepted_solver:
-        raise click.BadParameter(
-            f"'{solver}' is not a valid solver. Chose from {accepted_solver}."
-        )
+    # # validate inputs
+    # accepted_solver = ("highs-default", "gurobi-default")
+    # if solver not in accepted_solver:
+    #     raise click.BadParameter(
+    #         f"'{solver}' is not a valid solver. Chose from {accepted_solver}."
+    #     )
+    #
+    # available_clustering = ("AT10DE5", "AT35DE5", "AT10DE19", "AT35DE19")
+    # if clustering not in available_clustering:
+    #     raise click.BadParameter(
+    #         f"'{clustering}' is not valid. Chose from {available_clustering}"
+    #     )
+    #
+    # # sanitize temporal resolution
+    # resolution = int(resolution.rstrip("H"))
+    # if resolution < 24 and "highs" in solver:
+    #     raise ValueError(
+    #         f"Denying to run model with resolution {resolution} and solver {solver}."
+    #     )
 
-    available_clustering = ("AT10DE5", "AT35DE5", "AT10DE19", "AT35DE19")
-    if clustering not in available_clustering:
-        raise click.BadParameter(
-            f"'{clustering}' is not valid. Chose from {available_clustering}"
-        )
-
-    # sanitize temporal resolution
-    resolution = int(resolution.rstrip("H"))
-    if resolution < 24 and "highs" in solver:
-        raise ValueError(
-            f"Denying to run model with resolution {resolution} and solver {solver}."
-        )
-
-    file_path = Path("config/config.at.yaml")
+    config_yaml_fp = Path("config/config.at.yaml")
+    pixi_toml_fp = Path("pixi.toml")
 
     # setting up logger for gitlab CI pipeline
     logging.basicConfig(
@@ -76,41 +75,70 @@ def configure(clustering: str, resolution: str, solver: str, seed: int) -> None:
     )
     logger = logging.getLogger(__file__)
 
-    with file_path.open("r") as fh:
+    with config_yaml_fp.open("r") as fh:
         config = yaml.safe_load(fh)
 
-    logger.info(f"Configuring PyPSA-AT model for clustering {clustering}.")
-    config["mods"]["modify_nuts3_shapes"] = clustering
+    with pixi_toml_fp.open("rb") as fh:
+        pixi = tomllib.load(fh)
 
-    nuts_at = 2 if "AT10" in clustering else 3  # AT35
-    nuts_de = 1 if "DE19" in clustering else 3  # DE5
-    logger.info(
-        f"Setting administrative clustering in AT to "
-        f"NUTS level {nuts_at} (={10 if nuts_at == 2 else 35} Regions)"
-    )
-    config["clustering"]["administrative"]["AT"] = nuts_at
-    logger.info(
-        f"Setting administrative clustering in DE to "
-        f"NUTS level {nuts_de} (={19 if nuts_de == 1 else 5} Regions)"
-    )
-    config["clustering"]["administrative"]["DE"] = nuts_de
+    solver_name = config["solving"]["solver"]["name"]
 
-    logger.info(f"Setting temporary resolution to '{resolution}H'")
-    config["clustering"]["temporal"]["resolution_sector"] = f"{resolution}H"
+    # validate config
+    resolution = config["clustering"]["temporal"]["resolution_sector"]
+    resolution = int(resolution.rstrip("H"))
+    if resolution < 24 and solver_name != "gurobi":
+        raise ValueError(
+            f"Denying to run high resolution run with '{resolution}H' and solver '{solver_name}'"
+        )
 
-    solver_name = solver.split("-")[0]
-    logger.info(
-        f"Setting solver name to '{solver_name}' and solver options to '{solver}'"
-    )
-    config["solving"]["solver"]["name"] = solver_name
-    config["solving"]["solver"]["options"] = solver
-    key = "random_seed" if solver_name == "highs" else "Seed"  # else gurobi
+    if resolution < 24 and runner_tag == "esm-test":
+        raise ValueError(
+            f"Denying to run high resolution run with '{resolution}H' on test runner '{runner_tag}'"
+        )
+    #
+    # logger.info(f"Configuring PyPSA-AT model for clustering {clustering}.")
+    # config["mods"]["modify_nuts3_shapes"] = clustering
+    #
+    # nuts_at = 2 if "AT10" in clustering else 3  # AT35
+    # nuts_de = 1 if "DE19" in clustering else 3  # DE5
+    # logger.info(
+    #     f"Setting administrative clustering in AT to "
+    #     f"NUTS level {nuts_at} (={10 if nuts_at == 2 else 35} Regions)"
+    # )
+    # config["clustering"]["administrative"]["AT"] = nuts_at
+    # logger.info(
+    #     f"Setting administrative clustering in DE to "
+    #     f"NUTS level {nuts_de} (={19 if nuts_de == 1 else 5} Regions)"
+    # )
+    # config["clustering"]["administrative"]["DE"] = nuts_de
+    #
+    # logger.info(f"Setting temporary resolution to '{resolution}H'")
+    # config["clustering"]["temporal"]["resolution_sector"] = f"{resolution}H"
+    #
+    # solver_name = solver.split("-")[0]
+    # logger.info(
+    #     f"Setting solver name to '{solver_name}' and solver options to '{solver}'"
+    # )
+    # config["solving"]["solver"]["name"] = solver_name
+    # config["solving"]["solver"]["options"] = solver
+    logger.info(f"Setting scenario name to '{scenario}'")
+    config["run"]["name"] = [scenario]
+
+    version = pixi["workspace"]["version"]
+    logger.info(f"Setting run version to '{version}'")
+    config["run"]["prefix"] = version
+
+    seed = random.randint(1, 50000) if randomize else 123
     logger.info(f"Setting seed to '{seed}'")
-    config["solving"]["solver_options"][solver][key] = seed
-    config["solving"].setdefault("options", {})
-    config["solving"]["options"]["seed"] = seed  # duplicated default setting
+    solver_options = config["solving"]["solver"]["options"]
 
-    with file_path.open("w") as fh:
+    key = "random_seed" if solver_name == "highs" else "Seed"  # gurobi
+    config["solving"]["solver_options"][solver_options][key] = seed
+    # also set duplicated default setting
+    config["solving"].setdefault("options", {})
+    config["solving"]["options"]["seed"] = seed
+
+    with config_yaml_fp.open("w") as fh:
         yaml.dump(config, fh)
 
 

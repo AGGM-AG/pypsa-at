@@ -6,11 +6,9 @@
 
 from pathlib import Path
 
-from evals.constants import BusCarrier, Carrier
 from evals.fileio import resource_getter
-from evals.plots.gridmap import GridMapConfig, TransmissionGridMap
+from evals.plots.gridmap import GridMapConfig
 from evals.statistic import collect_myopic_statistics
-from evals.utils import filter_by
 
 """
 Todo Notes
@@ -79,81 +77,122 @@ def view_grid_capacity(
     - View country markers and import locations
     - Zoom and pan within configured bounds
     """
-    grid_capactiy = collect_myopic_statistics(
+    grid_capacity = collect_myopic_statistics(
         networks,
         statistic="grid_capacity",
         drop_zeros=False,
         comps=["Link", "Line"],
+        groupby=["bus0", "bus1", "carrier", "bus_carrier"],
+        append_grid=False,
     )
 
     # cannot use utils.scale(), because of the additional "line" column
     col = "Capacity (MW)"
-    grid_capactiy[col] = grid_capactiy[col] * 1e-3  # to GW
-    grid_capactiy = grid_capactiy.rename(columns={col: "Capacity (GW)"})
-    grid_capactiy.attrs["unit"] = "GW"
+    grid_capacity[col] = grid_capacity[col] * 1e-3  # to GW
+    grid_capacity = grid_capacity.rename(columns={col: "Capacity (GW)"})
+    grid_capacity.attrs["unit"] = "GW"
 
-    # todo: green import Links
-    import_energy = collect_myopic_statistics(
-        networks,
-        statistic="supply",
-        comps="Generator",
-        bus_carrier=[BusCarrier.CH4, BusCarrier.H2, "biogas", "AC"],
-    )
-    import_energy *= 1e-6
-    import_energy.attrs["name"] = "Import Energy"
-    import_energy.attrs["unit"] = "TWh"
-    metric_name = f"{import_energy.attrs['name']} ({import_energy.attrs['unit']})"
-    import_energy.name = metric_name
+    # # todo: green import Links
+    # import_energy = collect_myopic_statistics(
+    #     networks,
+    #     statistic="supply",
+    #     comps="Generator",
+    #     bus_carrier=[BusCarrier.CH4, BusCarrier.H2, "biogas", "AC"],
+    # )
+    # import_energy *= 1e-6
+    # import_energy.attrs["name"] = "Import Energy"
+    # import_energy.attrs["unit"] = "TWh"
+    # metric_name = f"{import_energy.attrs['name']} ({import_energy.attrs['unit']})"
+    # import_energy.name = metric_name
 
     # the optimal capacity for pipelines is larger than the maximal
     # energy flow in the time series, because pipelines are oversized.
     # We use the maximal flow here since it is more interesting.
-    import_capacity = collect_myopic_statistics(
-        networks,
-        statistic="supply",
-        comps="Generator",
-        bus_carrier=[BusCarrier.CH4, BusCarrier.H2, "biogas"],  # "gas primary"
-        aggregate_time="max",
-    )
-    import_capacity *= 1e-3
-    import_capacity.attrs["name"] = "Import Capacity"
-    import_capacity.attrs["unit"] = "GW"
-    metric_name = f"{import_capacity.attrs['name']} ({import_capacity.attrs['unit']})"
-    import_capacity.name = metric_name
+    # import_capacity = collect_myopic_statistics(
+    #     networks,
+    #     statistic="supply",
+    #     comps="Generator",
+    #     bus_carrier=[BusCarrier.CH4, BusCarrier.H2],  # , "biogas" "gas primary"
+    #     aggregate_time="max",
+    # )
+    # import_capacity *= 1e-3
+    # import_capacity.attrs["name"] = "Import Capacity"
+    # import_capacity.attrs["unit"] = "GW"
+    # metric_name = f"{import_capacity.attrs['name']} ({import_capacity.attrs['unit']})"
+    # import_capacity.name = metric_name
 
     year = sorted(networks)[-1]  # 2050
-    buses = networks[year].df("Bus")
     resource_dir = resource_getter(networks[year])
-    config = GridMapConfig(
-        show_year="2030", resource_dir=resource_dir
-    )  # fixme: show_year is broken
+    config = GridMapConfig(resource_dir=resource_dir)
+    print(config)
+
+    from evals.utils import get_transmission_techs
+
+    # define grids to display together in the same feature group (layer)
+    # structure is: "grid name": {"bus_carrier": bc, "carrier": (comp, carrier)}
+    grids = {
+        "Electricity": {
+            "bus_carrier": ("AC", "DC"),
+            "carrier": get_transmission_techs(networks, ["AC", "DC"]),
+        },
+        "Hydrogen": {
+            "bus_carrier": ("H2",),
+            "carrier": get_transmission_techs(networks, "H2"),
+        },
+        "Methane": {
+            "bus_carrier": ("gas",),
+            "carrier": get_transmission_techs(networks, "gas"),
+        },
+        "Carbon Dioxide": {
+            "bus_carrier": ("co2 stored",),
+            "carrier": get_transmission_techs(networks, "co2 stored"),
+        },
+        "Solids": {
+            "bus_carrier": ("solid biomass", "municipal solid waste"),
+            "carrier": get_transmission_techs(
+                networks, ["solid biomass", "municipal solid waste"]
+            ),
+        },
+    }
+
+    for grid, _spec in grids.items():
+        bus_carrier = _spec["bus_carrier"]
+        transmission_techs = _spec["carrier"]
+        print(bus_carrier, transmission_techs)
+        # todo: implement using pydeck
+        # https://deckgl.readthedocs.io/en/latest/index.html
+        # export layers to DB for selection in UI?
+        # store transformations in DB as variables
+        # query database for variables (year, region, variable)
+        # maintain a list of bus coordinates per region: (year, region, variable=location x/y)
+        # transform to layer on the fly
+        # add all layers to pydeck object and display it
+        # toggle independent layers on/off in UI
 
     # every list item will become one HTML file with a map for the
     # specified carrier and bus_carrier
-    # ToDo: Add CO2 once it works properly
-    # Todo: add municipal solid waste transport
-    # Todo: add biomass transport
-    carriers_bus_carrier_groups = (
-        ([Carrier.AC, Carrier.DC], BusCarrier.AC),
-        ([Carrier.gas_pipepline, Carrier.gas_pipepline_new], BusCarrier.CH4),
-        (
-            [  # todo: use get_transmission_techs() instead of hardcoding
-                "H2 pipeline",
-                "H2 pipeline retrofit",
-                "H2 pipeline (Kernnetz)",
-            ],
-            BusCarrier.H2,
-        ),
-    )
+    # carriers_bus_carrier_groups = (
+    #     ([Carrier.AC, Carrier.DC], BusCarrier.AC),
+    #     ([Carrier.gas_pipepline, Carrier.gas_pipepline_new], BusCarrier.CH4),
+    #     (
+    #         [  # todo: use get_transmission_techs() instead of hardcoding
+    #             "H2 pipeline",
+    #             "H2 pipeline retrofit",
+    #             "H2 pipeline (Kernnetz)",
+    #         ],
+    #         BusCarrier.H2,
+    #     ),
+    # )
 
-    for carriers, bus_carrier in carriers_bus_carrier_groups:
-        df_grid = filter_by(grid_capactiy, carrier=carriers)
-        df_import_energy = filter_by(import_energy, bus_carrier=bus_carrier)
-        df_import_energy = df_import_energy[df_import_energy > 0]
-        df_import_capacity = filter_by(import_capacity, bus_carrier=bus_carrier)
-        df_import_capacity = df_import_capacity[df_import_capacity > 0]
-        grid_map = TransmissionGridMap(
-            df_grid, df_import_energy, df_import_capacity, buses, config
-        )
-        grid_map.draw_grid_by_carrier_groups_myopic()
-        grid_map.export(result_path, bus_carrier, subdir)
+    # we want to have one map to bundle it all
+    # for carriers, bus_carrier in carriers_bus_carrier_groups:
+    #     df_grid = filter_by(grid_capacity, carrier=carriers)
+    #     df_import_energy = filter_by(import_energy, bus_carrier=bus_carrier)
+    #     df_import_energy = df_import_energy[df_import_energy > 0]
+    #     df_import_capacity = filter_by(import_capacity, bus_carrier=bus_carrier)
+    #     df_import_capacity = df_import_capacity[df_import_capacity > 0]
+    #     grid_map = TransmissionGridMap(
+    #         df_grid, df_import_energy, df_import_capacity, buses, config
+    #     )
+    #     grid_map.draw_grid_by_carrier_groups_myopic()
+    #     grid_map.export(result_path, bus_carrier, subdir)

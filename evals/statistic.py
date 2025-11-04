@@ -721,6 +721,7 @@ class ESMStatistics(StatisticsAccessor):
     def grid_capacity(
         self,
         comps: list = None,
+        groupby: list = None,
         bus_carrier: list = None,
         carrier: list = None,
         append_grid: bool = True,
@@ -761,13 +762,17 @@ class ESMStatistics(StatisticsAccessor):
         the optimal capacity.
         """
         n = self._n
-        carrier = carrier or get_transmission_carriers(n, bus_carrier).unique("carrier")
-        capacities = n.statistics.optimal_capacity(
-            comps=comps or n.branch_components,
-            bus_carrier=bus_carrier,
-            groupby=["bus0", "bus1", "carrier", "bus_carrier"],
+        carrier = carrier or list(
+            get_transmission_carriers(n, bus_carrier).unique("carrier")
         )
-        result = filter_by(capacities, carrier=list(carrier))
+        capacities = n.statistics.optimal_capacity(
+            components=comps or n.branch_components,
+            groupby=groupby or ["bus0", "bus1", "carrier", "bus_carrier"],
+            bus_carrier=bus_carrier,
+            carrier=carrier,
+        )
+        # result = filter_by(capacities, carrier=list(carrier))
+        result = capacities
 
         result.attrs["name"] = "Capacity"
         result.attrs["unit"] = "MW"
