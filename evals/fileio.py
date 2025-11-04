@@ -457,7 +457,10 @@ class Exporter:
                 DataModel.LOCATION,
                 DataModel.CARRIER,
             ]
-        elif chart_class == plots.ESMBarChart:
+        elif (
+            chart_class == plots.ESMBarChart
+            and self.defaults.plotly.plot_category == DataModel.CARRIER
+        ):
             # combine bus carrier to export netted technologies, although
             # they have difference bus_carrier in index, e.g.
             # electricity distribution grid, (AC, low voltage)
