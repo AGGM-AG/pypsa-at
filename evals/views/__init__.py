@@ -29,18 +29,20 @@ from evals.views.capacities import (
     view_capacity_hydrogen_production,
 )
 from evals.views.demand import (
-    view_demand_fed,
-    view_demand_heat,
+    view_demand_fed_sectoral,
+    view_demand_fed_total,
     view_demand_heat_system,
+    view_demand_heat_total,
 )
 from evals.views.sankey import view_sankey
 from evals.views.transmission import view_grid_capacity
 
 __all__ = [
     # demand
-    "view_demand_heat",
+    "view_demand_heat_total",
     "view_demand_heat_system",
-    "view_demand_fed",
+    "view_demand_fed_sectoral",
+    "view_demand_fed_total",
     # capacities
     "view_capacity_gas_storage",
     "view_capacity_electricity_storage",

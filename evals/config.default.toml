@@ -951,11 +951,11 @@ database_specifier = ""
 "Import Domestic" = "Import Domestic"
 "solid biomass" = "Solid Biomass"
 
-[view_demand_heat]
+[view_demand_heat_total]
 name = "Energy Demand for Heat Production"
 unit = "TWh"
 chart = "ESMBarChart"
-file_name = "demand_heat_{location}"
+file_name = "demand_heat_total_{location}"
 cutoff = 0.1  # TWh
 legend_order = [
     # from zero upwards:
@@ -976,7 +976,7 @@ database_plot_type = "demand"
 database_bus_carrier = "heat"
 database_specifier = "total"
 
-[view_demand_heat.categories]
+[view_demand_heat_total.categories]
 "AC" = "Electricity"
 "H2" = "Hydrogen"
 "coal" = "Coal"
@@ -1032,7 +1032,7 @@ database_specifier = "system"
 "non-sequestered HVC" = "Waste"
 "lignite" = "Coal"
 
-[view_demand_fed]
+[view_demand_fed_sectoral]
 name = "Final Energy Demand by Sector"
 unit = "TWh"
 chart = "ESMGroupedBarChart"
@@ -1057,9 +1057,60 @@ exports = []
 # upload data model attributes
 database_plot_type = "demand"
 database_bus_carrier = "fed"
-database_specifier = ""
+database_specifier = "sectoral"
 
-[view_demand_fed.categories]
+[view_demand_fed_sectoral.categories]
+"EV battery" = "Electricity"
+"H2" = "Hydrogen"
+"agriculture machinery oil" = "Liquids"
+"ambient heat" = "Ambient Heat"
+"coal for industry" = "Coal"
+"gas" = "Methane"
+"gas for industry" = "Methane"
+"gas for industry CC" = "Methane"
+"kerosene for aviation" = "Liquids"
+"land transport oil" = "Liquids"
+"low voltage" = "Electricity"
+"naphtha for industry" = "Liquids"
+"shipping oil" = "Liquids"
+"solid biomass" = "Solid Biomass"
+"solid biomass for industry" = "Solid Biomass"
+"solid biomass for industry CC" = "Solid Biomass"
+"NH3" = "Ammonia"
+"industry methanol" = "Methanol"
+"oil" = "Liquids"
+"shipping methanol" = "Methanol"
+"urban central heat" = "Heat"
+"solar heat" = "Solar Thermal"
+
+[view_demand_fed_total]
+name = "Final Energy Demand"
+unit = "TWh"
+chart = "ESMBarChart"
+file_name = "demand_fed_total_{location}"
+cutoff = 0.1  # TWh
+legend_order = [
+    # from zero upwards:
+    "Coal",
+    "Liquids",
+    "Ammonia",
+    "Methanol",
+    "Methane",
+    "Solid Biomass",
+    "Hydrogen",
+    "Electricity",
+    "Solar Thermal",
+    "Heat",
+    "Ambient Heat",
+]
+checks = []
+exports = []
+# upload data model attributes
+database_plot_type = "demand"
+database_bus_carrier = "fed"
+database_specifier = "total"
+
+[view_demand_fed_total.categories]
 "EV battery" = "Electricity"
 "H2" = "Hydrogen"
 "agriculture machinery oil" = "Liquids"

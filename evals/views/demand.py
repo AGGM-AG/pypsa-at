@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from evals import plots as plots
 from evals.constants import BusCarrier, DataModel
 from evals.fileio import Exporter
 from evals.statistic import collect_myopic_statistics
@@ -21,7 +20,7 @@ from evals.utils import (
 from evals.views.common import get_energy_for_heat_production
 
 
-def view_demand_heat(
+def view_demand_heat_total(
     result_path: str | Path,
     networks: dict,
     config: dict,
@@ -79,10 +78,6 @@ def view_demand_heat(
         statistics=[fed_for_heat, generator_supply],
         view_config=config["view"],
     )
-
-    # view specific static settings:
-    # chart_class = getattr(plots, config["view"]["chart"])
-    # exporter.defaults.plotly.chart = chart_class
 
     exporter.defaults.excel.pivot_index = [DataModel.LOCATION, DataModel.BUS_CARRIER]
     exporter.defaults.plotly.plot_category = DataModel.BUS_CARRIER
@@ -161,21 +156,19 @@ def view_demand_heat_system(
     exporter.export(result_path, subdir=subdir)
 
 
-def view_demand_fed(
+def view_demand_fed_total(
     result_path: str | Path,
     networks: dict,
     config: dict,
     subdir: str | Path = "evaluation",
 ) -> None:
     """
-    Evaluate and export final energy demand (FED) by sector and location.
+    Evaluate and export total final energy demand (FED) aggregated across all sectors.
 
-    This function calculates final energy demand across different sectors including
-    transport, industry, agriculture, and households & services. It processes load
-    data from PyPSA networks, applies heat mix calculations for decentral heating,
-    accounts for distribution losses in central heat systems, and aggregates results
-    by sector. The output includes charts and Excel exports showing energy demand
-    per bus carrier with years as stacked bars grouped by sector.
+    This function calculates and exports final energy demand aggregated across transport,
+    industry, agriculture, and household & service sectors. The output is organized by
+    bus_carrier (heat bus types and energy carriers) to show the total energy demand
+    across the entire energy system without sector-level disaggregation.
 
     Parameters
     ----------
@@ -183,7 +176,7 @@ def view_demand_fed(
         Path where the evaluation results (plots and data files) will be saved.
     networks
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
-        Each network should contain Load and Link components with energy data.
+        Each network should contain Load, Link, and Generator components with energy data.
     config
         Configuration dictionary containing view settings and chart specifications.
         Must include 'view' key with chart type and other plotting parameters.
@@ -192,26 +185,177 @@ def view_demand_fed(
 
     Notes
     -----
+    Uses _get_sectoral_fed() to calculate FED with detailed heat mix processing and
+    distribution loss accounting. Results are exported with bus_carrier as the primary
+    plot category, showing the total energy demand pattern across all carriers without
+    sector-level breakdown.
+
+    See Also
+    --------
+    _get_sectoral_fed : Core calculation function for final energy demand
+    view_demand_fed_sectoral : Export FED with sector-level disaggregation
+    """
+    fed = _get_sectoral_fed(networks)
+    exporter = Exporter(statistics=[fed], view_config=config["view"])
+    exporter.export(result_path, subdir=subdir)
+
+
+def view_demand_fed_sectoral(
+    result_path: str | Path,
+    networks: dict,
+    config: dict,
+    subdir: str | Path = "evaluation",
+) -> None:
+    """
+    Evaluate and export final energy demand (FED) disaggregated by sector.
+
+    This function calculates and exports final energy demand broken down by sector
+    (Transport, Industry, Agriculture, HH & Service) with detailed energy carrier
+    information. The output includes charts and Excel exports showing energy demand
+    with sector-level disaggregation for comprehensive energy system analysis.
+
+    Parameters
+    ----------
+    result_path
+        Path where the evaluation results (plots and data files) will be saved.
+    networks
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+        Each network should contain Load, Link, and Generator components with energy data.
+    config
+        Configuration dictionary containing view settings and chart specifications.
+        Must include 'view' key with chart type and other plotting parameters.
+    subdir
+        Subdirectory name within result_path where outputs will be saved.
+
+    Notes
+    -----
+    Uses _get_sectoral_fed() to calculate FED with detailed heat mix processing,
+    distribution loss accounting, and sector aggregation. Results are exported
+    with sector-level disaggregation to show how energy demand is distributed across
+    different end-use sectors of the economy.
+
+    See Also
+    --------
+    _get_sectoral_fed : Core calculation function for final energy demand
+    view_demand_fed_total : Export FED aggregated across all sectors
+    """
+    fed = _get_sectoral_fed(networks)
+    exporter = Exporter(statistics=[fed], view_config=config["view"])
+    exporter.export(result_path, subdir=subdir)
+
+
+def apply_heat_mix_to_decentral_heat_buses(
+    load: pd.Series, heat_share: pd.Series
+) -> pd.Series:
+    """
+    Apply heat production mix ratios to decentral heat loads to disaggregate by energy carrier.
+
+    This function transforms decentral heat loads (rural and urban decentral heat buses) by
+    breaking them down into their constituent energy carrier contributions based on the
+    actual heat production mix. Non-decentral loads are passed through unchanged.
+
+    Parameters
+    ----------
+    load
+        Series containing heat load data indexed by year, location, carrier, and bus_carrier.
+        Should include loads from both decentral and non-decentral heat buses.
+    heat_share
+        Series containing the fractional share of each energy carrier in the heat production
+        mix for decentral heat buses, indexed by year, location, carrier, and bus_carrier.
+        Values should sum to 1.0 for each (year, location) combination.
+
+    Returns
+    -------
+    :
+        Series combining unchanged non-decentral loads with disaggregated decentral loads,
+        where each decentral heat load has been multiplied by the heat production mix ratios
+        and expanded into separate entries for each contributing energy carrier.
+
+    Notes
+    -----
+    Decentral heat buses are identified by regex pattern matching for "decentral" or "rural"
+    in the index. Each decentral load value is multiplied by all applicable heat share ratios
+    to produce a detailed breakdown of the energy carriers feeding that heat demand.
+    """
+    decentral_heat = load.filter(regex="decentral|rural")
+
+    load = load.drop(decentral_heat.index)
+
+    to_concat = [load]
+    for (year, location, carrier), data in decentral_heat.groupby(
+        [DataModel.YEAR, DataModel.LOCATION, DataModel.CARRIER]
+    ):
+        ratios = filter_by(heat_share, year=year, location=location)
+        result = data.item() * ratios
+        to_concat.append(rename_aggregate(result, carrier))
+
+    return pd.concat(to_concat)
+
+
+# Cache for _get_sectoral_fed using dict identity as key
+_sectoral_fed_cache = {}
+
+
+def _get_sectoral_fed(networks):
+    """
+    Calculate final energy demand (FED) across all sectors with detailed energy carrier breakdown.
+
+    This function processes load data from PyPSA networks to calculate final energy demand
+    across transport, industry, agriculture, and household & service sectors. It applies
+    heat mix calculations for decentral heating systems, accounts for distribution losses
+    in central heat, and disaggregates energy carriers based on actual production shares.
+
+    Parameters
+    ----------
+    networks
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+        Each network should contain Load, Link, and Generator components with energy data.
+
+    Returns
+    -------
+    :
+        Multi-indexed Series containing final energy demand in MWh, indexed by year,
+        location, bus_carrier (used as primary category), carrier (energy source),
+        and sector. The carrier and bus_carrier levels are swapped to facilitate plotting.
+        Includes 'unit' and 'name' attributes.
+
+    Notes
+    -----
     The function processes several energy sectors:
     - Transport: Includes shipping, aviation, and land transport (including EVs)
-    - Industry: Industrial loads and low-temperature heat, including NH3 production
+    - Industry: Industrial loads and low-temperature heat, including NH3 production and CC losses
     - Agriculture: Agricultural loads with heat mix applied to decentral heating
     - HH & Service: Household and service loads including building heat and base electricity
 
-    Central heat loads are reduced by distribution losses since these losses are not
-    counted as final energy demand. Decentral heat buses (rural and urban decentral)
-    use calculated heat mix ratios to determine the input energy carrier breakdown.
+    Heat processing:
+    - Central heat loads are reduced by distribution losses since these losses are not
+      counted as final energy demand
+    - Decentral heat buses (rural and urban decentral) use calculated heat mix ratios
+      to determine the input energy carrier breakdown
+    - Heat mix is calculated separately for decentral systems from both Link components
+      (heat production technologies) and Generator components (solar thermal)
 
-    The function exports results using the Exporter class with GroupedBarChart
-    visualization where carrier and bus_carrier index levels are swapped for
-    simplified plotting.
+    Index level swapping:
+    The carrier and bus_carrier index levels are swapped at the end to simplify plotting
+    with GroupedBarChart, where bus_carrier becomes the primary grouping dimension.
+
+    Caching:
+    Results are cached using the identity (id) of the networks dictionary to avoid
+    redundant calculations when the same networks dict is passed multiple times.
     """
+    # Check cache using dict identity
+    cache_key = id(networks)
+    if cache_key in _sectoral_fed_cache:
+        return _sectoral_fed_cache[cache_key]
+
     decentral_heat_bus_carrier = [
         BusCarrier.HEAT_RURAL,
         BusCarrier.HEAT_URBAN_DECENTRAL,
     ]
     # calculate the heat production share per bus_carrier. Cannot use
-    # get_energy_for_heat_production() because it calculates for all bus_carrier
+    # get_energy_for_heat_production() because it calculates for all
+    # bus_carrier collectively, and we need to treat central and decentral
+    # systems differently.
     decentral_production = (
         collect_myopic_statistics(networks, comps="Link", statistic="energy_balance")
         .drop(["co2", "co2 stored"], level=DataModel.BUS_CARRIER)
@@ -302,55 +446,6 @@ def view_demand_fed(
     fed = fed.swaplevel(DataModel.CARRIER, DataModel.BUS_CARRIER)
     fed.index.names = DataModel.YEAR_IDX_NAMES
 
-    exporter = Exporter(statistics=[fed], view_config=config["view"])
-    # exporter.defaults.plotly.chart = getattr(plots, config["view"]["chart"])
-    # exporter.defaults.plotly.xaxis_title = ""
-    exporter.export(result_path, subdir=subdir)
-
-
-def apply_heat_mix_to_decentral_heat_buses(
-    load: pd.Series, heat_share: pd.Series
-) -> pd.Series:
-    """
-    Apply heat production mix ratios to decentral heat loads to disaggregate by energy carrier.
-
-    This function transforms decentral heat loads (rural and urban decentral heat buses) by
-    breaking them down into their constituent energy carrier contributions based on the
-    actual heat production mix. Non-decentral loads are passed through unchanged.
-
-    Parameters
-    ----------
-    load
-        Series containing heat load data indexed by year, location, carrier, and bus_carrier.
-        Should include loads from both decentral and non-decentral heat buses.
-    heat_share
-        Series containing the fractional share of each energy carrier in the heat production
-        mix for decentral heat buses, indexed by year, location, carrier, and bus_carrier.
-        Values should sum to 1.0 for each (year, location) combination.
-
-    Returns
-    -------
-    :
-        Series combining unchanged non-decentral loads with disaggregated decentral loads,
-        where each decentral heat load has been multiplied by the heat production mix ratios
-        and expanded into separate entries for each contributing energy carrier.
-
-    Notes
-    -----
-    Decentral heat buses are identified by regex pattern matching for "decentral" or "rural"
-    in the index. Each decentral load value is multiplied by all applicable heat share ratios
-    to produce a detailed breakdown of the energy carriers feeding that heat demand.
-    """
-    decentral_heat = load.filter(regex="decentral|rural")
-
-    load = load.drop(decentral_heat.index)
-
-    to_concat = [load]
-    for (year, location, carrier), data in decentral_heat.groupby(
-        [DataModel.YEAR, DataModel.LOCATION, DataModel.CARRIER]
-    ):
-        ratios = filter_by(heat_share, year=year, location=location)
-        result = data.item() * ratios
-        to_concat.append(rename_aggregate(result, carrier))
-
-    return pd.concat(to_concat)
+    # Cache the result
+    _sectoral_fed_cache[cache_key] = fed
+    return fed
