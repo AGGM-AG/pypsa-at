@@ -15,7 +15,7 @@ import yaml
 
 @click.command(short_help="Overwrite existing values in config/config.at.yaml")
 @click.option("--scenario", "-s", type=str, required=True)
-@click.option("--solver", "-t", type=bool, required=True)
+@click.option("--solver", "-t", type=str, required=True)
 # @click.option("--resolution", "-r", type=str, required=True)
 # @click.option("--solver", "-s", type=str, required=True)
 @click.option("--randomize", "-r", type=bool, required=True)
@@ -42,26 +42,6 @@ def configure(scenario: str, solver: str, randomize: bool) -> None:
     This function is expected to run using pipelines and the dumped configuration
     yaml is not expected to be checked in to VCS.
     """
-    # # validate inputs
-    # accepted_solver = ("highs-default", "gurobi-default")
-    # if solver not in accepted_solver:
-    #     raise click.BadParameter(
-    #         f"'{solver}' is not a valid solver. Chose from {accepted_solver}."
-    #     )
-    #
-    # available_clustering = ("AT10DE5", "AT35DE5", "AT10DE19", "AT35DE19")
-    # if clustering not in available_clustering:
-    #     raise click.BadParameter(
-    #         f"'{clustering}' is not valid. Chose from {available_clustering}"
-    #     )
-    #
-    # # sanitize temporal resolution
-    # resolution = int(resolution.rstrip("H"))
-    # if resolution < 24 and "highs" in solver:
-    #     raise ValueError(
-    #         f"Denying to run model with resolution {resolution} and solver {solver}."
-    #     )
-
     config_yaml_fp = Path("config/config.at.yaml")
     pixi_toml_fp = Path("pixi.toml")
 
@@ -93,27 +73,7 @@ def configure(scenario: str, solver: str, randomize: bool) -> None:
         raise ValueError(
             f"Denying to run high resolution run with '{resolution}H' using '{solver}' solver."
         )
-    #
-    # logger.info(f"Configuring PyPSA-AT model for clustering {clustering}.")
-    # config["mods"]["modify_nuts3_shapes"] = clustering
-    #
-    # nuts_at = 2 if "AT10" in clustering else 3  # AT35
-    # nuts_de = 1 if "DE19" in clustering else 3  # DE5
-    # logger.info(
-    #     f"Setting administrative clustering in AT to "
-    #     f"NUTS level {nuts_at} (={10 if nuts_at == 2 else 35} Regions)"
-    # )
-    # config["clustering"]["administrative"]["AT"] = nuts_at
-    # logger.info(
-    #     f"Setting administrative clustering in DE to "
-    #     f"NUTS level {nuts_de} (={19 if nuts_de == 1 else 5} Regions)"
-    # )
-    # config["clustering"]["administrative"]["DE"] = nuts_de
-    #
-    # logger.info(f"Setting temporary resolution to '{resolution}H'")
-    # config["clustering"]["temporal"]["resolution_sector"] = f"{resolution}H"
-    #
-    # solver_name = solver.split("-")[0]
+
     solver_options = f"{solver}-default"
     logger.info(
         f"Setting solver name to '{solver}' and solver options to '{solver_options}'"
@@ -127,6 +87,8 @@ def configure(scenario: str, solver: str, randomize: bool) -> None:
     version = pixi["workspace"]["version"]
     logger.info(f"Setting run version to '{version}'")
     config["run"]["prefix"] = version
+    # also overwrite the PyPSA-EUR default config version to avoid confusion
+    config["version"] = version
 
     seed = random.randint(1, 50000) if randomize else 123
     logger.info(f"Setting seed to '{seed}'")
