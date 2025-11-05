@@ -5,9 +5,13 @@
 run:
   prefix: v2025.04
   name:
-#  - KN2040_AT35DE5
-  - KN2040_AT35DE5_testrun
-#  - KN2040_AT10DE5_testrun
+#  - ExPol
+  - AT_KN2040
+#  - KN2045_Mix
+#  - KN2045_Elek
+#  - KN2045_H2
+#  - KN2045_NFniedrig
+#  - KN2045_NFhoch
 
 countries: ['AL', 'AT', 'BA', 'BE', 'BG', 'CH', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'ME', 'MK', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'SE', 'SI', 'SK', 'XK']
 scenario:
@@ -78,7 +82,7 @@ clustering:
     IT: 1 # +2 islands
     ES: 1 # +1 islands
   temporal:
-    resolution_sector: 120H
+    resolution_sector: 365H
 
 sector:
   v2g: true
@@ -153,8 +157,8 @@ solving:
             2040: 1
             2050: 1
   solver:
-    name: gurobi
-    options: gurobi-default
+    name: highs
+    options: highs-default
   solver_options:
     # https://ergo-code.github.io/HiGHS/dev/options/definitions/
     highs-default:
