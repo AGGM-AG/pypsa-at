@@ -200,7 +200,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/hdf4-4.2.15-h2a13503_7.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/hdf5-1.14.6-nompi_h6e4c0c1_103.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/hicolor-icon-theme-0.17-ha770c72_2.tar.bz2
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/highspy-1.12.0-np2py312h0f77346_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/highspy-1.11.0-np2py312h0f77346_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/hpack-4.1.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/httpcore-1.0.9-pyh29332c3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/httptools-0.7.1-py312h4c3975b_0.conda
@@ -3462,12 +3462,13 @@ packages:
   purls: []
   size: 13841
   timestamp: 1605162808667
-- conda: https://conda.anaconda.org/conda-forge/linux-64/highspy-1.12.0-np2py312h0f77346_0.conda
-  sha256: 1f54ba11febc2dbbb8772d60af3b70937b82c78f534c6ff2a8057f45e247de3a
-  md5: 209aecf319ad78f8ff9426571373844d
+- conda: https://conda.anaconda.org/conda-forge/linux-64/highspy-1.11.0-np2py312h0f77346_1.conda
+  sha256: a556a30a7f7bd41b2c28e2413b0a4edd2ca8085d728c56089fff2dbe3c03baa3
+  md5: d92020d364422f4e5dd22367b7315868
   depends:
   - python
   - numpy
+  - libgcc >=14
   - __glibc >=2.17,<3.0.a0
   - libstdcxx >=14
   - libgcc >=14
@@ -3476,8 +3477,8 @@ packages:
   license_family: MIT
   purls:
   - pkg:pypi/highspy?source=hash-mapping
-  size: 2317971
-  timestamp: 1761555102034
+  size: 2267565
+  timestamp: 1756749647375
 - conda: https://conda.anaconda.org/conda-forge/noarch/hpack-4.1.0-pyhd8ed1ab_0.conda
   sha256: 6ad78a180576c706aabeb5b4c8ceb97c0cb25f1e112d76495bff23e3779948ba
   md5: 0a802cb9888dd14eeefc611f05c40b6e

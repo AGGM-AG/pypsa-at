@@ -15,11 +15,8 @@ import yaml
 
 @click.command(short_help="Overwrite existing values in config/config.at.yaml")
 @click.option("--scenario", "-s", type=str, required=True)
-@click.option("--solver", "-t", type=str, required=True)
-# @click.option("--resolution", "-r", type=str, required=True)
-# @click.option("--solver", "-s", type=str, required=True)
 @click.option("--randomize", "-r", type=bool, required=True)
-def configure(scenario: str, solver: str, randomize: bool) -> None:
+def configure(scenario: str, randomize: bool) -> None:
     """
     Configure PyPSA-AT model run by updating configuration parameters.
 
@@ -29,7 +26,6 @@ def configure(scenario: str, solver: str, randomize: bool) -> None:
     Parameters
     ----------
     scenario
-    solver
     randomize
 
     Returns
@@ -64,22 +60,12 @@ def configure(scenario: str, solver: str, randomize: bool) -> None:
     # validate config
     resolution = config["clustering"]["temporal"]["resolution_sector"]
     resolution = int(resolution.rstrip("H"))
-    if resolution < 24 and solver != "gurobi":
+    # solver configuration ruled by scenario config
+    solver_name = config["solving"]["solver"]["name"]
+    if resolution < 24 and solver_name != "gurobi":
         raise ValueError(
-            f"Denying to run high resolution run with '{resolution}H' and solver '{solver}'"
+            f"Denying to run high resolution run with '{resolution}H' and solver '{solver_name}'"
         )
-
-    if resolution < 24 and solver != "gurobi":
-        raise ValueError(
-            f"Denying to run high resolution run with '{resolution}H' using '{solver}' solver."
-        )
-
-    solver_options = f"{solver}-default"
-    logger.info(
-        f"Setting solver name to '{solver}' and solver options to '{solver_options}'"
-    )
-    config["solving"]["solver"]["name"] = solver
-    config["solving"]["solver"]["options"] = solver_options
 
     logger.info(f"Setting scenario name to '{scenario}'")
     config["run"]["name"] = [scenario]
@@ -94,7 +80,7 @@ def configure(scenario: str, solver: str, randomize: bool) -> None:
     logger.info(f"Setting seed to '{seed}'")
     solver_options = config["solving"]["solver"]["options"]
 
-    key = "random_seed" if solver == "highs" else "Seed"  # gurobi
+    key = "random_seed" if solver_name == "highs" else "Seed"  # gurobi
     config["solving"]["solver_options"][solver_options][key] = seed
     # also set duplicated default setting
     config["solving"].setdefault("options", {})
