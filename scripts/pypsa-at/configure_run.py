@@ -15,11 +15,11 @@ import yaml
 
 @click.command(short_help="Overwrite existing values in config/config.at.yaml")
 @click.option("--scenario", "-s", type=str, required=True)
-@click.option("--runner-tag", "-t", type=str, required=True)
+@click.option("--solver", "-t", type=bool, required=True)
 # @click.option("--resolution", "-r", type=str, required=True)
 # @click.option("--solver", "-s", type=str, required=True)
 @click.option("--randomize", "-r", type=bool, required=True)
-def configure(scenario: str, runner_tag: str, randomize: bool) -> None:
+def configure(scenario: str, solver: str, randomize: bool) -> None:
     """
     Configure PyPSA-AT model run by updating configuration parameters.
 
@@ -29,7 +29,7 @@ def configure(scenario: str, runner_tag: str, randomize: bool) -> None:
     Parameters
     ----------
     scenario
-    runner_tag
+    solver
     randomize
 
     Returns
@@ -81,19 +81,17 @@ def configure(scenario: str, runner_tag: str, randomize: bool) -> None:
     with pixi_toml_fp.open("rb") as fh:
         pixi = tomllib.load(fh)
 
-    solver_name = config["solving"]["solver"]["name"]
-
     # validate config
     resolution = config["clustering"]["temporal"]["resolution_sector"]
     resolution = int(resolution.rstrip("H"))
-    if resolution < 24 and solver_name != "gurobi":
+    if resolution < 24 and solver != "gurobi":
         raise ValueError(
-            f"Denying to run high resolution run with '{resolution}H' and solver '{solver_name}'"
+            f"Denying to run high resolution run with '{resolution}H' and solver '{solver}'"
         )
 
-    if resolution < 24 and runner_tag == "esm-test":
+    if resolution < 24 and solver != "gurobi":
         raise ValueError(
-            f"Denying to run high resolution run with '{resolution}H' on test runner '{runner_tag}'"
+            f"Denying to run high resolution run with '{resolution}H' using '{solver}' solver."
         )
     #
     # logger.info(f"Configuring PyPSA-AT model for clustering {clustering}.")
@@ -116,11 +114,13 @@ def configure(scenario: str, runner_tag: str, randomize: bool) -> None:
     # config["clustering"]["temporal"]["resolution_sector"] = f"{resolution}H"
     #
     # solver_name = solver.split("-")[0]
-    # logger.info(
-    #     f"Setting solver name to '{solver_name}' and solver options to '{solver}'"
-    # )
-    # config["solving"]["solver"]["name"] = solver_name
-    # config["solving"]["solver"]["options"] = solver
+    solver_options = f"{solver}-default"
+    logger.info(
+        f"Setting solver name to '{solver}' and solver options to '{solver_options}'"
+    )
+    config["solving"]["solver"]["name"] = solver
+    config["solving"]["solver"]["options"] = solver_options
+
     logger.info(f"Setting scenario name to '{scenario}'")
     config["run"]["name"] = [scenario]
 
@@ -132,7 +132,7 @@ def configure(scenario: str, runner_tag: str, randomize: bool) -> None:
     logger.info(f"Setting seed to '{seed}'")
     solver_options = config["solving"]["solver"]["options"]
 
-    key = "random_seed" if solver_name == "highs" else "Seed"  # gurobi
+    key = "random_seed" if solver == "highs" else "Seed"  # gurobi
     config["solving"]["solver_options"][solver_options][key] = seed
     # also set duplicated default setting
     config["solving"].setdefault("options", {})

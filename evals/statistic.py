@@ -769,7 +769,7 @@ class ESMStatistics(StatisticsAccessor):
             components=comps or n.branch_components,
             groupby=groupby or ["bus0", "bus1", "carrier", "bus_carrier"],
             bus_carrier=bus_carrier,
-            carrier=carrier,
+            # carrier=carrier,
         )
         # result = filter_by(capacities, carrier=list(carrier))
         result = capacities
