@@ -315,7 +315,7 @@ class Exporter:
         )
 
     @staticmethod
-    def write_run_json(output_path: Path) -> None:
+    def write_run_json(output_path: Path, run_config: dict) -> None:
         """
         Serialize the run attributes to a JSON file.
 
@@ -327,6 +327,8 @@ class Exporter:
         ----------
         output_path
             The path to the evaluation folder in a scenario run.
+        run_config
+            The merged run configuration dictionary with all scenario data.
 
         Returns
         -------
@@ -348,7 +350,7 @@ class Exporter:
             "scenario": scenario_name,
             # "description": "",  # currently not supported from automatic upload
             "author": getpass.getuser(),
-            "custom_metadata": RUN_META_DATA,
+            "custom_metadata": RUN_META_DATA | run_config,
         }
         run_file_path = output_path / "JSON" / "run.json"
         with run_file_path.open("w", encoding="utf-8") as fh:
@@ -373,8 +375,8 @@ class Exporter:
             index=cfg.pivot_index, columns=cfg.pivot_columns, aggfunc="sum"
         )
 
-        # needed during upload API data bundle ingestion
-        self.write_run_json(output_path)
+        # needed for upload API data bundle ingestion
+        self.write_run_json(output_path, self.view_config["meta"])
 
         for idx, data in df_plot.groupby(cfg.plotby):
             chart = cfg.chart(data, cfg)

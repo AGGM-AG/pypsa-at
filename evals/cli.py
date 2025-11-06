@@ -143,6 +143,10 @@ def run_eval(
 
     networks = read_networks(result_path, sub_directory=sub_directory)
 
+    # assuming no configuration changes in myopic workflow in the same scenario
+    merged_meta = networks["2020"].meta
+    merged_meta["wildcards"]["planning_horizons"] = list(networks)
+
     fails = []
     run_start = time()
     for i, func in enumerate(eval_functions, start=1):
@@ -150,6 +154,7 @@ def run_eval(
         eval_start = time()
         try:
             config = read_views_config(func, config_override)
+            config["view"]["meta"] = merged_meta
             func(result_path=result_path, networks=networks, config=config)
         except Exception as e:
             logger.exception(f"Exception during {func.__name__}.", exc_info=True)
