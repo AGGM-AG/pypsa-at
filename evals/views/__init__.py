@@ -35,7 +35,6 @@ from evals.views.demand import (
     view_demand_heat_total,
 )
 from evals.views.sankey import view_sankey
-from evals.views.transmission import view_grid_capacity
 
 __all__ = [
     # demand
@@ -64,8 +63,6 @@ __all__ = [
     "view_timeseries_methane",
     "view_timeseries_electricity",
     "view_timeseries_carbon",
-    # transmission grids
-    "view_grid_capacity",
     # energy flow
     "view_sankey",
 ]
