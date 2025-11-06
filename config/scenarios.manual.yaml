@@ -238,6 +238,7 @@ KN2045_NFhoch:
       2050: 0.33
 
 AT_KN2040:
+  description: Basisszenario für PyPSA-AT mit Anpassungen des KN2045_Mix Szenarios aus PyPSA-DE
 # Basisszenario für PyPSA-AT mit Anpassungen des KN2045_Mix Szenarios aus PyPSA-DE mit
 #   * custom administrative clustering für Austrian regions
 #   * Kalibrationen für Ausbaukorridore erneuerbarer Erzeugung je Region

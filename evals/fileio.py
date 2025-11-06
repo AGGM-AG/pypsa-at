@@ -348,7 +348,7 @@ class Exporter:
             "model": "PyPSA-AT",
             "version": run_prefix,
             "scenario": scenario_name,
-            # "description": "",  # currently not supported from automatic upload
+            "description": run_config.get("description", ""),
             "author": getpass.getuser(),
             "custom_metadata": RUN_META_DATA | run_config,
         }
