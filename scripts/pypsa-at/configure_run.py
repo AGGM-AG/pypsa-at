@@ -112,6 +112,11 @@ def configure(
     logger.info(f"Setting scenario name to '{scenario}'")
     config["run"]["name"] = [scenario]
 
+    solver_options = f"{solver}-options"
+    logger.info(f"Solver name to '{solver}' using options {solver_options}")
+    config["solving"]["solver"]["name"] = solver
+    config["solving"]["solver"]["options"] = solver_options
+
     version = pixi["workspace"]["version"]
     logger.info(f"Setting run version to '{version}'")
     config["run"]["prefix"] = version
