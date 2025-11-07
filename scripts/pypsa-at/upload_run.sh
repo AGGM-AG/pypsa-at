@@ -25,7 +25,7 @@ NC='\033[0m' # No Color
 
 # Parse arguments
 SCENARIO_PATH="${1:-}"
-API_URL="${2:-https://internal.aggm.at/api/upload}"
+API_URL="${2:-https://esm.internal.aggm.at/api/upload}"
 TOKEN="${3:-${UPLOAD_TOKEN:-}}"
 
 # Validation
