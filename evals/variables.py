@@ -3,12 +3,21 @@
 from pathlib import Path
 
 from evals.statistic import collect_myopic_statistics
-from evals.utils import rename_aggregate
+from evals.utils import get_transmission_carriers, rename_aggregate
 
 # use case: dashboard map view
 # - export grid capacities to variables data base table
 # - export region x and y locations
-# - export grid capacities
+
+
+def export_region_coordinates(networks):
+    """Export region coordinates using pyam."""
+    n = networks["2050"]
+    regions = n.buses.index.get_level_values("region")
+    coordinates = n.buses.loc[regions, ["x", "y"]]
+    coordinates.columns = ["longitude", "latitude"]
+    coordinates.index.name = "region"
+    coordinates.to_csv("data/region_coordinates.csv")
 
 
 def export_grid_capacities(networks):
@@ -25,16 +34,8 @@ def export_grid_capacities(networks):
     # ).pipe(filter_by, carrier=[""])
     n = networks["2050"]
     bus_carrier = ["AC", "gas", "H2", "co2 stored"]
-    from evals.utils import get_transmission_carriers
 
     carrier = list(get_transmission_carriers(n, bus_carrier).unique("carrier"))
-    capacities = n.statistics.optimal_capacity(
-        components=n.branch_components,
-        groupby=["bus0", "bus1", "carrier", "bus_carrier", "unit"],
-        carrier=carrier,
-        aggregate_across_components=True,
-        # do not filter by bus_carrier -> it drops AC Lines
-    )
     capacities = collect_myopic_statistics(
         networks,
         "optimal_capacity",

@@ -333,21 +333,18 @@ class Exporter:
         Returns
         -------
         :
-
-        Notes
-        -----
-        todo: add myopic config file to metadata
-        todo: use version from myopic config file
-        todo: populate description DB field for card display
-        todo: only show latest run cards in home screen
         """
         scenario_name = output_path.parent.name
-        run_prefix = output_path.parent.parent.name
+        resolution_space = run_config.get("mods", {}).get("modify_nuts3_shapes", "")
+        resolution_time = run_config["clustering"]["temporal"]["resolution_sector"]
+
+        with Path(".pixi").open("rb") as fh:
+            project_settings = tomllib.load(fh)
 
         run_data = {
             "model": "PyPSA-AT",
-            "version": run_prefix,
-            "scenario": scenario_name,
+            "scenario": f"{scenario_name} ({resolution_space} {resolution_time})",
+            "version": project_settings["workspace"]["version"],
             "description": run_config.get("description", ""),
             "author": getpass.getuser(),
             "custom_metadata": RUN_META_DATA | run_config,
