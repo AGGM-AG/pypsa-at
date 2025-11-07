@@ -2,12 +2,10 @@
 
 from pathlib import Path
 
+import pandas as pd
+
 from evals.statistic import collect_myopic_statistics
 from evals.utils import get_transmission_carriers, rename_aggregate
-
-# use case: dashboard map view
-# - export grid capacities to variables data base table
-# - export region x and y locations
 
 
 def export_region_coordinates(networks):
@@ -21,20 +19,18 @@ def export_region_coordinates(networks):
 
 
 def export_grid_capacities(networks):
-    """Export grid capacities using pyam."""
-    # grid_capacity = collect_myopic_statistics(
-    #     networks,
-    #     statistic="grid_capacity",
-    #     drop_zeros=False,
-    #     drop_unit=False,
-    #     groupby=["bus0", "bus1", "carrier", "bus_carrier", "unit"],
-    #     bus_carrier=["AC", "gas", "H2", "co2 stored"],
-    #     append_grid=False,
-    #     align_edges=False,
-    # ).pipe(filter_by, carrier=[""])
-    n = networks["2050"]
-    bus_carrier = ["AC", "gas", "H2", "co2 stored"]
+    """
+    Export grid capacities using pyam.
 
+    Notes
+    -----
+    assuming constant network topology over myopic workflow
+
+    waste and solid biomass capacities are not binding. No need to display
+    those capacities. Better show flows.
+    """
+    bus_carrier = ["AC", "gas", "H2", "co2 stored"]
+    n = networks["2050"]
     carrier = list(get_transmission_carriers(n, bus_carrier).unique("carrier"))
     capacities = collect_myopic_statistics(
         networks,
@@ -50,14 +46,10 @@ def export_grid_capacities(networks):
     capacities = rename_aggregate(
         capacities, dict.fromkeys(["MWh_el", "MWh_LHV"], unit), level="unit"
     )
-
-    # waste and solid biomass capacities are not binding. No need to display
-    # those capacities. Better show flows.
     df = capacities.reset_index(name="value")
     df["variable"] = (
         df["bus_carrier"] + "|" + df["carrier"] + "|" + df["bus0"] + "<->" + df["bus1"]
     )
-    import pandas as pd
 
     df["year"] = pd.to_datetime(df["year"])
     df = df.set_index(["bus0", "variable", "unit", "year"])[["value"]]

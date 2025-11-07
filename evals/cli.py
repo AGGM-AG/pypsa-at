@@ -26,8 +26,8 @@ run_eval "/opt/data/esm/results"
 ```
 
 ``` shell
-# run evaluations as a script and from project root without installing the package
-(but with your virtual env activated of course)
+# run evaluations as a script and from the project root without installing the package
+# and your virtual env activated
 (pypsa-at)$ PYTHONPATH="./" python evals/cli.py "results/v2025.02/KN2045_Mix" -n "view_balance_heat"
 ```
 """
@@ -82,7 +82,7 @@ def run_eval(
     evals.\__init__.\__all__ to be exposed and ultimately be found
     by this function. Keep that in mind when adding new evaluations.
 
-    All evaluation function are expected to expose the same interface.
+    All evaluation functions are expected to expose the same interface.
     The evaluation function arguments are listed in the evals module
     [reference section](index.md).
 
@@ -90,12 +90,12 @@ def run_eval(
     ----------
     result_path
         The path to the result folder, usually ./pypsa-eur-sec/results.
-        Note, that running on copied result folders might fail
+        Note that running on copied result folders might fail
         due to missing resource files.
     sub_directory
         The subdirectory in the results folder that contains the network files.
     names
-        A list of evaluation name, e.g. "eval_electricity_amounts",
+        A list of evaluation names, e.g. "eval_electricity_amounts",
         optional. Defaults to running all evaluations from
         evals.__all__.
     config_override
@@ -176,6 +176,5 @@ def run_eval(
 
 
 if __name__ == "__main__":
-    # debugging entry point
-    # args = (__file__, "../results/evals-dev", "-n", "view_grid_capacity")
+    # args = (__file__, "../results/run_prefix/scenario", "-n", "view_balance_electricity")
     run_eval(sys.argv[1:])
