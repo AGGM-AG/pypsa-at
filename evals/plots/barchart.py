@@ -113,6 +113,9 @@ class ESMBarChart(ESMChart):
         self._style_bars()
         self._style_title_and_legend_and_xaxis_label()
         self._append_footnotes()
+        # prevent zooming
+        self.fig.update_xaxes(fixedrange=True)
+        self.fig.update_yaxes(fixedrange=True)
         self.fig.for_each_trace(self._set_legend_rank, selector={"type": "bar"})
 
         # add total sum labels at the end of the bar(s)

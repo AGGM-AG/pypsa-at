@@ -41,7 +41,10 @@ For detailed implementation information, see the [mods module documentation](htt
    cd pypsa-at
    ```
 
-2. Installation using pixi (recommended):
+2. Installation using pixi (optional):
+
+   Explicit package installation may be skipped since running commands with `pixi run` installs and activates all dependencies in `pixi.toml`.
+
    ```bash
    pixi install
    ```
@@ -52,13 +55,13 @@ For detailed implementation information, see the [mods module documentation](htt
 2. Include scenario settings that differ from the base scenario in `config/scenarios.manual.yaml`
 3. Generate the scenarios file picked up by the snakemake workflow:
    ```bash
-   snakemake build_scenarios -f --cores 'all'
+   pixi run snakemake build_scenarios -f --cores 'all'
    ```
    This will populate `config/scenarios.automated.yaml`.
 
 4. Run the model using the default rule `all`:
    ```bash
-   snakemake -call all --cores 'all'
+   pixi run snakemake all --cores 'all'
    ```
 
 ## Documentation
@@ -68,6 +71,11 @@ Detailed documentation is available at [pypsa-at.readthedocs.io](https://pypsa-a
 ## Contributing
 
 **Note**: This project is currently in pre-release development. Pull requests are not being accepted until the first official release. After the initial release, we welcome contributions from the community.
+
+Please install the `pre-commit` hooks if you plan to contribute to this project. 
+```bash
+pixi run pre-commit install
+```
 
 ## Data sources
 

@@ -1,13 +1,22 @@
-FROM debian:bookworm
-
-ENV GRB_LICENSE_FILE=/mnt/storage/gurobi/gurobi.lic
-ARG PIXI_VERSION=v0.50.2
+FROM ghcr.io/prefix-dev/pixi:latest
 
 RUN mkdir -p /mnt/storage
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-    ca-certificates wget curl rsync git delta procps zsh build-essential python3-dev\
+    ca-certificates  \
+    wget  \
+    curl  \
+    rsync  \
+    git  \
+    procps  \
+    zsh  \
+    build-essential  \
+    python3-dev  \
+    nano  \
+    nodejs  \
+    npm  \
+    git-delta\
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -19,7 +28,6 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
 # Install starship
 RUN curl -sS https://starship.rs/install.sh | sh -s -- -y
 
-# Install pixi
-RUN curl -L -o /usr/local/bin/pixi -fsSL --compressed "https://github.com/prefix-dev/pixi/releases/download/${PIXI_VERSION}/pixi-$(uname -m)-unknown-linux-musl" \
-    && chmod +x /usr/local/bin/pixi \
-    && pixi info
+# install npm and claude  
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+RUN npm install -g @anthropic-ai/claude-code

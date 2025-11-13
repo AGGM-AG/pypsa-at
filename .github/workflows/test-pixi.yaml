@@ -35,7 +35,7 @@ jobs:
         android: true
         dotnet: true
         haskell: true
-        large-packages: true
+        large-packages: false
         docker-images: true
         swap-storage: true
 
@@ -57,10 +57,10 @@ jobs:
         key: data-cutouts-${{ env.WEEK }}
 
     - name: Build scenarios
-      run: pixi run snakemake -call build_scenarios
+      run: pixi run snakemake build_scenarios --cores 'all'
 
     - name: Run AT10 test config
-      run: pixi run snakemake -call all --configfile=config/test/config.at10.yaml
+      run: pixi run snakemake all --configfile=config/test/config.at10.yaml --cores 'all'
 
     - name: Run unit tests
       run: pixi run pytest test -m "unit or integration"

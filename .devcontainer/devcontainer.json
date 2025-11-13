@@ -16,7 +16,7 @@
       "8000": {"label": "mkdocs"},
       "2718": {"label": "marimo"}
     },
-    "postCreateCommand": "git fetch --unshallow",
+    "postCreateCommand": "git fetch --unshallow && pixi run pre-commit install",
     "postAttachCommand": "",
     "customizations": {
       "jetbrains": {

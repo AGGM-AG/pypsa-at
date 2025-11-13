@@ -128,6 +128,9 @@ class ESMGroupedBarChart(ESMChart):
         self._style_grouped_bars()
         self._style_title_and_legend_and_xaxis_label()
         self._append_footnotes()
+        # prevent zooming
+        self.fig.update_xaxes(fixedrange=True)
+        self.fig.update_yaxes(fixedrange=True)
         self.fig.for_each_xaxis(self._style_inner_xaxis_labels)
 
     def _rename_xaxis(self, xaxis: go.XAxis) -> None:
