@@ -29,5 +29,6 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
 RUN curl -sS https://starship.rs/install.sh | sh -s -- -y
 
 # install npm and claude  
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 RUN npm install -g @anthropic-ai/claude-code
+
