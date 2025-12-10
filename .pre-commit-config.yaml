@@ -10,6 +10,8 @@ repos:
   - id: check-merge-conflict
   - id: check-added-large-files
     args: ["--maxkb=2000"]
+  - id: no-commit-to-branch
+    args: ["--branch", "master", "--branch", "main"]
 
 # Run ruff to lint and format
 - repo: https://github.com/astral-sh/ruff-pre-commit
