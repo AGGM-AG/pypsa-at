@@ -104,7 +104,6 @@ legend_order = [
     "Nuclear Power",
     "CHP",
     "Thermal Powerplant",
-    #    "Reservoir",
     "Run-of-River",
     "Wind Power",
     "Solar Power"
@@ -126,6 +125,7 @@ database_specifier = "production"
 "H2 OCGT" = "Thermal Powerplant"  # "PP (Hydrogen)"
 "H2 CCGT" = "Thermal Powerplant"  # "PP (Hydrogen)"
 "H2 retrofit CCGT" = "Thermal Powerplant"
+"H2 retrofit OCGT" = "Thermal Powerplant"
 "H2 Fuel Cell" = "Thermal Powerplant"  # "PP (Hydrogen)"
 "H2 turbine" = "Thermal Powerplant"  # "PP (Hydrogen)"
 #"PHS" = "Pumped Hydro Storage"
@@ -322,7 +322,7 @@ database_specifier = "production"
 name = "Carbon Dioxide Balance"
 unit = "Mt_co2"
 file_name = "balance_carbon_{location}"
-bus_carrier = ["co2", "co2 sequestered", "co2 stored"]
+bus_carrier = "co2"
 chart = "ESMBarChart"
 cutoff = 0.1
 legend_order = [
@@ -349,6 +349,7 @@ legend_order = [
     "Import Domestic",
     "Import Foreign",
     # zero to bottom:
+    "CO2 Budget",
     "Liquids",
     "Biogas",
     "CO2 Store",
@@ -377,6 +378,7 @@ database_specifier = ""
 "urban central gas CHP CC" = "CHP"
 "urban central solid biomass CHP CC" = "CHP"
 "waste CHP CC" = "CHP"
+"co2" = "CO2 Budget"
 "co2 sequestered" = "CO2 Sequestration"
 "co2 stored" = "CO2 Store"
 "co2 vent" = "CO2 Ventilation"
@@ -619,6 +621,7 @@ database_specifier = ""
 "H2 turbine" = "Electricity"
 "H2 CCGT" = "Electricity"
 "H2 retrofit CCGT" = "Electricity"
+"H2 retrofit OCGT" = "Electricity"
 "urban central H2 CHP" = "Electricity"
 "urban central H2 retrofit CHP" = "Electricity"
 #"H2 Store" = "Storage"
@@ -783,6 +786,7 @@ database_specifier = ""
 "urban decentral resistive heater" = "Heat"
 "H2 CCGT" = "Hydrogen"
 "H2 retrofit CCGT" = "Hydrogen"
+"H2 retrofit OCGT" = "Hydrogen"
 "H2 Fuel Cell" = "Hydrogen"
 "H2 OCGT" = "Hydrogen"
 "H2 turbine" = "Hydrogen"
@@ -1188,10 +1192,11 @@ database_specifier = ""
 "CCGT methanol CC" = "Thermal Powerplant"
 "DAC" = "Direct Air Capture"
 "H2 CCGT" = "Thermal Powerplant"
+"H2 OCGT" = "Thermal Powerplant"
 "H2 retrofit CCGT" = "Thermal Powerplant"
+"H2 retrofit OCGT" = "Thermal Powerplant"
 "H2 Electrolysis" = "Electrolysis"
 "H2 Fuel Cell" = "Fuel Cell"
-"H2 OCGT" = "Thermal Powerplant"
 "H2 pipeline" = "Hydrogen Compressors"
 "H2 pipeline (Kernnetz)" = "Hydrogen Compressors"
 "H2 turbine" = "Thermal Powerplant"
@@ -1291,6 +1296,7 @@ database_specifier = ""
 "H2 OCGT" = "Thermal Powerplant"
 "H2 CCGT" = "Thermal Powerplant"
 "H2 retrofit CCGT" = "Thermal Powerplant"
+"H2 retrofit OCGT" = "Thermal Powerplant"
 "H2 for industry" = "Industry"
 "H2 turbine" = "Thermal Powerplant"
 "Haber-Bosch" = "Haber-Bosch"

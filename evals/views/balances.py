@@ -4,17 +4,17 @@
 # For license information, see the LICENSE.txt file in the project root.
 from pathlib import Path
 
+import pandas as pd
+
 from evals.constants import DataModel as DM
 from evals.fileio import Exporter
 from evals.statistic import collect_myopic_statistics
 from evals.utils import (
+    get_energy_totals_domestic_share,
     get_heat_loss_factor,
     split_urban_central_heat_losses_and_consumption,
 )
-from evals.views.common import (
-    get_energy_for_heat_production,
-    simple_bus_balance,
-)
+from evals.views.common import get_energy_for_heat_production, simple_bus_balance
 
 
 def view_balance_carbon(
@@ -23,11 +23,10 @@ def view_balance_carbon(
     config: dict,
 ) -> None:
     """
-    Evaluate and export the carbon balance showing CO2 flows in the energy system.
+    Evaluate and export the carbon balance showing CO2 flows to and from atmosphere.
 
-    This function analyzes CO2 emissions, sequestration, and storage by calculating
-    the balance of carbon flows across the network. It delegates to the simple_bus_balance
-    function to collect and export supply and withdrawal statistics for CO2 buses.
+    This function analyzes CO2 emissions and deductions from the atmosphere bus only.
+    It corresponds shows the national CO2 budget per year.
 
     Parameters
     ----------
@@ -39,7 +38,33 @@ def view_balance_carbon(
         Configuration dictionary containing view settings including bus_carrier specification,
         chart type, and export parameters.
     """
-    simple_bus_balance(networks, config, result_path)
+    bus_carrier = config["view"]["bus_carrier"]
+
+    co2_balance = collect_myopic_statistics(
+        networks, "energy_balance", bus_carrier=bus_carrier
+    )
+
+    # need to deduct emission from international aviation.
+    first_year = next(iter(networks.keys()))
+    energy_totals = pd.DataFrame.from_dict(
+        networks[first_year].meta["resources"]["energy_totals"], orient="tight"
+    )
+    domestic_aviation_factors = get_energy_totals_domestic_share(
+        energy_totals, kind="aviation"
+    )
+
+    # The domestic aviation factor reduces co2 emissions for aviation per country
+    for ct in energy_totals.index:
+        mask_country = co2_balance.index.get_level_values(DM.LOCATION).str.startswith(
+            ct
+        )
+        mask_carrier = (
+            co2_balance.index.get_level_values(DM.CARRIER) == "kerosene for aviation"
+        )
+        co2_balance.loc[mask_country & mask_carrier] *= domestic_aviation_factors[ct]
+
+    exporter = Exporter(statistics=[co2_balance], view_config=config["view"])
+    exporter.export(result_path, config["global"]["subdir"])
 
 
 def view_balance_electricity(
@@ -105,7 +130,7 @@ def view_balance_heat(
     """
     bus_carrier = config["view"]["bus_carrier"]
 
-    heat_mix = get_energy_for_heat_production(networks, drop_regex=None)
+    heat_mix = get_energy_for_heat_production(networks, drop_regex="")
     heat_mix = heat_mix.swaplevel(DM.CARRIER, DM.BUS_CARRIER)
     heat_mix.index.names = DM.YEAR_IDX_NAMES
 

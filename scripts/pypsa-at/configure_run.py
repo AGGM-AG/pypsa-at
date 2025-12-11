@@ -90,6 +90,11 @@ def configure(
     with pixi_toml_fp.open("rb") as fh:
         pixi = tomllib.load(fh)
 
+    # Prevent downloading weather data. Snakemake sometimes tries to
+    # download them again, although they are present in mounted 'cutouts' volume.
+    # only updates retrieve_cutouts key, even if enable key is missing
+    config["enable"] = config.get("enable", {}) | {"retrieve_cutout": False}
+
     logger.info(f"Configuring PyPSA-AT model for clustering {clustering}.")
     config["mods"]["modify_nuts3_shapes"] = clustering
 

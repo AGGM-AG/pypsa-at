@@ -45,17 +45,12 @@ def get_location(
     n: pypsa.Network,
     c: str,
     port: str = "",
-    location_port: str = "",
     avoid_eu_locations: bool = True,
 ) -> pd.Series:
     """
     Return the grouper series for the location of a component.
 
-    The additional location port argument will swap the bus
-    location to the specified bus port locations. The default
-    location is the location from buses at the "port" argument.
-    But be careful, the location override will happen for all
-    ports of the component.
+    By default, the function avoids EU-locations by looking into port 0 and port 1 and prefering locations, that are not 'EU'.
 
     Note, that the bus_carrier will still be the bus_carrier
     from the "port" argument, i.e. only the location is swapped.
@@ -68,12 +63,10 @@ def get_location(
         The component name, e.g. 'Load', 'Generator', 'Link', etc.
     port
         Limit results to this branch port.
-    location_port
-        Use the specified port bus for the location, defaults to
-        using the location of the 'port' bus.
     avoid_eu_locations
         Look into the port 0 and port 1 location in branch components
-        and prefer locations that are not 'EU'.
+        and prefer locations that are not 'EU'. By default,
+        pypsa.statistics assigns the respective bus port location.
 
     Returns
     -------
@@ -91,13 +84,6 @@ def get_location(
             return row.loc1
 
         return buses.apply(_select_location, axis=1).rename("location")
-
-        # selection order: country code > EU > NaN
-
-    # todo: probably obsolete?
-    if location_port and c in n.branch_components:
-        buses = n.static(c)[f"bus{location_port}"]
-        return buses.map(n.static("Bus").location).rename(DataModel.LOCATION)
 
     return n.static(c)[f"bus{port}"].map(n.buses.location).rename("location")
 
@@ -655,6 +641,9 @@ class ESMStatistics(StatisticsAccessor):
                 raise ValueError(f"Direction '{direction}' not supported.")
 
             results_comp.append(insert_index_level(p, c, "component"))
+
+        if not results_comp:
+            return pd.DataFrame()
 
         result = pd.concat(results_comp)
 

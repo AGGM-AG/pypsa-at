@@ -5,29 +5,29 @@
 """
 Command Line Interface to run evaluations.
 
-Commands may be run from anywhere as long as the virtual environment is
-activated and the esmtools project is installed.
+Commands must be run from project root and with the virtual environment
+activated, or via `pixi run`.
 
 Examples
 --------
 ``` shell
 # run a single evaluation by name
-run_eval "/opt/data/esm/results" -n "eval_capacity_factor"
+PYTHONPATH="./" pixi run python evals/cli.py "/opt/data/esm/results" -n "view_demand_fed_sectoral"
 ```
 
 ``` shell
 # run multiple evaluations by name
-run_eval "/opt/data/esm/results" -n "eval_capacity_factor" -n "eval_transmission_grid"
+PYTHONPATH="./" pixi run python evals/cli.py  "/opt/data/esm/results" -n "view_balance_electricity" -n "view_capacity_electricity_production"
 ```
 
 ``` shell
-# run all evaluations
-run_eval "/opt/data/esm/results"
+# run all evaluations and abort on errors and from with network files in "/opt/data/esm/custom"
+PYTHONPATH="./" pixi run python evals/cli.py "/opt/data/esm" --fail_fast=true --sub_directory="custom"
 ```
 
 ``` shell
-# run evaluations as a script and from the project root without installing the package
-# and your virtual env activated
+# run evaluations as a script and from the project root with your virtual env activated
+$ pixi shell
 (pypsa-at)$ PYTHONPATH="./" python evals/cli.py "results/v2025.02/KN2045_Mix" -n "view_balance_heat"
 ```
 """
@@ -78,10 +78,6 @@ def run_eval(
     r"""
     Execute evaluation functions from the evals module.
 
-    Find evaluation functions must be registered under
-    evals.\__init__.\__all__ to be exposed and ultimately be found
-    by this function. Keep that in mind when adding new evaluations.
-
     All evaluation functions are expected to expose the same interface.
     The evaluation function arguments are listed in the evals module
     [reference section](index.md).
@@ -128,6 +124,12 @@ def run_eval(
     Run all evaluations with custom config:
 
     >>> run_eval("/opt/data/esm/results", config_override="custom_config.toml")
+
+    Notes
+    -----
+    Evaluation functions must be registered under evals.\__init__.\__all__
+    to be found by the cli and ultimately be run by this function.
+    Keep that in mind when adding new evaluation functions.
     """
     import evals.views as views
     from evals.fileio import read_networks, read_views_config
@@ -146,6 +148,8 @@ def run_eval(
     # assuming no configuration changes in myopic workflow in the same scenario
     merged_meta = networks["2020"].meta
     merged_meta["wildcards"]["planning_horizons"] = list(networks)
+    # additional resources are not used in the dashboard and bloat the runs.json file
+    merged_meta.pop("resources", None)
 
     fails = []
     run_start = time()

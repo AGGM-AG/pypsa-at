@@ -110,7 +110,6 @@ def read_networks(
         # todo: apply preprocessing steps to simplify evaluations:
         # AC Load splitting: extract electricity rail and industry from electricity base load
         # attach required resources to network
-        n.name = f"PyPSA-AT Network {year}"
         n.year = year
         networks[year] = n
 

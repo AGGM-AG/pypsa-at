@@ -36,7 +36,29 @@ rule modify_population_layouts:
         "../scripts/pypsa-at/modify_population_layouts.py"
 
 
-rule export_iamc_variables:
+# rule export_iamc_variables:
+#     input:
+#         networks=expand(
+#             RESULTS
+#             + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
+#             **config["scenario"],
+#             allow_missing=True,
+#         ),
+#     output:
+#         exported_variables=RESULTS + "evaluation/exported_iamc_variables.xlsx",
+#     resources:
+#         mem_mb=16000,
+#     log:
+#         RESULTS + "logs/export_iamc_variables.log",
+#     script:
+#         "../scripts/pypsa-at/export_iamc_variables.py"
+
+
+rule augment_solved_networks:
+    message:
+        "Attaching resource files to the results network to simplify downstream evaluations and tests."
+    params:
+        energy_totals_year=config_provider("energy", "energy_totals_year"),
     input:
         networks=expand(
             RESULTS
@@ -44,21 +66,32 @@ rule export_iamc_variables:
             **config["scenario"],
             allow_missing=True,
         ),
+        energy_totals=resources("energy_totals.csv"),
+        co2_totals=resources("co2_totals.csv"),
     output:
-        exported_variables=RESULTS + "evaluation/exported_iamc_variables.xlsx",
-    resources:
-        mem_mb=16000,
-    log:
-        RESULTS + "logs/export_iamc_variables.log",
+        touch(
+            RESULTS + "mods/.networks_augmented",
+        ),
     script:
-        "../scripts/pypsa-at/export_iamc_variables.py"
+        "../scripts/pypsa-at/augment_solved_networks.py"
 
 
 rule export_evaluation_pypsa_at:
+    message:
+        "Runs all evaluations from the evals module to generate aggregated result views."
     params:
         rdir=RESULTS,
     input:
-        exported_variables=RESULTS + "evaluation/exported_iamc_variables.xlsx",
+        expand(
+            RESULTS + "mods/.networks_augmented",
+            run=config["run"]["name"],
+        ),
+        networks=expand(
+            RESULTS
+            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
+            **config["scenario"],
+            allow_missing=True,
+        ),
     output:
         touch(
             RESULTS + "evaluation/.run_by_snakemake",
@@ -68,6 +101,9 @@ rule export_evaluation_pypsa_at:
 
 
 rule validate_pypsa_at:
+    message:
+        "Execute all tests via pytest that are marked as either 'unit' "
+        "or 'integration' to validate optimization results."
     params:
         clustering=config_provider("clustering"),
         rdir=RESULTS,

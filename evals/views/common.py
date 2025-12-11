@@ -131,27 +131,25 @@ def simple_bus_balance(
         (TradeTypes.DOMESTIC, "import", Group.import_domestic),
         (TradeTypes.DOMESTIC, "export", Group.export_domestic),
     ]:
-        trade = (
-            collect_myopic_statistics(
-                networks,
-                statistic="trade_energy",
-                scope=scope,
-                direction=direction,
-                bus_carrier=bus_carrier,
-                aggregate_components=None,
-            )
-            # the trade statistic finds transmission between EU -> country buses.
-            # Those are dropped by the filter_by statement.
-            .pipe(
-                filter_by,
-                component=transmission_comps,
-                carrier=transmission_carrier,
-            )
+        trade = collect_myopic_statistics(
+            networks,
+            statistic="trade_energy",
+            scope=scope,
+            direction=direction,
+            bus_carrier=bus_carrier,
+            aggregate_components=None,
+        )
+        if trade.empty:
+            continue
+        # the trade statistic finds copperplate transmission between EU
+        # and country buses. Those are dropped during the filter_by.
+        trade_clean = (
+            filter_by(trade, component=transmission_comps, carrier=transmission_carrier)
             .pipe(rename_aggregate, alias)
             .droplevel(DM.COMPONENT)
         )
-        trade.attrs["unit"] = supply.attrs["unit"]
-        trade_statistics.append(trade)
+        trade_clean.attrs["unit"] = supply.attrs["unit"]
+        trade_statistics.append(trade_clean)
 
     # group bus carriers by groups defined in config.toml
     statistics = [supply, demand] + trade_statistics + regional_trade

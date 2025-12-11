@@ -39,10 +39,13 @@ jobs:
         docker-images: true
         swap-storage: true
 
-    - name: Install Pixi
-      uses: prefix-dev/setup-pixi@v0.8.1
+    - name: Setup Pixi
+      uses: prefix-dev/setup-pixi@v0.9.3
       with:
         pixi-version: latest
+        cache: true
+        # Do not cache in branches
+        cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
 
     - name: Setup cache keys
       run: |
@@ -59,11 +62,8 @@ jobs:
     - name: Build scenarios
       run: pixi run snakemake build_scenarios --cores 'all'
 
-    - name: Run AT10 test config
-      run: pixi run snakemake all --configfile=config/test/config.at10.yaml --cores 'all' --resources mem_mb=14000
-
-    - name: Run unit tests
-      run: pixi run pytest test -m "unit or integration"
+    - name: Run AT10 test workflow
+      run: pixi run snakemake all --configfile=config/test/config.at10.yaml --cores 'all' --resources mem_mb=12000
 
     - name: Upload artifacts
       if: always()

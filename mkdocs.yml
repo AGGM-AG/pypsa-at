@@ -18,6 +18,7 @@ nav:
 - Function Reference:
   - Modifications:
     - reference/mods/index.md
+    - constraints.py: reference/mods/constraints.md
     - network_updates.py: reference/mods/network_updates.md
   - Evaluations:
     - reference/evals/index.md
@@ -48,6 +49,7 @@ nav:
       - transmission.py: reference/evals/views/transmission.md
 - Explanations:
   - explanations/index.md
+  - National CO2 Balance: explanations/co2-balancing.md
 
 theme:
   name: "material"
@@ -108,7 +110,7 @@ plugins:
           filters:
           - "!^_"    # hide private members
         import:
-        - url: https://pypsa.readthedocs.io/en/latest/objects.inv
+        - url: https://docs.pypsa.org/latest/objects.inv
         - url: https://pypsa-eur.readthedocs.io/en/latest/objects.inv
         - url: https://pathlib.readthedocs.io/en/latest/objects.inv
         - url: https://pandas.pydata.org/pandas-docs/stable/objects.inv

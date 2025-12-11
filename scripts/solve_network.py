@@ -1400,7 +1400,7 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "solve_sector_network_myopic",
-            run="AT10_KN2040",
+            run="AT_KN2040",
             opts="",
             clusters="adm",
             configfiles="config/config.at.yaml",

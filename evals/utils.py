@@ -1182,3 +1182,26 @@ def get_location_alias(locations: pd.Index) -> dict:
         raise ValueError(f"Unexpected number of locations for AT: {len(at_regions)}.")
 
     return frozendict(alias)
+
+
+def get_energy_totals_domestic_share(
+    energy_totals: pd.DataFrame, kind: str
+) -> pd.Series:
+    """
+    Return the domestic share of energy totals for a given kind.
+
+    Parameters
+    ----------
+    energy_totals
+        The energy totals data frame filtered to one energy year.
+    kind: {'aviation', 'navigation'}
+        The kind of energy totals to calculate the factor for.
+
+    Returns
+    -------
+    :
+        The share of national aviation or navigation per country.
+    """
+    domestic = energy_totals[f"total domestic {kind}"]
+    international = energy_totals[f"total international {kind}"]
+    return domestic / (domestic + international)
