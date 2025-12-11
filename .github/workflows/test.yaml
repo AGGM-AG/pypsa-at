@@ -34,7 +34,7 @@ jobs:
         shell: bash -l {0}
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
       # Add disk space cleanup at the beginning
     - name: Free Disk Space (Ubuntu)

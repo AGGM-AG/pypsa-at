@@ -92,12 +92,7 @@ plugins:
 - badges
 - autorefs
 - plotly
-#- mknotebooks:
-#    execute: false
-#    timeout: 100
-#    preamble: ""
-#    allow_errors: false
-- marimo  # need to downgrade Python interpreter to 3.11?
+- marimo
 - mkdocstrings:
     default_handler: python
     handlers:
@@ -109,14 +104,13 @@ plugins:
           annotations_path: full
           filters:
           - "!^_"    # hide private members
-        import:
+        inventory:
         - url: https://docs.pypsa.org/latest/objects.inv
         - url: https://pypsa-eur.readthedocs.io/en/latest/objects.inv
         - url: https://pathlib.readthedocs.io/en/latest/objects.inv
         - url: https://pandas.pydata.org/pandas-docs/stable/objects.inv
         - url: https://numpy.org/doc/stable/objects.inv
         - url: https://docs.python.org/3/objects.inv
-        - url: https://python-visualization.github.io/folium/latest/objects.inv
 
 # https://squidfunk.github.io/mkdocs-material/reference/icons-emojis/
 markdown_extensions:
