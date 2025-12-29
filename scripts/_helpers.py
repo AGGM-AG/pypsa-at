@@ -23,6 +23,15 @@ import requests
 import xarray as xr
 import yaml
 from snakemake.utils import update_config
+from tenacity import (
+    RetryError,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+from tenacity import (
+    retry as tenacity_retry,
+)
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
@@ -38,17 +47,9 @@ def get_scenarios(run):
         fn = Path(scenario_config["file"])
         if fn.exists():
             scenarios = yaml.safe_load(fn.read_text())
-            if scenarios is None:
-                print(
-                    "WARNING! Scenario management enabled but scenarios file appears to be empty."
-                )
             if run["name"] == "all":
                 run["name"] = list(scenarios.keys())
             return scenarios
-        else:
-            print(
-                "WARNING! Scenario management enabled but scenarios file does not exist."
-            )
     return {}
 
 
@@ -415,31 +416,39 @@ def aggregate_costs(n, flatten=False, opts=None, existing_only=False):
     return costs
 
 
+@tenacity_retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    retry=retry_if_exception_type(
+        (requests.HTTPError, requests.ConnectionError, requests.Timeout)
+    ),
+)
 def progress_retrieve(url, file, disable=False):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-    # Hotfix - Bug, tqdm not working with disable=False
-    disable = True
 
-    if disable:
-        response = requests.get(url, headers=headers, stream=True)
+    Path(file).parent.mkdir(parents=True, exist_ok=True)
+
+    # Raise HTTPError for transient errors
+    # 429: Too Many Requests (rate limiting)
+    # 500, 502, 503, 504: Server errors
+    response = requests.get(url, headers=headers, stream=True)
+    if response.status_code in (429, 500, 502, 503, 504):
+        response.raise_for_status()
+    total_size = int(response.headers.get("content-length", 0))
+    chunk_size = 1024
+
+    with tqdm(
+        total=total_size,
+        unit="B",
+        unit_scale=True,
+        unit_divisor=1024,
+        desc=str(file),
+        disable=disable,
+    ) as t:
         with open(file, "wb") as f:
-            f.write(response.content)
-    else:
-        response = requests.get(url, headers=headers, stream=True)
-        total_size = int(response.headers.get("content-length", 0))
-        chunk_size = 1024
-
-        with tqdm(
-            total=total_size,
-            unit="B",
-            unit_scale=True,
-            unit_divisor=1024,
-            desc=str(file),
-        ) as t:
-            with open(file, "wb") as f:
-                for data in response.iter_content(chunk_size=chunk_size):
-                    f.write(data)
-                    t.update(len(data))
+            for data in response.iter_content(chunk_size=chunk_size):
+                f.write(data)
+                t.update(len(data))
 
 
 def retry(func: Callable) -> Callable:
@@ -534,7 +543,7 @@ def mock_snakemake(
         root_dir = Path(root_dir).resolve()
 
     workdir = None
-    user_in_script_dir = Path.cwd().resolve().is_relative_to(script_dir)
+    user_in_script_dir = Path.cwd().resolve() == script_dir
     if str(submodule_dir) in __file__:
         # the submodule_dir path is only need to locate the project dir
         os.chdir(Path(__file__[: __file__.find(str(submodule_dir))]))
@@ -720,7 +729,7 @@ def update_config_from_wildcards(config, w, inplace=True):
 
         for o in opts:
             if o.startswith("lv") or o.startswith("lc"):
-                config["electricity"]["transmission_expansion"] = o[1:]
+                config["electricity"]["transmission_limit"] = o[1:]
                 break
 
     if w.get("sector_opts"):
@@ -768,12 +777,12 @@ def update_config_from_wildcards(config, w, inplace=True):
             config["sector"]["H2_network"] = False
 
         if "nowasteheat" in opts:
-            config["sector"]["use_waste_heat"]["fischer_tropsch"] = False
-            config["sector"]["use_waste_heat"]["methanolisation"] = False
-            config["sector"]["use_waste_heat"]["haber_bosch"] = False
-            config["sector"]["use_waste_heat"]["methanation"] = False
-            config["sector"]["use_waste_heat"]["fuel_cell"] = False
-            config["sector"]["use_waste_heat"]["electrolysis"] = False
+            config["sector"]["use_fischer_tropsch_waste_heat"] = False
+            config["sector"]["use_methanolisation_waste_heat"] = False
+            config["sector"]["use_haber_bosch_waste_heat"] = False
+            config["sector"]["use_methanation_waste_heat"] = False
+            config["sector"]["use_fuel_cell_waste_heat"] = False
+            config["sector"]["use_electrolysis_waste_heat"] = False
 
         if "nodistrict" in opts:
             config["sector"]["district_heating"]["progress"] = 0.0
@@ -842,12 +851,24 @@ def update_config_from_wildcards(config, w, inplace=True):
         return config
 
 
+@tenacity_retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    retry=retry_if_exception_type(
+        (requests.HTTPError, requests.ConnectionError, requests.Timeout)
+    ),
+)
 def get_checksum_from_zenodo(file_url):
     parts = file_url.split("/")
     record_id = parts[parts.index("records") + 1]
     filename = parts[-1]
 
     response = requests.get(f"https://zenodo.org/api/records/{record_id}", timeout=30)
+    # Raise HTTPError for transient errors
+    # 429: Too Many Requests (rate limiting)
+    # 500, 502, 503, 504: Server errors
+    if response.status_code in (429, 500, 502, 503, 504):
+        response.raise_for_status()
     response.raise_for_status()
     data = response.json()
 
@@ -890,7 +911,14 @@ def validate_checksum(file_path, zenodo_url=None, checksum=None):
     """
     assert checksum or zenodo_url, "Either checksum or zenodo_url must be provided"
     if zenodo_url:
-        checksum = get_checksum_from_zenodo(zenodo_url)
+        try:
+            checksum = get_checksum_from_zenodo(zenodo_url)
+        except RetryError as e:
+            # Skip validation if we hit rate limiting or other retry-exhausted errors
+            logger.warning(
+                f"Skipping checksum validation for {file_path} due to Zenodo API error: {e}"
+            )
+            return
     hash_type, checksum = checksum.split(":")
     hasher = hashlib.new(hash_type)
     with open(file_path, "rb") as f:
@@ -1087,3 +1115,21 @@ def load_cutout(
         cutout.data = cutout.data.sel(time=time)
 
     return cutout
+
+
+def load_costs(cost_file: str) -> pd.DataFrame:
+    """
+    Load prepared cost data from CSV.
+
+    Parameters
+    ----------
+    cost_file : str
+        Path to the CSV file containing cost data
+
+    Returns
+    -------
+    costs : pd.DataFrame
+        DataFrame containing the prepared cost data
+    """
+
+    return pd.read_csv(cost_file, index_col=0)

@@ -59,6 +59,7 @@ dependencies:
 - tqdm
 - pytz
 - tabula-py
+- tenacity
 - pyxlsb
 - graphviz
 - geojson

@@ -63,6 +63,9 @@ jobs:
       run: pixi run snakemake build_scenarios --cores 'all'
 
     - name: Run AT10 test workflow
+      env:
+        SNAKEMAKE_STORAGE_CACHED_HTTP_CACHE: ""
+        SNAKEMAKE_STORAGE_CACHED_HTTP_SKIP_REMOTE_CHECKS: "1"
       run: pixi run snakemake all --configfile=config/test/config.at10.yaml --cores 'all' --resources mem_mb=12000
 
     - name: Upload artifacts
