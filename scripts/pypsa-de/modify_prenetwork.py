@@ -956,6 +956,11 @@ def add_hydrogen_turbines(n):
     h2_plants.efficiency3 = 1
     n.add("Link", h2_plants.index, **h2_plants)
 
+    # add missing carrier entry for H2 CCGT introduced in by this function
+    if "H2 OCGT" in n.carriers.index:
+        n.carriers.loc["H2 CCGT"] = n.carriers.loc["H2 OCGT"]
+        n.carriers.loc["H2 CCGT", "nice_name"] = "H2 CCGT"
+
 
 def force_retrofit(n, params):
     """

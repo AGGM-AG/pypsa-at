@@ -160,8 +160,8 @@ def unravel_gas_import_and_production(
             marginal_cost=marginal_cost,
             p_nom=p_nom,
         )
-        # todo: set carrier attributes to silence consistency warnings
-        # n.carriers.loc[carrier] = []
+        # reuse settings from mixed gas carrier
+        n.carriers.loc[carrier] = n.carriers.loc["gas"].copy()
 
     # make sure that this modification does not change the total gas generator capacity
     old_p_nom = gas_generators["p_nom"].sum()
