@@ -16,7 +16,7 @@ run:
 countries: ['AL', 'AT', 'BA', 'BE', 'BG', 'CH', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'ME', 'MK', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'SE', 'SI', 'SK', 'XK']
 scenario:
   ll:
-  - vopt
+  - v1.25
   clusters:
   - adm
   opts:
@@ -66,6 +66,9 @@ scenario:
 #lines:
 #  dynamic_line_rating:
 #    cutout: default
+
+electricity:
+  transmission_limit: v1.25
 
 clustering:
   mode: administrative
