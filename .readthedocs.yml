@@ -21,6 +21,6 @@ build:
     - pixi install -e doc --frozen
     build:
       html:
-      - pixi run mkdocs build -d $READTHEDOCS_OUTPUT/html
+      - pixi run -e doc mkdocs build -d $READTHEDOCS_OUTPUT/html
   apt_packages:
   - graphviz
