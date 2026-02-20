@@ -1,6 +1,7 @@
 ![Version](https://img.shields.io/badge/version-v0.1.0-purple)
 ![Size](https://img.shields.io/github/repo-size/AGGM-AG/pypsa-at)
-[![Test workflows](https://github.com/AGGM-AG/pypsa-at/actions/workflows/test.yaml/badge.svg)](https://github.com/AGGM-AG/pypsa-at/actions/workflows/test.yaml)[![CodeQL](https://github.com/AGGM-AG/pypsa-at/actions/workflows/codeql.yaml/badge.svg?branch=main&event=push)](https://github.com/AGGM-AG/pypsa-at/actions/workflows/codeql.yaml)
+[![Test workflows](https://github.com/AGGM-AG/pypsa-at/actions/workflows/test.yaml/badge.svg)](https://github.com/AGGM-AG/pypsa-at/actions/workflows/test.yaml)
+[![CodeQL](https://github.com/AGGM-AG/pypsa-at/actions/workflows/codeql.yaml/badge.svg?branch=main&event=push)](https://github.com/AGGM-AG/pypsa-at/actions/workflows/codeql.yaml)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/AGGM-AG/pypsa-at/main.svg)](https://results.pre-commit.ci/latest/github/AGGM-AG/pypsa-at/main)
 [![Pixi Badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/prefix-dev/pixi/main/assets/badge/v0.json)](https://pixi.sh)
 ![pixi](https://img.shields.io/badge/pixi-≥0.23-brightgreen)
