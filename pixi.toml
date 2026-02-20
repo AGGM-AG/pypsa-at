@@ -136,7 +136,7 @@ clean-tests = """
     snakemake -call all --configfile=config/test/config.at10.yaml --delete-all-output ;
 	echo "All test outputs have been cleaned up."
 """
-unit-tests = "pytest test -m 'unit'
+unit-tests = "pytest test -m 'not unit and not integration'"
 
 all-tests = {depends-on = ["integration-tests", "clean-tests", "unit-tests"]}
 
