@@ -19,8 +19,8 @@ build:
     - asdf global pixi latest
     install:
     - pixi install -e doc --frozen
-  build:
-    html:
-    - pixi run mkdocs -d $READTHEDOCS_OUTPUT/html
+    build:
+      html:
+      - pixi run mkdocs -d $READTHEDOCS_OUTPUT/html
   apt_packages:
   - graphviz
