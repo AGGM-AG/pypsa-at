@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import pathlib
+import re
 import zipfile
 from functools import reduce
 from shutil import unpack_archive
@@ -144,19 +145,22 @@ def download_eez(tmpdir):
     name = str(uuid4())[:8]
     org = str(uuid4())[:8]
     zipped_filename = "World_EEZ_v12_20231025_LR.zip"
-    response = requests.post(
-        "https://www.marineregions.org/download_file.php",
-        params={"name": zipped_filename},
-        data={
-            "name": name,
-            "organisation": org,
-            "email": f"{name}@{org}.org",
-            "country": "Germany",
-            "user_category": "academia",
-            "purpose_category": "Research",
-            "agree": "1",
-        },
-    )
+    url = "https://www.marineregions.org/download_file.php"
+    session = requests.Session()
+    get_response = session.get(url, params={"name": zipped_filename})
+    honeypot = re.search(r'<input name="(firstname-[^"]+)"', get_response.text)
+    data = {
+        "name": name,
+        "organisation": org,
+        "email": f"{name}@{org}.org",
+        "country": "Germany",
+        "user_category": "academia",
+        "purpose_category": "Research",
+        "agree": "1",
+    }
+    if honeypot:
+        data[honeypot.group(1)] = ""
+    response = session.post(url, params={"name": zipped_filename}, data=data)
     zipped_filename_path = pathlib.Path(tmpdir, zipped_filename)
     with open(zipped_filename_path, "wb") as f:
         f.write(response.content)
