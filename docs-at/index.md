@@ -29,7 +29,7 @@ PyPSA-AT extends the PyPSA-Eur model with Austrian-specific enhancements:
 - **Population Layout Modifications**: Custom Austrian population distribution for improved spatial accuracy
 - **NUTS3 Shape Adjustments**: Refined administrative boundaries for Austrian regions
 
-For detailed implementation information, see the [mods module documentation](reference/mods/).
+For detailed implementation information, see the [mods module documentation](reference/mods/index.md).
 
 ## Installation
 

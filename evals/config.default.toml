@@ -115,6 +115,9 @@ database_plot_type = "capacity"
 database_bus_carrier = "electricity"
 database_specifier = "production"
 
+[view_capacity_electricity_production.exclude]
+"2020" = ["EV battery"]
+
 [view_capacity_electricity_production.categories]
 "CCGT" = "Thermal Powerplant"  # "PP (Methane)"
 "OCGT" = "Thermal Powerplant"  # "PP (Methane)"
@@ -758,6 +761,9 @@ database_plot_type = "balance"
 database_bus_carrier = "electricity"
 database_specifier = ""
 
+[view_balance_electricity.exclude]
+"2020" = ["EV battery"]
+
 [view_balance_electricity.categories]
 "agriculture electricity" = "Agriculture"
 "agriculture machinery electric" = "Agriculture"
@@ -1184,6 +1190,9 @@ exports = []
 database_plot_type = "timeseries"
 database_bus_carrier = "electricity"
 database_specifier = ""
+
+[view_timeseries_electricity.exclude]
+"2020" = ["EV battery"]
 
 [view_timeseries_electricity.categories]
 #"BEV charger" = "Storage In"

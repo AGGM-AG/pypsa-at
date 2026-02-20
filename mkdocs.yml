@@ -98,6 +98,13 @@ plugins:
     default_handler: python
     handlers:
       python:
+        inventories:
+        - url: https://docs.pypsa.org/latest/objects.inv
+        - url: https://pypsa-eur.readthedocs.io/en/latest/objects.inv
+        - url: https://pathlib.readthedocs.io/en/latest/objects.inv
+        - url: https://pandas.pydata.org/pandas-docs/stable/objects.inv
+        - url: https://numpy.org/doc/stable/objects.inv
+        - url: https://docs.python.org/3/objects.inv
         options:
           docstring_style: numpy
           show_source: true
@@ -105,13 +112,6 @@ plugins:
           annotations_path: full
           filters:
           - "!^_"    # hide private members
-    inventory:
-    - url: https://docs.pypsa.org/latest/objects.inv
-    - url: https://pypsa-eur.readthedocs.io/en/latest/objects.inv
-    - url: https://pathlib.readthedocs.io/en/latest/objects.inv
-    - url: https://pandas.pydata.org/pandas-docs/stable/objects.inv
-    - url: https://numpy.org/doc/stable/objects.inv
-    - url: https://docs.python.org/3/objects.inv
 
 # https://squidfunk.github.io/mkdocs-material/reference/icons-emojis/
 markdown_extensions:

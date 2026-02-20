@@ -1,10 +1,27 @@
+# SPDX-FileCopyrightText: Contributors to PyPSA-DE <https://github.com/pypsa/pypsa-de>
+#
+# SPDX-License-Identifier: CC0-1.0
+
 cff-version: 1.2.0
-message: "pypsa-at"
 title: "PyPSA-AT - Sektorgekoppeltes Energiesystemmodell des österreichischen Energiesystems"
 repository: https://github.com/AGGM-AG/pypsa-at
-version: 0.0.0
+version: 0.1.0-alpha
 date-released: "none"
 license: MIT
 authors:
-  - family-names: Worschischek, Avetisjan, Wernhart
-    given-names: Philip, Vartan, Helmut
+  - family-names: Worschischek
+    given-names: Philip
+    organisation: Austrian Gas Grid Management AG
+  - family-names: Avetisjan
+    given-names: Vartan
+    organisation: Austrian Gas Grid Management AG
+  - family-names: Wernhart
+    given-names: Helmut
+    organisation: Austrian Gas Grid Management AG
+  - family-names: Zechner
+    given-names: Nicole
+    organisation: Austrian Gas Grid Management AG
+  - family-names: Nutz
+    given-names: Max
+    organisation: University of Life Sciences Vienna BOKU
+

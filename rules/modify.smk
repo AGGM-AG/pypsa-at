@@ -117,5 +117,4 @@ rule validate_pypsa_at:
     resources:
         mem_mb=16000,
     shell:
-        # FixMe: maybe run pytest -m unit in advance?
-        'pytest -m "unit or integration" --html {params.rdir}/test_report.html --result-path={params.rdir}'
+        'pixi run -e test pytest -m "unit or integration" --html {params.rdir}/test_report.html --result-path={params.rdir}'

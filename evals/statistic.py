@@ -73,19 +73,24 @@ def get_location(
     :
         A list of series to group statistics by.
     """
+    comp = n.components[c].static
+    bus_locations = n.components.buses.static.location
+
     if avoid_eu_locations and c in n.branch_components:
-        bus0 = n.static(c)["bus0"].map(n.static("Bus").location).rename("loc0")
-        bus1 = n.static(c)["bus1"].map(n.static("Bus").location).rename("loc1")
+        # avoid EU buses for branch components, e.g. oil CHP
+        bus0 = comp["bus0"].map(bus_locations).rename("loc0")
+        bus1 = comp["bus1"].map(bus_locations).rename("loc1")
         buses = pd.concat([bus0, bus1], axis=1)
 
-        def _select_location(row) -> str:
+        def location_selection_logic(row) -> str:
             if row.loc0 != "EU" or pd.isna(row.loc1):
                 return row.loc0
             return row.loc1
 
-        return buses.apply(_select_location, axis=1).rename("location")
+        return buses.apply(location_selection_logic, axis=1).rename("location")
 
-    return n.static(c)[f"bus{port}"].map(n.buses.location).rename("location")
+    # default logic to return location groupers
+    return comp[f"bus{port}"].map(bus_locations).rename("location")
 
 
 def get_location_from_name_at_port(
@@ -123,6 +128,7 @@ def collect_myopic_statistics(
     aggregate_components: str | None = "sum",
     drop_zeros: bool = True,
     drop_unit: bool = True,
+    allow_missing: dict = None,
     **kwargs: object,
 ) -> pd.DataFrame | pd.Series:
     """
@@ -145,6 +151,10 @@ def collect_myopic_statistics(
         only zeros as values.
     drop_unit
         Whether to drop the unit index level from the returned statistic.
+    allow_missing
+        A dictionary with years as keys and a list of bus_carrier to drop
+        for values. This is needed to allow bus_carrier to be missing in
+        certain years.
     **kwargs
         Any key word argument accepted by the statistics function.
 
@@ -173,9 +183,16 @@ def collect_myopic_statistics(
             f"Available statistics are: "
             f"'{[m[0] for m in getmembers(n.statistics)]}'."
         )
+
+        if allow_missing and year in allow_missing and "bus_carrier" in kwargs:
+            kwargs["bus_carrier"] = [
+                bc for bc in kwargs["bus_carrier"] if bc not in allow_missing[year]
+            ]
+
         year_statistic = func(**kwargs)
         year_statistic = insert_index_level(year_statistic, year, DataModel.YEAR)
-        year_statistics.append(year_statistic)
+        if not year_statistic.empty:
+            year_statistics.append(year_statistic)
 
     statistic = pd.concat(year_statistics, axis=0, sort=True)
     if DataModel.LOCATION in statistic.index.names:

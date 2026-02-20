@@ -35,7 +35,7 @@ Known Issues and TODOs
 
 import logging
 from itertools import product
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -931,7 +931,7 @@ class SankeyChart(ESMChart):
                     self.nodes.at[node_name, "y"] *= scale_factor
 
     def _connect(
-        self, df: pd.DataFrame, source: str, target: str, color: Optional[str] = None
+        self, df: pd.DataFrame, source: str, target: str, color: str | None = None
     ) -> None:
         """
         Create a flow connection between two nodes.
@@ -978,7 +978,7 @@ class SankeyChart(ESMChart):
         self._df.drop(df.index, inplace=True, errors="ignore")
 
     def _forward(
-        self, source: str, target: str, value: float, color: Optional[str] = None
+        self, source: str, target: str, value: float, color: str | None = None
     ) -> None:
         """
         Create a simple flow connection with a single value.
@@ -1497,7 +1497,7 @@ class SankeyChart(ESMChart):
 
         return transformation_demand
 
-    def _check_remainder(self, bus_carrier: Union[str, list[str]]) -> None:
+    def _check_remainder(self, bus_carrier: str | list[str]) -> None:
         """
         Verify all flows for a bus carrier have been processed.
 

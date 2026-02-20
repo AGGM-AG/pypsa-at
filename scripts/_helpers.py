@@ -4,15 +4,14 @@
 
 import contextlib
 import copy
-import hashlib
 import logging
 import os
 import re
 import time
+from collections.abc import Callable
 from functools import partial, wraps
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Callable, Union
 
 import atlite
 import fiona
@@ -23,15 +22,6 @@ import requests
 import xarray as xr
 import yaml
 from snakemake.utils import update_config
-from tenacity import (
-    RetryError,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
-from tenacity import (
-    retry as tenacity_retry,
-)
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
@@ -47,9 +37,17 @@ def get_scenarios(run):
         fn = Path(scenario_config["file"])
         if fn.exists():
             scenarios = yaml.safe_load(fn.read_text())
+            if scenarios is None:
+                print(
+                    "WARNING! Scenario management enabled but scenarios file appears to be empty."
+                )
             if run["name"] == "all":
                 run["name"] = list(scenarios.keys())
             return scenarios
+        else:
+            print(
+                "WARNING! Scenario management enabled but scenarios file does not exist."
+            )
     return {}
 
 
@@ -416,13 +414,6 @@ def aggregate_costs(n, flatten=False, opts=None, existing_only=False):
     return costs
 
 
-@tenacity_retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=4, max=10),
-    retry=retry_if_exception_type(
-        (requests.HTTPError, requests.ConnectionError, requests.Timeout)
-    ),
-)
 def progress_retrieve(url, file, disable=False):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
@@ -527,10 +518,12 @@ def mock_snakemake(
     from pypsa.definitions.structures import Dict
     from snakemake.api import Workflow
     from snakemake.common import SNAKEFILE_CHOICES
+    from snakemake.logging import LoggerManager
     from snakemake.script import Snakemake
     from snakemake.settings.types import (
         ConfigSettings,
         DAGSettings,
+        OutputSettings,
         ResourceSettings,
         StorageSettings,
         WorkflowSettings,
@@ -543,7 +536,7 @@ def mock_snakemake(
         root_dir = Path(root_dir).resolve()
 
     workdir = None
-    user_in_script_dir = Path.cwd().resolve() == script_dir
+    user_in_script_dir = Path.cwd().resolve().is_relative_to(script_dir)
     if str(submodule_dir) in __file__:
         # the submodule_dir path is only need to locate the project dir
         os.chdir(Path(__file__[: __file__.find(str(submodule_dir))]))
@@ -571,12 +564,17 @@ def mock_snakemake(
         workflow_settings = WorkflowSettings()
         storage_settings = StorageSettings()
         dag_settings = DAGSettings(rerun_triggers=[])
+        output_settings = OutputSettings()
+        logger_manager = LoggerManager(
+            logger=sm.logging.logger, settings=output_settings
+        )
         workflow = Workflow(
-            config_settings,
-            resource_settings,
-            workflow_settings,
-            storage_settings,
-            dag_settings,
+            config_settings=config_settings,
+            resource_settings=resource_settings,
+            workflow_settings=workflow_settings,
+            logger_manager=logger_manager,
+            storage_settings=storage_settings,
+            dag_settings=dag_settings,
             storage_provider_settings=dict(),
             overwrite_workdir=workdir,
         )
@@ -777,12 +775,12 @@ def update_config_from_wildcards(config, w, inplace=True):
             config["sector"]["H2_network"] = False
 
         if "nowasteheat" in opts:
-            config["sector"]["use_fischer_tropsch_waste_heat"] = False
-            config["sector"]["use_methanolisation_waste_heat"] = False
-            config["sector"]["use_haber_bosch_waste_heat"] = False
-            config["sector"]["use_methanation_waste_heat"] = False
-            config["sector"]["use_fuel_cell_waste_heat"] = False
-            config["sector"]["use_electrolysis_waste_heat"] = False
+            config["sector"]["use_waste_heat"]["fischer_tropsch"] = False
+            config["sector"]["use_waste_heat"]["methanolisation"] = False
+            config["sector"]["use_waste_heat"]["haber_bosch"] = False
+            config["sector"]["use_waste_heat"]["methanation"] = False
+            config["sector"]["use_waste_heat"]["fuel_cell"] = False
+            config["sector"]["use_waste_heat"]["electrolysis"] = False
 
         if "nodistrict" in opts:
             config["sector"]["district_heating"]["progress"] = 0.0
@@ -849,85 +847,6 @@ def update_config_from_wildcards(config, w, inplace=True):
 
     if not inplace:
         return config
-
-
-@tenacity_retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=4, max=10),
-    retry=retry_if_exception_type(
-        (requests.HTTPError, requests.ConnectionError, requests.Timeout)
-    ),
-)
-def get_checksum_from_zenodo(file_url):
-    parts = file_url.split("/")
-    record_id = parts[parts.index("records") + 1]
-    filename = parts[-1]
-
-    response = requests.get(f"https://zenodo.org/api/records/{record_id}", timeout=30)
-    # Raise HTTPError for transient errors
-    # 429: Too Many Requests (rate limiting)
-    # 500, 502, 503, 504: Server errors
-    if response.status_code in (429, 500, 502, 503, 504):
-        response.raise_for_status()
-    response.raise_for_status()
-    data = response.json()
-
-    for file in data["files"]:
-        if file["key"] == filename:
-            return file["checksum"]
-    return None
-
-
-def validate_checksum(file_path, zenodo_url=None, checksum=None):
-    """
-    Validate file checksum against provided or Zenodo-retrieved checksum.
-    Calculates the hash of a file using 64KB chunks. Compares it against a
-    given checksum or one from a Zenodo URL.
-
-    Parameters
-    ----------
-    file_path : str
-        Path to the file for checksum validation.
-    zenodo_url : str, optional
-        URL of the file on Zenodo to fetch the checksum.
-    checksum : str, optional
-        Checksum (format 'hash_type:checksum_value') for validation.
-
-    Raises
-    ------
-    AssertionError
-        If the checksum does not match, or if neither `checksum` nor `zenodo_url` is provided.
-
-
-    Examples
-    --------
-    >>> validate_checksum("/path/to/file", checksum="md5:abc123...")
-    >>> validate_checksum(
-    ...     "/path/to/file",
-    ...     zenodo_url="https://zenodo.org/records/12345/files/example.txt",
-    ... )
-
-    If the checksum is invalid, an AssertionError will be raised.
-    """
-    assert checksum or zenodo_url, "Either checksum or zenodo_url must be provided"
-    if zenodo_url:
-        try:
-            checksum = get_checksum_from_zenodo(zenodo_url)
-        except RetryError as e:
-            # Skip validation if we hit rate limiting or other retry-exhausted errors
-            logger.warning(
-                f"Skipping checksum validation for {file_path} due to Zenodo API error: {e}"
-            )
-            return
-    hash_type, checksum = checksum.split(":")
-    hasher = hashlib.new(hash_type)
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):  # 64kb chunks
-            hasher.update(chunk)
-    calculated_checksum = hasher.hexdigest()
-    assert calculated_checksum == checksum, (
-        "Checksum is invalid. This may be due to an incomplete download. Delete the file and re-execute the rule."
-    )
 
 
 def get_snapshots(
@@ -1086,7 +1005,7 @@ def rename_techs(label: str) -> str:
 
 
 def load_cutout(
-    cutout_files: Union[str, list[str]], time: Union[None, pd.DatetimeIndex] = None
+    cutout_files: str | list[str], time: None | pd.DatetimeIndex = None
 ) -> atlite.Cutout:
     """
     Load and optionally combine multiple cutout files.

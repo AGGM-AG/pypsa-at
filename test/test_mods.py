@@ -30,7 +30,7 @@ def test_custom_clustering(networks):
         clustering = n.meta["mods"]["modify_nuts3_shapes"]
         clusterings.add(clustering)
         # check for expected number of regions
-        locations = n.static("Bus")["location"].unique()
+        locations = n.component.buses.location.unique()
         locations_at = [loc for loc in locations if loc.startswith("AT")]
         locations_de = [loc for loc in locations if loc.startswith("DE")]
         if clustering == "AT10DE5":

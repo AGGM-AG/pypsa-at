@@ -59,11 +59,15 @@ def simple_bus_balance(
         storage_links,
     ) = _parse_view_config_items(networks, config)
 
+    # some bus_carrier are not present in the network at given years
+    allow_missing = config["view"].get("exclude", {})
+
     supply = collect_myopic_statistics(
         networks,
         statistic="supply",
         bus_carrier=bus_carrier,
         aggregate_components=None,
+        allow_missing=allow_missing,
     ).pipe(
         filter_by,
         component=transmission_comps,
@@ -90,6 +94,7 @@ def simple_bus_balance(
             statistic="withdrawal",
             bus_carrier=bus_carrier,
             aggregate_components=None,
+            allow_missing=allow_missing,
         )
         .pipe(
             filter_by,
@@ -200,6 +205,8 @@ def simple_timeseries(
         storage_links,
     ) = _parse_view_config_items(networks, config)
 
+    allow_missing = config["view"].get("exclude", {})
+
     supply = (
         collect_myopic_statistics(
             networks,
@@ -207,6 +214,7 @@ def simple_timeseries(
             bus_carrier=bus_carrier,
             aggregate_time=False,
             aggregate_components=None,
+            allow_missing=allow_missing,
         )
         .pipe(
             filter_by,
@@ -238,6 +246,7 @@ def simple_timeseries(
             bus_carrier=bus_carrier,
             aggregate_time=False,
             aggregate_components=None,
+            allow_missing=allow_missing,
         )
         .pipe(
             filter_by,
@@ -382,6 +391,18 @@ def simple_optimal_capacity(
         )
         .droplevel(DM.COMPONENT)
     )
+
+    # new heat pump implementation queries heat pump Links via bus1, and
+    # PyPSA's sign convention now returns their capacities with a flipped
+    # sign — positive instead of negative. This is a hotfix until upstream
+    # handles this.
+    heat_pump_carrier = [
+        c for c in optimal_capacity.index.unique("carrier") if "heat pump" in c
+    ]
+    idx_heat_pumps = filter_by(
+        optimal_capacity, carrier=heat_pump_carrier, bus_carrier=["low voltage", "AC"]
+    ).index
+    optimal_capacity[idx_heat_pumps] = optimal_capacity[idx_heat_pumps].mul(-1)
 
     if kind == "production":
         optimal_capacity = optimal_capacity[optimal_capacity > 0]

@@ -7,10 +7,10 @@
 import base64
 import json
 import pathlib
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from math import copysign
 from pathlib import Path
-from typing import Callable
 
 import folium
 import geopandas as gpd
