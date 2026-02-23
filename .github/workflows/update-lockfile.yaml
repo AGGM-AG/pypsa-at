@@ -28,22 +28,12 @@ jobs:
         rm pixi.lock
         pixi install --all
 
-    - name: Create new conda lock files
-      run: |
-        pixi workspace export conda-explicit-spec -e default envs
-        for f in envs/*_conda_spec*; do mv "$f" "${f/_conda_spec/.pin}"; done
-
-    - name: Create new conda environment file
-      run: |
-        pixi workspace export conda-environment -e default envs/environment.yaml -n pypsa-eur
-
     - name: Upload artifacts
       uses: actions/upload-artifact@v6
       with:
         name: lockfiles
         path: |
           pixi.lock
-          envs/
 
   create-pull-request:
     needs: update-locked-environment
@@ -58,11 +48,11 @@ jobs:
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v8
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.PIXI_CI_ACTION_TOKEN }}
         branch: update-locked-environment
         title: "[github-actions.ci] Update locked envs"
         body: |
           Automatically generated PR to update the pixi lockfile.
 
           **Note: Do not merge without manual test execution. Either update the branch to trigger tests, or use `workflow_dispatch` to run tests manually. Unlike standard PRs, tests will not run automatically.**
-        commit-message: "Update locked environment files for all platforms"
+        commit-message: "Update locked environment files for pixi"
