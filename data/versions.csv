@@ -1,11 +1,10 @@
 dataset,version,source,tags,added,note,url
-ariadne_database,v1.0,primary,latest supported,2026-01-15,Public facing database of the second Ariadne Szenarienbericht,https://ariadne2.apps.ece.iiasa.ac.at/explorer
-ariadne_database,v1.0,archive,latest supported,2026-01-15,,https://zenodo.org/records/15174592/files/250505_Ariadne2_Data_v1.0.xlsx
-ariadne_template,2025-11-20,primary,latest supported,2026-01-15,,https://github.com/iiasa/ariadne-intern-workflow/blob/main/attachments/2025-11-20_template_Ariadne.xlsx
-egon,2018-2020?,primary,latest supported,2026-01-15,root url is extended in the retrieve rule,https://api.opendata.ffe.de/demandregio/demandregio_spatial
-open_mastr,2023-08-08,primary,latest supported,2026-01-15,,https://zenodo.org/records/8225106/files/bnetza_open_mastr_2023-08-08_B.zip
 aquifer_data,v1.2,primary,latest supported,2025-12-02,,https://download.bgr.de/bgr/grundwasser/IHME1500/v12/shp/IHME1500_v12.zip
 aquifer_data,v1.2,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/aquifer_data/v1.2/IHME1500_v12.zip
+ariadne_database,v1.0,primary,latest supported,2026-01-15,Public facing database of the second Ariadne Szenarienbericht,https://zenodo.org/records/15174592/files/250505_Ariadne2_Data_v1.0.xlsx
+ariadne_database,v1.0,archive,latest supported,2026-02-23,Public facing database of the second Ariadne Szenarienbericht,https://data.pypsa.org/workflows/de/ariadne_database/v1.0/250505_Ariadne2_Data_v1.0.xlsx
+ariadne_template,2025-11-20,primary,latest supported,2026-01-15,,https://github.com/iiasa/ariadne-intern-workflow/raw/7caa948ad6aa71cf8d17e69a64dd29f01306a9ff/attachments/2025-11-20_template_Ariadne.xlsx
+ariadne_template,2025-11-20,archive,latest supported,2026-02-23,,https://data.pypsa.org/workflows/de/ariadne_template/2025-11-20/2025-11-20_template_Ariadne.xlsx
 attributed_ports,2020-07-10,primary,latest supported,2025-12-02,,https://datacatalogfiles.worldbank.org/ddh-published/0038118/1/DR0046414/attributed_ports.geojson
 attributed_ports,2020-07-10,archive,latest supported,2026-01-13,Moved from github repo `data/` folder,https://data.pypsa.org/workflows/eur/attributed_ports/2020-07-10/attributed_ports.json
 bfs_gdp_and_population,2019-03-28,primary,latest supported,2025-12-02,,https://dam-api.bfs.admin.ch/hub/api/dam/assets/7786557/master
@@ -45,6 +44,8 @@ dh_areas,341.5,primary,latest supported,2025-12-02,,https://fordatis.fraunhofer.
 dh_areas,341.5,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/dh_areas/341.5/dh_areas.gpkg
 eez,v12_20231025,primary,latest supported,2025-12-02,API request used,https://www.marineregions.org/download_file.php
 eez,v12_20231025,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/eez/v12_20231025/World_EEZ_v12_20231025_LR.zip
+egon,2019-10-02,archive,latest supported,2026-02-23,,https://data.pypsa.org/workflows/de/egon/2019-10-02
+egon,2019-10-02,build,latest supported,2026-01-15,root url is extended in the retrieve rule,https://api.opendata.ffe.de/demandregio/demandregio_spatial
 emobility,28-08-2016,primary,latest supported,2025-12-02,,https://zenodo.org/records/16899168/files/emobility.zip
 emobility,28-08-2016,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/emobility/28-08-2016/emobility.zip
 enspreso_biomass,unknown,primary,latest supported,2025-12-02,"2019 version was changed in 2023 with negligible differences, but since the version is not frozen we label it as 'unknown'.",https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/ENSPRESO/ENSPRESO_BIOMASS.xlsx
@@ -113,6 +114,8 @@ nuts3_population,13-03-2025,primary,latest supported,2025-12-02,,https://ec.euro
 nuts3_population,13-03-2025,archive,latest supported,2026-01-13,earlier part of zenodo bundle,https://data.pypsa.org/workflows/eur/nuts3_population/13-03-2025/nama_10r_3popgdp.tsv.gz
 ons_lad,may-2024,primary,latest supported,2026-02-02,API request used,https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Local_Authority_Districts_May_2024_Boundaries__UK_BSC/FeatureServer/0/query
 ons_lad,may-2024,archive,latest supported,2026-02-17,API request used,https://data.pypsa.org/workflows/eur/ons_lad/may-2024/ons_lad.geojson
+open_mastr,2023-08-08,primary,latest supported,2026-01-15,,https://zenodo.org/records/8225106/files/bnetza_open_mastr_2023-08-08_B.zip
+open_mastr,2023-08-08,archive,latest supported,2026-02-23,,https://data.pypsa.org/workflows/de/open_mastr/2023-08-08/bnetza_open_mastr_2023-08-08_B.zip
 opsd_electricity_demand,unknown,build,latest supported,2026-02-02,multiple versions concatenated,https://data.open-power-system-data.org/time_series/
 opsd_electricity_demand,2026-02-02,archive,latest supported,2026-02-03,,https://data.pypsa.org/workflows/eur/opsd_electricity_demand/2026-02-02/electricity_demand_opsd_raw.csv
 osm,unknown,build,latest supported,2025-12-02,Latest dataset built using OSM data. No single URL available to access the data. See the related scripts and documentation for details.,

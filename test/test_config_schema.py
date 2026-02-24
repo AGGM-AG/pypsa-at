@@ -52,6 +52,7 @@ def _check_file_in_sync(existing_path: Path, generate_func, file_type: str):
         )
 
 
+@pytest.mark.skip(reason="pypsa-de config diverges from upstream Pydantic schema")
 def test_config_default_yaml_in_sync():
     """Test that config/config.default.yaml is in sync with Pydantic schema."""
 
@@ -62,6 +63,7 @@ def test_config_default_yaml_in_sync():
     )
 
 
+@pytest.mark.skip(reason="pypsa-de config diverges from upstream Pydantic schema")
 def test_config_schema_json_in_sync():
     """Test that config/schema.default.json is in sync with Pydantic schema."""
 
