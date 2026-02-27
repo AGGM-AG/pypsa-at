@@ -32,6 +32,7 @@ $ pixi shell
 ```
 """
 
+import copy
 import logging
 import sys
 from time import time
@@ -146,7 +147,10 @@ def run_eval(
     networks = read_networks(result_path, sub_directory=sub_directory)
 
     # assuming no configuration changes in myopic workflow in the same scenario
-    merged_meta = networks["2020"].meta
+    # Use deepcopy to avoid mutating the network's meta dict in place (pop below
+    # would otherwise remove "resources" from the live network object, breaking
+    # downstream views that access networks[year].meta["resources"] directly).
+    merged_meta = copy.deepcopy(networks["2020"].meta)
     merged_meta["wildcards"]["planning_horizons"] = list(networks)
     # additional resources are not used in the dashboard and bloat the runs.json file
     merged_meta.pop("resources", None)
