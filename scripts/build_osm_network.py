@@ -528,6 +528,11 @@ def _merge_lines_over_virtual_buses(
     lines_to_add["bus1"] = None
     lines_to_add["length"] = lines_to_add["geometry"].to_crs(distance_crs).length
 
+    # Add any columns present in lines_merged but missing from lines_to_add (e.g. 'contains' from relation lines)
+    for col in lines_merged.columns:
+        if col not in lines_to_add.columns:
+            lines_to_add[col] = None
+
     # Reorder
     lines_to_add = lines_to_add[lines_merged.columns]
 

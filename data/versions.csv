@@ -104,3 +104,5 @@ ariadne_database,archive,v1.0,"['latest', 'supported']",https://zenodo.org/recor
 open_mastr,primary,2023-08-08,"['latest', 'supported']",https://zenodo.org/records/8225106/files/bnetza_open_mastr_2023-08-08_B.zip,
 egon,primary,2018-2020?,"['latest', 'supported']",https://api.opendata.ffe.de/demandregio/demandregio_spatial,root url is extended in the retrieve rule
 ariadne_template,primary,2025-11-20,"['latest', 'supported']",https://github.com/iiasa/ariadne-intern-workflow/blob/main/attachments/2025-11-20_template_Ariadne.xlsx,
+osm,archive,v0.1-full,"['latest', 'supported']",https://zenodo.org/records/18797490,Latest dataset built using OSM data inlcuding mid voltage levels
+osm,archive,v0.1-at,"['latest', 'supported']",https://zenodo.org/records/18797490,Latest dataset built using OSM data inlcuding mid voltage levels and filtered for mid voltage only in AT regions.

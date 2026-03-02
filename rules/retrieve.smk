@@ -845,7 +845,14 @@ if OSM_DATASET["source"] in ["archive"]:
         "links.csv",
         "transformers.csv",
         # Newer versions include the additional map.html file for visualisation
-        *(["map.html"] if float(OSM_DATASET["version"]) >= 0.6 else []),
+        *(
+            ["map.html"]
+            if (
+                OSM_DATASET["version"].replace(".", "", 1).isnumeric()
+                and float(OSM_DATASET["version"]) >= 0.6
+            )
+            else []
+        ),
     ]
 
     rule retrieve_osm_archive:

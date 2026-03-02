@@ -103,10 +103,10 @@ xlrd = ">=2.0.2"
 yaml = ">=0.2.5"
 snakemake-storage-plugin-cached-http = ">=0.1.0"
 frozendict = ">=2.4.7"
+marimo = ">=0.20.2"
 
 [feature.doc.tasks.build-docs]
-args = ["dir", {"arg" = "output", "default" = "html"}]
-cmd = "dot -c && sphinx-build -T -b {{ output }} doc {{ dir }}/{{ output }} "
+cmd = "mkdocs build -d public/html"
 
 [feature.doc.dependencies]
 pygments = "*"

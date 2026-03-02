@@ -30,7 +30,7 @@ gurobi.log
 !/data/pypsa-de/
 /cutouts
 /tmp
-/public  # mkdocs build
+public  # mkdocs build
 doc/_build
 
 /scripts/old
