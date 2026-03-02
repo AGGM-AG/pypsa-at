@@ -54,38 +54,12 @@ rule modify_population_layouts:
 #         "../scripts/pypsa-at/export_iamc_variables.py"
 
 
-rule augment_solved_networks:
-    message:
-        "Attaching resource files to the results network to simplify downstream evaluations and tests."
-    params:
-        energy_totals_year=config_provider("energy", "energy_totals_year"),
-    input:
-        networks=expand(
-            RESULTS
-            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
-            **config["scenario"],
-            allow_missing=True,
-        ),
-        energy_totals=resources("energy_totals.csv"),
-        co2_totals=resources("co2_totals.csv"),
-    output:
-        touch(
-            RESULTS + "mods/.networks_augmented",
-        ),
-    script:
-        "../scripts/pypsa-at/augment_solved_networks.py"
-
-
 rule export_evaluation_pypsa_at:
     message:
         "Runs all evaluations from the evals module to generate aggregated result views."
     params:
         rdir=RESULTS,
     input:
-        expand(
-            RESULTS + "mods/.networks_augmented",
-            run=config["run"]["name"],
-        ),
         networks=expand(
             RESULTS
             + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",

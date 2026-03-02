@@ -1547,6 +1547,12 @@ if __name__ == "__main__":
         )
 
     n.meta = dict(snakemake.config, **dict(wildcards=dict(snakemake.wildcards)))
+
+    # PyPSA-AT: attach resource tables to network meta before export.
+    from mods.network_updates import attach_resources_to_network_meta
+
+    attach_resources_to_network_meta(n=n, snakemake=snakemake)
+
     n.export_to_netcdf(snakemake.output.network)
 
     with open(snakemake.output.config, "w") as file:

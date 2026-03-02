@@ -8,9 +8,72 @@ from logging import getLogger
 
 import pandas as pd
 import pypsa
+from snakemake.exceptions import MissingInputException
 from snakemake.script import Snakemake
 
 logger = getLogger(__name__)
+
+
+def attach_resources_to_network_meta(
+    n: pypsa.Network,
+    snakemake: Snakemake,
+) -> None:
+    """
+    Attach resource tables to the network meta before the netCDF export.
+
+    Embeds ``energy_totals`` and ``co2_totals`` CSV data directly into
+    ``n.meta["resources"]`` so that downstream evaluation rules can access
+    sectoral energy demand and CO₂ totals without relying on a separate
+    post-processing step or extra input files.
+
+    The network name is also updated to a human-readable string that
+    includes the planning horizon year.
+
+    Parameters
+    ----------
+    n
+        The solved network whose meta data will be updated in place.
+    snakemake
+        The Snakemake workflow object providing inputs, params, config,
+        and wildcards.
+
+    Raises
+    ------
+    MissingInputException
+        If the required inputs (``energy_totals`` and ``co2_totals_name``) are
+        not present on ``snakemake.input``.
+
+    Returns
+    -------
+    :
+        Updates ``n.meta`` and ``n.name`` in place.
+    """
+    if not hasattr(snakemake.input, "energy_totals"):
+        raise MissingInputException(msg="Required input file not found: energy_totals.")
+    if not hasattr(snakemake.input, "co2_totals_name"):
+        raise MissingInputException(
+            msg="Required input parameter not found: energy_totals_name."
+        )
+
+    energy_totals_year = snakemake.params.get(
+        "energy_year",
+        snakemake.config["energy"]["energy_totals_year"],
+    )
+    planning_horizon = snakemake.wildcards.planning_horizons
+
+    energy_totals = pd.read_csv(snakemake.input.energy_totals, index_col=[0, 1])
+    energy_totals = energy_totals.xs(energy_totals_year, level="year")
+    co2_totals = pd.read_csv(snakemake.input.co2_totals_name, index_col=0)
+
+    n.meta["resources"] = {
+        "energy_totals": energy_totals.to_dict(orient="tight"),
+        "co2_totals": co2_totals.to_dict(orient="tight"),
+    }
+    n.name = f"PyPSA-AT Network {planning_horizon}"
+    logger.info(
+        f"Attached energy_totals (year={energy_totals_year}) and co2_totals "
+        f"to network meta for planning horizon {planning_horizon}."
+    )
 
 
 def modify_austrian_transmission_capacities(
