@@ -44,11 +44,11 @@ def test_custom_clustering(networks):
             assert len(locations_de) == 19
         elif clustering == "AT35DE5":
             assert len(locations) == 77
-            assert len(locations_at) == 30
+            assert len(locations_at) == 35
             assert len(locations_de) == 5
         elif clustering == "AT35DE19":
             assert len(locations) == 93
-            assert len(locations_at) == 30
+            assert len(locations_at) == 35
             assert len(locations_de) == 19
         else:
             raise AssertionError(f"Unexpected clustering detected: {clustering}")
