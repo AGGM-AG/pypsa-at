@@ -816,6 +816,12 @@ def adapt_nuclear_output(n):
         (n.links.carrier == "nuclear") & (n.links.index.str[:2] == "DE")
     ]
 
+    if nuclear_de_index.empty:
+        logger.info(
+            "No German nuclear links found in network — skipping nuclear output constraint."
+        )
+        return
+
     nuclear_gen = (
         n.model["Link-p"].loc[:, nuclear_de_index]
         * n.links.loc[nuclear_de_index, "efficiency"]
