@@ -161,14 +161,17 @@ def scale_temperature_to_investment_year(
     Raises
     ------
     ValueError
-        If the investment year is before the current year.
         If the relative annual temperature reduction is not between 0 and 1.
+
+    Notes
+    -----
+    If the investment year is at or before the current year (e.g. a base year
+    like 2020 used together with energy_totals_year=2023), no reduction is
+    applied and the baseyear temperatures are returned unchanged.
     """
 
-    if investment_year < current_year:
-        raise ValueError(
-            f"Error: Investment year {investment_year} is before current year {current_year}."
-        )
+    if investment_year <= current_year:
+        return temperature_baseyear
     if (
         relative_annual_temperature_reduction < 0
         or relative_annual_temperature_reduction > 1
