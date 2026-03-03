@@ -1176,7 +1176,7 @@ def get_location_alias(locations: pd.Index) -> dict:
     at_regions = [loc for loc in locations if loc.startswith("AT")]
     if len(at_regions) == 11:  # AT10 + Austria
         alias = alias | ALIAS_REGION_AT10_CLUSTERING
-    elif len(at_regions) in (36, 31):  # AT35 or AT30 + Austria
+    elif len(at_regions) in (36, 31):  # AT35 + Austria
         alias = alias | ALIAS_REGION_AT35_CLUSTERING
     else:
         raise ValueError(f"Unexpected number of locations for AT: {len(at_regions)}.")

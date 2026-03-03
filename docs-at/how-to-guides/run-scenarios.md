@@ -71,4 +71,4 @@ snakemake -call all --cores 'all'
 
 The simplest way to debug a model run is to connect your IDE via SSH to the server and use the builtin debugging
 capabilities. Point your SSH connection to the folder where the repository was cloned and consult your IDEs debugging
-dokumention for further instructions.
+docs for further instructions.
