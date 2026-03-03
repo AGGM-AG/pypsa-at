@@ -52,6 +52,12 @@ def add_capacity_limits(n, investment_year, limits_capacity, sense="maximum"):
                     & c.static.active
                 ]
 
+                if extendable_index.empty:
+                    logger.info(
+                        f"No extendable {c.name} with carrier {carrier} found in {ct}. Skipping constraint."
+                    )
+                    continue
+
                 existing_capacity = c.static.loc[existing_index, attr + "_nom"].sum()
 
                 logger.info(
@@ -574,11 +580,12 @@ def add_national_co2_budgets(n, snakemake, national_co2_budgets, investment_year
             n.links.index == f"{ct} methanol -> EU methanol"
         ]
 
+        methanol_emissions = n.links.loc["EU industry methanol", "efficiency2"]
         lhs.append(
             (
                 -1
                 * n.model["Link-p"].loc[:, incoming_methanol]
-                / snakemake.config["sector"]["MWh_MeOH_per_tCO2"]
+                * methanol_emissions
                 * n.snapshot_weightings.generators
             ).sum()
         )
@@ -586,7 +593,7 @@ def add_national_co2_budgets(n, snakemake, national_co2_budgets, investment_year
         lhs.append(
             (
                 n.model["Link-p"].loc[:, outgoing_methanol]
-                / snakemake.config["sector"]["MWh_MeOH_per_tCO2"]
+                * methanol_emissions
                 * n.snapshot_weightings.generators
             ).sum()
         )

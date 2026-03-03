@@ -770,10 +770,20 @@ def _get_capacities(n, region, cap_func, cap_string="Capacity|"):
         capacities_electricity.get("PHS", 0)
     )
 
-    var[cap_string + "Electricity|Storage Converter|Stationary Batteries"] = (
+    var[cap_string + "Electricity|Storage Converter|Stationary Batteries|Utility"] = (
         capacities_electricity.get("battery discharger", 0)
-        + capacities_electricity.get("home battery discharger", 0)
     )
+
+    var[cap_string + "Electricity|Storage Converter|Stationary Batteries|Home"] = (
+        capacities_electricity.get("home battery discharger", 0)
+    )
+
+    var[cap_string + "Electricity|Storage Converter|Stationary Batteries"] = var[
+        [
+            cap_string + "Electricity|Storage Converter|Stationary Batteries|Utility",
+            cap_string + "Electricity|Storage Converter|Stationary Batteries|Home",
+        ]
+    ].sum()
 
     var[cap_string + "Electricity|Storage Converter|Vehicles"] = (
         capacities_electricity.get("V2G", 0)
@@ -820,9 +830,20 @@ def _get_capacities(n, region, cap_func, cap_string="Capacity|"):
         storage_capacities.get("PHS")
     )
 
-    var[cap_string + "Electricity|Storage Reservoir|Stationary Batteries"] = pd.Series(
-        {c: storage_capacities.get(c) for c in ["battery", "home battery"]}
-    ).sum()
+    var[cap_string + "Electricity|Storage Reservoir|Stationary Batteries|Utility"] = (
+        storage_capacities.get("battery", 0)
+    )
+
+    var[cap_string + "Electricity|Storage Reservoir|Stationary Batteries|Home"] = (
+        storage_capacities.get("home battery", 0)
+    )
+
+    var[cap_string + "Electricity|Storage Reservoir|Stationary Batteries"] = var[
+        [
+            cap_string + "Electricity|Storage Reservoir|Stationary Batteries|Utility",
+            cap_string + "Electricity|Storage Reservoir|Stationary Batteries|Home",
+        ]
+    ].sum()
 
     var[cap_string + "Electricity|Storage Reservoir|Vehicles"] = storage_capacities.get(
         "EV battery", 0
@@ -4712,15 +4733,16 @@ def get_export_import(n, region, carriers, aggregate=True, unit="MWh"):
         .multiply(n.snapshot_weightings.generators, axis=0)
     )
     if unit == "€":
-        # bus0 is DE for outgoing links
-        domestic_prices = pd.concat(
-            [
-                n.buses_t.marginal_price[bus].rename(link)
-                for link, bus in outgoing.bus0.items()
-            ],
-            axis=1,
-        )
-        export_outgoing *= domestic_prices
+        if not outgoing.empty:
+            # bus0 is DE for outgoing links
+            domestic_prices = pd.concat(
+                [
+                    n.buses_t.marginal_price[bus].rename(link)
+                    for link, bus in outgoing.bus0.items()
+                ],
+                axis=1,
+            )
+            export_outgoing *= domestic_prices
 
     # if p1 > 0 system is withdrawing from bus1 (DE) and feeding into bus0 (non-DE) -> export
     export_incoming = (
@@ -4730,14 +4752,15 @@ def get_export_import(n, region, carriers, aggregate=True, unit="MWh"):
     )
     if unit == "€":
         # bus1 is DE for incoming links
-        domestic_prices = pd.concat(
-            [
-                n.buses_t.marginal_price[bus].rename(link)
-                for link, bus in incoming.bus1.items()
-            ],
-            axis=1,
-        )
-        export_incoming *= domestic_prices
+        if not incoming.empty:
+            domestic_prices = pd.concat(
+                [
+                    n.buses_t.marginal_price[bus].rename(link)
+                    for link, bus in incoming.bus1.items()
+                ],
+                axis=1,
+            )
+            export_incoming *= domestic_prices
 
     exporting_p = pd.concat([export_outgoing, export_incoming], axis=1)
     if aggregate:
@@ -4752,14 +4775,15 @@ def get_export_import(n, region, carriers, aggregate=True, unit="MWh"):
     )
     if unit == "€":
         # bus1 is DE for incoming links
-        domestic_prices = pd.concat(
-            [
-                n.buses_t.marginal_price[bus].rename(link)
-                for link, bus in incoming.bus1.items()
-            ],
-            axis=1,
-        )
-        import_incoming *= domestic_prices
+        if not incoming.empty:
+            domestic_prices = pd.concat(
+                [
+                    n.buses_t.marginal_price[bus].rename(link)
+                    for link, bus in incoming.bus1.items()
+                ],
+                axis=1,
+            )
+            import_incoming *= domestic_prices
 
     # if p0 < 0 (=clip(upper=0)) system is feeding into bus0 (DE) and withdrawing from bus1 (non-DE) -> import (with negative sign here)
     import_outgoing = (
@@ -4770,14 +4794,15 @@ def get_export_import(n, region, carriers, aggregate=True, unit="MWh"):
     )
     if unit == "€":
         # bus0 is DE for outgoing links
-        domestic_prices = pd.concat(
-            [
-                n.buses_t.marginal_price[bus].rename(link)
-                for link, bus in outgoing.bus0.items()
-            ],
-            axis=1,
-        )
-        import_outgoing *= domestic_prices
+        if not outgoing.empty:
+            domestic_prices = pd.concat(
+                [
+                    n.buses_t.marginal_price[bus].rename(link)
+                    for link, bus in outgoing.bus0.items()
+                ],
+                axis=1,
+            )
+            import_outgoing *= domestic_prices
 
     importing_p = pd.concat([import_outgoing, import_incoming], axis=1)
     if aggregate:
@@ -5617,7 +5642,7 @@ if __name__ == "__main__":
 
     if "debug" == "debug":  # For debugging
         var = pd.Series()
-        idx = 6
+        idx = 1
         n = networks[idx]
         c = costs[idx]
         _industry_demand = industry_demands[idx]

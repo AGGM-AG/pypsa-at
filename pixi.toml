@@ -34,6 +34,8 @@ update-dags = """
 	snakemake --rulegraph -F | sed -n "/digraph/,/}/p" | dot -Tpng -o doc/img/workflow.png
 """
 
+generate-config = "python -c 'from scripts.lib.validation.config import generate_config_defaults, generate_config_schema; generate_config_defaults(); generate_config_schema()'"
+
 [dependencies]
 # Add additional packages only to pypsa-at specific section
 # All other packages should be identical to pypsa-eur and pypsa-de
@@ -64,11 +66,11 @@ ipython = ">=9.7.0"
 jpype1 = ">=1.6.0"
 jupyter = ">=1.1.1"
 libgdal-netcdf = ">=3.10.3"
-linopy = ">=0.4.4"
+linopy = ">=0.6.1"
 lxml = ">=6.0.2"
 matplotlib = ">=3.10.7"
 memory_profiler = ">=0.61.0"
-netcdf4 = ">=1.7.2"
+netcdf4 = ">=1.7.2,!=1.7.4"
 networkx = ">=3.5"
 numpy = ">=1.26.4"
 openpyxl = ">=3.1.5"
@@ -79,6 +81,8 @@ pre-commit = ">=4.3.0"
 proj = ">=9.6.2"
 pylint = ">=4.0.2"
 pydeck = ">0.6"  # pypsa fails to import with pydeck <0.6, lower bound was only added from pypsa 1.0.6
+pydantic = ">=2"
+python-dotenv = ">=1.0"
 pypsa = ">=0.35.2"
 pyscipopt = ">=5.6.0"
 pytables = ">=3.10.2"
@@ -86,13 +90,13 @@ python = ">=3.10"
 pytz = ">=2025.2"
 pyxlsb = ">=1.0.10"
 rasterio = ">=1.4.3"
+rasterstats = ">=0.10.3"
 rioxarray = ">=0.20.0"
 ruff = ">=0.14.3"
 scipy = ">=1.16.3"
 seaborn = ">=0.13.2"
 shapely = ">=2.0"
 snakemake-executor-plugin-cluster-generic = ">=1.0.9"
-snakemake-executor-plugin-slurm = ">=1.9.2"
 snakemake-minimal = ">=9"
 snakemake-storage-plugin-http = ">=0.3"
 tenacity = ">=9.1.2"
@@ -101,9 +105,12 @@ tsam = ">=2.3.1"
 xarray = ">=2024.3.0,<2025.7.0"
 xlrd = ">=2.0.2"
 yaml = ">=0.2.5"
-snakemake-storage-plugin-cached-http = ">=0.1.0"
+snakemake-storage-plugin-cached-http = ">=0.2.1"
 frozendict = ">=2.4.7"
 marimo = ">=0.20.2"
+
+[target.unix.dependencies]
+snakemake-executor-plugin-slurm = ">=1.9.2"
 
 [feature.doc.tasks.build-docs]
 cmd = "mkdocs build -d public/html"
@@ -150,3 +157,4 @@ test = ["test"]
 
 [pypi-dependencies]
 mkdocs-badges = ">=0.5.2"
+snakemake-logger-plugin-pypsa = ">=0.1.0"
