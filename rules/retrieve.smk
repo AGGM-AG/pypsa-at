@@ -1254,10 +1254,7 @@ def get_osm_archive_files(version):
         # Guard against non-numeric version strings (e.g. "v0.1-at")
         *(
             ["map.html"]
-            if (
-                version.replace(".", "", 1).isnumeric()
-                and float(version) >= 0.6
-            )
+            if (version.replace(".", "", 1).isnumeric() and float(version) >= 0.6)
             else []
         ),
     ]
