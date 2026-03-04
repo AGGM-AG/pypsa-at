@@ -95,7 +95,7 @@ industry:
 data:
   osm:
     source: archive
-    version: v0.1-at
+    version: 0.1-at
 
 solving:
   # The default CO2 budget uses the KSG targets, and the non CO2 emissions from the REMIND model in the KN2045_Mix scenario
