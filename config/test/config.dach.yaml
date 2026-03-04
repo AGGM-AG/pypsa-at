@@ -45,7 +45,7 @@ renewable:
 
 clustering:
   mode: busmap
-  focus_weights: []
+  focus_weights: false
   temporal:
     resolution_sector: 3H
 

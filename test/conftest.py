@@ -3,18 +3,14 @@
 # SPDX-License-Identifier: MIT
 
 import pathlib
-import re
 import zipfile
 from functools import reduce
-from shutil import unpack_archive
 from urllib.request import urlretrieve
-from uuid import uuid4
 
 import geopandas as gpd
 import pandas as pd
 import pypsa
 import pytest
-import requests
 import yaml
 
 from evals.fileio import read_networks
@@ -140,36 +136,19 @@ def download_natural_earth(tmpdir):
     pathlib.Path(natural_earth_shape_file_path).unlink(missing_ok=True)
 
 
-@pytest.fixture(scope="function")
-def download_eez(tmpdir):
-    name = str(uuid4())[:8]
-    org = str(uuid4())[:8]
-    zipped_filename = "World_EEZ_v12_20231025_LR.zip"
-    url = "https://www.marineregions.org/download_file.php"
-    session = requests.Session()
-    get_response = session.get(url, params={"name": zipped_filename})
-    honeypot = re.search(r'<input name="(firstname-[^"]+)"', get_response.text)
-    data = {
-        "name": name,
-        "organisation": org,
-        "email": f"{name}@{org}.org",
-        "country": "Germany",
-        "user_category": "academia",
-        "purpose_category": "Research",
-        "agree": "1",
-    }
-    if honeypot:
-        data[honeypot.group(1)] = ""
-    response = session.post(url, params={"name": zipped_filename}, data=data)
-    zipped_filename_path = pathlib.Path(tmpdir, zipped_filename)
-    with open(zipped_filename_path, "wb") as f:
-        f.write(response.content)
-    unpack_archive(zipped_filename_path, tmpdir)
-    output_path = pathlib.Path(
-        tmpdir, "World_EEZ_v12_20231025_LR", "eez_v12_lowres.gpkg"
-    )
-    yield output_path
-    pathlib.Path(output_path).unlink(missing_ok=True)
+# Disable because of unreliable data download
+# @pytest.fixture(scope="function")
+# def download_eez(tmpdir):
+#     url = "https://data.pypsa.org/workflows/eur/eez/v12_20231025/World_EEZ_v12_20231025_LR.zip"
+#     zipped_filename = "World_EEZ_v12_20231025_LR.zip"
+#     zipped_filename_path = pathlib.Path(tmpdir, zipped_filename)
+#     urlretrieve(url, zipped_filename_path)
+#     unpack_archive(zipped_filename_path, tmpdir)
+#     output_path = pathlib.Path(
+#         tmpdir, "World_EEZ_v12_20231025_LR", "eez_v12_lowres.gpkg"
+#     )
+#     yield output_path
+#     pathlib.Path(output_path).unlink(missing_ok=True)
 
 
 @pytest.fixture(scope="function")
@@ -188,15 +167,16 @@ def italy_shape(download_natural_earth, tmpdir):
     yield italy_shape_file_path
 
 
+# ── PyPSA-AT specific fixtures ────────────────────────────────────────────────
+
+
 @pytest.fixture(scope="session")
 def result_path(pytestconfig) -> pathlib.Path:
     """
     Retrieve the results path from CLI.
 
-    Note, that we cannot directly access
-    the run_path (project root), because we want to run the tests on
-    copied results folder as well. The run_path does not exist anymore
-    after copying the results.
+    Note, that we cannot directly access the run_path (project root), because
+    we want to run the tests on copied results folders as well.
     """
     default_path = pytestconfig.rootpath / "tests" / "data"
     result_path = pytestconfig.getoption("result_path")

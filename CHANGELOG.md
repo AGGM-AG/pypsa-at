@@ -1,0 +1,56 @@
+# Changelog
+- Switched to weather year 2013
+- in 2030 use UBA data for industry and mobility
+- start myopic optimization in 2025
+- remove national CO2 sequestration limit for DE, because it was causing strange E-Fuel exports
+- enable H2 gas turbines in all countries
+- force H2 retrofit (for DE) only in 2045, instead of in 2035
+- split existing solar 50:50 between rooftop and utility (previously 0:100)
+- increase decentral discount rates to account for mix of residential and commercial sector
+- use ISE cost data for solar (DC costs instead of AC)
+- Minor fix for cluster weights
+- added 2 delay years to the offshore NEP, s.t. capacity in 2030 is ~20GW
+- improved script name `modify_industry_demand` -> `modify_industry_production`
+- excluded international shipping from DE-specific CO2 emisisons
+- improved land transport shares, and some RES constraints
+- disabled ptes before 2035
+- add function to limit cross border electricity flows, to comply with the 0.7 security margin and the 0.7 EU trade capacity goals
+- Added an option to source industry energy demand from UBA MWMS (Projektionsbericht 2025) for the years 2025-2035
+- renamed some scripts
+- Upstream: PyPSA-Eur adopted a new functionality for overwriting costs. PyPSA-DE follows this convention now. As a consequence, the `costs:horizon:optimist/mean/pessimist` is no longer available. `Mean` will be provided exclusively from now on. Also, the costs assumptions for onwind turbines changed sligthly. Furthermore, "costs:NEP_year:2021/2023" is no longer available, instead one of the  custom_cost files for these NEP years provided in the `data/pypsa-de` folder has to be specified.
+- The `ariadne-data` folder has been moved and renamed to `data/pypsa-de` to conform with the syntax of `scripts/pypsa-de`
+- Bugfix: Enforce stricter power import limit to avoid that import from one country compensate from exports to another
+- Added the IIASA database to the repository and disabled re-downloading it by default.
+- Simplified IIASA database download, rename `iiasa_database` config section to `pypsa-de`
+- Updated technology-data to v0.13.4
+- Bugfix: Enforce stricter H2 derivative import limit to avoid that exports of one type of derivative compensate for imports of another
+- Added an option to source mobility demand from UBA MWMS (Projektionsbericht 2025) for the years 2025-2035
+- Renamed functions and script for exogenous mobility demand
+- Improved the transport demand data, added an option to source 2020 and 2025 data from AGEB instead of Aladin
+- Added a helper function to change the weather_year to build_scenario
+- Longer lifetime (40 years) is only applied to existing gas CHPs, not new ones. Added a new config entry `existing_capacities:fill_value_gas_chp_lifetime`
+- Bugfix: gas CHPs are extendable again
+- Simplified scenarion definition and made `Mix` the default scenario
+- 0.3: workflow is all public now, no longer requires credentials to internal data
+- Allowing myopic optimization until 2050
+- CHP plants located in onshore regions without district heating are represented as EOP plants
+- updating technology cost data to v0.11.0
+- add option for Offhsore NEP to delay projects by x years (CurPol and KN2045minus_WorstCase are delayed by one year)
+- Force onwind south by increasing minimum capacity and decreasing capacity per sqkm
+- Adjusting aviation demand (from Aladin) and emission accounting (only domestic aviation for national target)
+- Increase HVC_environment_sequestration_fraction from 0.1 to 0.6
+- Disallow HVC to air in DE
+- Restricting the maximum capacity of CurrentPolicies and minus scenarios to the 'uba Projektionsbericht'
+- Restricting Fischer Tropsch capacity addition with config[solving][limit_DE_FT_cap]
+- Except for Current Policies force a minimum of 5 GW of electrolysis capacity in Germany
+- limit the import/export limit to/from Germany
+- adjusting capacity factor of solar to match historic data
+- Rely on DEA investment costs for electrolysis
+- updated the Kernnetz to use latest data and operate it more flexible
+- added Italy with 3 additional nodes
+- adapted spatial distribution of district heating demand in Germany according to data from eGo^N project
+- add retrofit of gas turbines to H2, and H2 turbines
+- unravel gas bus and turn off gas network
+- fix the hydrogen import boundary condition
+- add primary oil bus and account for refinery emissions
+- added Changelog file

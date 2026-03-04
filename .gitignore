@@ -32,6 +32,7 @@ gurobi.log
 /tmp
 public  # mkdocs build
 doc/_build
+_build
 
 /scripts/old
 /scripts/create_scenarios.py
@@ -65,6 +66,8 @@ d1gam3xoknrgr2.cloudfront.net/
 *.nc
 
 *~
+
+*.egg-info
 
 *.pyc
 

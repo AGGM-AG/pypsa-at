@@ -150,7 +150,8 @@ def run_eval(
     # Use deepcopy to avoid mutating the network's meta dict in place (pop below
     # would otherwise remove "resources" from the live network object, breaking
     # downstream views that access networks[year].meta["resources"] directly).
-    merged_meta = copy.deepcopy(networks["2020"].meta)
+    _first_year = next(iter(networks))
+    merged_meta = copy.deepcopy(networks[_first_year].meta)
     merged_meta["wildcards"]["planning_horizons"] = list(networks)
     # additional resources are not used in the dashboard and bloat the runs.json file
     merged_meta.pop("resources", None)

@@ -51,21 +51,25 @@ def add_build_year_to_new_assets(n: pypsa.Network, baseyear: int) -> None:
         Year in which optimized assets are built
     """
     # Give assets with lifetimes and no build year the build year baseyear
-    for c in n.iterate_components(["Link", "Generator", "Store"]):
-        assets = c.df.index[(c.df.lifetime != np.inf) & (c.df.build_year == 0)]
-        c.df.loc[assets, "build_year"] = baseyear
+    for c in n.components[["Link", "Generator", "Store"]]:
+        if c.static.empty:
+            continue
+        assets = c.static.index[
+            (c.static.lifetime != np.inf) & (c.static.build_year == 0)
+        ]
+        c.static.loc[assets, "build_year"] = baseyear
 
         # add -baseyear to name
-        rename = pd.Series(c.df.index, c.df.index)
+        rename = pd.Series(c.static.index, c.static.index)
         rename[assets] += f"-{str(baseyear)}"
-        c.df.rename(index=rename, inplace=True)
+        c.static.rename(index=rename, inplace=True)
 
         # rename time-dependent
         selection = n.component_attrs[c.name].type.str.contains(
             "series"
         ) & n.component_attrs[c.name].status.str.contains("Input")
         for attr in n.component_attrs[c.name].index[selection]:
-            c.pnl[attr] = c.pnl[attr].rename(columns=rename)
+            c.dynamic[attr] = c.dynamic[attr].rename(columns=rename)
 
 
 def add_existing_renewables(
@@ -163,6 +167,7 @@ def add_power_capacities_installed_before_baseyear(
     lifetime_gas_chp: int,
     renewable_carriers: list[str],
     options: dict,
+    solar_rooftop_ratio: float = 0.5,
 ) -> None:
     """
     Add power generation capacities installed before base year.
@@ -192,6 +197,8 @@ def add_power_capacities_installed_before_baseyear(
     renewable_carriers: list[str]
         List of renewable carriers in the network
     options: dict,
+    solar_rooftop_ratio: float
+        Ratio of solar capacity to assign to rooftop vs utility-scale (between 0 and 1)
     """
     logger.debug(f"Adding power capacities installed before {baseyear}")
 
@@ -231,6 +238,8 @@ def add_power_capacities_installed_before_baseyear(
         "Waste",
         "Other",
         "CCGT, Thermal",
+        "Battery",
+        "Heat Storage",
     ]
 
     technology_to_drop = ["Pv", "Storage Technologies"]
@@ -240,17 +249,21 @@ def add_power_capacities_installed_before_baseyear(
     df_agg = df_agg[~df_agg["Technology"].isin(technology_to_drop)]
     df_agg["Fueltype"] = df_agg["Fueltype"].map(rename_fuel)
 
-    # Intermediate fix for DateIn & DateOut
     # Fill missing DateIn
-    biomass_i = df_agg.loc[df_agg.Fueltype == "solid biomass"].index
-    mean = df_agg.loc[biomass_i, "DateIn"].mean()
-    df_agg.loc[biomass_i, "DateIn"] = df_agg.loc[biomass_i, "DateIn"].fillna(int(mean))
-    # Fill missing DateOut
-    dateout = df_agg.loc[biomass_i, "DateIn"] + lifetime_values["lifetime"]
-    df_agg.loc[biomass_i, "DateOut"] = df_agg.loc[biomass_i, "DateOut"].fillna(dateout)
+    df_agg["DateIn"] = df_agg.groupby("Fueltype")["DateIn"].transform(
+        lambda x: x.fillna(x.mean() // 1)
+    )
+    df_agg.dropna(subset="DateIn", inplace=True)
+
+    # Estimate missing DateOut
+    df_agg["DateOut"] = df_agg.DateOut.combine_first(
+        df_agg.DateIn + df_agg.Fueltype.map(costs.lifetime).fillna(30)
+    )
 
     # split biogas and solid biomass
-    biogas_i = biomass_i.intersection(df_agg.loc[df_agg.Capacity < 2].index)
+    biogas_i = df_agg.loc[
+        (df_agg.Fueltype == "solid biomass") & (df_agg.Capacity < 2)
+    ].index
     df_agg.loc[biogas_i, "Fueltype"] = "biogas"
 
     # include renewables in df_agg
@@ -291,9 +304,13 @@ def add_power_capacities_installed_before_baseyear(
         to_drop = df_agg[df_agg.DateIn > max(grouping_years)].index
         df_agg.drop(to_drop, inplace=True)
 
-    df_agg["grouping_year"] = np.take(
-        grouping_years, np.digitize(df_agg.DateIn, grouping_years, right=True)
-    )
+    df_agg["grouping_year"] = pd.cut(
+        df_agg.DateIn,
+        bins=grouping_years,
+        labels=grouping_years[1:],
+        right=True,
+        include_lowest=True,
+    ).astype(int)
 
     # calculate (adjusted) remaining lifetime before phase-out (+1 because assuming
     # phase out date at the end of the year)
@@ -305,6 +322,24 @@ def add_power_capacities_installed_before_baseyear(
         values="Capacity",
         aggfunc="sum",
     )
+
+    if solar_rooftop_ratio != 0:
+        mask = df.index.get_level_values("Fueltype") == "solar"
+        solar = df.loc[mask] * (1 - solar_rooftop_ratio)
+        solar_rooftop = df.loc[mask] * solar_rooftop_ratio
+        rest = df.loc[~mask]
+
+        # Rename column of MultiIndex to add "solar rooftop" as Fueltype
+        pos = solar_rooftop.index.names.index("Fueltype")
+        arrays = [
+            solar_rooftop.index.get_level_values(n) for n in solar_rooftop.index.names
+        ]
+        arrays[pos] = ["solar rooftop"] * len(solar_rooftop)
+        solar_rooftop.index = pd.MultiIndex.from_arrays(
+            arrays, names=solar_rooftop.index.names
+        )
+
+        df = pd.concat([rest, solar, solar_rooftop]).sort_index()
 
     lifetime = df_agg.pivot_table(
         index=["grouping_year", "Fueltype", "resource_class"],
@@ -324,6 +359,20 @@ def add_power_capacities_installed_before_baseyear(
         "biogas": "biogas",
     }
 
+    cost_key_dict = {
+        "solar": "solar",
+        "solar rooftop": "solar-rooftop",
+        "onwind": "onwind",
+        "offwind-ac": "offwind",
+    }
+
+    cost_key_dict = {
+        "solar": "solar",
+        "solar rooftop": "solar-rooftop",
+        "onwind": "onwind",
+        "offwind-ac": "offwind",
+    }
+
     for grouping_year, generator, resource_class in df.index:
         # capacity is the capacity in MW at each node for this
         capacity = df.loc[grouping_year, generator, resource_class]
@@ -332,10 +381,10 @@ def add_power_capacities_installed_before_baseyear(
         suffix = "-ac" if generator == "offwind" else ""
         name_suffix = f" {generator}{suffix}-{grouping_year}"
         asset_i = capacity.index + name_suffix
-        if generator in ["solar", "onwind", "offwind-ac"]:
+        if generator in ["solar", "solar rooftop", "onwind", "offwind-ac"]:
             asset_i = capacity.index + " " + resource_class + name_suffix
             name_suffix = " " + resource_class + name_suffix
-            cost_key = generator.split("-")[0]
+            cost_key = cost_key_dict[generator]
             # to consider electricity grid connection costs or a split between
             # solar utility and rooftop as well, rather take cost assumptions
             # from existing network than from the cost database
@@ -367,14 +416,14 @@ def add_power_capacities_installed_before_baseyear(
                     "Generator",
                     new_capacity.index,
                     suffix=name_suffix,
-                    bus=new_capacity.index,
+                    bus=n.generators.bus[p_max_pu.columns].values,
                     carrier=generator,
                     p_nom=new_capacity,
                     marginal_cost=marginal_cost,
                     capital_cost=capital_cost,
                     overnight_cost=overnight_cost,
                     efficiency=costs.at[cost_key, "efficiency"],
-                    p_max_pu=p_max_pu.rename(columns=n.generators.bus),
+                    p_max_pu=p_max_pu.values,
                     build_year=grouping_year,
                     lifetime=costs.at[cost_key, "lifetime"],
                 )
@@ -541,6 +590,20 @@ def add_chp_plants(
     # calculate remaining lifetime before phase-out (+1 because assuming
     # phase out date at the end of the year)
     chp.Fueltype = chp.Fueltype.map(rename_fuel)
+
+    # Fill missing DateIn, drop the remaining missing values afterwards
+    chp["DateIn"] = chp.groupby("Fueltype")["DateIn"].transform(
+        lambda x: x.fillna(x.mean() // 1)
+    )
+    missing_datein = chp.index[chp["DateIn"].isna()]
+    if not missing_datein.empty:
+        logger.info(f"Dropping {len(missing_datein)} CHP plants with missing DateIn.")
+        if len(missing_datein) <= 20:  # log individual plants if not too many
+            logger.info(
+                f"CHPs dropped due to missing DateIn: {missing_datein.to_list()}"
+            )
+
+    chp.dropna(subset="DateIn", inplace=True)
 
     chp["grouping_year"] = np.take(
         grouping_years, np.digitize(chp.DateIn, grouping_years, right=True)
@@ -1192,6 +1255,7 @@ if __name__ == "__main__":
         ],
         renewable_carriers=renewable_carriers,
         options=options,
+        solar_rooftop_ratio=snakemake.params.existing_capacities["solar_rooftop_ratio"],
     )
 
     if options["heating"]:

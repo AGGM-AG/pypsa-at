@@ -103,6 +103,7 @@ cutoff = 0.1  # GW
 legend_order = [
     "Nuclear Power",
     "CHP",
+    "Biogas",
     "Thermal Powerplant",
     "Run-of-River",
     "Wind Power",
@@ -133,7 +134,7 @@ database_specifier = "production"
 "H2 turbine" = "Thermal Powerplant"  # "PP (Hydrogen)"
 #"PHS" = "Pumped Hydro Storage"
 "allam gas" = "Thermal Powerplant"  # "PP (Methane)"
-#"biogas" = "Biogas"
+"biogas" = "Biogas"
 "coal" = "Thermal Powerplant"
 #"hydro" = "Reservoir"
 "lignite" = "Thermal Powerplant"
@@ -745,6 +746,7 @@ legend_order = [
     "Electrolysis",
     "Hydrogen Compressors",
     "Methane Compressors",
+    "Biogas",
     "Methanolisation",
     "Agriculture",
     "Direct Air Capture",
@@ -808,6 +810,7 @@ database_specifier = ""
 "urban central CHP" = "Methane"
 "urban central gas CHP" = "Methane"
 "gas pipeline" = "Methane Compressors"
+"biogas" = "Biogas"
 "CCGT methanol" = "Methanol"
 "CCGT methanol CC" = "Methanol"
 "OCGT methanol" = "Methanol"
@@ -1173,6 +1176,7 @@ legend_order = [
     "Storage In",
     "Methane Compressors",
     "Hydrogen Compressors",
+    "Biogas",
     "Transmission Losses",
     "Methanolisation",
     "Direct Air Capture",
@@ -1223,6 +1227,7 @@ database_specifier = ""
 #"battery charger" = "Storage In"
 #"battery discharger" = "Storage Out"
 "coal" = "Thermal Powerplant"
+"biogas" = "Biogas"
 "electricity" = "Base Load"
 "electricity distribution grid" = "Transmission Losses"
 "gas pipeline" = "Methane Compressors"
