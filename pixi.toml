@@ -108,6 +108,7 @@ yaml = ">=0.2.5"
 snakemake-storage-plugin-cached-http = ">=0.2.1"
 frozendict = ">=2.4.7"
 marimo = ">=0.20.2"
+natsort = ">=8.4.0"
 
 [target.unix.dependencies]
 snakemake-executor-plugin-slurm = ">=1.9.2"
@@ -150,7 +151,6 @@ all-tests = {depends-on = ["integration-tests", "clean-tests", "unit-tests"]}
 [feature.test.dependencies]
 pytest = ">=8.4.2"
 pytest-html = ">=4.2.0"
-natsort = ">=8.4.0"
 
 [environments]
 doc = { features = ["doc"], no-default-feature = true }
