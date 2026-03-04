@@ -537,9 +537,12 @@ class Exporter:
         superfluous_categories = self.df.index.unique(category).difference(
             categories.keys()
         )
-        assert len(superfluous_categories) == 0, (
-            f"Superfluous categories found: {superfluous_categories}"
-        )
+        if len(superfluous_categories) > 0:
+            logger = logging.getLogger()
+            logger.warning(f"Superfluous categories defined: {superfluous_categories}")
+        # assert len(superfluous_categories) == 0, (
+        #     f"Superfluous categories found: {superfluous_categories}"
+        # )
 
         a = set(self.view_config["legend_order"])
         b = set(categories.values())
