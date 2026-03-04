@@ -150,6 +150,7 @@ all-tests = {depends-on = ["integration-tests", "clean-tests", "unit-tests"]}
 [feature.test.dependencies]
 pytest = ">=8.4.2"
 pytest-html = ">=4.2.0"
+natsort = ">=8.4.0"
 
 [environments]
 doc = { features = ["doc"], no-default-feature = true }
