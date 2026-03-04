@@ -103,6 +103,7 @@ cutoff = 0.1  # GW
 legend_order = [
     "Nuclear Power",
     "CHP",
+    "Biogas",
     "Thermal Powerplant",
     "Run-of-River",
     "Wind Power",
@@ -173,7 +174,6 @@ legend_order = [
     "Electrolysis",
     "Resistive Heater",
     "Air Heat Pump",
-    "Biogas",
     "Ground Heat Pump",
     "Haber-Bosch",
     "Methanolisation",
