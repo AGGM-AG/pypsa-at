@@ -26,7 +26,7 @@ costs,v0.14.0-2020,primary,latest supported,2026-02-25,Part of the `technologyda
 costs,v0.14.0,primary,not-supported,2026-02-13,Part of the `technologydata` repository and versioned on GitHub.,https://raw.githubusercontent.com/PyPSA/technology-data/refs/tags/v0.14.0/outputs
 costs,v0.14.0,archive,not-supported,2026-02-13,Part of the `technologydata` repository and versioned on GitHub.,https://data.pypsa.org/workflows/eur/costs/v0.14.0
 costs,v0.13.4,primary,supported,2025-12-02,Part of the `technologydata` repository and versioned on GitHub.,https://raw.githubusercontent.com/PyPSA/technology-data/refs/tags/v0.13.4/outputs
-costs,v0.13.4,archive,latest supported,2026-01-21,Part of the `technologydata` repository and versioned on GitHub.,https://data.pypsa.org/workflows/eur/costs/v0.13.4
+costs,v0.13.4,archive,supported,2026-01-21,Part of the `technologydata` repository and versioned on GitHub.,https://data.pypsa.org/workflows/eur/costs/v0.13.4
 costs,v0.13.3,primary,supported,2025-12-02,Part of the `technologydata` repository and versioned on GitHub.,https://raw.githubusercontent.com/PyPSA/technology-data/refs/tags/v0.13.3/outputs
 costs,v0.13.3,archive,supported,2026-01-20,Part of the `technologydata` repository and versioned on GitHub.,https://data.pypsa.org/workflows/eur/costs/v0.13.3
 costs,v0.13.2,primary,supported,2025-12-02,Part of the `technologydata` repository and versioned on GitHub.,https://raw.githubusercontent.com/PyPSA/technology-data/refs/tags/v0.13.2/outputs
@@ -133,9 +133,9 @@ osm,0.3,primary,supported,2026-01-13,,https://zenodo.org/records/13358976/files
 osm,0.3,archive,supported,2026-01-13,,https://data.pypsa.org/workflows/eur/osm/0.3
 osm,0.2,primary,supported,2026-01-13,,https://zenodo.org/records/13342577/files
 osm,0.2,archive,supported,2026-01-13,,https://data.pypsa.org/workflows/eur/osm/0.2
+osm,0.1-at,archive,supported,2026-02-27,Custom AT OSM dataset with sub 110kV levels included (feat/activate-110kV-level),https://zenodo.org/records/18797490/files
 osm,0.1,primary,supported,2026-01-13,,https://zenodo.org/records/12799202/files
 osm,0.1,archive,supported,2026-01-13,,https://data.pypsa.org/workflows/eur/osm/0.1
-osm,v0.1-at,archive,supported,2026-02-27,Custom AT OSM dataset with sub 110kV levels included (feat/activate-110kV-level),https://zenodo.org/records/18797490/files
 osm_boundaries,unknown,primary,latest supported,2025-12-02,Overpass API is used to fetch the latest available data,
 osm_boundaries,unknown,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/osm_boundaries/unknown/osm_boundaries.zip
 population_count,2018-11-01,primary,latest supported,2025-12-02,,https://data.worldpop.org/GIS/Population/Global_2000_2020/2019/0_Mosaicked/ppp_2019_1km_Aggregated.tif
