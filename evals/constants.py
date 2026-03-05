@@ -613,7 +613,7 @@ ALIAS_REGION_AT35_CLUSTERING = {
     "AT341": "Bludenz-Bregenzer Wald",
     "AT342": "Rheintal-Bodenseegebiet",
 }
-ALIAS_REGION_DE19_CLUSTERING = {  # NUTS1
+ALIAS_REGION_DE16_CLUSTERING = {  # NUTS1
     "DE1": "Baden-Württemberg",
     "DE2": "Bavaria",
     "DE3": "Berlin",
@@ -647,7 +647,7 @@ ALIAS_LOCATION_REV = frozendict(
             ALIAS_COUNTRY,
             ALIAS_REGION,
             ALIAS_REGION_DE5_CLUSTERING,
-            ALIAS_REGION_DE19_CLUSTERING,
+            ALIAS_REGION_DE16_CLUSTERING,
             ALIAS_REGION_AT10_CLUSTERING,
             ALIAS_REGION_AT35_CLUSTERING,
         )

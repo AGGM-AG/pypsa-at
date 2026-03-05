@@ -20,7 +20,7 @@ from evals.constants import (
     ALIAS_REGION_AT10_CLUSTERING,
     ALIAS_REGION_AT35_CLUSTERING,
     ALIAS_REGION_DE5_CLUSTERING,
-    ALIAS_REGION_DE19_CLUSTERING,
+    ALIAS_REGION_DE16_CLUSTERING,
     UNITS,
     BusCarrier,
     DataModel,
@@ -1145,7 +1145,7 @@ def get_location_alias(locations: pd.Index) -> dict:
 
     Constructs a mapping dictionary from location codes to human-readable
     names based on the detected clustering configuration. Automatically
-    detects DE5/DE19 and AT10/AT35 clustering levels by counting the
+    detects DE5/16 and AT10/35 clustering levels by counting the
     number of regional locations in the index.
 
     Parameters
@@ -1163,13 +1163,13 @@ def get_location_alias(locations: pd.Index) -> dict:
     ------
     ValueError
         If the number of DE or AT regions doesn't match expected
-        clustering configurations (DE5/DE19 or AT10/AT35).
+        clustering configurations (DE5/16 or AT10/35).
     """
     de_regions = [loc for loc in locations if loc.startswith("DE")]
     if len(de_regions) == 6:  # DE5 clustering + Germany
         alias = ALIAS_COUNTRY | ALIAS_REGION | ALIAS_REGION_DE5_CLUSTERING
-    elif len(de_regions) == 20:  # DE19 clustering + Germany
-        alias = ALIAS_COUNTRY | ALIAS_REGION | ALIAS_REGION_DE19_CLUSTERING
+    elif len(de_regions) == 17:  # 16 Bundesländer + Germany
+        alias = ALIAS_COUNTRY | ALIAS_REGION | ALIAS_REGION_DE16_CLUSTERING
     else:
         logger.warning(f"Unexpected number of locations for DE: {len(de_regions)}.")
         alias = ALIAS_COUNTRY

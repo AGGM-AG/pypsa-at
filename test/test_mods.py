@@ -16,14 +16,14 @@ def is_testrun(networks):
 
 
 @pytest.mark.integration
-@pytest.mark.xfail(
-    reason="Testrun has different countries and is expected to fail this test.",
-    condition=is_testrun,
-)
-def test_custom_clustering(networks):
+def test_custom_clustering(networks, is_testrun):
     """
     Make sure the custom clustering yields the expected regions.
     """
+    if is_testrun:
+        pytest.xfail(
+            "Testrun has different countries and is expected to fail this test."
+        )
     clusterings = set()
     for n in networks.values():
         # check for unexpected configurations
@@ -38,18 +38,18 @@ def test_custom_clustering(networks):
             assert len(locations) == 54
             assert len(locations_at) == 10
             assert len(locations_de) == 5
-        elif clustering == "AT10DE19":
+        elif clustering == "AT10DE16":
             assert len(locations) == 68
             assert len(locations_at) == 10
-            assert len(locations_de) == 19
+            assert len(locations_de) == 16
         elif clustering == "AT35DE5":
             assert len(locations) == 79
             assert len(locations_at) == 35
             assert len(locations_de) == 5
-        elif clustering == "AT35DE19":
+        elif clustering == "AT35DE16":
             assert len(locations) == 93
             assert len(locations_at) == 35
-            assert len(locations_de) == 19
+            assert len(locations_de) == 16
         else:
             raise AssertionError(f"Unexpected clustering detected: {clustering}")
 

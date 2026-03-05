@@ -89,19 +89,19 @@ if __name__ == "__main__":
     if custom_clustering == "AT10DE5":
         nuts_at = 2
         nuts_de = 3
-    elif custom_clustering == "AT10DE19":
+    elif custom_clustering == "AT10DE16":
         nuts_at = 2
         nuts_de = 1
     elif custom_clustering == "AT35DE5":
         nuts_at = 3
         nuts_de = 3
-    elif custom_clustering == "AT35DE19":
+    elif custom_clustering == "AT35DE16":
         nuts_at = 3
         nuts_de = 1
     else:
         raise ValueError(
             f"Unexpected clustering detected: {custom_clustering}. "
-            f"Chose one from {('AT10DE5', 'AT10DE19', 'AT35DE5', 'AT35DE19')}."
+            f"Chose one from {('AT10DE5', 'AT10DE16', 'AT35DE5', 'AT35DE16')}."
         )
 
     logger.info("Applying custom administrative clustering.")

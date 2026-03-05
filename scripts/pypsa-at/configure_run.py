@@ -30,7 +30,7 @@ def configure(
 
     Parameters
     ----------
-    clustering : {'AT10DE5', 'AT35DE5', 'AT10DE19', 'AT35DE19'}
+    clustering : {'AT10DE5', 'AT35DE5', 'AT10DE16', 'AT35DE16'}
         The name of the administrative custom clustering.
     resolution
         The temporal resolution in hours to set as the `sectoral_resolution`.
@@ -48,8 +48,8 @@ def configure(
 
     Notes
     -----
-    This function is expected to run using pipelines and the dumped configuration
-    yaml is not expected to be checked in to VCS.
+    This function is expected to run using pipelines and the dumped
+    configuration yaml is not expected to be checked in to VCS.
     """
     # validate inputs
     accepted_solver = ("highs", "gurobi")
@@ -58,7 +58,7 @@ def configure(
             f"'{solver}' is not a valid solver. Chose from {accepted_solver}."
         )
 
-    available_clustering = ("AT10DE5", "AT35DE5", "AT10DE19", "AT35DE19")
+    available_clustering = ("AT10DE5", "AT35DE5", "AT10DE16", "AT35DE16")
     if clustering not in available_clustering:
         raise click.BadParameter(
             f"'{clustering}' is not valid. Chose from {available_clustering}"
@@ -99,7 +99,7 @@ def configure(
     config["mods"]["modify_nuts3_shapes"] = clustering
 
     nuts_at = 2 if "AT10" in clustering else 3  # NUTS3
-    nuts_de = 1 if "DE19" in clustering else 3  # DE5
+    nuts_de = 1 if "DE16" in clustering else 3  # DE5
     logger.info(
         f"Setting administrative clustering in AT to "
         f"NUTS level {nuts_at} (={10 if nuts_at == 2 else 35} Regions)"
@@ -107,7 +107,7 @@ def configure(
     config["clustering"]["administrative"]["AT"] = nuts_at
     logger.info(
         f"Setting administrative clustering in DE to "
-        f"NUTS level {nuts_de} (={19 if nuts_de == 1 else 5} Regions)"
+        f"NUTS level {nuts_de} (={16 if nuts_de == 1 else 5} Regions)"
     )
     config["clustering"]["administrative"]["DE"] = nuts_de
 
