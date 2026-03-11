@@ -1,0 +1,104 @@
+# SPDX-FileCopyrightText: Contributors to PyPSA-AT
+#
+# SPDX-License-Identifier: CC0-1.0
+#
+# .claudeignore — tells Claude which files/directories to skip.
+# Focus: large binaries, generated outputs, dependencies, data dumps.
+# Reasoning: these are either unreadable (binary), huge (GB-scale), or
+# auto-generated and not relevant for understanding the codebase.
+
+# ── Large data directories ────────────────────────────────────────────────────
+# data/ is ~23 GB — mostly raw CSVs, shapefiles, and downloaded datasets.
+# Claude should not index this; refer to scripts/rules to understand data flow.
+data/
+resources/
+results/
+networks/
+cutouts/
+
+# ── Snakemake runtime artifacts ───────────────────────────────────────────────
+.snakemake/
+logs/
+benchmarks/
+tmp/
+
+# ── Python cache & build artifacts ───────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# ── Pixi / conda environment ──────────────────────────────────────────────────
+# Hundreds of MB of installed packages — not useful to read.
+.pixi/envs/
+.pixi/cache/
+# Keep .pixi/config.toml (small, useful)
+
+# ── Conda environment specs ───────────────────────────────────────────────────
+# Dependencies are managed via pixi.toml — envs/ contains conda YAMLs
+# that are auto-generated / mirrored from upstream and not the source of truth.
+envs/
+
+# ── Binary / non-text file types ─────────────────────────────────────────────
+# NetCDF (weather/energy time series, can be GB each)
+*.nc
+# Spreadsheets
+*.xlsx
+*.xls
+# GeoJSON / shapefiles (large vector geodata)
+*.geojson
+*.shp
+*.dbf
+*.shx
+# LP / MPS solver files
+*.lp
+*.mps
+# HDF5 (network solution files)
+*.h5
+*.hdf5
+# Images
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.pdf
+
+# ── Lock files ────────────────────────────────────────────────────────────────
+# pixi.lock can be very large and is auto-generated
+pixi.lock
+
+# ── Documentation build output ────────────────────────────────────────────────
+public/
+doc/_build/
+_build/
+docs-at/site/
+
+# ── Notebooks & checkpoints ───────────────────────────────────────────────────
+*.ipynb
+.ipynb_checkpoints/
+__marimo__/
+
+# ── Solver / optimizer logs ───────────────────────────────────────────────────
+gurobi.log
+*.log
+
+# ── Dask & temp working dirs ─────────────────────────────────────────────────
+dask-worker-space/
+
+# ── Dev / local / private ────────────────────────────────────────────────────
+dev/
+local/
+figures/
+bak/
+
+# ── External download caches (sometimes materialised in repo root) ────────────
+publications.jrc.ec.europa.eu/
+d1gam3xoknrgr2.cloudfront.net/
+cidportal.jrc.ec.europa.eu/
+zenodo.org/
+globalenergymonitor.org/
+fnb-gas.de/
+raw.githubusercontent.com/
