@@ -18,6 +18,7 @@ nav:
 - Function Reference:
   - Modifications:
     - reference/mods/index.md
+    - clustering.py: reference/mods/clustering.md
     - constraints.py: reference/mods/constraints.md
     - network_updates.py: reference/mods/network_updates.md
   - Evaluations:
@@ -50,7 +51,10 @@ nav:
 - Explanations:
   - explanations/index.md
   - National CO2 Balance: explanations/co2-balancing.md
-  - explanations/electricity-transmission.md
+  - Electricity Grid:
+    - explanations/electricity-grid/index.md
+    - NUTS3 Clustering and OSM Data: explanations/electricity-grid/nuts3-osm-data.md
+    - Transmission Limits: explanations/electricity-transmission.md
 
 theme:
   name: "material"
