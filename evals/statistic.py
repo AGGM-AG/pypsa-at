@@ -5,6 +5,7 @@
 """Collect statistics for evaluations."""  # noqa: A005
 
 import logging
+import warnings
 from functools import partial
 from inspect import getmembers
 from itertools import product
@@ -20,14 +21,12 @@ from pypsa.statistics import (
 )
 
 from evals.constants import (
-    UNITS,
     BusCarrier,
     Carrier,
     DataModel,
     Group,
     Regex,
 )
-from evals.fileio import read_csv_files, resource_getter
 from evals.utils import (
     add_grid_lines,
     align_edge_directions,
@@ -271,96 +270,6 @@ class ESMStatistics(StatisticsAccessor):
             "bus1", partial(get_location_from_name_at_port, location_port="1")
         )
 
-    def ac_load_split(self) -> pd.DataFrame:
-        """
-        Split energy amounts for electricity Loads.
-
-        The following AC loads can be distinguished:
-          - industry,
-          - rail, and
-          - households and services.
-
-        Industry and rail data are read from CSV files.
-        HH & services data is the remainder of total
-        electricity minus rail and industry parts.
-
-        Returns
-        -------
-        :
-            The data series with split AC loads.
-
-        Notes
-        -----
-        Currently broken: Energy demands only exist for historical years and
-        industry and rail demands probably are not substracted from the correct
-        series.
-        """
-        year = self._n.meta["wildcards"]["planning_horizons"]
-        clusters = self._n.meta["wildcards"]["clusters"]
-        run = self._n.meta["run"]
-        res = resource_getter(self._n)
-
-        indu = read_csv_files(
-            res,
-            glob=f"industrial_energy_demand_base_s_{clusters}_*.csv",
-            sub_directory=run["name"][0],
-        )
-        indu = indu.loc[year, "current electricity"] * UNITS["TW"]  # to MWH
-
-        rail = (
-            read_csv_files(
-                res,
-                glob="pop_weighted_energy_totals_s_adm.csv",
-                sub_directory=run["name"][0],
-            )["electricity rail"]
-            * UNITS["TW"]
-        )  # fixme: data for base year only
-
-        p = (
-            self.energy_balance(
-                comps="Load",
-                groupby=["location", "carrier", "bus_carrier"],
-                bus_carrier="low voltage",
-            )
-            .droplevel(DataModel.BUS_CARRIER)
-            .unstack()
-        )
-
-        # load p is negative, because it is demand (withdrawal), but csv
-        # data (industry, transport) has positive values only. Must
-        # reverse the sign for industry and rail demands.
-        homes_and_trade = "domestic homes and trade"
-        p["industry"] = indu.mul(-1)
-        p["electricity rail"] = rail.mul(-1)
-        p[homes_and_trade] = p["electricity"] + indu + rail
-
-        if any(p[homes_and_trade] > 0):
-            logger.warning(
-                msg=f"Positive values found for {homes_and_trade} "
-                f"demand. This happens if the combined electricity demand "
-                f"from Industry and Rail nodal energy files is larger than "
-                f"the electricity Loads in the network.\n"
-                f"{p[p[homes_and_trade] > 0][homes_and_trade]}\n\n"
-                f"All values larger than zero will be set to zero. "
-                f"(Note that this is different to the predecessor implementation "
-                f"where signs are flipped).\n"
-            )
-            # fixme: just a note. There is a bug in the old predecessor that
-            #  counts the aforementioned amounts as demand (although
-            #  the negative values should probably be clipped.)
-            p[homes_and_trade] = p[homes_and_trade].clip(upper=0)
-
-        # rename electricity base load to avoid mixing it up
-        p = p.rename({"electricity": "industry + hh & services load"}, axis=1)
-
-        df = insert_index_level(p.stack(), "low voltage", DataModel.BUS_CARRIER)
-        df = df.reorder_levels(DataModel.IDX_NAMES)
-
-        df.attrs["name"] = "Electricity split "
-        df.attrs["unit"] = "MWh"
-
-        return df
-
     def bev_v2g(self, drop_v2g_withdrawal: bool = True) -> DataFrame:
         """
         Calculate BEV and V2G energy amounts.
@@ -463,7 +372,15 @@ class ESMStatistics(StatisticsAccessor):
         -----
         Not needed if all PHS are implemeted as closed loops. The method is kept
         if open loop PHS is available.
+
+        .. deprecated::
+            ``phs_split`` is deprecated and will be removed in a future release.
         """
+        warnings.warn(
+            "phs_split is deprecated and will be removed in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         n = self._n
 
         idx = n.static("StorageUnit").index
@@ -531,7 +448,15 @@ class ESMStatistics(StatisticsAccessor):
         -------
         :
             Cumulated or constant time series for storage units.
+
+        .. deprecated::
+            ``phs_hydro_operation`` is deprecated and will be removed in a future release.
         """
+        warnings.warn(
+            "phs_hydro_operation is deprecated and will be removed in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         n = self._n
         ts_efficiency_name_agg = [
             ("p_dispatch", "efficiency_dispatch", Group.turbine_cum, "cumsum"),
@@ -766,7 +691,15 @@ class ESMStatistics(StatisticsAccessor):
         The "pypsa.statistics.transmission" statistic does not work here
         because it returns energy the amounts whereas this statistic returns
         the optimal capacity.
+
+        .. deprecated::
+            ``grid_capacity`` is deprecated and will be removed in a future release.
         """
+        warnings.warn(
+            "grid_capacity is deprecated and will be removed in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         n = self._n
         carrier = carrier or list(
             get_transmission_carriers(n, bus_carrier).unique("carrier")
@@ -823,7 +756,15 @@ class ESMStatistics(StatisticsAccessor):
         :
             The amount of energy transfer for transmission technologies
             between nodes.
+
+        .. deprecated::
+            ``grid_flow`` is deprecated and will be removed in a future release.
         """
+        warnings.warn(
+            "grid_flow is deprecated and will be removed in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         n = self._n
         carrier = carrier or get_transmission_carriers(n, bus_carrier).unique("carrier")
         comps = comps or n.branch_components

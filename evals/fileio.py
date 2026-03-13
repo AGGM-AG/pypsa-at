@@ -31,10 +31,8 @@ from evals.constants import (
 from evals.excel import export_excel_countries, export_excel_regions_at
 from evals.utils import (
     combine_statistics,
-    insert_index_level,
     rename_aggregate,
 )
-from scripts._helpers import get_rdir, path_provider
 
 
 def read_networks(
@@ -169,69 +167,6 @@ def read_views_config(
     logger.debug(f"Configuration items: {config}")
 
     return config
-
-
-def read_csv_files(
-    result_path: str | Path, glob: str, sub_directory: str
-) -> pd.DataFrame:
-    """
-    Read CSV files from disk.
-
-    Assumes, that if the file name ends with an underscore and 4
-    digits, the 4 digits represent the year. The year is prepended
-    to the result dataframe index. Otherwise, the first column in the
-    CSV file will be the index.
-
-    The function caches result with the same input arguments.
-
-    Parameters
-    ----------
-    result_path
-        Absolute or relative path to the run results folder that
-        contains all model results (typically ends with "results",
-        or is a time-stamp).
-    glob
-        The search pattern to filter file names. The asterix can
-        be used as wildcard character that matches anything.
-    sub_directory
-        The subdirectory name to read files from relative to the
-        result folder.
-
-    Returns
-    -------
-    :
-        All CSV files concatenated into one DataFrame along the
-        index axis.
-    """
-    input_path = Path(result_path) / sub_directory
-    assert input_path.is_dir(), f"Input path does not exist: {input_path.resolve()}"
-    file_paths = input_path.glob(glob)
-
-    df_list = []
-    for file_path in file_paths:
-        _df = pd.read_csv(file_path, index_col=0)
-        if year := re.search(Regex.year, file_path.stem):
-            _df = insert_index_level(_df, year.group(), DataModel.YEAR)
-        df_list.append(_df)
-
-    # must assert after the loop, because file_paths is a generator
-    assert df_list, f"No files named like '{glob}' in {input_path.resolve()}."
-
-    return pd.concat(df_list, sort=True)
-
-
-def resource_getter(n: pypsa.Network) -> Callable:
-    """Return a path provider to the resources directory for a network."""
-    run = n.meta["run"]
-    # expected to run from the project root or a subfolder one level deep
-    cd = "../" if Path("../resources").exists() else "./"
-    func = path_provider(
-        cd + "resources/",
-        get_rdir(run),
-        run["shared_resources"]["policy"],
-        run["shared_resources"]["exclude"],
-    )
-    return func
 
 
 class Exporter:
