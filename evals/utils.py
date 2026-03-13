@@ -6,7 +6,6 @@
 
 import logging
 import re
-from contextlib import contextmanager
 from itertools import product
 
 import numpy as np
@@ -30,51 +29,6 @@ from evals.constants import (
 )
 
 logger = logging.getLogger(__file__)
-
-
-def verify_metric_format(metric: pd.DataFrame) -> None:
-    """
-    Ensure correct metric format.
-
-    Parameters
-    ----------
-    metric
-        The metric data frame. This format is supported by export
-        functions.
-
-    Raises
-    ------
-    AssertionError
-        If the metric does not comply with the data model.
-    """
-    assert isinstance(metric, pd.DataFrame), (
-        f"Metric must be a DataFrame, but {type(metric)} was passed."
-    )
-    assert set(metric.index.names).issubset(
-        set(DataModel.YEAR_IDX_NAMES + [DataModel.COMPONENT])
-    ), (
-        f"Metric index levels must contain {DataModel.YEAR_IDX_NAMES + [DataModel.COMPONENT]}, "
-        f"but {metric.index.names} is set."
-    )
-    assert metric.columns.names in ([DataModel.METRIC], [DataModel.SNAPSHOTS]), (
-        f"Metric column level names must be [{DataModel.METRIC}] or "
-        f"[{DataModel.SNAPSHOTS}], but {metric.columns.names} is set."
-    )
-
-    assert metric.attrs.get("name"), "Must set the metric name in 'metric.attrs'."
-    assert metric.attrs.get("unit"), "Must set the metric unit in 'metric.attrs'."
-
-    if metric.columns.names == [DataModel.METRIC]:
-        assert all("(" in c and ")" in c for c in metric.columns), (
-            f"All columns must have a unit in braces: {metric.columns}"
-        )
-
-        assert len(metric.columns) == 1, "Multiple aggregated metrics are not allowed."
-
-    elif metric.columns.name == DataModel.SNAPSHOTS:
-        assert isinstance(metric.columns, pd.DatetimeIndex), (
-            "Snapshot columns must be of type DatetimeIndex."
-        )
 
 
 def insert_index_level(
@@ -115,39 +69,6 @@ def insert_index_level(
     if isinstance(result, pd.DataFrame):
         return result.reorder_levels(idx_names, axis=axis)
     return result.reorder_levels(idx_names)
-
-
-# todo: this is no part of pypsa -> remove from here
-def calculate_cost_annuity(n: float, r: float | pd.Series = 0.07) -> float | pd.Series:
-    """
-    Calculate the annuity factor for an asset.
-
-    Calculate the annuity factor for an asset with lifetime n years and
-    discount rate of r, e.g. annuity(20,0.05)*20 = 1.6
-
-    Parameters
-    ----------
-    n
-        The lifetime of the asset in years.
-    r
-        The discount rate of the asset.
-
-    Returns
-    -------
-    :
-        The calculated annuity factors.
-
-    Notes
-    -----
-    This function was adopted from the abandoned package "vresutils".
-    """
-    if isinstance(r, pd.Series):
-        ser = pd.Series(1 / n, index=r.index)
-        return ser.where(r == 0, r / (1.0 - 1.0 / (1.0 + r) ** n))
-    elif r > 0:
-        return r / (1.0 - 1.0 / (1.0 + r) ** n)
-    else:
-        return 1 / n
 
 
 def get_unit(s: str, ignore_suffix: bool = True) -> str:
@@ -297,54 +218,6 @@ def filter_by(
     return result.squeeze(axis=1) if was_series else result
 
 
-def expand_to_time_series(
-    df: pd.DataFrame | pd.Series, snapshots: pd.Index, nhours: int = 8760
-) -> pd.DataFrame:
-    """
-    Convert time aggregated value to a time series.
-
-    Any column label will be dropped and replaced by the given
-    snapshots. It is assumed, that the metric holds yearly values, as
-    produced by time aggregation methods. The data frame index and
-    attrs are preserved. Time series value will become the yearly value
-    divided by the number hours per year, i.e. the hourly values.
-
-    Parameters
-    ----------
-    df
-        A data frame input data frame with one column.
-    snapshots
-        The columns labels to use in the result (snapshot time stamps).
-    nhours
-        Divide values in the input by this number..
-
-    Returns
-    -------
-    :
-        The time series data frame with values average values
-        representing the time interval between snapshots.
-
-    Raises
-    ------
-    NotImplementedError
-        If a data frame with more than one column is passed.
-    """
-    if isinstance(df, pd.DataFrame):
-        if df.shape[1] > 1:
-            raise NotImplementedError(
-                f"Broadcasting multiple columns is not supported. "
-                f"Only single column data frames may be passed as "
-                f"input, but found {df.shape[1]} columns."
-            )
-        df = df.squeeze(axis=1)
-
-    hourly = df / nhours
-    values = np.tile(hourly.to_numpy(), (len(snapshots), 1)).T
-    result = pd.DataFrame(index=df.index, columns=snapshots, data=values)
-    result.attrs = df.attrs
-    return result
-
-
 def split_location_carrier(index: pd.MultiIndex, names: list) -> pd.MultiIndex:
     r"""
     Split location and carrier in the index.
@@ -443,97 +316,6 @@ def apply_cutoff(df: pd.DataFrame, limit: float, drop: bool = True) -> pd.DataFr
     result = df.mask(cond=df.abs() < abs(limit), other=pd.NA)
     if drop:
         result = result.dropna(how="all", axis=0)
-    return result
-
-
-def aggregate_eu(df: pd.DataFrame, agg: str = "sum") -> pd.DataFrame:
-    """
-    Calculate the EU region as the sum of all country regions.
-
-    The carrier 'import net', 'export net', 'Import European' and
-    'Export European' need to be removed from the EU data set.
-    The total import and export over all countries evens out and
-    is not required for EU location. The non-EU imports
-    are named differently, e.g. 'global import'.
-
-    Parameters
-    ----------
-    df
-        The data frame with one MultiIndex level named 'location'.
-    agg
-        The aggregation function.
-
-    Returns
-    -------
-    :
-        Summed metric with one location named 'EU'.
-    """
-    df = df.query(f"{DataModel.LOCATION} not in ['EU', '']")
-    totals = rename_aggregate(df, "EU", level=DataModel.LOCATION, agg=agg)
-    transmission_losses = dict.fromkeys(
-        [
-            Group.import_net,
-            Group.export_net,
-            Group.import_foreign,
-            Group.export_foreign,
-            Group.import_domestic,
-            Group.export_domestic,
-        ],
-        "Transmission Losses",
-    )
-    return rename_aggregate(totals, transmission_losses)
-
-
-def aggregate_locations(
-    df: pd.DataFrame,
-    keep_regions: tuple = ("AT",),
-    nice_names: bool = True,
-) -> pd.DataFrame:
-    """
-    Aggregate to countries, including EU and keeping certain regions.
-
-    The input data frame is expected to contain locations as regions
-    e.g. "AT1", "FR0", etc.
-
-    Parameters
-    ----------
-    df
-        The input data frame with a location index level.
-    keep_regions
-        A tuple of regions which should be preserved in the output,
-        i.e. they are added to the result as before the aggregation.
-    nice_names
-        Whether to use the nice country names instead of the
-        country codes.
-
-    Returns
-    -------
-    :
-        A data frame with aggregated countries, plus any region in
-        'keep_regions' and Europe/EU.
-    """
-    country_codes = {loc: loc[:2] for loc in df.index.unique(DataModel.LOCATION)}
-    if "EU" in country_codes.values():
-        logger.warning(
-            "Values for 'EU' node found in input data frame. "
-            "This can lead to value duplication during location "
-            "aggregation.",
-        )
-    countries = rename_aggregate(df, country_codes, level=DataModel.LOCATION)
-    # domestic trade only makes sense between regions. Aggregated
-    # countries contain domestic trade, but import and export nets
-    # to zero and information is redundant.
-    mapper_losses = dict.fromkeys(
-        [Group.import_domestic, Group.export_domestic], "Transmission Losses"
-    )
-    countries = rename_aggregate(countries, mapper_losses)
-    europe = aggregate_eu(df)
-    mask = df.index.get_level_values(DataModel.LOCATION).str.startswith(keep_regions)
-    regions = df.loc[mask, :]
-    result = pd.concat([countries, regions, europe]).sort_index(axis=0)
-    if nice_names:
-        mapper = get_location_alias(result.index.unique(DataModel.LOCATION))
-        result = result.rename(index=mapper, level=DataModel.LOCATION)
     return result
 
 
@@ -767,42 +549,6 @@ def drop_from_multtindex_by_regex(
     return df[~mask]
 
 
-@contextmanager
-def operations_override(networks: dict, component: str, operation: str) -> None:
-    """
-    Patch the used operations time series.
-
-    Useful if a code block should use a different productive
-    component series. For example, `p_set` instead of `p`.
-
-    Parameters
-    ----------
-    networks
-        The PyPSA network dictionary.
-    component
-        The component to patch, e.g. Link, Store, etc.
-    operation
-        The desired operations time series to use instead of 'p' or 'e'.
-
-    Yields
-    ------
-    :
-        Passes to the with statement block.
-    """
-    _temp_key = "_tmp"
-
-    for n in networks.values():
-        c = n.pnl(component)
-        c[_temp_key] = c["p"]  # save a copy
-        c["p"] = c[operation]  # overwrite
-
-    yield  # run anything in the with statement
-
-    for n in networks.values():
-        c = n.pnl(component)
-        c["p"] = c.pop(_temp_key)  # restore original
-
-
 def prettify_number(x: float) -> str:
     """
     Format a float for display on trace hover actions.
@@ -930,38 +676,124 @@ def align_edge_directions(
     )
 
 
-def _split_trade_saldo_to_netted_import_export(df: pd.DataFrame) -> pd.DataFrame:
+def _aggregate_eu(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Split the trade saldo carrier into import and export.
+    Calculate the EU region as the sum of all country regions.
 
-    The splitting needs to happen after the location aggregation.
-    Otherwise, resulting netted import/export values are incorrect
-    for countries with multiple regions, if the regions become
-    aggregated, e.g. Germany.
+    Cross-border trade carriers (import/export net, foreign, domestic)
+    sum to zero across all countries and are therefore renamed to
+    'Transmission Losses' to avoid double-counting at EU level.
+    Non-EU imports (e.g. 'global import') are kept as-is.
 
     Parameters
     ----------
     df
-        The input data frame with the foreign saldo carrier.
+        DataFrame with a MultiIndex level named ``location``.
+        Expected to contain region-level rows (e.g. 'AT1', 'DE2').
 
     Returns
     -------
     :
-        The output data frame with positive trade values
-        as import and negative values as export.
+        Single-location DataFrame with location set to 'EU'.
+    """
+    df_no_eu = df.query(f"{DataModel.LOCATION} not in ['EU', '']")
+    europe = rename_aggregate(df_no_eu, "EU", level=DataModel.LOCATION)
+    eu_trade_to_losses = dict.fromkeys(
+        [
+            Group.import_net,
+            Group.export_net,
+            Group.import_foreign,
+            Group.export_foreign,
+            Group.import_domestic,
+            Group.export_domestic,
+        ],
+        "Transmission Losses",
+    )
+    return rename_aggregate(europe, eu_trade_to_losses)
+
+
+def _aggregate_locations(
+    df: pd.DataFrame,
+    keep_regions: tuple = ("AT",),
+    nice_names: bool = True,
+) -> pd.DataFrame:
+    """
+    Aggregate cluster-level data to countries, add EU total, keep sub-national regions.
+
+    Parameters
+    ----------
+    df
+        DataFrame with a MultiIndex location level containing cluster
+        codes such as 'AT1', 'FR0', 'DE2'.
+    keep_regions
+        Country-code prefixes whose original cluster rows are preserved
+        in the output alongside the aggregated country rows.
+    nice_names
+        Replace ISO-2 country/region codes with human-readable names
+        via :func:`get_location_alias`.
+
+    Returns
+    -------
+    :
+        DataFrame with rows for every aggregated country, all EU
+        sub-national regions listed in *keep_regions*, and one EU row.
+    """
+    country_codes = {loc: loc[:2] for loc in df.index.unique(DataModel.LOCATION)}
+    if "EU" in country_codes.values():
+        logger.warning(
+            "Values for 'EU' node found in input data frame. "
+            "This can lead to value duplication during location aggregation.",
+        )
+    countries = rename_aggregate(df, country_codes, level=DataModel.LOCATION)
+    # Domestic trade nets to zero after country-level aggregation; rename to
+    # transmission losses to avoid double-counting.
+    mapper_losses = dict.fromkeys(
+        [Group.import_domestic, Group.export_domestic], "Transmission Losses"
+    )
+    countries = rename_aggregate(countries, mapper_losses)
+
+    europe = _aggregate_eu(df)
+
+    mask = df.index.get_level_values(DataModel.LOCATION).str.startswith(keep_regions)
+    regions = df.loc[mask, :]
+    result = pd.concat([countries, regions, europe]).sort_index(axis=0)
+
+    if nice_names:
+        mapper = get_location_alias(result.index.unique(DataModel.LOCATION))
+        result = result.rename(index=mapper, level=DataModel.LOCATION)
+
+    return result
+
+
+def _split_trade_saldo_to_netted_import_export(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Split the trade saldo carrier into netted import and export rows.
+
+    Must be called *after* location aggregation so that cross-regional
+    netting is correct for multi-region countries (e.g. Germany).
+    Positive saldo values become import; negative values become export.
+
+    Parameters
+    ----------
+    df
+        DataFrame that may contain rows whose carrier contains 'saldo'.
+
+    Returns
+    -------
+    :
+        DataFrame with saldo rows replaced by separate import-net and
+        export-net rows.  Returns *df* unchanged when no saldo rows exist.
     """
     saldo = df.query("carrier.str.contains('saldo')")
-
     if saldo.empty:
         return df
 
     net_import = rename_aggregate(saldo.mul(saldo.gt(0)), Group.import_net)
     net_export = rename_aggregate(saldo.mul(saldo.le(0)), Group.export_net)
-
     saldo_carrier = saldo.index.unique("carrier")
-    df_without_saldo = df.drop(saldo_carrier, level=DataModel.CARRIER)
-
-    return pd.concat([df_without_saldo, net_import, net_export]).sort_index()
+    return pd.concat(
+        [df.drop(saldo_carrier, level=DataModel.CARRIER), net_import, net_export]
+    ).sort_index()
 
 
 def combine_statistics(
@@ -1002,7 +834,7 @@ def combine_statistics(
     if was_series := isinstance(df, pd.Series):
         df = df.to_frame(f"{metric_name} ({is_unit})")
 
-    df = aggregate_locations(df, keep_regions, region_nice_names)
+    df = _aggregate_locations(df, keep_regions, region_nice_names)
 
     df.attrs["name"] = metric_name
     df.attrs["unit"] = to_unit
@@ -1015,8 +847,6 @@ def combine_statistics(
         df = scale(df, to_unit=to_unit)
 
     df = _split_trade_saldo_to_netted_import_export(df)
-
-    verify_metric_format(df)
 
     return df
 
@@ -1065,34 +895,6 @@ def get_transmission_techs(networks: dict, bus_carrier: str | list = None) -> li
         )
 
     return sorted(transmission_techs)
-
-
-def print_link_bus_efficiencies(networks, year, like) -> pd.Series:
-    """
-    Debugging utility function to review Link branches.
-
-    Parameters
-    ----------
-    networks
-        The loaded networks.
-    year
-        The year to print the Link branches for.
-    like
-        A regex to filter the Link index.
-
-    Returns
-    -------
-    :
-        A pandas Series with the first Link filter result.
-    """
-    return (
-        networks[year]
-        .static("Link")
-        .filter(like=like, axis=0)
-        .filter(regex="bus|eff")
-        .iloc[0, :]
-        .T.sort_index()
-    )
 
 
 def regionalize_statistics(

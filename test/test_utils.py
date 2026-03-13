@@ -6,10 +6,7 @@ from evals.constants import DataModel
 from evals.plots._base import ESMChart
 from evals.plots.timeseries import ESMTimeSeriesChart
 from evals.utils import (
-    aggregate_locations,
     apply_cutoff,
-    calculate_cost_annuity,
-    expand_to_time_series,
     filter_by,
     get_trade_type,
     get_unit,
@@ -19,7 +16,6 @@ from evals.utils import (
     scale,
     split_location_carrier,
     trade_mask,
-    verify_metric_format,
 )
 
 
@@ -146,78 +142,6 @@ def test_insert_index_level(axis, pos, expected_index, simple_data_frame):
     result = insert_index_level(simple_data_frame, "VAL", "NAME", axis, pos)
     idx = result.index if axis == 0 else result.columns
     assert idx.equals(expected_index)
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    ("n", "r", "expected"),
-    [
-        (10, 0.07, 0.14237750272736466),
-        (15, 0.03, 0.08376658046228799),
-        (1, 0.05, 1.049999999999999),  # edge case: one year (seems odd to me!)
-        (20, 0, 0.05),  # edge case: zero rate
-    ],
-)
-def test_calculate_cost_annuity(n, r, expected):
-    """
-    Test the calculate_cost_annuity function.
-
-    This test verifies that the calculate_cost_annuity function
-    correctly calculates the annuity factor for various input values
-    of asset lifetime and discount rate. The expected results are
-    compared against the actual output from the function.
-    """
-    annuity = calculate_cost_annuity(n, r)
-    assert annuity == expected
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    ("n", "r", "expected"),
-    [
-        (
-            20,
-            pd.Series([0.01, 0.02, 0.03, 0.04, 0.06]),
-            pd.Series(
-                [
-                    0.05541531489055132,
-                    0.061156718125290346,
-                    0.06721570759685909,
-                    0.07358175032862885,
-                    0.0871845569768514,
-                ]
-            ),
-        )
-    ],
-)
-def test_calculate_cost_annuity_series(n, r, expected):
-    """
-    Test the calculate_cost_annuity function for error cases.
-
-    This test verifies that the calculate_cost_annuity function raises
-    the appropriate exceptions when invalid input values are provided.
-    """
-    annuity = calculate_cost_annuity(n, r)
-    pd.testing.assert_series_equal(annuity, expected)
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    ("n", "r", "expected"),
-    [(0, 0.05, ZeroDivisionError)],  # error: zero year
-    ids=["zero_year_raises_ZeroDivisionError"],
-)
-def test_calculate_cost_annuity_fails(n, r, expected):
-    """
-    Test the calculate_cost_annuity function for error cases.
-
-    This test verifies that the calculate_cost_annuity function raises
-    the appropriate exceptions when invalid input values are provided.
-    In this specific case, it checks that providing a lifetime of zero
-    years raises a ZeroDivisionError.
-    """
-    with pytest.raises(expected):
-        calculate_cost_annuity(n, r)
 
 
 @pytest.mark.unit
@@ -558,74 +482,6 @@ def test_filter_by_series(exclude, kwargs, expected, ser_multi_index):
             expected.index.names = ["idx1", "idx2"]
         # couldn't construct the expected index type.
         pd.testing.assert_series_equal(result, expected, check_index_type=False)
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    ("data_input", "snapshots", "data_expected"),
-    [
-        # Happy path tests
-        pytest.param(
-            {"metric": [8760, 17520]},
-            pd.Index(["2021-01-01", "2022-01-01"]),
-            [[1.0, 1.0], [2.0, 2.0]],
-            id="single_column_df",
-        ),
-        pytest.param(
-            [8760, 17520],
-            pd.Index(["2021-01-01", "2022-01-01"]),
-            [[1.0, 1.0], [2.0, 2.0]],
-            id="series",
-        ),
-        # Edge cases
-        pytest.param(
-            {"metric": [0, 0]},
-            pd.Index(["2021-01-01", "2022-01-01"]),
-            [[0.0, 0.0], [0.0, 0.0]],
-            id="zero_values",
-        ),
-        pytest.param(
-            {"metric": [8760]},
-            pd.Index(["2021-01-01"]),
-            [[1.0]],
-            id="single_value",
-        ),
-        pytest.param(
-            {"metric": [8760, 17520]},
-            pd.Index([]),
-            [[], []],
-            id="empty_snapshots",
-        ),
-        pytest.param({"metric": []}, pd.Index(["2021-01-01"]), [], id="empty_values"),
-        pytest.param(
-            {"A": [8760, 17520], "B": [8760, 17520]},
-            pd.Index(["2021-01-01", "2022-01-01"]),
-            NotImplementedError,
-            id="multi_column_df",
-        ),
-    ],
-)
-def test_expand_to_time_series(data_input, snapshots, data_expected):
-    """
-    Test the expand_to_time_series function.
-
-    This test verifies that the expand_to_time_series function correctly
-    converts aggregated values into a time series format based on the
-    provided snapshots. It checks both the expected output for valid
-    inputs and the handling of edge cases.
-    """
-    # sourcery skip: no-conditionals-in-tests
-    if data_expected is NotImplementedError:
-        with pytest.raises(NotImplementedError):
-            expand_to_time_series(pd.DataFrame(data_input), snapshots)
-    else:
-        if isinstance(data_input, dict):
-            df_or_ser = pd.DataFrame(data_input)
-        else:
-            df_or_ser = pd.Series(data_input, name="metric")
-        expected = pd.DataFrame(data=data_expected, columns=snapshots, dtype=float)
-        result = expand_to_time_series(df_or_ser, snapshots)
-        pd.testing.assert_frame_equal(result, expected)
 
 
 @pytest.mark.unit
@@ -1079,186 +935,6 @@ def test_apply_cutoff(df, limit, drop, expected):
     """Tests the apply_cutoff function."""
     result = apply_cutoff(df, limit, drop)
     pd.testing.assert_frame_equal(result, expected, check_index_type=False)
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    ("df", "keep_regions", "nice_names", "expected"),
-    [
-        # Happy path tests
-        pytest.param(
-            df_locations(),
-            ("AT",),
-            True,
-            pd.DataFrame(
-                {
-                    "a": {
-                        ("", "A"): 9,
-                        ("Burgenland (AT)", "A"): 1,
-                        ("Lower Austria (AT)", "A"): 2,
-                        ("East Tyrol (AT)", "B"): 3,
-                        ("Austria", "A"): 3,
-                        ("Austria", "B"): 3,
-                        ("Europe", "A"): 33,
-                        ("Europe", "B"): 3,
-                        ("France", "A"): 0,
-                        ("Germany", "A"): 30,
-                    }
-                },
-            ),
-            id="AT_nice_names",
-        ),
-        pytest.param(
-            df_locations(),
-            ("AT",),
-            False,
-            pd.DataFrame(
-                {
-                    "a": {
-                        ("", "A"): 9,
-                        ("AT", "A"): 3,
-                        ("AT", "B"): 3,
-                        ("AT11", "A"): 1,
-                        ("AT12", "A"): 2,
-                        ("AT333", "B"): 3,
-                        ("DE", "A"): 30,
-                        ("EU", "A"): 33,
-                        ("EU", "B"): 3,
-                        ("FR", "A"): 0,
-                    }
-                }
-            ),
-            id="AT_country_codes",
-        ),
-        pytest.param(
-            df_locations(),
-            ("DE",),
-            True,
-            pd.DataFrame(
-                {
-                    "a": {
-                        ("", "A"): 9,
-                        ("Austria", "A"): 3,
-                        ("Austria", "B"): 3,
-                        ("Baden-Württemberg", "A"): 4,
-                        ("Bavaria", "A"): 5,
-                        ("Midwest Germany", "A"): 6,
-                        ("Mideast Germany", "A"): 7,
-                        ("North Germany", "A"): 8,
-                        ("Europe", "A"): 33,
-                        ("Europe", "B"): 3,
-                        ("France", "A"): 0,
-                        ("Germany", "A"): 30,
-                    }
-                }
-            ),
-            id="DE_nice_names",
-        ),
-        # Edge cases
-        pytest.param(
-            df_locations().iloc[[0], :],
-            ("AT",),
-            True,
-            pd.DataFrame(
-                {
-                    "a": {
-                        ("Europe", "A"): 0,
-                        ("France", "A"): 0,
-                    }
-                }
-            ),
-            id="single_entry",
-        ),
-        pytest.param(
-            df_locations(),
-            (),
-            True,
-            pd.DataFrame(
-                {
-                    "a": {
-                        ("", "A"): 9,
-                        ("Austria", "A"): 3,
-                        ("Austria", "B"): 3,
-                        ("Europe", "A"): 33,
-                        ("Europe", "B"): 3,
-                        ("France", "A"): 0,
-                        ("Germany", "A"): 30,
-                    }
-                }
-            ),
-            id="no_keep_regions",
-        ),
-        # Error cases
-        pytest.param(pd.DataFrame(), (), True, KeyError, id="empty_data"),
-    ],
-)
-def test_aggregate_locations(df, keep_regions, nice_names, expected, monkeypatch):
-    """Test the aggregation logic for locations aka nodes."""
-
-    def mock_get_location_alias(_):
-        """Return fixed location alias mapping for testing."""
-        return {
-            "EU": "Europe",
-            "AT": "Austria",
-            "AT11": "Burgenland (AT)",
-            "AT12": "Lower Austria (AT)",
-            "AT333": "East Tyrol (AT)",
-            "DE": "Germany",
-            "DE1": "Baden-Württemberg",
-            "DE2": "Bavaria",
-            "DE3": "Midwest Germany",
-            "DE4": "Mideast Germany",
-            "DE5": "North Germany",
-            "FR": "France",
-        }
-
-    monkeypatch.setattr("evals.utils.get_location_alias", mock_get_location_alias)
-
-    # sourcery skip: no-conditionals-in-tests
-    if not isinstance(expected, pd.DataFrame):
-        with pytest.raises(expected):
-            aggregate_locations(df, keep_regions, nice_names)
-    else:
-        result = aggregate_locations(df, keep_regions, nice_names).sort_index()
-        expected.index.names = ["location", "carrier"]
-        pd.testing.assert_frame_equal(result.sort_index(), expected.sort_index())
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    ("df", "expected"),
-    [
-        pytest.param(df_metric(), None, id="valid_input"),
-        pytest.param(pd.Series(data=[1, 2, 3]), AssertionError, id="input_series"),
-        pytest.param(
-            df_metric().rename_axis(columns="invalid"),
-            AssertionError,
-            id="missing_column_label",
-        ),
-        pytest.param(
-            df_metric().rename_axis(index=["invalid"] + DataModel.IDX_NAMES),
-            AssertionError,
-            id="missing_index_label",
-        ),
-        pytest.param(df_metric("", "(unit)"), AssertionError, id="missing_attrs_name"),
-        pytest.param(df_metric("name", ""), AssertionError, id="missing_attrs_unit"),
-        pytest.param(
-            df_metric("name", "unit"), AssertionError, id="missing_unit_braces"
-        ),
-        pytest.param(
-            pd.concat([df_metric(), df_metric()], axis=1),
-            AssertionError,
-            id="multiple_metrics",
-        ),
-    ],
-)
-def test_verify_metric_format(df, expected):
-    """Test the verify_metric_format function."""
-    if expected is AssertionError:
-        with pytest.raises(expected):
-            verify_metric_format(df)
-    else:
-        verify_metric_format(df)
 
 
 @pytest.mark.unit
