@@ -253,27 +253,34 @@ if __name__ == "__main__":
     import_bus_map = {}
     
     # Check if there are links that represent imports
-    if not n.links.empty and hasattr(n.links, 'bus0') and hasattr(n.links, 'bus1'):
-        # Links with bus0 starting with "EU" or ending with "-" followed by carrier name
-        # are typically imports into domestic buses
-        import_links = n.links[
-            (n.links.bus0.str.contains(r"^EU |^imports-", na=False, regex=True)) |
-            (n.links.bus0.str.contains(carrier.lower().replace(" ", "-"), na=False, case=False))
-        ]
+    if not n.links.empty:
+        # Links with bus0 NOT in domestic buses are typically imports
+        # (external -> domestic flow)
+        domestic_buses = set(n.buses.index)
+        external_buses = set()
         
-        if not import_links.empty:
+        # Find buses that are sources but not in the network as domestic buses
+        for link_idx in n.links.index:
+            bus0 = n.links.loc[link_idx, "bus0"]
+            bus1 = n.links.loc[link_idx, "bus1"]
+            
+            # Check if this is an import link (bus0 not in domestic buses)
+            if bus0 not in domestic_buses and bus1 in domestic_buses:
+                external_buses.add(bus0)
+        
+        if external_buses:
             # Create synthetic import nodes outside the map
-            for idx, link in import_links.iterrows():
-                source_bus = link.bus0
-                dest_bus = link.bus1
-                
-                if source_bus not in import_bus_map:
-                    # Place import node outside country (e.g., north of Austria)
-                    import_bus_map[source_bus] = {
-                        "x": regions.geometry.centroid.x.mean(),
-                        "y": regions.geometry.centroid.y.mean() + 3,  # Offset north
-                        "label": source_bus.replace("-", " ").title(),
-                    }
+            centroid_x = regions.geometry.centroid.x.mean()
+            centroid_y = regions.geometry.centroid.y.mean()
+            
+            for i, source_bus in enumerate(sorted(external_buses)):
+                # Spread import nodes around the country boundary (north)
+                angle_offset = (i / max(1, len(external_buses))) * 360  # Spread around circle
+                import_bus_map[source_bus] = {
+                    "x": centroid_x,
+                    "y": centroid_y + 3,  # Offset north (can be adjusted for circular layout)
+                    "label": source_bus.replace("-", " ").title(),
+                }
     
     ### Prices
     buses = n.buses.query("carrier in @carrier").index
