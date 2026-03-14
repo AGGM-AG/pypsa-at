@@ -199,7 +199,7 @@ if __name__ == "__main__":
     components = transmission_carriers.unique("component")
     carriers = transmission_carriers.unique("carrier")
 
-    ### Pie charts
+    # Pie charts - compute energy balance per bus and carrier
     eb = n.statistics.energy_balance(
         bus_carrier=carrier,
         groupby=["bus", "carrier"],
@@ -212,7 +212,7 @@ if __name__ == "__main__":
     eb = eb.dropna()
     bus_size = eb.groupby(level=["bus", "carrier"]).sum()
 
-    # line and links widths according to optimal capacity
+    # Line and links widths according to net annual flow
     flow = n.statistics.transmission(groupby=False, bus_carrier=carrier)
     if not flow.empty:
         flow_reversed_mask = flow.index.get_level_values(1).str.contains("reversed")
@@ -221,7 +221,7 @@ if __name__ == "__main__":
         )
         flow = flow[~flow_reversed_mask].subtract(flow_reversed, fill_value=0)
 
-    # only line first index
+    # Extract line and link flows separately
     line_flow = (
         flow.loc[flow.index.get_level_values(0).str.contains("Line")]
         .copy()
@@ -237,7 +237,7 @@ if __name__ == "__main__":
     if carrier == "AC":
         branch_components = ["Line", "Link"]
 
-    ### Enhanced tooltips for buses (with units)
+    # Enhanced tooltips for buses (with units)
     # Determine flow unit based on unit_conversion factor
     if unit_conversion == 1:
         flow_unit = "MWh/year"
@@ -248,41 +248,12 @@ if __name__ == "__main__":
     else:
         flow_unit = settings.get("flow_unit", "MWh/year")  # fallback to config or default
     
-    ### Import nodes - separate buses for external supply sources
-    # Identify external/import buses (those connected via links from outside)
-    import_bus_map = {}
+    # Import nodes - hardcoded by user for external supply sources
+    # User should define import node coordinates in config or hardcode here
+    # Example: import_node_coords = {"EU gas": {"x": 10.5, "y": 49.0, "label": "EU Gas Import"}}
+    import_node_coords = settings.get("import_node_coords", {})
     
-    # Check if there are links that represent imports
-    if not n.links.empty:
-        # Links with bus0 NOT in domestic buses are typically imports
-        # (external -> domestic flow)
-        domestic_buses = set(n.buses.index)
-        external_buses = set()
-        
-        # Find buses that are sources but not in the network as domestic buses
-        for link_idx in n.links.index:
-            bus0 = n.links.loc[link_idx, "bus0"]
-            bus1 = n.links.loc[link_idx, "bus1"]
-            
-            # Check if this is an import link (bus0 not in domestic buses)
-            if bus0 not in domestic_buses and bus1 in domestic_buses:
-                external_buses.add(bus0)
-        
-        if external_buses:
-            # Create synthetic import nodes outside the map
-            centroid_x = regions.geometry.centroid.x.mean()
-            centroid_y = regions.geometry.centroid.y.mean()
-            
-            for i, source_bus in enumerate(sorted(external_buses)):
-                # Spread import nodes around the country boundary (north)
-                angle_offset = (i / max(1, len(external_buses))) * 360  # Spread around circle
-                import_bus_map[source_bus] = {
-                    "x": centroid_x,
-                    "y": centroid_y + 3,  # Offset north (can be adjusted for circular layout)
-                    "label": source_bus.replace("-", " ").title(),
-                }
-    
-    ### Prices
+    # Weighted nodal marginal prices for regional choropleth
     buses = n.buses.query("carrier in @carrier").index
     demand = (
         n.statistics.energy_balance(
@@ -309,7 +280,7 @@ if __name__ == "__main__":
         co2_price = n.global_constraints.loc["CO2Limit", "mu"]
         price = price - co2_price
 
-    # if only one price is available, use this price for all regions
+    # If only one price is available, use it for all regions
     if price.size == 1:
         regions["price"] = price.values[0]
         shift = round(abs(price.values[0]) / 20, 0)
@@ -323,7 +294,7 @@ if __name__ == "__main__":
     if settings["vmax"] is not None:
         vmax = settings["vmax"]
 
-    # Map colors
+    # Map colors using colormap normalization
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
     cmap = plt.get_cmap(cmap)
 
@@ -344,8 +315,8 @@ if __name__ == "__main__":
         + " "
         + region_unit
     )
-    # regions["tooltip_html"] = regions["price"].round(2).astype(str)
-    # Create layer
+
+    # Regional choropleth layer
     regions_layer = pdk.Layer(
         "GeoJsonLayer",
         regions,
@@ -359,7 +330,7 @@ if __name__ == "__main__":
     )
 
     # Enhanced bus tooltip with units
-    # Build bus metadata for better tooltips
+    # Build bus metadata for better tooltips (prepared for Phase 2)
     bus_tooltip_meta = {}
     for (bus_name, carrier_name), value in bus_size.items():
         key = (bus_name, carrier_name)
@@ -369,7 +340,7 @@ if __name__ == "__main__":
                 "unit": flow_unit,
             }
 
-    # Enhanced link tooltip with retrofitted capacity and units
+    # Enhanced link tooltip with installed capacity and units
     link_tooltip_meta = {}
     if not n.links.empty:
         for link_idx in n.links.index:
@@ -380,21 +351,20 @@ if __name__ == "__main__":
             except KeyError:
                 flow_val = 0
             
-            # Compute retrofitted capacity
+            # Compute installed capacity (additional capacity beyond original)
             p_nom = link_data.get("p_nom", 0)
             p_nom_opt = link_data.get("p_nom_opt", 0)
-            retrofitted = max(0, p_nom_opt - p_nom) if pd.notna(p_nom_opt) and pd.notna(p_nom) else 0
+            installed = max(0, p_nom_opt - p_nom) if pd.notna(p_nom_opt) and pd.notna(p_nom) else 0
             
             link_tooltip_meta[link_idx] = {
                 "flow": flow_val / unit_conversion if flow_val != 0 else 0,
                 "capacity": p_nom_opt / unit_conversion if pd.notna(p_nom_opt) else 0,
-                "retrofitted": retrofitted / unit_conversion,
+                "installed": installed / unit_conversion,
                 "flow_unit": flow_unit,
                 "capacity_unit": "GW" if "GW" in flow_unit or "MW" not in flow_unit else "MW",
             }
 
-    # Note: Detailed tooltips for links are injected via the bus_name/carrier_name
-    # PyPSA's n.explore() method will pick up the flow values; we'll enhance with JS later
+    # Note: Detailed tooltips for links will be enhanced via JavaScript injection in Phase 2
 
     map = n.explore(
         branch_components=branch_components,
@@ -416,7 +386,7 @@ if __name__ == "__main__":
 
     map.layers.insert(0, regions_layer)
 
-    # Generate HTML and inject legend
+    # Generate HTML and inject legend overlay
     html_output = map.to_html(offline=True)
     
     # Inject legend before closing body tag
@@ -426,6 +396,6 @@ if __name__ == "__main__":
     else:
         html_output += legend
     
-    # Write enhanced HTML
+    # Write enhanced HTML file
     with open(snakemake.output[0], "w") as f:
         f.write(html_output)
