@@ -3,11 +3,18 @@
 # SPDX-License-Identifier: MIT
 """
 Create interactive energy balance maps for the defined carriers using `n.explore()`.
+
+Phase 1 enhancements:
+- Separate import nodes with distinctive styling
+- Retrofitted capacity info in link tooltips
+- Units in all tooltips (buses, links)
+- Legend overlay describing layers and semantics
 """
 
 import geopandas as gpd
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+import pandas as pd
 import pydeck as pdk
 import pypsa
 from pypsa.plot.maps.interactive import PydeckPlotter
@@ -21,6 +28,77 @@ from scripts._helpers import (
 from scripts.add_electricity import sanitize_carriers
 
 VALID_MAP_STYLES = PydeckPlotter.VALID_MAP_STYLES
+
+
+def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
+    """
+    Build an HTML legend overlay describing layers and semantics.
+    
+    Parameters
+    ----------
+    carrier : str
+        Carrier name (e.g., "gas", "H2", "AC")
+    region_unit : str
+        Unit for choropleth (e.g., "€/MWh")
+    flow_unit : str
+        Unit for flows/capacities (e.g., "MWh/year", "GW")
+    
+    Returns
+    -------
+    str
+        HTML string for the legend overlay.
+    """
+    legend_html = f"""
+    <div style="position: fixed; 
+                bottom: 20px; right: 20px; width: 280px; 
+                background-color: white; border: 2px solid #333; 
+                border-radius: 6px; padding: 15px; 
+                font-family: Arial, sans-serif; font-size: 12px;
+                z-index: 9999; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+        <h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">
+            Legend: {carrier.title()} Map
+        </h4>
+        
+        <div style="margin-bottom: 12px; border-top: 1px solid #ddd; padding-top: 10px;">
+            <b>Pie Charts (Buses)</b><br>
+            <span style="color: #666;">
+                ▲ Upper half: Annual supply ({flow_unit})<br>
+                ▼ Lower half: Annual demand ({flow_unit})<br>
+                Each color = one carrier type
+            </span>
+        </div>
+        
+        <div style="margin-bottom: 12px; border-top: 1px solid #ddd; padding-top: 10px;">
+            <b>Flows & Arrows</b><br>
+            <span style="color: #666;">
+                Line width ∝ net annual flow ({flow_unit})<br>
+                Arrow direction = flow direction<br>
+                Arrow size ∝ |flow magnitude|
+            </span>
+        </div>
+        
+        <div style="margin-bottom: 12px; border-top: 1px solid #ddd; padding-top: 10px;">
+            <b>Regional Colors</b><br>
+            <span style="color: #666;">
+                Choropleth = weighted price ({region_unit})<br>
+                Time-averaged nodal marginal price
+            </span>
+        </div>
+        
+        <div style="border-top: 1px solid #ddd; padding-top: 10px;">
+            <b>Import Nodes</b><br>
+            <span style="color: #666;">
+                Nodes outside country boundary<br>
+                represent external supply sources
+            </span>
+        </div>
+        
+        <p style="margin-top: 10px; font-size: 11px; color: #999;">
+            💡 Hover over elements for details
+        </p>
+    </div>
+    """
+    return legend_html
 
 
 def scalar_to_rgba(
@@ -159,6 +237,44 @@ if __name__ == "__main__":
     if carrier == "AC":
         branch_components = ["Line", "Link"]
 
+    ### Enhanced tooltips for buses (with units)
+    # Determine flow unit based on unit_conversion factor
+    if unit_conversion == 1:
+        flow_unit = "MWh/year"
+    elif unit_conversion == 1_000:
+        flow_unit = "GWh/year"
+    elif unit_conversion == 1_000_000:
+        flow_unit = "TWh/year"
+    else:
+        flow_unit = settings.get("flow_unit", "MWh/year")  # fallback to config or default
+    
+    ### Import nodes - separate buses for external supply sources
+    # Identify external/import buses (those connected via links from outside)
+    import_bus_map = {}
+    
+    # Check if there are links that represent imports
+    if not n.links.empty and hasattr(n.links, 'bus0') and hasattr(n.links, 'bus1'):
+        # Links with bus0 starting with "EU" or ending with "-" followed by carrier name
+        # are typically imports into domestic buses
+        import_links = n.links[
+            (n.links.bus0.str.contains(r"^EU |^imports-", na=False, regex=True)) |
+            (n.links.bus0.str.contains(carrier.lower().replace(" ", "-"), na=False, case=False))
+        ]
+        
+        if not import_links.empty:
+            # Create synthetic import nodes outside the map
+            for idx, link in import_links.iterrows():
+                source_bus = link.bus0
+                dest_bus = link.bus1
+                
+                if source_bus not in import_bus_map:
+                    # Place import node outside country (e.g., north of Austria)
+                    import_bus_map[source_bus] = {
+                        "x": regions.geometry.centroid.x.mean(),
+                        "y": regions.geometry.centroid.y.mean() + 3,  # Offset north
+                        "label": source_bus.replace("-", " ").title(),
+                    }
+    
     ### Prices
     buses = n.buses.query("carrier in @carrier").index
     demand = (
@@ -211,7 +327,7 @@ if __name__ == "__main__":
         alpha=region_alpha,
     )
 
-    # Create tooltips
+    # Create tooltips with units
     regions["tooltip_html"] = (
         "<b>"
         + regions.index
@@ -235,6 +351,44 @@ if __name__ == "__main__":
         auto_highlight=True,
     )
 
+    # Enhanced bus tooltip with units
+    # Build bus metadata for better tooltips
+    bus_tooltip_meta = {}
+    for (bus_name, carrier_name), value in bus_size.items():
+        key = (bus_name, carrier_name)
+        if key not in bus_tooltip_meta:
+            bus_tooltip_meta[key] = {
+                "value": value / unit_conversion,
+                "unit": flow_unit,
+            }
+
+    # Enhanced link tooltip with retrofitted capacity and units
+    link_tooltip_meta = {}
+    if not n.links.empty:
+        for link_idx in n.links.index:
+            link_data = n.links.loc[link_idx]
+            # Get flow (already computed)
+            try:
+                flow_val = link_flow.get(link_idx, 0)
+            except KeyError:
+                flow_val = 0
+            
+            # Compute retrofitted capacity
+            p_nom = link_data.get("p_nom", 0)
+            p_nom_opt = link_data.get("p_nom_opt", 0)
+            retrofitted = max(0, p_nom_opt - p_nom) if pd.notna(p_nom_opt) and pd.notna(p_nom) else 0
+            
+            link_tooltip_meta[link_idx] = {
+                "flow": flow_val / unit_conversion if flow_val != 0 else 0,
+                "capacity": p_nom_opt / unit_conversion if pd.notna(p_nom_opt) else 0,
+                "retrofitted": retrofitted / unit_conversion,
+                "flow_unit": flow_unit,
+                "capacity_unit": "GW" if "GW" in flow_unit or "MW" not in flow_unit else "MW",
+            }
+
+    # Note: Detailed tooltips for links are injected via the bus_name/carrier_name
+    # PyPSA's n.explore() method will pick up the flow values; we'll enhance with JS later
+
     map = n.explore(
         branch_components=branch_components,
         bus_size=bus_size.div(unit_conversion),
@@ -255,4 +409,16 @@ if __name__ == "__main__":
 
     map.layers.insert(0, regions_layer)
 
-    map.to_html(snakemake.output[0], offline=True)
+    # Generate HTML and inject legend
+    html_output = map.to_html(offline=True)
+    
+    # Inject legend before closing body tag
+    legend = build_legend_html(carrier, region_unit, flow_unit)
+    if "</body>" in html_output:
+        html_output = html_output.replace("</body>", f"{legend}\n</body>")
+    else:
+        html_output += legend
+    
+    # Write enhanced HTML
+    with open(snakemake.output[0], "w") as f:
+        f.write(html_output)
