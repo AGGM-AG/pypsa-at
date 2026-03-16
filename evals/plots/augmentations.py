@@ -57,10 +57,12 @@ def get_import_node_coordinates(settings: dict) -> dict:
 
 
 def remove_redundant_layer_items(deck, layer, value):
-    return [d for d in deck.layers[layer].data if not isnan(d[value]) and d[value] > 0]
+    return [
+        d for d in deck.layers[layer].data if not isnan(d[value]) and d[value] > 0.001
+    ]  # todo: avoid magic number
 
 
-def update_pydeck_paths_layer_tooltip(deck, stats: dict, flow_unit: str) -> None:
+def update_pydeck_layer_tooltip_for_paths(deck, stats: dict, flow_unit: str) -> None:
     idx_paths_layer = {
         i for i, layer in enumerate(deck.layers) if layer.type == "PathLayer"
     }.pop()
@@ -86,12 +88,35 @@ def update_pydeck_paths_layer_tooltip(deck, stats: dict, flow_unit: str) -> None
             f"<td style='text-align:left'>{item['width']:.2f} {flow_unit}</td></tr>\n"
             f"<tr><td style='font-weight:bold'>Total capacity:</td>"
             f"<td style='text-align:left'>{stats['p_opt'].loc[name]:.2f} {stats['p_opt'].attrs['unit']}</td></tr>\n"
-            f"<tr><td style='font-weight:bold'>Newly installed capacity:</td>"
+            f"<tr><td style='font-weight:bold'>Installed capacity:</td>"
             f"<td style='text-align:left'>{stats['p_expanded'].loc[name]:.2f} {stats['p_expanded'].attrs['unit']}</td></tr>\n"
             f"<tr><td style='font-weight:bold'>Existing capacity:</td>"
             f"<td style='text-align:left'>{stats['p_installed'].get(name, 0):.2f} {stats['p_installed'].attrs['unit']}</td></tr>\n"
             f"</table>"
         )
+
+
+def update_pydeck_layer_tooltip_for_circles(deck, stats: dict, flow_unit: str) -> None:
+    idx_circles_layers = [
+        i for i, layer in enumerate(deck.layers) if layer.type == "PolygonLayer"
+    ]
+    for idx in idx_circles_layers:
+        if is_arrow := "arrow" in deck.layers[idx].data[0]:
+            value = "flow"
+        else:
+            value = "size"
+        deck.layers[idx].data = remove_redundant_layer_items(deck, idx, value)
+
+        for item in deck.layers[idx].data:
+            if is_arrow:
+                item["tooltip_html"] = (
+                    f"<b>{item['name']}</b>\n<table>\n"
+                    f"<td style='font-weight:bold'>flow:</td><tr>"
+                    f"<td style='text-align:left'>0.01</td></tr>\n"
+                    f"</table>"
+                )
+            # else:
+            # item["tooltip_html"] = item["tootip_html"].replace("size:", "")
 
 
 def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
@@ -112,7 +137,10 @@ def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
     str
         HTML string for the legend overlay.
     """
-    legend_html = f"""
+    title = carrier
+    if isinstance(carrier, list) and "low voltage" in carrier:
+        title = "AC"
+    return f"""
     <div style="position: fixed;
                 bottom: 20px; right: 20px; width: 280px;
                 background-color: white; border: 2px solid #333;
@@ -120,13 +148,13 @@ def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
                 font-family: Arial, sans-serif; font-size: 12px;
                 z-index: 9999; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
         <h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">
-            Legend: {carrier.title()} Map
+            Legend: {title} Map
         </h4>
         <div style="margin-bottom: 12px; border-top: 1px solid #ddd; padding-top: 10px;">
             <b>Pie Charts (Buses)</b><br>
             <span style="color: #666;">
-                ▲ Upper half: Annual supply ({flow_unit})<br>
-                ▼ Lower half: Annual demand ({flow_unit})<br>
+                ⯊ Upper half: Annual supply ({flow_unit})<br>
+                ⯋ Lower half: Annual demand ({flow_unit})<br>
                 Each color = one carrier type
             </span>
         </div>
@@ -157,4 +185,3 @@ def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
         </p>
     </div>
     """
-    return legend_html
