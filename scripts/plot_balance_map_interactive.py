@@ -213,7 +213,7 @@ if __name__ == "__main__":
         bus_carrier=carrier,
         components=["Line", "Link"],
         carrier=carriers_in_eb.tolist(),
-    )  # .filter(regex="Link|Line")
+    )
     p_installed = n.statistics.installed_capacity(
         groupby=False,
         bus_carrier=carrier,
