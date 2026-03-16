@@ -3,12 +3,6 @@
 # SPDX-License-Identifier: MIT
 """
 Create interactive energy balance maps for the defined carriers using `n.explore()`.
-
-Phase 1 enhancements:
-- Separate import nodes with distinctive styling
-- Retrofitted capacity info in link tooltips
-- Units in all tooltips (buses, links)
-- Legend overlay describing layers and semantics
 """
 
 import geopandas as gpd
@@ -33,7 +27,7 @@ VALID_MAP_STYLES = PydeckPlotter.VALID_MAP_STYLES
 def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
     """
     Build an HTML legend overlay describing layers and semantics.
-    
+
     Parameters
     ----------
     carrier : str
@@ -42,23 +36,22 @@ def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
         Unit for choropleth (e.g., "€/MWh")
     flow_unit : str
         Unit for flows/capacities (e.g., "MWh/year", "GW")
-    
+
     Returns
     -------
     str
         HTML string for the legend overlay.
     """
     legend_html = f"""
-    <div style="position: fixed; 
-                bottom: 20px; right: 20px; width: 280px; 
-                background-color: white; border: 2px solid #333; 
-                border-radius: 6px; padding: 15px; 
+    <div style="position: fixed;
+                bottom: 20px; right: 20px; width: 280px;
+                background-color: white; border: 2px solid #333;
+                border-radius: 6px; padding: 15px;
                 font-family: Arial, sans-serif; font-size: 12px;
                 z-index: 9999; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
         <h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">
             Legend: {carrier.title()} Map
         </h4>
-        
         <div style="margin-bottom: 12px; border-top: 1px solid #ddd; padding-top: 10px;">
             <b>Pie Charts (Buses)</b><br>
             <span style="color: #666;">
@@ -67,7 +60,6 @@ def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
                 Each color = one carrier type
             </span>
         </div>
-        
         <div style="margin-bottom: 12px; border-top: 1px solid #ddd; padding-top: 10px;">
             <b>Flows & Arrows</b><br>
             <span style="color: #666;">
@@ -76,7 +68,6 @@ def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
                 Arrow size ∝ |flow magnitude|
             </span>
         </div>
-        
         <div style="margin-bottom: 12px; border-top: 1px solid #ddd; padding-top: 10px;">
             <b>Regional Colors</b><br>
             <span style="color: #666;">
@@ -84,7 +75,6 @@ def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
                 Time-averaged nodal marginal price
             </span>
         </div>
-        
         <div style="border-top: 1px solid #ddd; padding-top: 10px;">
             <b>Import Nodes</b><br>
             <span style="color: #666;">
@@ -92,7 +82,6 @@ def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
                 represent external supply sources
             </span>
         </div>
-        
         <p style="margin-top: 10px; font-size: 11px; color: #999;">
             💡 Hover over elements for details
         </p>
@@ -246,13 +235,15 @@ if __name__ == "__main__":
     elif unit_conversion == 1_000_000:
         flow_unit = "TWh/year"
     else:
-        flow_unit = settings.get("flow_unit", "MWh/year")  # fallback to config or default
-    
+        flow_unit = settings.get(
+            "flow_unit", "MWh/year"
+        )  # fallback to config or default
+
     # Import nodes - hardcoded by user for external supply sources
     # User should define import node coordinates in config or hardcode here
     # Example: import_node_coords = {"EU gas": {"x": 10.5, "y": 49.0, "label": "EU Gas Import"}}
     import_node_coords = settings.get("import_node_coords", {})
-    
+
     # Weighted nodal marginal prices for regional choropleth
     buses = n.buses.query("carrier in @carrier").index
     demand = (
@@ -350,23 +341,29 @@ if __name__ == "__main__":
                 flow_val = link_flow.get(link_idx, 0)
             except KeyError:
                 flow_val = 0
-            
+
             # Compute installed capacity (additional capacity beyond original)
             p_nom = link_data.get("p_nom", 0)
             p_nom_opt = link_data.get("p_nom_opt", 0)
-            installed = max(0, p_nom_opt - p_nom) if pd.notna(p_nom_opt) and pd.notna(p_nom) else 0
-            
+            installed = (
+                max(0, p_nom_opt - p_nom)
+                if pd.notna(p_nom_opt) and pd.notna(p_nom)
+                else 0
+            )
+
             link_tooltip_meta[link_idx] = {
                 "flow": flow_val / unit_conversion if flow_val != 0 else 0,
                 "capacity": p_nom_opt / unit_conversion if pd.notna(p_nom_opt) else 0,
                 "installed": installed / unit_conversion,
                 "flow_unit": flow_unit,
-                "capacity_unit": "GW" if "GW" in flow_unit or "MW" not in flow_unit else "MW",
+                "capacity_unit": "GW"
+                if "GW" in flow_unit or "MW" not in flow_unit
+                else "MW",
             }
 
     # Note: Detailed tooltips for links will be enhanced via JavaScript injection in Phase 2
 
-    map = n.explore(
+    deck = n.explore(
         branch_components=branch_components,
         bus_size=bus_size.div(unit_conversion),
         bus_split_circle=True,
@@ -384,18 +381,18 @@ if __name__ == "__main__":
         map_style=map_style,
     )
 
-    map.layers.insert(0, regions_layer)
+    deck.layers.insert(0, regions_layer)
 
     # Generate HTML and inject legend overlay
-    html_output = map.to_html(offline=True)
-    
+    html_output = deck.to_html(offline=True)
+
     # Inject legend before closing body tag
     legend = build_legend_html(carrier, region_unit, flow_unit)
     if "</body>" in html_output:
         html_output = html_output.replace("</body>", f"{legend}\n</body>")
     else:
         html_output += legend
-    
+
     # Write enhanced HTML file
     with open(snakemake.output[0], "w") as f:
         f.write(html_output)
