@@ -17,8 +17,8 @@ from evals.plots.augmentations import (
     build_legend_html,
     calculate_additional_tooltip_statistics,
     get_flow_unit,
-    remove_redundant_layer_items,
-    update_pydeck_paths_layer_tooltip,
+    update_pydeck_layer_tooltip_for_circles,
+    update_pydeck_layer_tooltip_for_paths,
 )
 from scripts._helpers import (
     configure_logging,
@@ -96,7 +96,7 @@ if __name__ == "__main__":
             opts="",
             sector_opts="none",
             planning_horizons="2030",
-            carrier="AC",
+            carrier="H2",
         )
 
     configure_logging(snakemake)
@@ -122,7 +122,7 @@ if __name__ == "__main__":
     sanitize_carriers(n, snakemake.config)
     pypsa.options.params.statistics.round = 8
     pypsa.options.params.statistics.drop_zero = True
-    pypsa.options.params.statistics.nice_names = False
+    pypsa.options.params.statistics.nice_names = True
 
     regions = gpd.read_file(snakemake.input.regions).set_index("name")
     carrier = snakemake.wildcards.carrier
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     )
 
     branch_components = ["Link"]
-    if carrier == "AC":
+    if "AC" in carrier:
         branch_components = ["Line", "Link"]
 
     # Weighted nodal marginal prices for regional choropleth
@@ -278,20 +278,8 @@ if __name__ == "__main__":
     flow_unit = get_flow_unit(unit_conversion, settings)
 
     # manipulates the global deck object in place
-    update_pydeck_paths_layer_tooltip(deck, stats, flow_unit)
-
-    # todo: remove redundant demand and supply entries
-    idx_circles_layers = [
-        i for i, layer in enumerate(deck.layers) if layer.type == "PolygonLayer"
-    ]
-    for idx in idx_circles_layers:
-        if "arrow" in deck.layers[idx].data[0]:
-            value = "flow"
-        else:
-            value = "size"
-        deck.layers[idx].data = remove_redundant_layer_items(deck, idx, value)
-
-    # todo: unravel electricity distribution grid demand
+    update_pydeck_layer_tooltip_for_paths(deck, stats, flow_unit)
+    update_pydeck_layer_tooltip_for_circles(deck, stats, flow_unit)
 
     # Generate HTML and inject legend overlay
     html_output = deck.to_html(offline=False, as_string=True)
