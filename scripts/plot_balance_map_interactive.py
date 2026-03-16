@@ -141,11 +141,12 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "plot_balance_map_interactive",
-            clusters=50,
+            run="AT_KN2040",
+            clusters="adm",
             opts="",
-            sector_opts="",
-            planning_horizons="2050",
-            carrier="H2",
+            sector_opts="none",
+            planning_horizons="2030",
+            carrier="gas",
         )
 
     configure_logging(snakemake)
@@ -202,7 +203,11 @@ if __name__ == "__main__":
     bus_size = eb.groupby(level=["bus", "carrier"]).sum()
 
     # Line and links widths according to net annual flow
-    flow = n.statistics.transmission(groupby=False, bus_carrier=carrier)
+    flow = n.statistics.transmission(groupby=False).filter(
+        regex="|".join(carriers_in_eb)
+    )
+    # todo: peak flow: n.statistics.transmission(groupby=False, groupby_time="max").filter(regex="|".join(carriers_in_eb))
+    # todo: capacity: n.statistics.optimal_capacity(groupby=False).filter(regex="|".join(carriers_in_eb)).filter(regex="Link|Line")
     if not flow.empty:
         flow_reversed_mask = flow.index.get_level_values(1).str.contains("reversed")
         flow_reversed = flow[flow_reversed_mask].rename(
@@ -384,7 +389,8 @@ if __name__ == "__main__":
     deck.layers.insert(0, regions_layer)
 
     # Generate HTML and inject legend overlay
-    html_output = deck.to_html(offline=True)
+    html_output = deck.to_html(offline=False, as_string=True)
+    # todo: minify unnecessarily large HTML string
 
     # Inject legend before closing body tag
     legend = build_legend_html(carrier, region_unit, flow_unit)
