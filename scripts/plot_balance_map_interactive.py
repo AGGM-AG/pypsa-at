@@ -5,10 +5,11 @@
 Create interactive energy balance maps for the defined carriers using `n.explore()`.
 """
 
+from math import isnan
+
 import geopandas as gpd
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
-import pandas as pd
 import pydeck as pdk
 import pypsa
 from pypsa.plot.maps.interactive import PydeckPlotter
@@ -204,7 +205,29 @@ if __name__ == "__main__":
 
     # Line and links widths according to net annual flow
     flow = n.statistics.transmission(groupby=False, bus_carrier=carrier, at_port=[0])
-    # todo: peak flow: n.statistics.transmission(groupby=False, bus_carrier=carrier, at_port=[0], groupby_time="max")
+    flow_peak = n.statistics.transmission(
+        groupby=False, bus_carrier=carrier, at_port=[0], groupby_time="max"
+    )
+    p_opt = n.statistics.optimal_capacity(
+        groupby=False,
+        bus_carrier=carrier,
+        components=["Line", "Link"],
+        carrier=carriers_in_eb.tolist(),
+    )  # .filter(regex="Link|Line")
+    p_installed = n.statistics.installed_capacity(
+        groupby=False,
+        bus_carrier=carrier,
+        at_port=[0],
+        components=["Line", "Link"],
+        carrier=carriers_in_eb.tolist(),
+    )
+    p_expanded = n.statistics.expanded_capacity(
+        groupby=False,
+        bus_carrier=carrier,
+        at_port=[0],
+        components=["Line", "Link"],
+        carrier=carriers_in_eb.tolist(),
+    )
     # todo: capacity: n.statistics.optimal_capacity(groupby=False, bus_carrier=carrier, at_port=[0]).filter(regex="Link|Line")
     if not flow.empty:
         flow_reversed_mask = flow.index.get_level_values(1).str.contains("reversed")
@@ -323,46 +346,46 @@ if __name__ == "__main__":
         auto_highlight=True,
     )
 
-    # Enhanced bus tooltip with units
-    # Build bus metadata for better tooltips
-    bus_tooltip_meta = {}
-    for (bus_name, carrier_name), value in bus_size.items():
-        key = (bus_name, carrier_name)
-        if key not in bus_tooltip_meta:
-            bus_tooltip_meta[key] = {
-                "value": value / unit_conversion,
-                "unit": flow_unit,
-            }
+    # # Enhanced bus tooltip with units
+    # # Build bus metadata for better tooltips
+    # bus_tooltip_meta = {}
+    # for (bus_name, carrier_name), value in bus_size.items():
+    #     key = (bus_name, carrier_name)
+    #     if key not in bus_tooltip_meta:
+    #         bus_tooltip_meta[key] = {
+    #             "value": value / unit_conversion,
+    #             "unit": flow_unit,
+    #         }
 
-    # Enhanced link tooltip with installed capacity and units
-    link_tooltip_meta = {}
-    if not n.links.empty:
-        for link_idx in n.links.index:
-            link_data = n.links.loc[link_idx]
-            # Get flow (already computed)
-            try:
-                flow_val = link_flow.get(link_idx, 0)
-            except KeyError:
-                flow_val = 0
-
-            # Compute installed capacity (additional capacity beyond original)
-            p_nom = link_data.get("p_nom", 0)
-            p_nom_opt = link_data.get("p_nom_opt", 0)
-            installed = (
-                max(0, p_nom_opt - p_nom)
-                if pd.notna(p_nom_opt) and pd.notna(p_nom)
-                else 0
-            )
-
-            link_tooltip_meta[link_idx] = {
-                "flow": flow_val / unit_conversion if flow_val != 0 else 0,
-                "capacity": p_nom_opt / unit_conversion if pd.notna(p_nom_opt) else 0,
-                "installed": installed / unit_conversion,
-                "flow_unit": flow_unit,
-                "capacity_unit": "GW"
-                if "GW" in flow_unit or "MW" not in flow_unit
-                else "MW",
-            }
+    # # Enhanced link tooltip with installed capacity and units
+    # link_tooltip_meta = {}
+    # if not n.links.empty:
+    #     for link_idx in n.links.index:
+    #         link_data = n.links.loc[link_idx]
+    #         # Get flow (already computed)
+    #         try:
+    #             flow_val = link_flow.get(link_idx, 0)
+    #         except KeyError:
+    #             flow_val = 0
+    #
+    #         # Compute installed capacity (additional capacity beyond original)
+    #         p_nom = link_data.get("p_nom", 0)
+    #         p_nom_opt = link_data.get("p_nom_opt", 0)
+    #         installed = (
+    #             max(0, p_nom_opt - p_nom)
+    #             if pd.notna(p_nom_opt) and pd.notna(p_nom)
+    #             else 0
+    #         )
+    #
+    #         link_tooltip_meta[link_idx] = {
+    #             "flow": flow_val / unit_conversion if flow_val != 0 else 0,
+    #             "capacity": p_nom_opt / unit_conversion if pd.notna(p_nom_opt) else 0,  # fixme: p_nom is GW base not MW
+    #             "installed": installed / unit_conversion,
+    #             "flow_unit": flow_unit,
+    #             "capacity_unit": "GW"
+    #             if "GW" in flow_unit or "MW" not in flow_unit
+    #             else "MW",
+    #         }
 
     deck = n.explore(
         branch_components=branch_components,
@@ -381,6 +404,37 @@ if __name__ == "__main__":
         bus_size_max=bus_size_max,
         map_style=map_style,
     )
+
+    # purge irrelevant paths from tooltip to safe disk space
+    idx_paths_layer = {
+        i for i, l in enumerate(deck.layers) if l.type == "PathLayer"
+    }.pop()
+    paths = deck.layers[idx_paths_layer]
+    paths.data = [d for d in paths.data if not isnan(d["width"])]
+
+    # inplace edit the paths layer
+    for item in paths.data:
+        # make width absolute value. The flow arrow contains this info.
+        item["width"] = abs(item["width"])
+        item["width_pdk"] = abs(item["width_pdk"])
+
+        # # update tooltip info boxes
+        # meta = link_tooltip_meta.get(item["name"])
+        # if meta:
+        item["tooltip_html"] = (
+            f"<b>{item['name']}</b>\n<table>\n"
+            f"<tr><td style='font-weight:bold'>bus0:</td>"
+            f"<td style='text-align:left'>{item['bus0']}</td></tr>\n"
+            f"<tr><td style='font-weight:bold'>bus1:</td>"
+            f"<td style='text-align:left'>{item['bus1']}</td></tr>\n"
+            f"<tr><td style='font-weight:bold'>Net flow:</td>"
+            f"<td style='text-align:left'>{item['width']:.2f} {flow_unit}</td></tr>\n"
+            # f"<tr><td style='font-weight:bold'>Total capacity:</td>"
+            # f"<td style='text-align:left'>{meta['capacity']:.2f} {meta['capacity_unit']}</td></tr>\n"
+            # f"<tr><td style='font-weight:bold'>Newly installed:</td>"
+            # f"<td style='text-align:left'>{meta['installed']:.2f} {meta['capacity_unit']}</td></tr>\n"
+            f"</table>"
+        )
 
     deck.layers.insert(0, regions_layer)
 
