@@ -204,8 +204,8 @@ if __name__ == "__main__":
 
     # Line and links widths according to net annual flow
     flow = n.statistics.transmission(groupby=False, bus_carrier=carrier, at_port=[0])
-    # todo: peak flow: n.statistics.transmission(groupby=False, groupby_time="max").filter(regex="|".join(carriers_in_eb))
-    # todo: capacity: n.statistics.optimal_capacity(groupby=False).filter(regex="|".join(carriers_in_eb)).filter(regex="Link|Line")
+    # todo: peak flow: n.statistics.transmission(groupby=False, bus_carrier=carrier, at_port=[0], groupby_time="max")
+    # todo: capacity: n.statistics.optimal_capacity(groupby=False, bus_carrier=carrier, at_port=[0]).filter(regex="Link|Line")
     if not flow.empty:
         flow_reversed_mask = flow.index.get_level_values(1).str.contains("reversed")
         flow_reversed = flow[flow_reversed_mask].rename(
