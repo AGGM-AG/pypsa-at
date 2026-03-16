@@ -108,6 +108,7 @@ def update_pydeck_layer_tooltip_for_circles(deck, stats: dict, flow_unit: str) -
         deck.layers[idx].data = remove_redundant_layer_items(deck, idx, value)
 
         for item in deck.layers[idx].data:
+            # todo: add more stats info in tooltips
             if is_arrow:
                 item["tooltip_html"] = (
                     f"<b>{item['name']}</b>\n<table>\n"
