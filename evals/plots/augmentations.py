@@ -56,6 +56,10 @@ def get_import_node_coordinates(settings: dict) -> dict:
     return settings.get("import_node_coords", {})
 
 
+def remove_redundant_layer_items(deck, layer, value):
+    return [d for d in deck.layers[layer].data if not isnan(d[value]) and d[value] > 0]
+
+
 def update_pydeck_paths_layer_tooltip(deck, stats: dict, flow_unit: str) -> None:
     idx_paths_layer = {
         i for i, layer in enumerate(deck.layers) if layer.type == "PathLayer"
@@ -63,7 +67,7 @@ def update_pydeck_paths_layer_tooltip(deck, stats: dict, flow_unit: str) -> None
     paths = deck.layers[idx_paths_layer]
 
     # purge irrelevant paths to save disk space
-    paths.data = [d for d in paths.data if not isnan(d["width"])]
+    paths.data = remove_redundant_layer_items(deck, idx_paths_layer, "width")
 
     for item in paths.data:
         # make width absolute value. The flow arrow contains this info.
