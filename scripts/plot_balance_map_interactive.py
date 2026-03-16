@@ -191,9 +191,9 @@ if __name__ == "__main__":
             )
             / weights.sum()
         )
-        .groupby(level=0)
+        .groupby(level=0)  # to combine AC and low voltage locations
         .mean()
-    )  # to combine AC and low voltage locations
+    )
 
     if carrier == "co2 stored" and "CO2Limit" in n.global_constraints.index:
         co2_price = n.global_constraints.loc["CO2Limit", "mu"]
