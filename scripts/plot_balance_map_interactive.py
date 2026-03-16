@@ -145,7 +145,7 @@ if __name__ == "__main__":
     # Pie charts - compute energy balance per bus and carrier
     eb = n.statistics.energy_balance(
         bus_carrier=carrier,
-        groupby=["bus", "carrier"],
+        groupby=["location", "carrier"],
     )
 
     # Only carriers that are also in the energy balance
@@ -153,7 +153,8 @@ if __name__ == "__main__":
 
     eb.loc[components] = eb.loc[components].drop(index=carriers_in_eb, level="carrier")
     eb = eb.dropna()
-    bus_size = eb.groupby(level=["bus", "carrier"]).sum()
+    bus_size = eb.groupby(level=["location", "carrier"]).sum()
+    # bus_size.index = bus_size.index.rename({"location": "bus"})
 
     # Line and links widths according to net annual flow
     flow = n.statistics.transmission(groupby=False, bus_carrier=carrier, at_port=[0])
