@@ -25,6 +25,90 @@ from scripts.add_electricity import sanitize_carriers
 VALID_MAP_STYLES = PydeckPlotter.VALID_MAP_STYLES
 
 
+def calculate_additional_tooltip_statistics() -> dict:
+    flow_peak = n.statistics.transmission(
+        groupby=False, bus_carrier=carrier, at_port=[0], groupby_time="max"
+    )
+
+    capacity_kwargs = dict(
+        groupby=False,
+        bus_carrier=carrier,
+        at_port=[0],
+        components=["Line", "Link"],
+        carrier=carriers_in_eb.tolist(),
+        aggregate_across_components=True,
+    )
+
+    p_opt = n.statistics.optimal_capacity(**capacity_kwargs).div(1e3)
+    p_opt.attrs["unit"] = "GW"
+    p_installed = n.statistics.installed_capacity(**capacity_kwargs).div(1e3)
+    p_installed.attrs["unit"] = "GW"
+    p_expanded = n.statistics.expanded_capacity(**capacity_kwargs).div(1e3)
+    p_expanded.attrs["unit"] = "GW"
+    return {
+        "flow_peak": flow_peak,
+        "p_opt": p_opt,
+        "p_installed": p_installed,
+        "p_expanded": p_expanded,
+    }
+
+
+def get_flow_unit() -> str:
+    # Enhanced tooltips for buses (with units)
+    # Determine flow unit based on unit_conversion factor
+    if unit_conversion == 1:
+        return "MWh/year"
+    elif unit_conversion == 1_000:
+        return "GWh/year"
+    elif unit_conversion == 1_000_000:
+        return "TWh/year"
+    else:  # fallback to config or default
+        return settings.get("flow_unit", "MWh/year")
+
+
+def get_import_node_coordinates():
+    # Import nodes - hardcoded by user for external supply sources
+    # User should define import node coordinates in config or hardcode here
+    # Example: import_node_coords = {"EU gas": {"x": 10.5, "y": 49.0, "label": "EU Gas Import"}}
+    return settings.get("import_node_coords", {})
+
+
+def update_pydeck_paths_layer_tooltip() -> None:
+    # identify paths layer position
+    idx_paths_layer = {
+        i for i, l in enumerate(deck.layers) if l.type == "PathLayer"
+    }.pop()
+    paths = deck.layers[idx_paths_layer]
+
+    # purge irrelevant paths from tooltip to safe disk space
+    paths.data = [d for d in paths.data if not isnan(d["width"])]
+
+    # inplace edit the paths layer
+    for item in paths.data:
+        # make width absolute value. The flow arrow contains this info.
+        item["width"] = abs(item["width"])
+        item["width_pdk"] = abs(item["width_pdk"])
+
+        name = item["name"]
+
+        item["tooltip_html"] = (
+            f"<b>{name}</b>\n<table>\n"
+            f"<tr><td style='font-weight:bold'>bus0:</td>"
+            f"<td style='text-align:left'>{item['bus0']}</td></tr>\n"
+            f"<tr><td style='font-weight:bold'>bus1:</td>"
+            f"<td style='text-align:left'>{item['bus1']}</td></tr>\n"
+            f"<tr><td style='font-weight:bold'>Net flow:</td>"
+            f"<td style='text-align:left'>{item['width']:.2f} {flow_unit}</td></tr>\n"
+            f"<tr><td style='font-weight:bold'>Total capacity:</td>"
+            f"<td style='text-align:left'>{stats['p_opt'].loc[name]:.2f} {stats['p_opt'].attrs['unit']}</td></tr>\n"
+            f"<tr><td style='font-weight:bold'>Newly installed capacity:</td>"
+            f"<td style='text-align:left'>{stats['p_expanded'].loc[name]:.2f} {stats['p_expanded'].attrs['unit']}</td></tr>\n"
+            f"<tr><td style='font-weight:bold'>Existing capacity:</td>"
+            f"<td style='text-align:left'>{stats['p_installed'].get(name, 0):.2f} {stats['p_installed'].attrs['unit']}</td></tr>\n"
+            f"</table>"
+        )
+
+
 def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
     """
     Build an HTML legend overlay describing layers and semantics.
@@ -89,6 +173,16 @@ def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
     </div>
     """
     return legend_html
+
+
+def attach_legend_to_html_string(html: str):
+    # Inject legend before closing body tag
+    legend = build_legend_html(carrier, region_unit, flow_unit)
+
+    if "</body>" in html:
+        return html.replace("</body>", f"{legend}\n</body>")
+
+    return html + legend
 
 
 def scalar_to_rgba(
@@ -205,30 +299,6 @@ if __name__ == "__main__":
 
     # Line and links widths according to net annual flow
     flow = n.statistics.transmission(groupby=False, bus_carrier=carrier, at_port=[0])
-    flow_peak = n.statistics.transmission(
-        groupby=False, bus_carrier=carrier, at_port=[0], groupby_time="max"
-    )
-    p_opt = n.statistics.optimal_capacity(
-        groupby=False,
-        bus_carrier=carrier,
-        components=["Line", "Link"],
-        carrier=carriers_in_eb.tolist(),
-    )
-    p_installed = n.statistics.installed_capacity(
-        groupby=False,
-        bus_carrier=carrier,
-        at_port=[0],
-        components=["Line", "Link"],
-        carrier=carriers_in_eb.tolist(),
-    )
-    p_expanded = n.statistics.expanded_capacity(
-        groupby=False,
-        bus_carrier=carrier,
-        at_port=[0],
-        components=["Line", "Link"],
-        carrier=carriers_in_eb.tolist(),
-    )
-    # todo: capacity: n.statistics.optimal_capacity(groupby=False, bus_carrier=carrier, at_port=[0]).filter(regex="Link|Line")
     if not flow.empty:
         flow_reversed_mask = flow.index.get_level_values(1).str.contains("reversed")
         flow_reversed = flow[flow_reversed_mask].rename(
@@ -251,24 +321,6 @@ if __name__ == "__main__":
     branch_components = ["Link"]
     if carrier == "AC":
         branch_components = ["Line", "Link"]
-
-    # Enhanced tooltips for buses (with units)
-    # Determine flow unit based on unit_conversion factor
-    if unit_conversion == 1:
-        flow_unit = "MWh/year"
-    elif unit_conversion == 1_000:
-        flow_unit = "GWh/year"
-    elif unit_conversion == 1_000_000:
-        flow_unit = "TWh/year"
-    else:
-        flow_unit = settings.get(
-            "flow_unit", "MWh/year"
-        )  # fallback to config or default
-
-    # Import nodes - hardcoded by user for external supply sources
-    # User should define import node coordinates in config or hardcode here
-    # Example: import_node_coords = {"EU gas": {"x": 10.5, "y": 49.0, "label": "EU Gas Import"}}
-    import_node_coords = settings.get("import_node_coords", {})
 
     # Weighted nodal marginal prices for regional choropleth
     buses = n.buses.query("carrier in @carrier").index
@@ -346,47 +398,6 @@ if __name__ == "__main__":
         auto_highlight=True,
     )
 
-    # # Enhanced bus tooltip with units
-    # # Build bus metadata for better tooltips
-    # bus_tooltip_meta = {}
-    # for (bus_name, carrier_name), value in bus_size.items():
-    #     key = (bus_name, carrier_name)
-    #     if key not in bus_tooltip_meta:
-    #         bus_tooltip_meta[key] = {
-    #             "value": value / unit_conversion,
-    #             "unit": flow_unit,
-    #         }
-
-    # # Enhanced link tooltip with installed capacity and units
-    # link_tooltip_meta = {}
-    # if not n.links.empty:
-    #     for link_idx in n.links.index:
-    #         link_data = n.links.loc[link_idx]
-    #         # Get flow (already computed)
-    #         try:
-    #             flow_val = link_flow.get(link_idx, 0)
-    #         except KeyError:
-    #             flow_val = 0
-    #
-    #         # Compute installed capacity (additional capacity beyond original)
-    #         p_nom = link_data.get("p_nom", 0)
-    #         p_nom_opt = link_data.get("p_nom_opt", 0)
-    #         installed = (
-    #             max(0, p_nom_opt - p_nom)
-    #             if pd.notna(p_nom_opt) and pd.notna(p_nom)
-    #             else 0
-    #         )
-    #
-    #         link_tooltip_meta[link_idx] = {
-    #             "flow": flow_val / unit_conversion if flow_val != 0 else 0,
-    #             "capacity": p_nom_opt / unit_conversion if pd.notna(p_nom_opt) else 0,  # fixme: p_nom is GW base not MW
-    #             "installed": installed / unit_conversion,
-    #             "flow_unit": flow_unit,
-    #             "capacity_unit": "GW"
-    #             if "GW" in flow_unit or "MW" not in flow_unit
-    #             else "MW",
-    #         }
-
     deck = n.explore(
         branch_components=branch_components,
         bus_size=bus_size.div(unit_conversion),
@@ -405,50 +416,26 @@ if __name__ == "__main__":
         map_style=map_style,
     )
 
-    # purge irrelevant paths from tooltip to safe disk space
-    idx_paths_layer = {
-        i for i, l in enumerate(deck.layers) if l.type == "PathLayer"
-    }.pop()
-    paths = deck.layers[idx_paths_layer]
-    paths.data = [d for d in paths.data if not isnan(d["width"])]
+    # todo: refactor main function login into main() and explicitly pass required function
+    #  argument instead of relying on global scope
 
-    # inplace edit the paths layer
-    for item in paths.data:
-        # make width absolute value. The flow arrow contains this info.
-        item["width"] = abs(item["width"])
-        item["width_pdk"] = abs(item["width_pdk"])
+    # prepare additional statistics for tooltip info
+    stats = calculate_additional_tooltip_statistics()
 
-        # # update tooltip info boxes
-        # meta = link_tooltip_meta.get(item["name"])
-        # if meta:
-        item["tooltip_html"] = (
-            f"<b>{item['name']}</b>\n<table>\n"
-            f"<tr><td style='font-weight:bold'>bus0:</td>"
-            f"<td style='text-align:left'>{item['bus0']}</td></tr>\n"
-            f"<tr><td style='font-weight:bold'>bus1:</td>"
-            f"<td style='text-align:left'>{item['bus1']}</td></tr>\n"
-            f"<tr><td style='font-weight:bold'>Net flow:</td>"
-            f"<td style='text-align:left'>{item['width']:.2f} {flow_unit}</td></tr>\n"
-            # f"<tr><td style='font-weight:bold'>Total capacity:</td>"
-            # f"<td style='text-align:left'>{meta['capacity']:.2f} {meta['capacity_unit']}</td></tr>\n"
-            # f"<tr><td style='font-weight:bold'>Newly installed:</td>"
-            # f"<td style='text-align:left'>{meta['installed']:.2f} {meta['capacity_unit']}</td></tr>\n"
-            f"</table>"
-        )
+    # identify flow unit as a string depending on unit_conversion number
+    flow_unit = get_flow_unit()
+
+    # manipulates the global deck object in place
+    update_pydeck_paths_layer_tooltip()
 
     deck.layers.insert(0, regions_layer)
 
     # Generate HTML and inject legend overlay
     html_output = deck.to_html(offline=False, as_string=True)
-    # todo: minify unnecessarily large HTML string
 
-    # Inject legend before closing body tag
-    legend = build_legend_html(carrier, region_unit, flow_unit)
-    if "</body>" in html_output:
-        html_output = html_output.replace("</body>", f"{legend}\n</body>")
-    else:
-        html_output += legend
+    html_output = attach_legend_to_html_string(html_output)
 
     # Write enhanced HTML file
     with open(snakemake.output[0], "w") as f:
+        # todo: minify HTML string before serializing
         f.write(html_output)
