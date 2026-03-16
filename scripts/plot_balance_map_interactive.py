@@ -17,6 +17,7 @@ from evals.plots.augmentations import (
     build_legend_html,
     calculate_additional_tooltip_statistics,
     get_flow_unit,
+    remove_redundant_layer_items,
     update_pydeck_paths_layer_tooltip,
 )
 from scripts._helpers import (
@@ -95,7 +96,7 @@ if __name__ == "__main__":
             opts="",
             sector_opts="none",
             planning_horizons="2030",
-            carrier="gas",
+            carrier="AC",
         )
 
     configure_logging(snakemake)
@@ -270,7 +271,9 @@ if __name__ == "__main__":
         map_style=map_style,
     )
 
-    # todo: refactor all pypsa-at augmentations into evals module and refactor
+    deck.layers.insert(0, regions_layer)
+
+    # todo: wrap all augmentations in one orchestrator function to reduce visual noise in pypsa-eur script
 
     # prepare additional statistics for tooltip info
     stats = calculate_additional_tooltip_statistics(n, carrier, carriers_in_eb)
@@ -281,11 +284,19 @@ if __name__ == "__main__":
     # manipulates the global deck object in place
     update_pydeck_paths_layer_tooltip(deck, stats, flow_unit)
 
-    deck.layers.insert(0, regions_layer)
+    # todo: remove redundant demand and supply entries
+    idx_circles_layers = [
+        i for i, layer in enumerate(deck.layers) if layer.type == "PolygonLayer"
+    ]
+    for idx in idx_circles_layers:
+        if "arrow" in deck.layers[idx].data[0]:
+            value = "flow"
+        else:
+            value = "size"
+        deck.layers[idx].data = remove_redundant_layer_items(deck, idx, value)
 
     # Generate HTML and inject legend overlay
     html_output = deck.to_html(offline=False, as_string=True)
-
     html_output = attach_legend_to_html_string(html_output)
 
     # Write enhanced HTML file
