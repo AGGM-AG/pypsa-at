@@ -5,8 +5,6 @@
 Create interactive energy balance maps for the defined carriers using `n.explore()`.
 """
 
-from math import isnan
-
 import geopandas as gpd
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -15,6 +13,12 @@ import pypsa
 from pypsa.plot.maps.interactive import PydeckPlotter
 from pypsa.statistics import get_transmission_carriers
 
+from evals.plots.augmentations import (
+    build_legend_html,
+    calculate_additional_tooltip_statistics,
+    get_flow_unit,
+    update_pydeck_paths_layer_tooltip,
+)
 from scripts._helpers import (
     configure_logging,
     set_scenario_config,
@@ -23,156 +27,6 @@ from scripts._helpers import (
 from scripts.add_electricity import sanitize_carriers
 
 VALID_MAP_STYLES = PydeckPlotter.VALID_MAP_STYLES
-
-
-def calculate_additional_tooltip_statistics() -> dict:
-    flow_peak = n.statistics.transmission(
-        groupby=False, bus_carrier=carrier, at_port=[0], groupby_time="max"
-    )
-
-    capacity_kwargs = dict(
-        groupby=False,
-        bus_carrier=carrier,
-        at_port=[0],
-        components=["Line", "Link"],
-        carrier=carriers_in_eb.tolist(),
-        aggregate_across_components=True,
-    )
-
-    p_opt = n.statistics.optimal_capacity(**capacity_kwargs).div(1e3)
-    p_opt.attrs["unit"] = "GW"
-    p_installed = n.statistics.installed_capacity(**capacity_kwargs).div(1e3)
-    p_installed.attrs["unit"] = "GW"
-    p_expanded = n.statistics.expanded_capacity(**capacity_kwargs).div(1e3)
-    p_expanded.attrs["unit"] = "GW"
-    return {
-        "flow_peak": flow_peak,
-        "p_opt": p_opt,
-        "p_installed": p_installed,
-        "p_expanded": p_expanded,
-    }
-
-
-def get_flow_unit() -> str:
-    # Enhanced tooltips for buses (with units)
-    # Determine flow unit based on unit_conversion factor
-    if unit_conversion == 1:
-        return "MWh/year"
-    elif unit_conversion == 1_000:
-        return "GWh/year"
-    elif unit_conversion == 1_000_000:
-        return "TWh/year"
-    else:  # fallback to config or default
-        return settings.get("flow_unit", "MWh/year")
-
-
-def get_import_node_coordinates():
-    # Import nodes - hardcoded by user for external supply sources
-    # User should define import node coordinates in config or hardcode here
-    # Example: import_node_coords = {"EU gas": {"x": 10.5, "y": 49.0, "label": "EU Gas Import"}}
-    return settings.get("import_node_coords", {})
-
-
-def update_pydeck_paths_layer_tooltip() -> None:
-    # identify paths layer position
-    idx_paths_layer = {
-        i for i, l in enumerate(deck.layers) if l.type == "PathLayer"
-    }.pop()
-    paths = deck.layers[idx_paths_layer]
-
-    # purge irrelevant paths from tooltip to safe disk space
-    paths.data = [d for d in paths.data if not isnan(d["width"])]
-
-    # inplace edit the paths layer
-    for item in paths.data:
-        # make width absolute value. The flow arrow contains this info.
-        item["width"] = abs(item["width"])
-        item["width_pdk"] = abs(item["width_pdk"])
-
-        name = item["name"]
-
-        item["tooltip_html"] = (
-            f"<b>{name}</b>\n<table>\n"
-            f"<tr><td style='font-weight:bold'>bus0:</td>"
-            f"<td style='text-align:left'>{item['bus0']}</td></tr>\n"
-            f"<tr><td style='font-weight:bold'>bus1:</td>"
-            f"<td style='text-align:left'>{item['bus1']}</td></tr>\n"
-            f"<tr><td style='font-weight:bold'>Net flow:</td>"
-            f"<td style='text-align:left'>{item['width']:.2f} {flow_unit}</td></tr>\n"
-            f"<tr><td style='font-weight:bold'>Total capacity:</td>"
-            f"<td style='text-align:left'>{stats['p_opt'].loc[name]:.2f} {stats['p_opt'].attrs['unit']}</td></tr>\n"
-            f"<tr><td style='font-weight:bold'>Newly installed capacity:</td>"
-            f"<td style='text-align:left'>{stats['p_expanded'].loc[name]:.2f} {stats['p_expanded'].attrs['unit']}</td></tr>\n"
-            f"<tr><td style='font-weight:bold'>Existing capacity:</td>"
-            f"<td style='text-align:left'>{stats['p_installed'].get(name, 0):.2f} {stats['p_installed'].attrs['unit']}</td></tr>\n"
-            f"</table>"
-        )
-
-
-def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
-    """
-    Build an HTML legend overlay describing layers and semantics.
-
-    Parameters
-    ----------
-    carrier : str
-        Carrier name (e.g., "gas", "H2", "AC")
-    region_unit : str
-        Unit for choropleth (e.g., "€/MWh")
-    flow_unit : str
-        Unit for flows/capacities (e.g., "MWh/year", "GW")
-
-    Returns
-    -------
-    str
-        HTML string for the legend overlay.
-    """
-    legend_html = f"""
-    <div style="position: fixed;
-                bottom: 20px; right: 20px; width: 280px;
-                background-color: white; border: 2px solid #333;
-                border-radius: 6px; padding: 15px;
-                font-family: Arial, sans-serif; font-size: 12px;
-                z-index: 9999; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        <h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">
-            Legend: {carrier.title()} Map
-        </h4>
-        <div style="margin-bottom: 12px; border-top: 1px solid #ddd; padding-top: 10px;">
-            <b>Pie Charts (Buses)</b><br>
-            <span style="color: #666;">
-                ▲ Upper half: Annual supply ({flow_unit})<br>
-                ▼ Lower half: Annual demand ({flow_unit})<br>
-                Each color = one carrier type
-            </span>
-        </div>
-        <div style="margin-bottom: 12px; border-top: 1px solid #ddd; padding-top: 10px;">
-            <b>Flows & Arrows</b><br>
-            <span style="color: #666;">
-                Line width ∝ net annual flow ({flow_unit})<br>
-                Arrow direction = flow direction<br>
-                Arrow size ∝ |flow magnitude|
-            </span>
-        </div>
-        <div style="margin-bottom: 12px; border-top: 1px solid #ddd; padding-top: 10px;">
-            <b>Regional Colors</b><br>
-            <span style="color: #666;">
-                Choropleth = weighted price ({region_unit})<br>
-                Time-averaged nodal marginal price
-            </span>
-        </div>
-        <div style="border-top: 1px solid #ddd; padding-top: 10px;">
-            <b>Import Nodes</b><br>
-            <span style="color: #666;">
-                Nodes outside country boundary<br>
-                represent external supply sources
-            </span>
-        </div>
-        <p style="margin-top: 10px; font-size: 11px; color: #999;">
-            💡 Hover over elements for details
-        </p>
-    </div>
-    """
-    return legend_html
 
 
 def attach_legend_to_html_string(html: str):
@@ -416,17 +270,16 @@ if __name__ == "__main__":
         map_style=map_style,
     )
 
-    # todo: refactor main function login into main() and explicitly pass required function
-    #  argument instead of relying on global scope
+    # todo: refactor all pypsa-at augmentations into evals module and refactor
 
     # prepare additional statistics for tooltip info
-    stats = calculate_additional_tooltip_statistics()
+    stats = calculate_additional_tooltip_statistics(n, carrier, carriers_in_eb)
 
     # identify flow unit as a string depending on unit_conversion number
-    flow_unit = get_flow_unit()
+    flow_unit = get_flow_unit(unit_conversion, settings)
 
     # manipulates the global deck object in place
-    update_pydeck_paths_layer_tooltip()
+    update_pydeck_paths_layer_tooltip(deck, stats, flow_unit)
 
     deck.layers.insert(0, regions_layer)
 
