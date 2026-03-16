@@ -139,6 +139,9 @@ if __name__ == "__main__":
     components = transmission_carriers.unique("component")
     carriers = transmission_carriers.unique("carrier")
 
+    if carrier == "AC" and n.meta["sector"].get("electricity_distribution_grid", False):
+        carrier = [carrier, "low voltage"]
+
     # Pie charts - compute energy balance per bus and carrier
     eb = n.statistics.energy_balance(
         bus_carrier=carrier,
@@ -179,26 +182,18 @@ if __name__ == "__main__":
 
     # Weighted nodal marginal prices for regional choropleth
     buses = n.buses.query("carrier in @carrier").index
-    demand = (
-        n.statistics.energy_balance(
-            bus_carrier=carrier, aggregate_time=False, groupby=["bus", "carrier"]
-        )
-        .clip(lower=0)
-        .groupby("bus")
-        .sum()
-        .reindex(buses)
-        .rename(n.buses.location)
-        .T
-    )
-
     weights = n.snapshot_weightings.generators
     price = (
-        weights
-        @ n.buses_t.marginal_price.reindex(buses, axis=1).rename(
-            n.buses.location, axis=1
+        (
+            weights
+            @ n.buses_t.marginal_price.reindex(buses, axis=1).rename(
+                n.buses.location, axis=1
+            )
+            / weights.sum()
         )
-        / weights.sum()
-    )
+        .groupby(level=0)
+        .mean()
+    )  # to combine AC and low voltage locations
 
     if carrier == "co2 stored" and "CO2Limit" in n.global_constraints.index:
         co2_price = n.global_constraints.loc["CO2Limit", "mu"]
@@ -294,6 +289,8 @@ if __name__ == "__main__":
         else:
             value = "size"
         deck.layers[idx].data = remove_redundant_layer_items(deck, idx, value)
+
+    # todo: unravel electricity distribution grid demand
 
     # Generate HTML and inject legend overlay
     html_output = deck.to_html(offline=False, as_string=True)
