@@ -203,9 +203,7 @@ if __name__ == "__main__":
     bus_size = eb.groupby(level=["bus", "carrier"]).sum()
 
     # Line and links widths according to net annual flow
-    flow = n.statistics.transmission(groupby=False).filter(
-        regex="|".join(carriers_in_eb)
-    )
+    flow = n.statistics.transmission(groupby=False, bus_carrier=carrier, at_port=[0])
     # todo: peak flow: n.statistics.transmission(groupby=False, groupby_time="max").filter(regex="|".join(carriers_in_eb))
     # todo: capacity: n.statistics.optimal_capacity(groupby=False).filter(regex="|".join(carriers_in_eb)).filter(regex="Link|Line")
     if not flow.empty:
@@ -326,7 +324,7 @@ if __name__ == "__main__":
     )
 
     # Enhanced bus tooltip with units
-    # Build bus metadata for better tooltips (prepared for Phase 2)
+    # Build bus metadata for better tooltips
     bus_tooltip_meta = {}
     for (bus_name, carrier_name), value in bus_size.items():
         key = (bus_name, carrier_name)
@@ -365,8 +363,6 @@ if __name__ == "__main__":
                 if "GW" in flow_unit or "MW" not in flow_unit
                 else "MW",
             }
-
-    # Note: Detailed tooltips for links will be enhanced via JavaScript injection in Phase 2
 
     deck = n.explore(
         branch_components=branch_components,
