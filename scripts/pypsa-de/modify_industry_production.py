@@ -17,7 +17,6 @@ import logging
 
 import pandas as pd
 
-from mods.network_updates import modify_austrian_industry_demand
 from scripts._helpers import (
     configure_logging,
     mock_snakemake,
@@ -160,8 +159,6 @@ if __name__ == "__main__":
             ],
         ],
     )
-
-    existing_industry = modify_austrian_industry_demand(existing_industry, year)
 
     existing_industry.to_csv(
         snakemake.output.industrial_production_per_country_tomorrow

@@ -8,7 +8,6 @@ from logging import getLogger
 
 import pandas as pd
 import pypsa
-from snakemake.exceptions import MissingInputException
 from snakemake.script import Snakemake
 
 logger = getLogger(__name__)
@@ -49,11 +48,9 @@ def attach_resources_to_network_meta(
         Updates ``n.meta`` and ``n.name`` in place.
     """
     if not hasattr(snakemake.input, "energy_totals"):
-        raise MissingInputException(msg="Required input file not found: energy_totals.")
+        raise ValueError("Required input file not found: energy_totals.")
     if not hasattr(snakemake.input, "co2_totals_name"):
-        raise MissingInputException(
-            msg="Required input parameter not found: energy_totals_name."
-        )
+        raise ValueError("Required input parameter not found: energy_totals_name.")
 
     energy_totals_year = snakemake.params.get(
         "energy_year",
@@ -74,84 +71,6 @@ def attach_resources_to_network_meta(
         f"Attached energy_totals (year={energy_totals_year}) and co2_totals "
         f"to network meta for planning horizon {planning_horizon}."
     )
-
-
-def modify_austrian_transmission_capacities(
-    n: pypsa.Network, austrian_transmission_capacities: str
-):
-    """
-    Update transmission capacities for Austria.
-
-    The function is expected to run on clustered pre-networks. It
-    Will read capacities provided in a data file and update the
-    respective values.
-
-    Parameters
-    ----------
-    n
-        The pre-network to update during rule `modify_prenetwork`.
-
-    austrian_transmission_capacities
-        The path to the data file used to update the capacities.
-
-    Returns
-    -------
-    :
-    """
-    if (nuts_at := n.meta["clustering"]["administrative"]["AT"]) != 2:
-        logger.info(
-            f"Skipping grid capacity updates for Austria. The NUTS "
-            f"level for Austria is {nuts_at}, but only NUTS level 2 is supported."
-        )
-        return
-
-    logger.info("Modifying grid capacities for Austria.")
-
-    # transmission_carrier = get_transmission_carriers(n)
-    # to_concat = []
-    # for component, carrier in transmission_carrier:
-    #     capacity_column = f"{'p' if component == 'Link' else 's'}_nom"
-    #     to_concat.append(
-    #         n.static(component).query(f"carrier == @carrier "
-    #                                   f"& (bus0.str.startswith('AT') "
-    #                                   f"| bus1.str.startswith('AT'))")[["bus0", "bus1", capacity_column]]
-    #     )
-    # template = pd.concat(to_concat).sort_index()
-    # template.to_csv(austrian_grid_capacities)
-
-    capacities = pd.read_csv(austrian_transmission_capacities, index_col=0).sort_index()
-
-    for c in n.branch_components:
-        p = f"{'p' if c == 'Link' else 's'}_nom"
-        overwrite = capacities[["bus0", "bus1", p]].dropna(subset=[p])
-        n.static(c).update(overwrite)
-
-    # todo: test if 2020 capacities are in result network
-    # todo: support all years. currently only 2020 is supported
-
-
-def modify_austrian_industry_demand(existing_industry, year):
-    """Update the industry demand in the PyPSA-AT model for Austria."""
-
-    logger.info("Updating industry demand for Austria.")
-
-    return existing_industry
-
-
-def modify_austrian_gas_storage_capacities():
-    """Update gas and H2 storage capacities for Austria."""
-
-
-def modify_biomass_potentials():
-    """Update biomass potentials."""
-
-
-def modify_heat_demand():
-    """Update heat demands."""
-
-
-def electricity_base_load_split(n: pypsa.Network, snakemake: Snakemake):
-    """Split electricity base load to sectoral loads."""
 
 
 def unravel_gas_import_and_production(
@@ -236,35 +155,30 @@ def unravel_gas_import_and_production(
     )
 
 
-def unravel_electricity_base_load(n: pypsa.Network, snakemake: Snakemake) -> None:
+def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
-    Split electricity baseload into sectoral loads.
+    Apply all PyPSA-AT specific modifications to the pre-network.
+
+    This is the single entry point for all AT-specific modifications during
+    the ``modify_prenetwork`` Snakemake step. It orchestrates the individual
+    modification functions and encapsulates the conditional logic for when
+    each modification applies.
 
     Parameters
     ----------
     n
+        The pre-network to be modified in place.
     snakemake
+        The Snakemake workflow object providing inputs, params, config,
+        and wildcards.
 
     Returns
     -------
     :
+        Updates the :class:`pypsa.Network` in place.
     """
-    # config = snakemake.config
-    # print(config)
+    from scripts.add_electricity import load_costs
 
-    # electricity base load is from: https://nbviewer.org/github/Open-Power-System-Data/datapackage_timeseries/blob/2020-10-06/main.ipynb
-    # total load=total generation−auxilary/self−consumption in power plants+imports−exports−consumption by storages
-    # base_load = n.static("Load").query("carrier == 'electricity'")
-    # print(base_load)
+    costs = load_costs(snakemake.input.costs)
 
-    # energy_totals.csv:
-    # contains load data for sectors:
-    #  - residential
-    #  - services
-    #  - transport (road, international & national navigation & aviation)
-    # by energy carrier: electricity, heat, fuel
-    #
-
-    # todo: households and services
-    # todo: electricity transport rail
-    # todo: electricity industry
+    unravel_gas_import_and_production(n, snakemake, costs)

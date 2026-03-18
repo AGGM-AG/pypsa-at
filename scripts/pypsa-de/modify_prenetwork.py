@@ -6,11 +6,7 @@ import pandas as pd
 import pypsa
 from shapely.geometry import Point
 
-from mods import (
-    modify_austrian_transmission_capacities,
-    unravel_electricity_base_load,
-    unravel_gas_import_and_production,
-)
+from mods import modify_prenetwork
 from scripts._helpers import (
     configure_logging,
     mock_snakemake,
@@ -1528,15 +1524,6 @@ if __name__ == "__main__":
         )
 
     # PyPSA-AT modifications:
-    unravel_gas_import_and_production(n, snakemake, costs)
-    unravel_electricity_base_load(n, snakemake)
-
-    if (
-        snakemake.params.modify_austrian_transmission_capacities
-        and current_year == 2020
-    ):
-        modify_austrian_transmission_capacities(
-            n, snakemake.input.austrian_transmission_capacities
-        )
+    modify_prenetwork(n, snakemake)
 
     n.export_to_netcdf(snakemake.output.network)
