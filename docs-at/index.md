@@ -51,19 +51,14 @@ For detailed implementation information, see the [mods module documentation](ref
 
 1. Configure your model by adjusting the base scenario in `config/config.at.yaml`
 2. Include scenario settings that differ from the base scenario in `config/scenarios.manual.yaml`
-3. Generate the scenarios file picked up by the snakemake workflow:
-   ```bash
-   pixi run snakemake build_scenarios -f --cores 'all'
-   ```
-   This will populate `config/scenarios.automated.yaml`.
-
-4. Run the model using the default rule `all`:
+3. Run the model using the default rule `all`:
    ```bash
    pixi run snakemake all --cores 'all'
    ```
-   or simply:
+   or activate your virtual environment and run snakemake using a shorthand:
    ```bash
-   snakemake
+   pixi shell
+   snakemake -call
    ```
 
 ## Contributing
@@ -90,7 +85,7 @@ PyPSA-AT builds upon [PyPSA-Eur](https://github.com/pypsa/pypsa-eur) and [PyPSA-
 If you use PyPSA-AT in your research, please cite it as:
 
 ```
-Worschischek, Philip; Avetisjan, Vartan; Wernhart, Helmut (2025):
+Worschischek, Philip; Zechner, Nicole; Avetisjan, Vartan; Wernhart, Helmut (2026):
 PyPSA-AT - Sektorgekoppeltes Energiesystemmodell des österreichischen Energiesystems.
 Version 0.0.0. Austrian Gas Grid Management AG.
 https://github.com/AGGM-AG/pypsa-at

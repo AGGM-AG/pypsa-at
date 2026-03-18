@@ -60,10 +60,9 @@ this point
 git checkout feature
 ```
 
-With your virtual environment activated, build the scenario files and run the workflow:
+With your virtual environment activated, run the workflow:
 
 ```shell
-snakemake build_scenarios -f --cores 'all'
 snakemake -call all --cores 'all'
 ```
 

@@ -4473,7 +4473,14 @@
         "aviation_demand_factor": {
           "default": 1.0,
           "description": "The proportion of demand for aviation compared to today's consumption.",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "object"
+            }
+          ]
         },
         "HVC_demand_factor": {
           "default": 1.0,
@@ -10761,7 +10768,14 @@
         "aviation_demand_factor": {
           "default": 1.0,
           "description": "The proportion of demand for aviation compared to today's consumption.",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "object"
+            }
+          ]
         },
         "HVC_demand_factor": {
           "default": 1.0,
