@@ -13,7 +13,6 @@ from pathlib import Path
 
 import pandas as pd
 import pypsa
-from pandas import DataFrame
 from pypsa.statistics import (
     StatisticsAccessor,
     get_transmission_carriers,
@@ -22,7 +21,6 @@ from pypsa.statistics import (
 
 from evals.constants import (
     BusCarrier,
-    Carrier,
     DataModel,
     Group,
     Regex,
@@ -270,78 +268,6 @@ class ESMStatistics(StatisticsAccessor):
         groupers.add_grouper(
             "bus1", partial(get_location_from_name_at_port, location_port="1")
         )
-
-    def bev_v2g(self, drop_v2g_withdrawal: bool = True) -> DataFrame:
-        """
-        Calculate BEV and V2G energy amounts.
-
-        Parameters
-        ----------
-        drop_v2g_withdrawal
-            Whether to exclude vehicle to grid technologies from the
-            results. This option is included since the predecessor
-            implementation drops them too.
-
-        Returns
-        -------
-        :
-            A DataFrame containing the calculated BEV and V2G energy
-            amounts.
-        """
-        c = Carrier
-        names_supply = {
-            c.bev_charger: c.bev_charger_supply,
-            c.v2g: c.v2g_supply,
-        }
-        names_withdrawal = {
-            c.bev: c.bev_passenger_withdrawal,
-            c.bev_charger: c.bev_charger_draw,
-            c.v2g: c.v2g_withdrawal,
-        }
-        carrier = [Carrier.bev, Carrier.bev_charger, Carrier.v2g]
-        supply = self.supply(
-            comps="Link",
-            groupby=["location", "carrier", "bus_carrier"],
-            bus_carrier=[BusCarrier.AC, BusCarrier.LI_ION],
-        )
-        supply = filter_by(supply, carrier=carrier)
-
-        withdrawal = self.withdrawal(
-            comps="Link",
-            groupby=["location", "carrier", "bus_carrier"],
-            bus_carrier=[BusCarrier.AC, BusCarrier.LI_ION],
-        )
-        withdrawal = filter_by(withdrawal, carrier=carrier)
-        withdrawal = withdrawal.mul(-1)  # to keep withdrawal negative
-
-        # rename carrier to avoid name clashes for supply/withdrawal
-        supply = supply.rename(names_supply, level=DataModel.CARRIER)
-        withdrawal = withdrawal.rename(names_withdrawal, level=DataModel.CARRIER)
-
-        # join along index, sum duplicates and pivot carriers to columns
-        p = (
-            pd.concat([withdrawal, supply])
-            .groupby([DataModel.LOCATION, DataModel.CARRIER])
-            .sum()
-            .unstack()
-        )
-
-        ratio = (p[c.bev_charger_draw] / p[c.bev_charger_supply]).abs()
-
-        p[c.bev_charger_losses] = p[c.bev_charger_draw] + p[c.bev_charger_supply]
-        p[c.bev_demand] = ratio * p[c.bev_passenger_withdrawal]
-        p[c.bev_losses] = p[c.bev_demand] - p[c.bev_passenger_withdrawal]
-        p[c.v2g_demand] = ratio * p[c.v2g_withdrawal] if c.v2g_withdrawal in p else 0
-        p[c.v2g_losses] = p[c.v2g_demand] + p[c.v2g_supply] if c.v2g_supply in p else 0
-
-        ser = insert_index_level(p.stack(), BusCarrier.AC, DataModel.BUS_CARRIER, pos=2)
-        ser.attrs["name"] = "BEV&V2G"
-        ser.attrs["unit"] = "MWh"
-
-        if drop_v2g_withdrawal:
-            ser = ser.drop(c.v2g_withdrawal, level=DataModel.CARRIER, errors="ignore")
-
-        return ser
 
     def phs_split(
         self, aggregate_time: str = "sum", drop_hydro_cols: bool = True
