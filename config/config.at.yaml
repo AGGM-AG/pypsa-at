@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: v2025.04
+  prefix: methane-pyrolysis-plasma
   name:
   - AT_KN2040
   scenarios:
@@ -15,6 +15,7 @@ run:
     file: config/scenarios.manual.yaml
 
 countries: ['AL', 'AT', 'BA', 'BE', 'BG', 'CH', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'ME', 'MK', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'SE', 'SI', 'SK', 'XK']
+
 scenario:
   ll:
   - v1.25
@@ -47,6 +48,9 @@ clustering:
     ES: 1 # +1 islands
   temporal:
     resolution_sector: 365H
+
+costs:
+  custom_cost_fn: data/custom_costs.csv
 
 sector:
   v2g: false
@@ -190,3 +194,9 @@ mods:
     lng: 1.2
     pipeline: 1.0
     production: 0.95
+
+  methane_pyrolysis:
+    plasma: true
+    utilization_share: 0.0  # fraction of carbon black sold to market (0.0–1.0)
+                            # Note that sold carbon black eventually re-emits CO2
+                            # outside model boundary (Systemgrenze).

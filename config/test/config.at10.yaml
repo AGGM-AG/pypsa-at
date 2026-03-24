@@ -27,7 +27,7 @@ snapshots:
 
 atlite:
   default_cutout: dach-03-2013-sarah3-era5
-  nprocesses: 2  # limits rule resources mem_mb=10_000 and prevents out of memory errors in CI
+  nprocesses: 2  # prevents out of memory errors in CI during atlite jobs
   cutouts:
     dach-03-2013-sarah3-era5:
       module: [sarah, era5] # in priority order
@@ -59,7 +59,7 @@ electricity:
 solving:
   solver:
     name: highs
-    options: highs-default  # simplex not powerful enough for at10
+    options: highs-default
 
 mods:
   modify_nuts3_shapes: AT10DE5

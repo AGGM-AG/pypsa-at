@@ -222,7 +222,7 @@ def collect_myopic_statistics(
             try:
                 statistic.attrs["unit"] = statistic.index.unique("unit").item()
             except ValueError:
-                logger.warning(
+                logger.debug(
                     f"Mixed units detected in statistic: {statistic.index.unique('unit')}."
                 )
         statistic = statistic.droplevel("unit")

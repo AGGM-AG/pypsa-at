@@ -364,6 +364,7 @@ COLOUR_SCHEME: dict = {
     "Methane Store": COLOUR.brown,
     "Gas PP": COLOUR.brown,
     "Methane Compressors": COLOUR.brown_sallow,
+    "Methane Pyrolysis": COLOUR.turquoise,
     Group.chp_ch4: COLOUR.brown_dark,
     "CHP": COLOUR.brown,
     "Thermal Powerplant": COLOUR.brown_light,

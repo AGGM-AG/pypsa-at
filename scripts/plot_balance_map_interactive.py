@@ -74,11 +74,12 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "plot_balance_map_interactive",
-            clusters=50,
+            clusters="adm",
             opts="",
-            sector_opts="",
-            planning_horizons="2050",
-            carrier="H2",
+            sector_opts="none",
+            planning_horizons="2030",
+            carrier="AC",
+            run="AT_KN2040",
         )
 
     configure_logging(snakemake)

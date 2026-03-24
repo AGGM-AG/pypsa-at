@@ -36,24 +36,6 @@ rule modify_population_layouts:
         "../scripts/pypsa-at/modify_population_layouts.py"
 
 
-# rule export_iamc_variables:
-#     input:
-#         networks=expand(
-#             RESULTS
-#             + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
-#             **config["scenario"],
-#             allow_missing=True,
-#         ),
-#     output:
-#         exported_variables=RESULTS + "evaluation/exported_iamc_variables.xlsx",
-#     resources:
-#         mem_mb=16000,
-#     log:
-#         RESULTS + "logs/export_iamc_variables.log",
-#     script:
-#         "../scripts/pypsa-at/export_iamc_variables.py"
-
-
 rule export_evaluation_pypsa_at:
     message:
         "Runs all evaluations from the evals module to generate aggregated result views."
@@ -71,7 +53,7 @@ rule export_evaluation_pypsa_at:
             RESULTS + "evaluation/.run_by_snakemake",
         ),
     shell:
-        'PYTHONPATH="." python3 evals/cli.py {params.rdir}'
+        "pixi run evals {params.rdir}"
 
 
 rule validate_pypsa_at:

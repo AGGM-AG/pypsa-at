@@ -5,9 +5,10 @@
 """All used modifications for PyPSA-AT."""
 
 from mods.clustering import apply_custom_clustering, override_nuts
-from mods.network_updates import modify_prenetwork
+from mods.network_updates import add_methane_pyrolysis_plasma, modify_prenetwork
 
 __all__ = [
+    "add_methane_pyrolysis_plasma",
     "apply_custom_clustering",
     "modify_prenetwork",
     "override_nuts",

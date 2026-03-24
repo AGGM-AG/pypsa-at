@@ -36,6 +36,8 @@ update-dags = """
 
 generate-config = "python -c 'from scripts.lib.validation.config import generate_config_defaults, generate_config_schema; generate_config_defaults(); generate_config_schema()'"
 
+evals = "PYTHONPATH='./' python evals/cli.py run-eval"
+
 [dependencies]
 # Add additional packages only to pypsa-at specific section
 # All other packages should be identical to pypsa-eur and pypsa-de

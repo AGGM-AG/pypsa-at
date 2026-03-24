@@ -5,6 +5,7 @@
 """Functions to update resources during the `snakemake` workflow."""
 
 from logging import getLogger
+from types import SimpleNamespace
 
 import pandas as pd
 import pypsa
@@ -152,6 +153,153 @@ def unravel_gas_import_and_production(
     )
     assert old_p_nom.round(8) == new_p_nom.round(8), (
         f"Unraveling imports changed total capacities: old={old_p_nom}, new={new_p_nom}."
+    )
+
+
+def add_methane_pyrolysis_plasma(
+    n: pypsa.Network,
+    snakemake: Snakemake,
+    costs: pd.DataFrame,
+    nodes: pd.Index,
+    spatial: SimpleNamespace,
+) -> None:
+    """
+    Add Methane Pyrolysis (Plasma) H₂ production Links to the sector network.
+
+    Methane pyrolysis (plasma variant) splits CH₄ into H₂ and solid carbon
+    (carbon black) using a plasma torch.  No CO₂ is emitted during the
+    process; the carbon is captured as a solid material, enabling turquoise
+    hydrogen production with negative emissions potential if the carbon black
+    is permanently stored.
+
+    * bus0 = gas (CH₄ input, ``p_nom`` reference in MW_CH4)
+    * bus1 = H2  (H₂ output)
+    * bus2 = AC  (electricity consumption for plasma torch)
+    * bus3 = urban central heat  — **only** where district heating exists
+    * CO₂ stored bus is intentionally **not** connected: carbon black is
+      a solid transported by road/rail/ship, not through the CO₂ pipeline
+      network.
+
+    All cost parameters in ``costs`` are normalized to MWh_H₂.  Since bus0
+    is gas (MW_CH4), efficiencies and capital cost are converted using
+    ``eta_H2 = 1 / methane-input``.
+
+    Carbon black revenue: carbon black sold to the market is valued at
+    the CO₂ price of the same planning horizon, scaled by the stoichiometric
+    CO₂ intensity of carbon black.
+
+    Parameters
+    ----------
+    n
+        Pre-network to modify in place.
+    snakemake
+        The workflow snakemake object.
+    costs
+        Processed cost DataFrame for the current planning horizon.
+    nodes
+        Clustered node index (``pop_layout.index``).
+    spatial
+        Spatial namespace produced by ``define_spatial``.
+
+    Returns
+    -------
+    :
+        Modifies ``n`` in place.
+    """
+    config = snakemake.config.get("mods", {}).get("methane_pyrolysis", {})
+    # config = {"plasma": True, "utilization_share": 0.0}
+
+    if not config.get("plasma", False):
+        logger.info("Methane pyrolysis plasma: disabled — skipping.")
+        return
+
+    # carrier name. Used to mitigate downstream repetitions
+    tech = "methane pyrolysis plasma"
+
+    # Guard: technology not available before 2030 (no cost data in custom_costs).
+    # process_cost_data fills missing investment with 0; capital_cost would also
+    # be 0, making capacity free. Skip silently for those planning horizons.
+    if tech not in costs.index or costs.at[tech, "investment"] == 0:
+        logger.info(
+            f"Methane pyrolysis plasma not available in "
+            f"{snakemake.wildcards.planning_horizons} "
+            f"(not available before 2030) — skipping."
+        )
+        return
+
+    logger.info("Adding Methane Pyrolysis (Plasma) H₂ production Links.")
+
+    # All costs.csv values are normalized to MWh_H2. This is a DEA choice preserved
+    # in technology-data and ultimately a consequence here at model level. Since
+    # bus0 = gas → need to convert efficiencies and capital cost to per-MWh_CH4.
+    ch4_input = costs.at[tech, "methane-input"]  # MWh_CH4/MWh_H2
+    eta_H2 = 1.0 / ch4_input  # MWh_H2/MWh_CH4
+
+    cb_revenue = 0  # no revenue from carbon black sales by default
+    if cb_utilization := float(config.get("utilization_share", 0.0)):
+        # Carbon black (cb) revenue: priced at CO2 cost of the same planning horizon.
+        co2_price = costs.at["CO2", "fuel"]  # EUR/tCO2
+        co2_stored_total = costs.at[tech, "CO2 stored"]  # tCO2/MWh_H2
+        cb_energy = costs.at[tech, "carbon-black-output"]  # MWh_Cblack/MWh_H2
+        cb_co2_intensity = co2_stored_total / cb_energy  # tCO2/MWh_Cblack
+        cb_revenue = (
+            cb_utilization * cb_energy * cb_co2_intensity * co2_price
+        )  # EUR/MWh_H2
+
+    cost_capital = costs.at[tech, "capital_cost"] * eta_H2  # to EUR/MW_CH4
+    cost_marginal = costs.at[tech, "VOM"] * eta_H2 - cb_revenue  # EUR/MWh_CH4
+    efficiency_elec = -costs.at[tech, "electricity-input"] * eta_H2
+    efficiency_heat = costs.at[tech, "heat-output"] * eta_H2
+    lifetime = costs.at[tech, "lifetime"]
+
+    # heat output only where urban central heating infrastructure exists.
+    urban_heat_buses = n.buses.index[n.buses.carrier == "urban central heat"]
+    heat_mask = pd.array(
+        [f"{node} urban central heat" in urban_heat_buses for node in nodes]
+    )
+    nodes_w_central_heat = nodes[heat_mask]
+    nodes_no_central_heat = nodes[~heat_mask]
+
+    common_kwargs = dict(
+        carrier=tech,
+        suffix=f" {tech}",
+        p_nom_extendable=True,
+        efficiency=eta_H2,
+        efficiency2=efficiency_elec,
+        capital_cost=cost_capital,
+        marginal_cost=cost_marginal,
+        lifetime=lifetime,
+        # Note: CO2 stored bus (bus4) intentionally NOT connected.
+        # Carbon black is a solid transported by road/rail/ship,
+        # not via the CO2 pipeline network.
+    )
+
+    if len(nodes_w_central_heat):
+        n.add(
+            "Link",
+            nodes_w_central_heat,
+            bus0=spatial.gas.df.loc[nodes_w_central_heat, "nodes"].values,
+            bus1=nodes_w_central_heat + " H2",
+            bus2=nodes_w_central_heat,
+            bus3=nodes_w_central_heat + " urban central heat",
+            efficiency3=efficiency_heat,
+            **common_kwargs,
+        )
+
+    if len(nodes_no_central_heat):
+        n.add(
+            "Link",
+            nodes_no_central_heat,
+            bus0=spatial.gas.df.loc[nodes_no_central_heat, "nodes"].values,
+            bus1=nodes_no_central_heat + " H2",
+            bus2=nodes_no_central_heat,
+            **common_kwargs,
+        )
+
+    logger.info(
+        f"Added methane pyrolysis plasma Links: "
+        f"{len(nodes_w_central_heat)} with heat recovery, "
+        f"{len(nodes_no_central_heat)} without."
     )
 
 

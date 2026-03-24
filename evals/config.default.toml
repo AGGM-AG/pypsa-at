@@ -3,11 +3,17 @@
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
 [global]
+
+# store all evals results here results_path / subdir
 subdir = "evaluation"
+
+# regions inside these countries are kept during country aggregation
 keep_regions = ["AT", "GB", "ES", "FR", "DE", "IT"]
+
+# renames country/region NUTS codes to country/region names
 region_nice_names = true
 
-# Plot styling defaults (sourced by build_plot_config())
+# Plot styling defaults (picked in build_plot_config())
 cutoff_drop = true
 stacked = true
 line_shape = "hv"
@@ -63,6 +69,7 @@ legend_order = [
     "Sabatier",
     "Electrolysis",
     "Methanolisation",
+    "Methane Pyrolysis",
     "Fuel Cell",
 ]
 checks = []
@@ -80,6 +87,7 @@ database_specifier = "production"
 "H2 Fuel Cell" = "Fuel Cell"
 "Sabatier" = "Sabatier"
 "methanolisation" = "Methanolisation"
+"methane pyrolysis plasma" = "Methane Pyrolysis"
 "urban central air heat pump" = "Heat Pump"
 "urban central CHP" = "Gas CHP"
 "urban central coal CHP" = "Coal CHP"
@@ -195,6 +203,7 @@ legend_order = [
     "Ground Heat Pump",
     "Haber-Bosch",
     "Methanolisation",
+    "Methane Pyrolysis",
     "Direct Air Capture",
     "Hydrogen Compressors",
     "Methane Compressors",
@@ -211,6 +220,7 @@ database_specifier = "demand"
 "DAC" = "Direct Air Capture"
 "Haber-Bosch" = "Haber-Bosch"
 "methanolisation" = "Methanolisation"
+"methane pyrolysis plasma" = "Methane Pyrolysis"
 "rural air heat pump" = "Air Heat Pump"
 "urban decentral air heat pump" = "Air Heat Pump"
 "urban central air heat pump" = "Air Heat Pump"
@@ -283,6 +293,7 @@ legend_order = [
     "Methanol Steam Reforming",
     "Ammonia Cracker",
     "SMR",
+    "Methane Pyrolysis",
     "Bio H2",
     "Global Market"
 ]
@@ -298,6 +309,7 @@ database_specifier = "production"
 "Methanol steam reforming CC" = "Methanol Steam Reforming"
 "SMR" = "SMR"
 "SMR CC" = "SMR"
+"methane pyrolysis plasma" = "Methane Pyrolysis"
 "ammonia cracker" = "Ammonia Cracker"
 "solid biomass to hydrogen" = "Bio H2"
 "import H2" = "Global Market"
@@ -617,6 +629,7 @@ legend_order = [
     "Ammonia",
     "Sabatier",
     "Methanolisation",
+    "Methane Pyrolysis",
     "Methanol Steam Reforming",
     "Synth. Fuels",
     "Transmission Losses",
@@ -660,6 +673,7 @@ database_specifier = ""
 "methanol-to-kerosene" = "Synth. Fuels"
 "land transport fuel cell" = "Transport"
 "methanolisation" = "Methanolisation"
+"methane pyrolysis plasma" = "Methane Pyrolysis"
 "Methanol steam reforming" = "Methanol Steam Reforming"
 "Methanol steam reforming CC" = "Methanol Steam Reforming"
 "solid biomass to hydrogen" = "Bio H2"
@@ -688,6 +702,7 @@ legend_order = [
     "CHP",
     "Gas Boiler",
     "SMR",
+    "Methane Pyrolysis",
     "Transmission Losses",
     "Export Domestic",
     "Export Foreign",
@@ -710,6 +725,7 @@ database_specifier = ""
 "SMR" = "SMR"
 "SMR CC" = "SMR"
 "Sabatier" = "Sabatier"
+"methane pyrolysis plasma" = "Methane Pyrolysis"
 "Storage In" = "Storage In"
 "Storage Out" = "Storage Out"
 "gas for industry" = "Industry"
@@ -766,6 +782,7 @@ legend_order = [
     "Methane Compressors",
     "Biogas",
     "Methanolisation",
+    "Methane Pyrolysis",
     "Agriculture",
     "Direct Air Capture",
     "Pumped Hydro Storage",
@@ -834,6 +851,7 @@ database_specifier = ""
 "OCGT methanol" = "Methanol"
 "allam methanol" = "Methanol"
 "methanolisation" = "Methanolisation"
+"methane pyrolysis plasma" = "Methane Pyrolysis"
 "nuclear" = "Nuclear Power"
 "urban central oil CHP" = "Oil"
 "PHS" = "Pumped Hydro Storage"
@@ -1197,6 +1215,7 @@ legend_order = [
     "Biogas",
     "Transmission Losses",
     "Methanolisation",
+    "Methane Pyrolysis",
     "Direct Air Capture",
     "Haber-Bosch",
     "Heat",
@@ -1255,6 +1274,7 @@ database_specifier = ""
 "land transport EV" = "Transport"
 "lignite" = "Thermal Powerplant"
 "methanolisation" = "Methanolisation"
+"methane pyrolysis plasma" = "Methane Pyrolysis"
 "nuclear" = "Nuclear Power"
 "offwind-ac" = "Wind Power"
 "offwind-dc" = "Wind Power"
@@ -1309,6 +1329,7 @@ legend_order = [
     "Methanolisation",
     "Methanol Steam Reforming",
     "SMR",
+    "Methane Pyrolysis",
     "Liquids",
     "Transport",
     "Industry",
@@ -1334,6 +1355,7 @@ database_specifier = ""
 "Haber-Bosch" = "Haber-Bosch"
 "SMR" = "SMR"
 "SMR CC" = "SMR"
+"methane pyrolysis plasma" = "Methane Pyrolysis"
 "Sabatier" = "Sabatier"
 "electrobiofuels" = "Liquids"
 "land transport fuel cell" = "Transport"
@@ -1373,6 +1395,7 @@ legend_order = [
     "Thermal Powerplant",
     "CHP",
     "SMR",
+    "Methane Pyrolysis",
     "Sabatier",
     "Heat",
     "Industry",
@@ -1393,6 +1416,7 @@ database_specifier = ""
 "OCGT" = "Thermal Powerplant"
 "SMR" = "SMR"
 "SMR CC" = "SMR"
+"methane pyrolysis plasma" = "Methane Pyrolysis"
 "Sabatier" = "Sabatier"
 "Storage In" = "Storage In"
 "Storage Out" = "Storage Out"
