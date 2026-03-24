@@ -17,6 +17,7 @@ import pandas as pd
 import pypsa
 import tomllib
 from pydantic.v1.utils import deep_update
+from pypsa import NetworkCollection
 
 from evals import plots as plots
 from evals.constants import (
@@ -39,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 def read_networks(
     result_path: str | Path | list[str | Path], sub_directory: str = "networks"
-) -> dict[str, pypsa.Network]:
+) -> NetworkCollection:
     """
     Read network results from NetCDF (.nc) files.
 
@@ -68,12 +69,12 @@ def read_networks(
     Returns
     -------
     :
-        Dictionary mapping planning horizon years (str) to loaded
-        pypsa.Network objects with extended statistics.
+        A NetworkCollection keyed by planning horizon year (str),
+        with each network's statistics accessor patched to ESMStatistics.
 
     Raises
     ------
-    AssertionError
+    FileNotFoundError
         If no network files are found in the specified location.
 
     Examples
@@ -81,8 +82,8 @@ def read_networks(
     Load networks from a results directory:
 
     >>> networks = read_networks("results/scenario_2030")
-    >>> networks.keys()
-    dict_keys(['2030', '2040', '2050'])
+    >>> networks.index.tolist()
+    ['2030', '2040', '2050']
 
     Load specific network files:
 
@@ -103,7 +104,7 @@ def read_networks(
         year = re.search(Regex.year, file_path.stem).group()
         n = pypsa.Network(file_path)
         # extend the statistic module with custom statistics
-        n.statistics = ESMStatistics(n, result_path)
+        n.statistics = ESMStatistics(n)
         # todo: apply preprocessing steps to simplify evaluations:
         # AC Load splitting: extract electricity rail and industry from electricity base load
         # attach required resources to network
@@ -113,7 +114,7 @@ def read_networks(
     if not networks:
         raise FileNotFoundError(f"No networks found in {file_paths}.")
 
-    return networks
+    return NetworkCollection(networks)
 
 
 def read_views_config(

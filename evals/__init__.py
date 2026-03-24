@@ -25,5 +25,5 @@ utils
 Examples
 --------
 >>> from evals import views
->>> views.view_balance_electricity(result_path, networks, config)
+>>> views.view_balance_electricity(result_path, nc, config)
 """

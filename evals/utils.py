@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 from frozendict import frozendict
+from pypsa import NetworkCollection
 from pypsa.statistics import get_transmission_carriers
 
 from evals.constants import (
@@ -500,13 +501,13 @@ def split_urban_central_heat_losses_and_consumption(
     return pd.concat([rest, consumption, losses]).sort_index()
 
 
-def get_heat_loss_factor(networks: dict) -> int:
+def get_heat_loss_factor(nc: NetworkCollection) -> int:
     """
     Return the heat loss factor for district heating from the config.
 
     Parameters
     ----------
-    networks
+    nc
         The loaded networks.
 
     Returns
@@ -514,8 +515,7 @@ def get_heat_loss_factor(networks: dict) -> int:
     The heat loss factor for district heating networks.
     """
     heat_loss_factors = {
-        n.meta["sector"]["district_heating"]["district_heating_loss"]
-        for n in networks.values()
+        n.meta["sector"]["district_heating"]["district_heating_loss"] for n in nc
     }
     assert len(heat_loss_factors) == 1, "Varying loss factors are not supported."
     return heat_loss_factors.pop()
@@ -853,13 +853,13 @@ def combine_statistics(
     return df
 
 
-def get_storage_carriers(networks: dict) -> list[str]:
+def get_storage_carriers(nc: NetworkCollection) -> list[str]:
     """
     Get the storage carriers from the networks.
 
     Parameters
     ----------
-    networks
+    nc
         The loaded networks.
 
     Returns
@@ -868,19 +868,21 @@ def get_storage_carriers(networks: dict) -> list[str]:
         A list of storage carrier names.
     """
     storage_carriers = set()
-    for n, c in product(networks.values(), ("Store", "StorageUnit")):
+    for n, c in product(nc, ("Store", "StorageUnit")):
         storage_carriers = storage_carriers.union(n.static(c)["carrier"].unique())
 
     return sorted(storage_carriers)
 
 
-def get_transmission_techs(networks: dict, bus_carrier: str | list = None) -> list[str]:
+def get_transmission_techs(
+    nc: NetworkCollection, bus_carrier: str | list = None
+) -> list[str]:
     """
     Get the transmission technologies from the networks.
 
     Parameters
     ----------
-    networks
+    nc
         The loaded networks.
     bus_carrier
         The bus carrier to filter for.
@@ -891,7 +893,7 @@ def get_transmission_techs(networks: dict, bus_carrier: str | list = None) -> li
         A list of transmission technology names.
     """
     transmission_techs = set()
-    for n in networks.values():
+    for n in nc:
         transmission_techs = transmission_techs.union(
             get_transmission_carriers(n, bus_carrier)
         )

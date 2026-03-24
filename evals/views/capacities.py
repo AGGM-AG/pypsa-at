@@ -4,6 +4,8 @@
 # For license information, see the LICENSE.txt file in the project root.
 from pathlib import Path
 
+from pypsa import NetworkCollection
+
 from evals.views.common import (
     simple_optimal_capacity,
     simple_storage_capacity,
@@ -12,7 +14,7 @@ from evals.views.common import (
 
 def view_capacity_gas_storage(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -22,7 +24,7 @@ def view_capacity_gas_storage(
     ----------
     result_path
         Directory path where results will be saved
-    networks
+    nc
         Dictionary containing PyPSA network objects for analysis
     config
         Configuration dictionary containing model parameters
@@ -31,12 +33,12 @@ def view_capacity_gas_storage(
     -----
     FixMe: No Hydrogen Storage with current config?
     """
-    simple_storage_capacity(networks, config, result_path)
+    simple_storage_capacity(nc, config, result_path)
 
 
 def view_capacity_hydrogen_production(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -46,17 +48,17 @@ def view_capacity_hydrogen_production(
     ----------
     result_path
         Directory path where results will be saved
-    networks
+    nc
         Dictionary containing PyPSA network objects for analysis
     config
         Configuration dictionary containing model parameters
     """
-    simple_optimal_capacity(networks, config, result_path, kind="production")
+    simple_optimal_capacity(nc, config, result_path, kind="production")
 
 
 def view_capacity_gas_production(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -66,17 +68,17 @@ def view_capacity_gas_production(
     ----------
     result_path
         Directory path where results will be saved
-    networks
+    nc
         Dictionary containing PyPSA network objects for analysis
     config
         Configuration dictionary containing model parameters
     """
-    simple_optimal_capacity(networks, config, result_path, kind="production")
+    simple_optimal_capacity(nc, config, result_path, kind="production")
 
 
 def view_capacity_electricity_production(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -86,17 +88,17 @@ def view_capacity_electricity_production(
     ----------
     result_path
         Directory path where results will be saved
-    networks
+    nc
         Dictionary containing PyPSA network objects for analysis
     config
         Configuration dictionary containing model parameters
     """
-    simple_optimal_capacity(networks, config, result_path, kind="production")
+    simple_optimal_capacity(nc, config, result_path, kind="production")
 
 
 def view_capacity_electricity_demand(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -106,17 +108,17 @@ def view_capacity_electricity_demand(
     ----------
     result_path
         Directory path where results will be saved
-    networks
+    nc
         Dictionary containing PyPSA network objects for analysis
     config
         Configuration dictionary containing model parameters
     """
-    simple_optimal_capacity(networks, config, result_path, kind="demand")
+    simple_optimal_capacity(nc, config, result_path, kind="demand")
 
 
 def view_capacity_electricity_storage(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -126,17 +128,17 @@ def view_capacity_electricity_storage(
     ----------
     result_path
         Directory path where results will be saved
-    networks
+    nc
         Dictionary containing PyPSA network objects for analysis
     config
         Configuration dictionary containing model parameters
     """
-    simple_storage_capacity(networks, config, result_path)
+    simple_storage_capacity(nc, config, result_path)
 
 
 def view_capacity_heat_production(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -146,9 +148,9 @@ def view_capacity_heat_production(
     ----------
     result_path
         Directory path where results will be saved
-    networks
+    nc
         Dictionary containing PyPSA network objects for analysis
     config
         Configuration dictionary containing model parameters
     """
-    simple_optimal_capacity(networks, config, result_path, kind="production")
+    simple_optimal_capacity(nc, config, result_path, kind="production")

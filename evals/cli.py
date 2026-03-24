@@ -173,15 +173,15 @@ def run_eval(
         sys.exit(f"Found no evaluation functions named: {names}")
     logger.info(f"Selected {n_evals} evaluation functions.")
 
-    networks = read_networks(result_path, sub_directory=sub_directory)
+    nc = read_networks(result_path, sub_directory=sub_directory)
 
     # assuming no configuration changes in myopic workflow in the same scenario
     # Use deepcopy to avoid mutating the network's meta dict in place (pop below
     # would otherwise remove "resources" from the live network object, breaking
-    # downstream views that access networks[year].meta["resources"] directly).
-    _first_year = next(iter(networks))
-    merged_meta = copy.deepcopy(networks[_first_year].meta)
-    merged_meta["wildcards"]["planning_horizons"] = list(networks)
+    # downstream views that access nc[year].meta["resources"] directly).
+    _first_year = nc.index[0]
+    merged_meta = copy.deepcopy(nc[_first_year].meta)
+    merged_meta["wildcards"]["planning_horizons"] = nc.index.tolist()
     # additional resources are not used in the dashboard and bloat the runs.json file
     merged_meta.pop("resources", None)
 
@@ -193,7 +193,7 @@ def run_eval(
         try:
             config = read_views_config(func, config_override)
             config["view"]["meta"] = merged_meta
-            func(result_path=result_path, networks=networks, config=config)
+            func(result_path=result_path, nc=nc, config=config)
         except Exception as e:
             logger.exception(f"Exception during {func.__name__}.", exc_info=True)
             fails.append(func.__name__)

@@ -18,6 +18,7 @@ import logging
 from pathlib import Path
 
 import pandas as pd
+from pypsa import NetworkCollection
 
 from evals import plots as plots
 from evals.constants import BusCarrier, Group, TradeTypes
@@ -117,7 +118,7 @@ def collect_imbalances(supply: pd.Series, demand: pd.Series) -> pd.DataFrame:
 
 
 def get_supply(
-    networks: dict, transmission_comps: list, transmission_carrier: list
+    nc: NetworkCollection, transmission_comps: list, transmission_carrier: list
 ) -> pd.Series:
     """
     Extract and process supply statistics from PyPSA networks.
@@ -127,7 +128,7 @@ def get_supply(
 
     Parameters
     ----------
-    networks
+    nc
         Dictionary of PyPSA network objects.
     transmission_comps
         List of transmission components to exclude from analysis.
@@ -141,7 +142,7 @@ def get_supply(
     """
     supply = (
         collect_myopic_statistics(
-            networks,
+            nc,
             statistic="supply",
             aggregate_components=None,
         )
@@ -170,7 +171,10 @@ def get_supply(
 
 
 def get_demand(
-    networks: dict, transmission_comps: list, transmission_carrier: list, unit: str
+    nc: NetworkCollection,
+    transmission_comps: list,
+    transmission_carrier: list,
+    unit: str,
 ) -> pd.DataFrame:
     """
     Extract and process demand statistics from PyPSA networks.
@@ -180,7 +184,7 @@ def get_demand(
 
     Parameters
     ----------
-    networks
+    nc
         Dictionary of PyPSA network objects.
     transmission_comps
         List of transmission components to exclude from analysis.
@@ -196,7 +200,7 @@ def get_demand(
         specified unit attribute.
     """
     withdrawal = collect_myopic_statistics(
-        networks,
+        nc,
         statistic="withdrawal",
         aggregate_components=None,
     )
@@ -276,7 +280,10 @@ def net_distribution_grid_losses(supply: pd.Series, demand: pd.DataFrame) -> pd.
 
 
 def get_trade_statistics(
-    networks: dict, transmission_comps: list, transmission_carrier: list, unit: str
+    nc: NetworkCollection,
+    transmission_comps: list,
+    transmission_carrier: list,
+    unit: str,
 ) -> list[pd.Series]:
     """
     Extract energy trade statistics for foreign and domestic exchanges.
@@ -286,7 +293,7 @@ def get_trade_statistics(
 
     Parameters
     ----------
-    networks
+    nc
         Dictionary of PyPSA network objects.
     transmission_comps
         List of transmission components to include in trade analysis.
@@ -310,7 +317,7 @@ def get_trade_statistics(
     ]:
         trade = (
             collect_myopic_statistics(
-                networks,
+                nc,
                 statistic="trade_energy",
                 scope=scope,
                 direction=direction,
@@ -371,7 +378,7 @@ def get_link_losses(supply: pd.Series, demand: pd.DataFrame) -> list[pd.Series]:
 
 def view_sankey(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -386,7 +393,7 @@ def view_sankey(
     ----------
     result_path
         Path where the generated Sankey diagrams and data will be saved.
-    networks
+    nc
         Dictionary of PyPSA network objects containing the energy system data
         to be analyzed and visualized.
     config
@@ -417,16 +424,16 @@ def view_sankey(
         transmission_carrier,
         _,
         _,
-    ) = _parse_view_config_items(networks, config)
+    ) = _parse_view_config_items(nc, config)
 
-    supply = get_supply(networks, transmission_comps, transmission_carrier)
+    supply = get_supply(nc, transmission_comps, transmission_carrier)
     demand = get_demand(
-        networks, transmission_comps, transmission_carrier, unit=supply.attrs["unit"]
+        nc, transmission_comps, transmission_carrier, unit=supply.attrs["unit"]
     )
 
     grid_losses = net_distribution_grid_losses(supply, demand)
     trade_statistics = get_trade_statistics(
-        networks, transmission_comps, transmission_carrier, unit=supply.attrs["unit"]
+        nc, transmission_comps, transmission_carrier, unit=supply.attrs["unit"]
     )
     link_losses = get_link_losses(supply, demand)
 

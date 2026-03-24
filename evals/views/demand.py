@@ -5,6 +5,7 @@
 from pathlib import Path
 
 import pandas as pd
+from pypsa import NetworkCollection
 
 from evals.constants import BusCarrier, DataModel
 from evals.fileio import Exporter
@@ -22,7 +23,7 @@ from evals.views.common import get_energy_for_heat_production
 
 def view_demand_heat_total(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
     subdir: str | Path = "evaluation",
 ) -> None:
@@ -40,7 +41,7 @@ def view_demand_heat_total(
     ----------
     result_path
         Path where the evaluation results (plots and data files) will be saved.
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
         Each network should contain Link and Generator components with energy data.
     config
@@ -60,10 +61,10 @@ def view_demand_heat_total(
     (urban central, urban decentral, rural heat). Index levels are swapped between
     carrier and bus_carrier to facilitate plotting with the specified chart class.
     """
-    fed_for_heat = get_energy_for_heat_production(networks)
+    fed_for_heat = get_energy_for_heat_production(nc)
 
     generator_supply = collect_myopic_statistics(
-        networks,
+        nc,
         statistic="supply",
         comps="Generator",
         bus_carrier=BusCarrier.heat_buses(),
@@ -91,7 +92,7 @@ def view_demand_heat_total(
 
 def view_demand_heat_system(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
     subdir: str | Path = "evaluation",
 ) -> None:
@@ -109,7 +110,7 @@ def view_demand_heat_system(
     ----------
     result_path
         Path where the evaluation results (plots and data files) will be saved.
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
         Each network should contain Link and Generator components with energy data.
     config
@@ -133,13 +134,13 @@ def view_demand_heat_system(
     This view is particularly useful for understanding the overall energy source mix
     feeding the heat system across all heat bus types.
     """
-    fed_for_heat = get_energy_for_heat_production(networks)
+    fed_for_heat = get_energy_for_heat_production(nc)
     # swap index levels to keep carrier information during plotting
     fed_for_heat = fed_for_heat.swaplevel(DataModel.CARRIER, DataModel.BUS_CARRIER)
     fed_for_heat.index.names = DataModel.YEAR_IDX_NAMES
 
     generator_supply = collect_myopic_statistics(
-        networks,
+        nc,
         statistic="supply",
         comps="Generator",
         bus_carrier=BusCarrier.heat_buses(),
@@ -155,7 +156,7 @@ def view_demand_heat_system(
 
 def view_demand_fed_total(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
     subdir: str | Path = "evaluation",
 ) -> None:
@@ -171,7 +172,7 @@ def view_demand_fed_total(
     ----------
     result_path
         Path where the evaluation results (plots and data files) will be saved.
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
         Each network should contain Load, Link, and Generator components with energy data.
     config
@@ -192,14 +193,14 @@ def view_demand_fed_total(
     _get_sectoral_fed : Core calculation function for final energy demand
     view_demand_fed_sectoral : Export FED with sector-level disaggregation
     """
-    fed = _get_sectoral_fed(networks)
+    fed = _get_sectoral_fed(nc)
     exporter = Exporter(statistics=[fed], view_config=config["view"])
     exporter.export(result_path, subdir=subdir)
 
 
 def view_demand_fed_sectoral(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
     subdir: str | Path = "evaluation",
 ) -> None:
@@ -215,7 +216,7 @@ def view_demand_fed_sectoral(
     ----------
     result_path
         Path where the evaluation results (plots and data files) will be saved.
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
         Each network should contain Load, Link, and Generator components with energy data.
     config
@@ -236,7 +237,7 @@ def view_demand_fed_sectoral(
     _get_sectoral_fed : Core calculation function for final energy demand
     view_demand_fed_total : Export FED aggregated across all sectors
     """
-    fed = _get_sectoral_fed(networks)
+    fed = _get_sectoral_fed(nc)
     exporter = Exporter(statistics=[fed], view_config=config["view"])
     exporter.export(result_path, subdir=subdir)
 
@@ -293,7 +294,7 @@ def apply_heat_mix_to_decentral_heat_buses(
 _sectoral_fed_cache = {}
 
 
-def _get_sectoral_fed(networks):
+def _get_sectoral_fed(nc):
     """
     Calculate final energy demand (FED) across all sectors with detailed energy carrier breakdown.
 
@@ -304,7 +305,7 @@ def _get_sectoral_fed(networks):
 
     Parameters
     ----------
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
         Each network should contain Load, Link, and Generator components with energy data.
 
@@ -341,7 +342,7 @@ def _get_sectoral_fed(networks):
     redundant calculations when the same networks dict is passed multiple times.
     """
     # Check cache using dict identity
-    cache_key = id(networks)
+    cache_key = id(nc)
     if cache_key in _sectoral_fed_cache:
         return _sectoral_fed_cache[cache_key]
 
@@ -354,7 +355,7 @@ def _get_sectoral_fed(networks):
     # bus_carrier collectively, and we need to treat central and decentral
     # systems differently.
     decentral_production = (
-        collect_myopic_statistics(networks, comps="Link", statistic="energy_balance")
+        collect_myopic_statistics(nc, comps="Link", statistic="energy_balance")
         .drop(["co2", "co2 stored"], level=DataModel.BUS_CARRIER)
         .pipe(drop_from_multtindex_by_regex, "water tanks|water pits")
         .pipe(filter_for_carrier_connected_to, decentral_heat_bus_carrier)
@@ -365,7 +366,7 @@ def _get_sectoral_fed(networks):
 
     decentral_generation = (
         collect_myopic_statistics(
-            networks,
+            nc,
             "supply",
             comps="Generator",
             bus_carrier=decentral_heat_bus_carrier,
@@ -380,11 +381,11 @@ def _get_sectoral_fed(networks):
         [DataModel.YEAR, DataModel.LOCATION]
     ).transform("sum")
 
-    loads = collect_myopic_statistics(networks, "withdrawal", comps="Load")
+    loads = collect_myopic_statistics(nc, "withdrawal", comps="Load")
 
     # reduce central heat loads by distribution losses. Distribution losses
     # are not metered and do not count as final energy demand
-    loss_factor = get_heat_loss_factor(networks)
+    loss_factor = get_heat_loss_factor(nc)
     central_heat_loads = filter_by(loads, bus_carrier="urban central heat")
     loads.loc[central_heat_loads.index] = central_heat_loads / (1 + loss_factor)
 
@@ -392,8 +393,8 @@ def _get_sectoral_fed(networks):
     transport = loads.filter(regex="transport|shipping|aviation")
     # no need to harmonize V2g:
     # bev_load = filter_by(transport, bus_carrier="EV battery")
-    # v2g_demand = collect_myopic_statistics(networks, "withdrawal", comps="Link", bus_carrier="EV battery")
-    # bev_charger = collect_myopic_statistics(networks, "supply", comps="Link", bus_carrier="EV battery")
+    # v2g_demand = collect_myopic_statistics(nc, "withdrawal", comps="Link", bus_carrier="EV battery")
+    # bev_charger = collect_myopic_statistics(nc, "supply", comps="Link", bus_carrier="EV battery")
     # bev_charger.loc[("2050", "SE")].item() - v2g_demand.loc[("2050", "SE")].item()
     # bev_load.loc[("2050", "SE")].item()
     # --> they are equal, and we simply use the load
@@ -407,7 +408,7 @@ def _get_sectoral_fed(networks):
     industry = apply_heat_mix_to_decentral_heat_buses(industry, heat_share)
 
     industry_cc = (
-        collect_myopic_statistics(networks, "energy_balance", comps="Link")
+        collect_myopic_statistics(nc, "energy_balance", comps="Link")
         .filter(like="for industry CC")
         .drop(["co2", "co2 stored"], level=DataModel.BUS_CARRIER)
         .pipe(rename_aggregate, "CC losses", level=DataModel.BUS_CARRIER)

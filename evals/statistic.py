@@ -9,10 +9,10 @@ import warnings
 from functools import partial
 from inspect import getmembers
 from itertools import product
-from pathlib import Path
 
 import pandas as pd
 import pypsa
+from pypsa import NetworkCollection
 from pypsa.statistics import (
     StatisticsAccessor,
     get_transmission_carriers,
@@ -36,6 +36,10 @@ from evals.utils import (
 )
 
 logger = logging.getLogger(__file__)
+
+# Configure PyPSA statistics defaults once at import time.
+pypsa.options.params.statistics.nice_names = False
+pypsa.options.params.statistics.drop_zero = True
 
 
 def get_location(
@@ -119,8 +123,14 @@ def get_location_from_name_at_port(
     )
 
 
+# Register custom groupers once, after the grouper functions are defined.
+groupers.add_grouper("location", get_location)
+groupers.add_grouper("bus0", partial(get_location_from_name_at_port, location_port="0"))
+groupers.add_grouper("bus1", partial(get_location_from_name_at_port, location_port="1"))
+
+
 def collect_myopic_statistics(
-    networks: dict,
+    nc: NetworkCollection,
     statistic: str,
     aggregate_components: str | None = "sum",
     drop_zeros: bool = True,
@@ -137,8 +147,8 @@ def collect_myopic_statistics(
 
     Parameters
     ----------
-    networks
-        The loaded networks in a dictionary with the year as keys.
+    nc
+        The loaded networks as a NetworkCollection, with the year as index.
     statistic
         The name of the metric to build.
     aggregate_components
@@ -173,7 +183,7 @@ def collect_myopic_statistics(
         kwargs.setdefault("groupby", ["location", "carrier", "bus_carrier", "unit"])
 
     year_statistics = []
-    for year, n in networks.items():
+    for year, n in nc.networks.items():
         func = getattr(n.statistics, statistic)
         if not func:
             raise AttributeError(
@@ -250,24 +260,10 @@ class ESMStatistics(StatisticsAccessor):
     ----------
     n
         The loaded postnetwork.
-
-    result_path
-        The output path including the subdirectory, i.e. the path
-        where the evaluation results are stored.
     """
 
-    def __init__(self, n: pypsa.Network, result_path: Path) -> None:
+    def __init__(self, n: pypsa.Network) -> None:
         super().__init__(n)
-        self.result_path = result_path
-        pypsa.options.params.statistics.nice_names = False
-        pypsa.options.params.statistics.drop_zero = True
-        groupers.add_grouper("location", get_location)
-        groupers.add_grouper(
-            "bus0", partial(get_location_from_name_at_port, location_port="0")
-        )
-        groupers.add_grouper(
-            "bus1", partial(get_location_from_name_at_port, location_port="1")
-        )
 
     def phs_split(
         self, aggregate_time: str = "sum", drop_hydro_cols: bool = True
