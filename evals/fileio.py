@@ -27,6 +27,7 @@ from evals.constants import (
     DataModel,
     Regex,
 )
+from evals.statistic import ESMStatistics
 from evals.utils import (
     build_plot_config,
     combine_statistics,
@@ -90,9 +91,6 @@ def read_networks(
     ...     "results/elec_s_37_2040.nc"
     ... ])
     """
-    # delayed import to prevent circular dependency error
-    from evals.statistic import ESMStatistics
-
     if isinstance(result_path, list):
         # expecting snakemake.input.networks
         file_paths = [Path(p) for p in result_path]
