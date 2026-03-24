@@ -19,7 +19,6 @@ import tomllib
 from pydantic.v1.utils import deep_update
 
 from evals import plots as plots
-from evals.configs import ViewDefaults
 from evals.constants import (
     COLOUR_SCHEME,
     NOW,
@@ -28,11 +27,13 @@ from evals.constants import (
     DataModel,
     Regex,
 )
-from evals.excel import export_excel_countries, export_excel_regions_at
 from evals.utils import (
+    build_plot_config,
     combine_statistics,
     rename_aggregate,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def read_networks(
@@ -111,7 +112,8 @@ def read_networks(
         n.year = year
         networks[year] = n
 
-    assert networks, f"No networks found in {file_paths}."
+    if not networks:
+        raise FileNotFoundError(f"No networks found in {file_paths}.")
 
     return networks
 
@@ -161,6 +163,9 @@ def read_views_config(
         if override_view := override.get(func.__name__, {}):
             default_view = deep_update(default_view, override_view)
 
+    # inject global config into view dict so Exporter can access it without
+    # requiring callers to change the view_config=config["view"] call pattern
+    default_view["_global"] = default_global
     config = {"global": default_global, "view": default_view}
 
     logger = logging.getLogger()
@@ -182,49 +187,42 @@ class Exporter:
     statistics
         A list of Series for time aggregated statistics or list of
         data frames for statistics with snapshots as columns.
-    keep_regions
-        A tuple of location prefixes that are used to match
-        locations to keep during aggregation.
-    region_nice_names
-        Whether, or not to rename country codes after aggregation
-        to show the full country name.
+    view_config
+        The merged view configuration dictionary from
+        :func:`read_views_config`.
     """
 
     def __init__(
         self,
         statistics: list,
         view_config: dict,
-        keep_regions: tuple = (
-            "AT",
-            "GB",
-            "ES",
-            "FR",
-            "DE",
-            "IT",
-        ),  # todo: move to global config
-        region_nice_names: bool = True,
     ):
         self.statistics = statistics
         units = {stat.attrs["unit"] for stat in statistics}
-        assert len(units) == 1, f"Mixed units cannot be exported: {units}."
+        if len(units) != 1:
+            raise ValueError(f"Mixed units cannot be exported: {units}.")
         self.is_unit = units.pop()
         self.metric_name = view_config["name"]
         self.to_unit = view_config["unit"]
-        self.keep_regions = keep_regions
-        self.region_nice_names = region_nice_names
         self.view_config = view_config
-        self.defaults = ViewDefaults()
 
-        # update defaults from config for this view
+        # keep_regions and region_nice_names come from global TOML config
+        global_cfg = view_config["_global"]
+        self.keep_regions = tuple(global_cfg["keep_regions"])
+        self.region_nice_names = global_cfg["region_nice_names"]
+
+        # build the plot config namespace from TOML global defaults
+        self.defaults = build_plot_config(global_cfg)
+
+        # apply per-view overrides from the view config
         title = view_config["name"] + TITLE_SUFFIX
-        self.defaults.excel.title = title
-        self.defaults.plotly.title = title
-        self.defaults.plotly.file_name_template = view_config["file_name"]
-        self.defaults.plotly.cutoff = view_config["cutoff"]
-        self.defaults.plotly.category_orders = view_config["legend_order"]
-        self.defaults.plotly.database_plot_type = view_config["database_plot_type"]
-        self.defaults.plotly.database_bus_carrier = view_config["database_bus_carrier"]
-        self.defaults.plotly.database_specifier = view_config["database_specifier"]
+        self.defaults.title = title
+        self.defaults.file_name_template = view_config["file_name"]
+        self.defaults.cutoff = view_config["cutoff"]
+        self.defaults.category_orders = view_config["legend_order"]
+        self.defaults.database_plot_type = view_config["database_plot_type"]
+        self.defaults.database_bus_carrier = view_config["database_bus_carrier"]
+        self.defaults.database_specifier = view_config["database_specifier"]
 
     @cached_property
     def df(self) -> pd.DataFrame:
@@ -297,7 +295,7 @@ class Exporter:
             The path to the folder where HTML, JSON and
             CSV subdirectories are created.
         """
-        cfg = self.defaults.plotly
+        cfg = self.defaults
         df = rename_aggregate(
             self.df, level=cfg.plot_category, mapper=self.view_config["categories"]
         )
@@ -315,39 +313,14 @@ class Exporter:
             chart.to_html(output_path, cfg.plotby, idx)
             chart.to_json(output_path, cfg.plotby, idx)
 
-    def export_excel(self, output_path: Path) -> None:
-        """
-        Export metrics to Excel files for countries and regions.
-
-        Parameters
-        ----------
-        output_path
-            The path where the Excel files will be saved.
-        """
-        file_name_stem = self.view_config["file_name"].split("_{")[0]
-        file_path = output_path / "XLSX" / f"{file_name_stem}_{NOW}.xlsx"
-        with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
-            export_excel_countries(
-                self.df, writer, self.defaults.excel, self.view_config
-            )
-
-        if self.df.columns.name == DataModel.SNAPSHOTS:
-            return  # skips region sheets for time series
-
-        file_path_at = output_path / f"{file_name_stem}_AT_{NOW}.xlsx"
-        with pd.ExcelWriter(file_path_at, engine="openpyxl") as writer:
-            export_excel_regions_at(
-                self.df, writer, self.defaults.excel, self.view_config
-            )
-
     def export_csv(self, output_path: Path) -> None:
         """
-        Encode the metric da frame to a CSV file.
+        Encode the metric data frame to a CSV file.
 
         Parameters
         ----------
         output_path
-            The path to the CSV folder with all the csv files are
+            The path to the CSV folder where all the csv files are
             stored.
 
         Returns
@@ -355,7 +328,7 @@ class Exporter:
         :
             Writes the metric to a CSV file.
         """
-        file_name = self.defaults.plotly.file_name_template.split("_{", maxsplit=1)[0]
+        file_name = self.defaults.file_name_template.split("_{", maxsplit=1)[0]
         file_path = output_path / "CSV" / f"{file_name}_{NOW}.csv"
         self.df.to_csv(file_path, encoding="utf-8")
 
@@ -374,25 +347,23 @@ class Exporter:
         -------
         :
         """
-
         # apply configuration switches that depend on the requested chart
         chart_class = getattr(plots, self.view_config["chart"])
-        self.defaults.plotly.chart = chart_class
+        self.defaults.chart = chart_class
 
         if chart_class == plots.ESMGroupedBarChart:
-            self.defaults.plotly.xaxis_title = ""
+            self.defaults.xaxis_title = ""
         elif chart_class == plots.ESMTimeSeriesChart:
-            self.defaults.plotly.xaxis_title = ""
-            self.defaults.excel.chart = None  # charts bloat the xlsx file
-            self.defaults.plotly.plotby = [DataModel.YEAR, DataModel.LOCATION]
-            self.defaults.plotly.pivot_index = [
+            self.defaults.xaxis_title = ""
+            self.defaults.plotby = [DataModel.YEAR, DataModel.LOCATION]
+            self.defaults.pivot_index = [
                 DataModel.YEAR,
                 DataModel.LOCATION,
                 DataModel.CARRIER,
             ]
         elif (
             chart_class == plots.ESMBarChart
-            and self.defaults.plotly.plot_category == DataModel.CARRIER
+            and self.defaults.plot_category == DataModel.CARRIER
         ):
             # combine bus carrier to export netted technologies, although
             # they have difference bus_carrier in index, e.g.
@@ -408,8 +379,6 @@ class Exporter:
         self.export_views(output_path)
 
         export_formats = self.view_config.get("exports", [])
-        if "excel" in export_formats:
-            self.export_excel(output_path)
         if "csv" in export_formats:
             self.export_csv(output_path)
 
@@ -446,54 +415,56 @@ class Exporter:
             yearly_sum = self.df.groupby(groups).sum().abs()
             balanced = yearly_sum < self.view_config["cutoff"]
             if isinstance(balanced, pd.DataFrame):
-                assert balanced.all().all(), (
-                    f"Imbalances detected: {yearly_sum[balanced == False].dropna(how='all').sort_values(by=balanced.columns[0], na_position='first').tail()}"
-                )
+                if not balanced.all().all():
+                    raise ValueError(
+                        f"Imbalances detected: {yearly_sum[balanced == False].dropna(how='all').sort_values(by=balanced.columns[0], na_position='first').tail()}"
+                    )
             else:  # Series
-                assert balanced.all().item(), (
-                    f"Imbalances detected: {yearly_sum[balanced.squeeze() == False].squeeze().sort_values().tail()}"
-                )
+                if not balanced.all().item():
+                    raise ValueError(
+                        f"Imbalances detected: {yearly_sum[balanced.squeeze() == False].squeeze().sort_values().tail()}"
+                    )
 
     def default_checks(self) -> None:
         """Perform integrity checks for views."""
         if self.view_config.get("chart") == "SankeyChart":
             return  # bypass all checks, because Sankey has its own set of assertions
 
-        category = self.defaults.plotly.plot_category
+        category = self.defaults.plot_category
         categories = self.view_config["categories"]
 
-        assert self.df.index.unique(category).isin(categories.keys()).all(), (
-            f"Incomplete categories detected. There are technologies in the metric "
-            f"data frame, that are not assigned to a group (nice name)."
-            f"\nMissing items: "
-            f"{self.df.index.unique(category).difference(categories.keys())}"
-        )
+        if not self.df.index.unique(category).isin(categories.keys()).all():
+            missing_cats = self.df.index.unique(category).difference(categories.keys())
+            raise ValueError(
+                f"Incomplete categories detected. There are technologies in the metric "
+                f"data frame that are not assigned to a group (nice name)."
+                f"\nMissing items: {missing_cats}"
+            )
 
         superfluous_categories = self.df.index.unique(category).difference(
             categories.keys()
         )
         if len(superfluous_categories) > 0:
-            logger = logging.getLogger()
             logger.warning(f"Superfluous categories defined: {superfluous_categories}")
-        # assert len(superfluous_categories) == 0, (
-        #     f"Superfluous categories found: {superfluous_categories}"
-        # )
 
         a = set(self.view_config["legend_order"])
         b = set(categories.values())
         additional = a.difference(b)
-        assert not additional, (
-            f"Superfluous categories defined in legend order: {additional}"
-        )
+        if additional:
+            raise ValueError(
+                f"Superfluous categories defined in legend order: {additional}"
+            )
         missing = b.difference(a)
-        assert not missing, (
-            f"Some categories are not defined in legend order: {missing}"
-        )
+        if missing:
+            raise ValueError(
+                f"Some categories are not defined in legend order: {missing}"
+            )
 
         no_color = [c for c in categories.values() if c not in COLOUR_SCHEME]
-        assert len(no_color) == 0, (
-            f"Some categories used in the view do not have a color assigned: {no_color}"
-        )
+        if no_color:
+            raise ValueError(
+                f"Some categories used in the view do not have a color assigned: {no_color}"
+            )
 
     def make_evaluation_result_directories(
         self, result_path: Path, subdir: Path | str
@@ -517,7 +488,6 @@ class Exporter:
         self.make_directory(output_path, "HTML")
         self.make_directory(output_path, "JSON")
         self.make_directory(output_path, "CSV")
-        self.make_directory(output_path, "XLSX")
 
         return output_path
 
@@ -539,7 +509,8 @@ class Exporter:
             The joined path: result_dir / subdir / now.
         """
         base = Path(base).resolve()
-        assert base.is_dir(), f"Base path does not exist: {base}."
+        if not base.is_dir():
+            raise NotADirectoryError(f"Base path does not exist: {base}.")
         directory_path = base / subdir
         directory_path.mkdir(parents=True, exist_ok=True)
 

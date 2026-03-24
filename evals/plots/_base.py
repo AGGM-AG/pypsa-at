@@ -7,6 +7,7 @@
 import json
 import pathlib
 import typing
+from types import SimpleNamespace
 
 import pandas as pd
 from jinja2 import Template
@@ -14,7 +15,6 @@ from plotly import express as px
 from plotly import graph_objects as go
 from plotly.offline.offline import get_plotlyjs
 
-from evals.configs import PlotConfig
 from evals.constants import ALIAS_LOCATION_REV, RUN_META_DATA, DataModel
 
 
@@ -60,7 +60,7 @@ class ESMChart:
     ...         self._set_base_layout()
     """
 
-    def __init__(self, df: pd.DataFrame, cfg: PlotConfig):
+    def __init__(self, df: pd.DataFrame, cfg: SimpleNamespace):
         self._df = df
         self.cfg = cfg
         self.fig = go.Figure()

@@ -79,9 +79,8 @@ def view_demand_heat_total(
         view_config=config["view"],
     )
 
-    exporter.defaults.excel.pivot_index = [DataModel.LOCATION, DataModel.BUS_CARRIER]
-    exporter.defaults.plotly.plot_category = DataModel.BUS_CARRIER
-    exporter.defaults.plotly.pivot_index = [
+    exporter.defaults.plot_category = DataModel.BUS_CARRIER
+    exporter.defaults.pivot_index = [
         DataModel.YEAR,
         DataModel.LOCATION,
         DataModel.BUS_CARRIER,
@@ -151,8 +150,6 @@ def view_demand_heat_system(
         view_config=config["view"],
     )
 
-    # exporter.defaults.plotly.chart = getattr(plots, config["view"]["chart"])
-    # exporter.defaults.plotly.xaxis_title = ""
     exporter.export(result_path, subdir=subdir)
 
 

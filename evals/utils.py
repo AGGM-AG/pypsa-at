@@ -7,6 +7,7 @@
 import logging
 import re
 from itertools import product
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -20,6 +21,7 @@ from evals.constants import (
     ALIAS_REGION_AT35_CLUSTERING,
     ALIAS_REGION_DE5_CLUSTERING,
     ALIAS_REGION_DE16_CLUSTERING,
+    COLOUR_SCHEME,
     UNITS,
     BusCarrier,
     DataModel,
@@ -1008,3 +1010,90 @@ def get_energy_totals_domestic_share(
     domestic = energy_totals[f"total domestic {kind}"]
     international = energy_totals[f"total international {kind}"]
     return domestic / (domestic + international)
+
+
+def build_plot_config(global_cfg: dict) -> SimpleNamespace:
+    """
+    Build a plot configuration namespace from the TOML global config dict.
+
+    All values are read directly from *global_cfg* without fallback defaults.
+    If a required key is missing, a :class:`KeyError` is raised immediately so
+    misconfigurations surface loudly rather than silently producing incorrect
+    output.
+
+    Complex values that cannot be expressed in TOML (chart class references,
+    colour/pattern dicts, empty per-view dicts) are set here using Python
+    constants. View-specific overrides (``plotby``, ``pivot_index``, etc.) are
+    applied in the individual view functions after the namespace is constructed.
+
+    Parameters
+    ----------
+    global_cfg
+        The ``[global]`` section of the merged TOML configuration, as
+        returned by :func:`~evals.fileio.read_views_config`.
+
+    Returns
+    -------
+    :
+        A :class:`~types.SimpleNamespace` with the same attribute names as
+        the former ``PlotConfig`` dataclass.
+
+    Raises
+    ------
+    KeyError
+        If a required key is absent from *global_cfg*.
+    """
+    _pattern_keys = [
+        Group.import_foreign,
+        Group.export_foreign,
+        Group.import_domestic,
+        Group.export_domestic,
+        Group.import_net,
+        Group.export_net,
+        Group.import_global,
+    ]
+
+    return SimpleNamespace(
+        # --- title & file naming (overwritten by Exporter per view) ---
+        title=None,
+        file_name_template=global_cfg["file_name_template"],
+        unit="",  # default is metric.df.attrs["unit"] at render time
+        # --- database upload attributes (overwritten by Exporter per view) ---
+        database_plot_type="",
+        database_specifier="",
+        database_bus_carrier="",
+        # --- chart class (resolved to a class by Exporter.export()) ---
+        chart=None,
+        # --- data model / pivot defaults (overwritten in view code per view) ---
+        plotby=[DataModel.LOCATION],
+        pivot_index=list(DataModel.YEAR_IDX_NAMES),
+        pivot_columns=[],
+        plot_category=DataModel.CARRIER,
+        plot_xaxis=DataModel.YEAR,
+        facet_column=DataModel.BUS_CARRIER,
+        # --- view-level overrides set per-view (empty by default) ---
+        category_orders=(),
+        fill={},
+        line_dash={},
+        line_width={},
+        # --- complex defaults from Python constants ---
+        colors=dict(COLOUR_SCHEME),
+        pattern=dict.fromkeys(_pattern_keys, "/"),
+        # --- scalar / boolean defaults sourced from TOML [global] ---
+        stacked=global_cfg["stacked"],
+        line_shape=global_cfg["line_shape"],
+        legend_header=global_cfg["legend_header"],
+        xaxis_title=global_cfg["xaxis_title"],
+        yaxis_color=global_cfg["yaxis_color"],
+        footnotes=tuple(global_cfg["footnotes"]),
+        cutoff=global_cfg.get(
+            "cutoff", 0.0001
+        ),  # overwritten per-view; toml has no view-level default
+        cutoff_drop=global_cfg["cutoff_drop"],
+        legend_font_size=global_cfg["legend_font_size"],
+        title_font_size=global_cfg["title_font_size"],
+        font_size=global_cfg["font_size"],
+        xaxis_font_size=global_cfg["xaxis_font_size"],
+        yaxes_showgrid=global_cfg["yaxes_showgrid"],
+        yaxes_visible=global_cfg["yaxes_visible"],
+    )

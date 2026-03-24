@@ -465,7 +465,7 @@ def simple_storage_capacity(
         view_config=config["view"],
     )
 
-    exporter.defaults.plotly.cutoff_drop = False  # prevent dropping empty years
+    exporter.defaults.cutoff_drop = False  # prevent dropping empty years
     exporter.export(result_path, config["global"]["subdir"])
 
 

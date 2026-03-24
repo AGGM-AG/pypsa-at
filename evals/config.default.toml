@@ -4,6 +4,24 @@
 # For license information, see the LICENSE.txt file in the project root.
 [global]
 subdir = "evaluation"
+keep_regions = ["AT", "GB", "ES", "FR", "DE", "IT"]
+region_nice_names = true
+
+# Plot styling defaults (sourced by build_plot_config())
+cutoff_drop = true
+stacked = true
+line_shape = "hv"
+legend_header = "Categories"
+xaxis_title = "<b>Years</b>"
+yaxis_color = "DarkSlateGrey"
+footnotes = ["", ""]
+legend_font_size = 20
+title_font_size = 30
+font_size = 20
+xaxis_font_size = 20
+yaxes_showgrid = false
+yaxes_visible = false
+file_name_template = "{metric}_{year}_{location}"
 
 # Capacities
 

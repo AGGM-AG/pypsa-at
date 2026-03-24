@@ -177,11 +177,12 @@ def collect_myopic_statistics(
     year_statistics = []
     for year, n in networks.items():
         func = getattr(n.statistics, statistic)
-        assert func, (
-            f"Statistic '{statistic}' not found. "
-            f"Available statistics are: "
-            f"'{[m[0] for m in getmembers(n.statistics)]}'."
-        )
+        if not func:
+            raise AttributeError(
+                f"Statistic '{statistic}' not found. "
+                f"Available statistics are: "
+                f"'{[m[0] for m in getmembers(n.statistics)]}'."
+            )
 
         if allow_missing and year in allow_missing and "bus_carrier" in kwargs:
             kwargs["bus_carrier"] = [
