@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -962,4 +964,103 @@ def test_apply_cutoff(df, limit, drop, expected):
 )
 def test_prettify_numer(x, expected):
     result = prettify_number(x)
+    assert result == expected
+
+
+# ---------------------------------------------------------------------------
+# ESMChart.construct_file_name
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def minimal_chart():
+    """Return an ESMChart instance with a minimal DataFrame and config."""
+    df = pd.DataFrame({"value": [1.0]})
+    df.attrs["name"] = "capacity"
+    df.attrs["unit"] = "GW"
+    cfg = SimpleNamespace(file_name_template="", unit="GW")
+    return ESMChart(df, cfg)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("template", "groupby", "idx", "expected"),
+    [
+        # --- without year: idx is a plain string (location) ---
+        pytest.param(
+            "capacity_heat_production_{location}",
+            ["location"],
+            "AT",
+            "capacity_heat_production_AT",
+            id="string_idx_no_year",
+        ),
+        pytest.param(
+            "capacity_ac_production_{location}",
+            ["location"],
+            "DE",
+            "capacity_ac_production_DE",
+            id="string_idx_no_year_de",
+        ),
+        # --- without year: idx is a 1-tuple ---
+        pytest.param(
+            "balance_carbon_{location}",
+            ["location"],
+            ("AT",),
+            "balance_carbon_AT",
+            id="tuple_idx_no_year",
+        ),
+        # --- with year: idx is a 2-tuple (year, location) ---
+        pytest.param(
+            "timeseries_electricity_{location}_{year}",
+            ["location", "year"],
+            ("AT", 2030),
+            "timeseries_electricity_AT_2030",
+            id="tuple_idx_with_year",
+        ),
+        pytest.param(
+            "sankey_{location}_{year}",
+            ["location", "year"],
+            ("AT", 2040),
+            "sankey_AT_2040",
+            id="tuple_idx_sankey",
+        ),
+        # --- integer scalar idx (e.g. year only) ---
+        pytest.param(
+            "{metric}_{year}",
+            ["year"],
+            2030,
+            "capacity_2030",
+            id="int_scalar_idx",
+        ),
+        # --- ALIAS_LOCATION_REV substitution ---
+        pytest.param(
+            "balance_carbon_{location}",
+            ["location"],
+            "Austria",
+            "balance_carbon_AT",
+            id="alias_substitution",
+        ),
+        # --- unknown location passes through unchanged ---
+        pytest.param(
+            "balance_carbon_{location}",
+            ["location"],
+            "XY99",
+            "balance_carbon_XY99",
+            id="unknown_location_passthrough",
+        ),
+    ],
+)
+def test_construct_file_name(template, groupby, idx, expected, minimal_chart):
+    """
+    Test ESMChart.construct_file_name for all idx scalar/tuple variants.
+
+    Covers:
+    - string scalar idx (location-only templates)
+    - int scalar idx (year-only template)
+    - 1-tuple and 2-tuple idx (with and without year)
+    - ALIAS_LOCATION_REV substitution
+    - unknown locations passed through unchanged
+    """
+    minimal_chart.cfg.file_name_template = template
+    result = minimal_chart.construct_file_name(groupby, idx)
     assert result == expected

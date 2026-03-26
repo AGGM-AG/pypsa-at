@@ -186,7 +186,9 @@ class ESMChart:
         groupby
             List of groupby values.
         idx
-            The index used for constructing the file name.
+            The index used for constructing the file name. Scalars
+            of any type (str, int, etc.) are automatically wrapped
+            in a tuple so they can be zipped with *groupby*.
 
         Returns
         -------
@@ -194,11 +196,12 @@ class ESMChart:
             The constructed filename based on the template and
             provided values.
         """
-        idx = [idx] if isinstance(idx, str) else idx
-        parts = {"metric": self.metric_name} | {
+        if not isinstance(idx, (list, tuple)):
+            idx = (idx,)
+        resolved = {
             g: ALIAS_LOCATION_REV.get(i, i) for g, i in zip(groupby, idx, strict=True)
         }
-        return self.cfg.file_name_template.format(**parts)
+        return self.cfg.file_name_template.format(metric=self.metric_name, **resolved)
 
     @staticmethod
     def custom_sort(
