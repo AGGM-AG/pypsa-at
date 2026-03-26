@@ -1,3 +1,50 @@
+if OSM_DATASET["source"] == "build":
+
+    rule build_osm_network_at:
+        message:
+            "Filtering built OSM network for AT: removing cross-border lines below 220 kV"
+        input:
+            buses=resources("osm/build/buses.csv"),
+            lines=resources("osm/build/lines.csv"),
+            links=resources("osm/build/links.csv"),
+            converters=resources("osm/build/converters.csv"),
+            transformers=resources("osm/build/transformers.csv"),
+        output:
+            buses=resources("osm/build-at/buses.csv"),
+            lines=resources("osm/build-at/lines.csv"),
+            links=resources("osm/build-at/links.csv"),
+            converters=resources("osm/build-at/converters.csv"),
+            transformers=resources("osm/build-at/transformers.csv"),
+        log:
+            logs("build_osm_network_at.log"),
+        threads: 1
+        resources:
+            mem_mb=2000,
+        conda:
+            "../envs/environment.yaml"
+        script:
+            "../scripts/pypsa-at/build_osm_network_at.py"
+
+    def input_base_network(w):
+        """Updates the input network to pick up filtered files.
+
+        Patches ``input_base_network()`` in ``rules.build_electricity.smk``.
+
+        Parameters
+        ----------
+        w:
+            The Snakemake workflow wildcards object. Only used in upstream
+            function.
+
+        Returns
+        -------
+        :
+            A dictionary with component names as keys and Paths as values.
+        """
+        components = {"buses", "lines", "links", "converters", "transformers"}
+        return {c: resources(f"osm/build-at/{c}.csv") for c in components}
+
+
 rule modify_nuts3_shapes:
     params:
         clustering=config_provider("clustering", "mode"),

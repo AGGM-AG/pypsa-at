@@ -74,12 +74,12 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "plot_balance_map_interactive",
+            run="AT_KN2040",
             clusters="adm",
             opts="",
             sector_opts="none",
             planning_horizons="2030",
-            carrier="AC",
-            run="AT_KN2040",
+            carrier="gas",
         )
 
     configure_logging(snakemake)
@@ -122,10 +122,13 @@ if __name__ == "__main__":
     components = transmission_carriers.unique("component")
     carriers = transmission_carriers.unique("carrier")
 
-    ### Pie charts
+    if carrier == "AC" and n.meta["sector"].get("electricity_distribution_grid", False):
+        carrier = [carrier, "low voltage"]
+
+    # Pie charts - compute energy balance per bus and carrier
     eb = n.statistics.energy_balance(
         bus_carrier=carrier,
-        groupby=["bus", "carrier"],
+        groupby=["location", "carrier"],
     )
 
     # Only carriers that are also in the energy balance
@@ -133,10 +136,10 @@ if __name__ == "__main__":
 
     eb.loc[components] = eb.loc[components].drop(index=carriers_in_eb, level="carrier")
     eb = eb.dropna()
-    bus_size = eb.groupby(level=["bus", "carrier"]).sum()
+    bus_size = eb.groupby(level=["location", "carrier"]).sum()
 
-    # line and links widths according to optimal capacity
-    flow = n.statistics.transmission(groupby=False, bus_carrier=carrier)
+    # Line and links widths according to net annual flow
+    flow = n.statistics.transmission(groupby=False, bus_carrier=carrier, at_port=[0])
     if not flow.empty:
         flow_reversed_mask = flow.index.get_level_values(1).str.contains("reversed")
         flow_reversed = flow[flow_reversed_mask].rename(
@@ -144,7 +147,7 @@ if __name__ == "__main__":
         )
         flow = flow[~flow_reversed_mask].subtract(flow_reversed, fill_value=0)
 
-    # only line first index
+    # Extract line and link flows separately
     line_flow = (
         flow.loc[flow.index.get_level_values(0).str.contains("Line")]
         .copy()
@@ -157,37 +160,29 @@ if __name__ == "__main__":
     )
 
     branch_components = ["Link"]
-    if carrier == "AC":
+    if "AC" in carrier:
         branch_components = ["Line", "Link"]
 
-    ### Prices
+    # Weighted nodal marginal prices for regional choropleth
     buses = n.buses.query("carrier in @carrier").index
-    demand = (
-        n.statistics.energy_balance(
-            bus_carrier=carrier, aggregate_time=False, groupby=["bus", "carrier"]
-        )
-        .clip(lower=0)
-        .groupby("bus")
-        .sum()
-        .reindex(buses)
-        .rename(n.buses.location)
-        .T
-    )
-
     weights = n.snapshot_weightings.generators
     price = (
-        weights
-        @ n.buses_t.marginal_price.reindex(buses, axis=1).rename(
-            n.buses.location, axis=1
+        (
+            weights
+            @ n.buses_t.marginal_price.reindex(buses, axis=1).rename(
+                n.buses.location, axis=1
+            )
+            / weights.sum()
         )
-        / weights.sum()
+        .groupby(level=0)  # to combine AC and low voltage locations
+        .mean()
     )
 
     if carrier == "co2 stored" and "CO2Limit" in n.global_constraints.index:
         co2_price = n.global_constraints.loc["CO2Limit", "mu"]
         price = price - co2_price
 
-    # if only one price is available, use this price for all regions
+    # If only one price is available, use it for all regions
     if price.size == 1:
         regions["price"] = price.values[0]
         shift = round(abs(price.values[0]) / 20, 0)
@@ -201,7 +196,7 @@ if __name__ == "__main__":
     if settings["vmax"] is not None:
         vmax = settings["vmax"]
 
-    # Map colors
+    # Map colors using colormap normalization
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
     cmap = plt.get_cmap(cmap)
 
@@ -212,7 +207,7 @@ if __name__ == "__main__":
         alpha=region_alpha,
     )
 
-    # Create tooltips
+    # Create tooltips with units
     regions["tooltip_html"] = (
         "<b>"
         + regions.index
@@ -222,8 +217,8 @@ if __name__ == "__main__":
         + " "
         + region_unit
     )
-    # regions["tooltip_html"] = regions["price"].round(2).astype(str)
-    # Create layer
+
+    # Regional choropleth layer
     regions_layer = pdk.Layer(
         "GeoJsonLayer",
         regions,
@@ -236,7 +231,7 @@ if __name__ == "__main__":
         auto_highlight=True,
     )
 
-    map = n.explore(
+    deck = n.explore(
         branch_components=branch_components,
         bus_size=bus_size.div(unit_conversion),
         bus_split_circle=True,
@@ -254,6 +249,20 @@ if __name__ == "__main__":
         map_style=map_style,
     )
 
-    map.layers.insert(0, regions_layer)
+    deck.layers.insert(0, regions_layer)
 
-    map.to_html(snakemake.output[0], offline=True)
+    try:
+        from mods.interactive_map import augment_and_export_html
+
+        augment_and_export_html(
+            deck,
+            n,
+            carrier,
+            carriers_in_eb,
+            unit_conversion,
+            settings,
+            region_unit,
+            snakemake.output[0],
+        )
+    except ImportError:
+        deck.to_html(snakemake.output[0], offline=True)

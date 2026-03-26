@@ -63,7 +63,8 @@ For detailed implementation information, see the [mods module documentation](ref
 
 ## Contributing
 
-**Note**: This project is currently in pre-release development. Pull requests are not being accepted until the first official release. After the initial release, we welcome contributions from the community.
+!!! PyPSA-AT is in pre-release
+Expect things to change rapidly, or even break until the first release is published.
 
 Please install the `pre-commit` hooks if you plan to contribute to this project. 
 ```bash

@@ -9,9 +9,6 @@ nav:
 - Home: index.md
 - How-to-Guides:
   - how-to-guides/index.md
-  - how-to-guides/run-scenarios.md
-  - how-to-guides/run-evaluations.md
-  - how-to-guides/soft-fork-merge-upstream.md
 - Tutorials:
   - tutorials/index.md
   - tutorials/model-modifications.md
@@ -24,9 +21,7 @@ nav:
   - Evaluations:
     - reference/evals/index.md
     - cli.py: reference/evals/cli.md
-    - configs.py: reference/evals/configs.md
     - constants.py: reference/evals/constants.md
-    - excel.py: reference/evals/excel.md
     - fileio.py: reference/evals/fileio.md
     - statistic.py: reference/evals/statistic.md
     - utils.py: reference/evals/utils.md
@@ -35,7 +30,6 @@ nav:
       - _base.py: reference/evals/plots/_base.md
       - barchart.py: reference/evals/plots/barchart.md
       - facetbars.py: reference/evals/plots/facetbars.md
-      - gridmap.py: reference/evals/plots/gridmap.md
       - sankey.py: reference/evals/plots/sankey.md
       - timeseries.py: reference/evals/plots/timeseries.md
     - Views:
@@ -47,14 +41,14 @@ nav:
       - demand.py: reference/evals/views/demand.md
       - price.py: reference/evals/views/price.md
       - sankey.py: reference/evals/views/sankey.md
-      - transmission.py: reference/evals/views/transmission.md
 - Explanations:
   - explanations/index.md
   - National CO2 Balance: explanations/co2-balancing.md
   - Electricity Grid:
     - explanations/electricity-grid/index.md
-    - NUTS3 Clustering and OSM Data: explanations/electricity-grid/nuts3-osm-data.md
-    - Transmission Limits: explanations/electricity-transmission.md
+    - NUTS3 Clustering: explanations/electricity-grid/nuts3-osm-data.md
+    - OSM-AT Base Network: explanations/electricity-grid/osm-lines-at.md
+    - Transmission Limits: explanations/electricity-grid/electricity-transmission.md
 
 theme:
   name: "material"
