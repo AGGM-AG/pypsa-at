@@ -3,12 +3,20 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 import pytest
+from plotly import graph_objects as go
 
 from evals.constants import DataModel
-from evals.plots._base import ESMChart
+from evals.plots.components import (
+    BarTraceStyler,
+    FileExporter,
+    LayoutStyler,
+    TimeSeriesStyler,
+    empty_input,
+)
 from evals.plots.timeseries import ESMTimeSeriesChart
 from evals.utils import (
     apply_cutoff,
+    custom_sort,
     filter_by,
     get_trade_type,
     get_unit,
@@ -545,7 +553,7 @@ def test_custom_sort_happy_and_edge_cases(values, ascending, expected, df_sort):
     happy path tests, edge cases, and ensures that the function
     behaves as expected under different scenarios.
     """
-    result = ESMChart.custom_sort(df_sort, "A", values, bool(ascending))
+    result = custom_sort(df_sort, "A", values, bool(ascending))
     pd.testing.assert_frame_equal(result, expected)
 
 
@@ -565,7 +573,7 @@ def test_custom_sort_error_cases(values, by, expected, df_sort):
     function behaves correctly in error scenarios.
     """
     with pytest.raises(expected):
-        ESMChart.custom_sort(df_sort, by, values, True)
+        custom_sort(df_sort, by, values, True)
 
 
 @pytest.mark.unit
@@ -968,25 +976,21 @@ def test_prettify_numer(x, expected):
 
 
 # ---------------------------------------------------------------------------
-# ESMChart.construct_file_name
+# FileExporter.construct_file_name
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture
-def minimal_chart():
-    """Return an ESMChart instance with a minimal DataFrame and config."""
-    df = pd.DataFrame({"value": [1.0]})
-    df.attrs["name"] = "capacity"
-    df.attrs["unit"] = "GW"
+def minimal_exporter():
+    """Return a FileExporter with metric_name='capacity' and a placeholder cfg."""
     cfg = SimpleNamespace(file_name_template="", unit="GW")
-    return ESMChart(df, cfg)
+    return FileExporter(cfg, metric_name="capacity")
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
     ("template", "groupby", "idx", "expected"),
     [
-        # --- without year: idx is a plain string (location) ---
         pytest.param(
             "capacity_heat_production_{location}",
             ["location"],
@@ -1001,7 +1005,6 @@ def minimal_chart():
             "capacity_ac_production_DE",
             id="string_idx_no_year_de",
         ),
-        # --- without year: idx is a 1-tuple ---
         pytest.param(
             "balance_carbon_{location}",
             ["location"],
@@ -1009,7 +1012,6 @@ def minimal_chart():
             "balance_carbon_AT",
             id="tuple_idx_no_year",
         ),
-        # --- with year: idx is a 2-tuple (year, location) ---
         pytest.param(
             "timeseries_electricity_{location}_{year}",
             ["location", "year"],
@@ -1024,7 +1026,6 @@ def minimal_chart():
             "sankey_AT_2040",
             id="tuple_idx_sankey",
         ),
-        # --- integer scalar idx (e.g. year only) ---
         pytest.param(
             "{metric}_{year}",
             ["year"],
@@ -1032,7 +1033,6 @@ def minimal_chart():
             "capacity_2030",
             id="int_scalar_idx",
         ),
-        # --- ALIAS_LOCATION_REV substitution ---
         pytest.param(
             "balance_carbon_{location}",
             ["location"],
@@ -1040,7 +1040,6 @@ def minimal_chart():
             "balance_carbon_AT",
             id="alias_substitution",
         ),
-        # --- unknown location passes through unchanged ---
         pytest.param(
             "balance_carbon_{location}",
             ["location"],
@@ -1050,9 +1049,11 @@ def minimal_chart():
         ),
     ],
 )
-def test_construct_file_name(template, groupby, idx, expected, minimal_chart):
+def test_file_exporter_construct_file_name(
+    template, groupby, idx, expected, minimal_exporter
+):
     """
-    Test ESMChart.construct_file_name for all idx scalar/tuple variants.
+    Test FileExporter.construct_file_name for all idx scalar/tuple variants.
 
     Covers:
     - string scalar idx (location-only templates)
@@ -1061,6 +1062,222 @@ def test_construct_file_name(template, groupby, idx, expected, minimal_chart):
     - ALIAS_LOCATION_REV substitution
     - unknown locations passed through unchanged
     """
-    minimal_chart.cfg.file_name_template = template
-    result = minimal_chart.construct_file_name(groupby, idx)
+    minimal_exporter.cfg.file_name_template = template
+    result = minimal_exporter.construct_file_name(groupby, idx)
     assert result == expected
+
+
+# ---------------------------------------------------------------------------
+# LayoutStyler
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def minimal_layout_cfg():
+    """Return a minimal cfg for LayoutStyler."""
+    return SimpleNamespace(
+        legend_header="Carrier",
+        title_font_size=20,
+        font_size=14,
+        legend_font_size=12,
+        xaxis_title="Year",
+        yaxes_showgrid=False,
+        yaxes_visible=False,
+        footnotes=("", ""),
+    )
+
+
+@pytest.mark.unit
+def test_layout_styler_set_base_layout(minimal_layout_cfg):
+    """LayoutStyler.set_base_layout applies height and font_family to the figure."""
+    fig = go.Figure()
+    LayoutStyler(minimal_layout_cfg).set_base_layout(fig)
+    assert fig.layout.height == 800
+    assert fig.layout.font.family == "Calibri"
+
+
+@pytest.mark.unit
+def test_layout_styler_apply_does_not_raise(minimal_layout_cfg):
+    """LayoutStyler.apply completes without error for an empty figure."""
+    fig = go.Figure()
+    LayoutStyler(minimal_layout_cfg).apply(fig)
+
+
+# ---------------------------------------------------------------------------
+# BarTraceStyler
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("width", [0.6, 0.8])
+def test_bar_trace_styler_apply_sets_width(width):
+    """BarTraceStyler.apply configures bar trace width correctly."""
+    fig = go.Figure(go.Bar(x=[1, 2], y=[3, 4]))
+    BarTraceStyler(width=width).apply(fig, unit="GW")
+    assert fig.data[0].width == width
+
+
+# ---------------------------------------------------------------------------
+# empty_input
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("df", "expected"),
+    [
+        pytest.param(pd.DataFrame(), True, id="empty_dataframe"),
+        pytest.param(
+            pd.DataFrame({"a": [float("nan"), float("nan")]}),
+            True,
+            id="all_nan",
+        ),
+        pytest.param(
+            pd.DataFrame({"a": [float("nan"), 1.0]}),
+            False,
+            id="one_non_nan",
+        ),
+    ],
+)
+def test_empty_input(df, expected):
+    """empty_input returns True for empty/all-NaN frames, False otherwise."""
+    assert empty_input(df) is expected
+
+
+# ---------------------------------------------------------------------------
+# FileExporter — error case and file I/O
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_construct_file_name_mismatched_lengths_raises(minimal_exporter):
+    """construct_file_name raises ValueError when groupby and idx lengths differ."""
+    minimal_exporter.cfg.file_name_template = "{location}_{year}"
+    with pytest.raises(ValueError):
+        minimal_exporter.construct_file_name(["location", "year"], ("AT",))
+
+
+@pytest.mark.unit
+def test_file_exporter_to_json_writes_expected_keys(tmp_path):
+    """to_json writes a file containing the expected top-level JSON keys."""
+    import json
+
+    (tmp_path / "JSON").mkdir()
+    cfg = SimpleNamespace(
+        file_name_template="{location}",
+        unit="GW",
+        database_plot_type="bar",
+        database_bus_carrier="AC",
+        database_specifier="",
+    )
+    exporter = FileExporter(cfg, metric_name="capacity")
+    fig = go.Figure()
+    path = exporter.to_json(
+        fig,
+        location="AT",
+        year=2030,
+        output_path=tmp_path,
+        groupby=["location"],
+        idx="AT",
+    )
+    assert path.exists()
+    data = json.loads(path.read_text())
+    assert set(data.keys()) == {
+        "location",
+        "year",
+        "plot_type",
+        "bus_carrier",
+        "specifier",
+        "plotly_dict",
+    }
+    assert data["location"] == "AT"
+    assert data["year"] == 2030
+
+
+@pytest.mark.unit
+def test_file_exporter_to_json_year_none(tmp_path):
+    """to_json correctly stores year=None in the JSON payload."""
+    import json
+
+    (tmp_path / "JSON").mkdir()
+    cfg = SimpleNamespace(
+        file_name_template="{location}",
+        unit="GW",
+        database_plot_type="bar",
+        database_bus_carrier="AC",
+        database_specifier="",
+    )
+    exporter = FileExporter(cfg, metric_name="capacity")
+    fig = go.Figure()
+    path = exporter.to_json(
+        fig,
+        location="AT",
+        year=None,
+        output_path=tmp_path,
+        groupby=["location"],
+        idx="AT",
+    )
+    data = json.loads(path.read_text())
+    assert data["year"] is None
+
+
+@pytest.mark.unit
+def test_file_exporter_to_html_writes_file(tmp_path):
+    """to_html writes an HTML file at the expected path."""
+    (tmp_path / "HTML").mkdir()
+    cfg = SimpleNamespace(
+        file_name_template="{location}",
+        unit="GW",
+        database_plot_type="bar",
+        database_bus_carrier="AC",
+        database_specifier="",
+    )
+    exporter = FileExporter(cfg, metric_name="capacity")
+    fig = go.Figure()
+    path = exporter.to_html(fig, output_path=tmp_path, groupby=["location"], idx="AT")
+    assert path.exists()
+    assert path.suffix == ".html"
+    assert "AT" in path.stem
+
+
+# ---------------------------------------------------------------------------
+# TimeSeriesStyler
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def minimal_ts_cfg():
+    """Return a minimal cfg for TimeSeriesStyler."""
+    return SimpleNamespace(yaxis_color="#333333")
+
+
+@pytest.mark.unit
+def test_time_series_styler_style_inflexible_demand(minimal_ts_cfg):
+    """style_inflexible_demand overrides fill, stackgroup, and legendrank on the matching trace."""
+    fig = go.Figure()
+    fig.add_scatter(
+        x=[0, 1],
+        y=[1.0, 2.0],
+        name="Inflexible Demand",
+        fill="tozeroy",
+        stackgroup="supply",
+    )
+    TimeSeriesStyler(minimal_ts_cfg).style_inflexible_demand(fig)
+    trace = fig.data[0]
+    assert trace.fill is None
+    assert trace.fillcolor is None
+    assert trace.stackgroup is None
+    assert trace.legendrank == 2000
+
+
+@pytest.mark.unit
+def test_time_series_styler_style_axes_and_layout(minimal_ts_cfg):
+    """style_axes_and_layout sets title text, y-axis unit, and key axis properties."""
+    fig = go.Figure()
+    TimeSeriesStyler(minimal_ts_cfg).style_axes_and_layout(
+        fig, title="Electricity 2030", unit="MWh"
+    )
+    assert fig.layout.title.text == "Electricity 2030"
+    assert fig.layout.yaxis.title.text == "MWh"
+    assert fig.layout.yaxis.gridcolor == "gainsboro"
+    assert fig.layout.xaxis.ticklabelmode == "period"

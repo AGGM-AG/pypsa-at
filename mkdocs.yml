@@ -27,7 +27,7 @@ nav:
     - utils.py: reference/evals/utils.md
     - Plots:
       - reference/evals/plots/index.md
-      - _base.py: reference/evals/plots/_base.md
+      - components.py: reference/evals/plots/components.md
       - barchart.py: reference/evals/plots/barchart.md
       - facetbars.py: reference/evals/plots/facetbars.md
       - sankey.py: reference/evals/plots/sankey.md

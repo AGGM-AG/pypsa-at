@@ -28,6 +28,7 @@ from evals.constants import (
     DataModel,
     Regex,
 )
+from evals.plots.components import FileExporter
 from evals.statistic import ESMStatistics
 from evals.utils import (
     build_plot_config,
@@ -309,8 +310,22 @@ class Exporter:
         for idx, data in df_plot.groupby(cfg.plotby):
             chart = cfg.chart(data, cfg)
             chart.plot()
-            chart.to_html(output_path, cfg.plotby, idx)
-            chart.to_json(output_path, cfg.plotby, idx)
+            exporter = FileExporter(cfg, chart.metric_name)
+            exporter.to_html(chart.fig, output_path, cfg.plotby, idx)
+            year = None
+            if DataModel.YEAR in cfg.plotby:
+                if DataModel.YEAR in data.index.names:
+                    year = data.index.unique(DataModel.YEAR).item()
+                else:
+                    year = getattr(chart, "year", None)
+            exporter.to_json(
+                chart.fig,
+                chart.location,
+                year,
+                output_path,
+                cfg.plotby,
+                idx,
+            )
 
     def export_csv(self, output_path: Path) -> None:
         """

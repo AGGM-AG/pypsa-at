@@ -551,6 +551,40 @@ def drop_from_multtindex_by_regex(
     return df[~mask]
 
 
+def custom_sort(
+    df: pd.DataFrame, by: str, values: tuple, ascending: bool = False
+) -> pd.DataFrame:
+    """
+    Sort a data frame by the first appearance in *values*.
+
+    Parameters
+    ----------
+    df
+        The dataframe to sort.
+    by
+        The column name to find values in.
+    values
+        The values to sort by.  The order in this collection defines
+        the sort result.
+    ascending
+        Whether to reverse the result (Plotly inserts legend items from
+        top down).
+
+    Returns
+    -------
+    :
+        The sorted data frame.
+    """
+    if not values:
+        return df
+
+    def _custom_order(ser: pd.Series) -> pd.Series:
+        order = {s: i for i, s in enumerate(values)}
+        return ser.apply(lambda x: order.get(x, 1000))
+
+    return df.sort_values(by=by, key=_custom_order, ascending=ascending)
+
+
 def prettify_number(x: float) -> str:
     """
     Format a float for display on trace hover actions.
