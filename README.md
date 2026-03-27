@@ -120,9 +120,9 @@ More detailed documentation of PyPSA-AT is hosted on [pypsa-at.readthedocs.io](h
 ## 🤝 Contributing
 
 > [!NOTE]
-> The development team focuses on establishing a well calibrated representation of the Austrian energy system and does
-> not have capacities available to review contributions from the community at the moment. We hope that this will change
-> end of 2026 when a first stable version with tests and quality checks has been released.
+> The development team focuses on establishing a well calibrated representation of the Austrian energy system and 
+> has very limited capacity to review contributions from the community at the moment. We hope that this 
+> will change end of 2026 when a first stable version with tests and quality checks has been released.
 
 In general, please install the `pre-commit` hooks if you plan to contribute to this project.
 
