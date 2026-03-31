@@ -1,4 +1,4 @@
-![Version](https://img.shields.io/badge/version-v0.1.0-purple)
+![Version](https://img.shields.io/badge/version-alpha-purple)
 ![Size](https://img.shields.io/github/repo-size/AGGM-AG/pypsa-at)
 [![Test workflows](https://github.com/AGGM-AG/pypsa-at/actions/workflows/test.yaml/badge.svg)](https://github.com/AGGM-AG/pypsa-at/actions/workflows/test.yaml)
 [![CodeQL](https://github.com/AGGM-AG/pypsa-at/actions/workflows/codeql.yaml/badge.svg?branch=main&event=push)](https://github.com/AGGM-AG/pypsa-at/actions/workflows/codeql.yaml)
@@ -7,15 +7,14 @@
 ![pixi](https://img.shields.io/badge/pixi-≥0.23-brightgreen)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Snakemake](https://img.shields.io/badge/snakemake-≥9-brightgreen.svg?style=flat)](https://snakemake.readthedocs.io)
-![Python](https://img.shields.io/badge/python-≥3.10-blue)
+![Python](https://img.shields.io/badge/python-≥3.12-blue)
 [![Docs](https://img.shields.io/badge/docs-mkdocs-blue)](https://pypsa-at.readthedocs.io/en/latest/)
 [![Discord](https://img.shields.io/discord/911692131440148490?logo=discord)](https://discord.gg/AnuJBk23FU)
 
 # PyPSA-AT: A Sector-Coupled Open Optimisation Model of the Austrian Energy System
 
 > [!WARNING]
-> PyPSA-AT is under very active early development. Pull requests are not being accepted until the first official release
-> due to limited resources. After the initial release, we welcome contributions from the community.
+> PyPSA-AT is under very active early development. Expect things to change rapidly.
 
 **PyPSA-AT** is an Austrian adaptation of the open European energy system
 model [PyPSA-Eur](https://github.com/pypsa/pypsa-eur).
@@ -120,27 +119,14 @@ More detailed documentation of PyPSA-AT is hosted on [pypsa-at.readthedocs.io](h
 ## 🤝 Contributing
 
 > [!NOTE]
-> The development team focuses on establishing a well calibrated representation of the Austrian energy system and 
-> has very limited capacity to review contributions from the community at the moment. We hope that this 
-> will change end of 2026 when a first stable version with tests and quality checks has been released.
+> The development team focuses on establishing a well-calibrated representation of the Austrian energy system and 
+> has limited capacity to review contributions from the community at the moment.
 
 In general, please install the `pre-commit` hooks if you plan to contribute to this project.
 
 ```bash
 pixi run pre-commit install
 ```   
-
-## 🗄️ Data sources
-
-### Scenario data: Ariadne
-
-`ariadne-data/ariadne-database.csv`
-
-* **Source:** Kopernikus Projekt Ariadne
-* **Link:** [Ariadne Scenario Explorer](https://ariadne2.apps.ece.iiasa.ac.at/en/explorer?type=line-chart)
-* **License:** CC-BY 4.0
-* **Description:** Results from
-  the [Ariadne Report: Die Energiewende kosteneffizient gestalten](https://ariadneprojekt.de/publikation/report-szenarien-zur-klimaneutralitat-2045/)
 
 ## ⚖️ License
 

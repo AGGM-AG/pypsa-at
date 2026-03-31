@@ -13,25 +13,34 @@ For comprehensive documentation on the underlying PyPSA-Eur framework, model dec
 
 ## Features
 
-PyPSA-AT extends the PyPSA-Eur model with Austrian-specific enhancements:
+PyPSA-AT extends the PyPSA-Eur model with Austria-specific enhancements. \
+While some features have already been implemented (✅), some are being actively worked on (🔨) or discussed (💡) and many
+more are planned in the future (📌).
+An overview of planned and active features can be found in the following table. \
+For more detailed implementation information, see the [mods module documentation](reference/mods/index.md).
 
-### Network Modifications
-- **Austrian Transmission Capacity Calibration**: Accurate representation of Austrian high-voltage transmission grid capacities based on AGGM data
-- **Enhanced Spatial Resolution**: Custom administrative clustering for Austrian regions (AT10/AT35) while maintaining European context
-- **Gas Import and Production Differentiation**: Separate modeling of LNG, pipeline gas, and domestic production with realistic cost structures
-
-### Demand Calibration
-- **Industrial Demand Updates**: Austrian-specific industrial energy demand profiles
-- **Electricity Base Load Disaggregation**: Detailed sectoral breakdown of base electricity consumption
-
-### Data Integration
-- **AGGM-Provided Input Data**: All necessary input data is either included in the repository under `/data` or retrieved automatically through workflow rules
-- **Population Layout Modifications**: Custom Austrian population distribution for improved spatial accuracy
-- **NUTS3 Shape Adjustments**: Refined administrative boundaries for Austrian regions
-
-For detailed implementation information, see the [mods module documentation](reference/mods/index.md).
+|      TOPIC      |                                                            FEATURE                                                             |                                                                                                              DESCRIPTION                                                                                                              |                         PR                         | STATUS |
+|:---------------:|:------------------------------------------------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:--------------------------------------------------:|:------:|
+|  **Modeling**   |                           High spatial and temporal resolution in AT                                                           |                                            Maintain NUTS2 and NUTS3 spatial resolution using administrative clustering in AT and at 1H and 3H temporal resolution in the myopic workflow.                                             | [#53](https://github.com/AGGM-AG/pypsa-at/pull/55) |   ✅    |
+|                 |                      Methane Pyrolysis (Plasma) — turquoise hydrogen                                                           |                                        Add methane pyrolysis (plasma variant) as a configurable H₂ production pathway. CH₄ is split into H₂ and solid carbon black; no CO₂ is emitted. Cost data from DEA sheet 104 (2024).          | [#73](https://github.com/AGGM-AG/pypsa-at/pull/73)  |   🔨   |
+|                 |                                Improve Hydropower technologies                                                                 |                                             Differentiate open- and closed-loop PHS, reservoirs with and without inflows, and improve inflow time series for Austrian hydropower plants.                                              |                         -                          |   📌   |
+|                 |                                          Model coupling                                                                        |                                                                       Improve biomass sector accuracy by coupling PyPSA-AT with a dedicated carbon cycle model.                                                                       |                         -                          |   📌   |
+|                 |                                       Endogenous industry demands                                                              |                                                                   Replace the exogenous energy modal split per industry sub-sector with optimized production paths.                                                                   |                         -                          |   📌   |
+|                 |                                         Austrian climate goals                                                                 |                                                                      Introduce regional CO2 budgets to comply with Austria's climate goals (CO2 neutral by 2040)                                                                      |                         -                          |   ✅    |
+|                 |                                          Depict Austrian policies                                                              |                                                   Include EAG targets for net renewable electricity production by 2030 and other regulatory requirements in the baseline scenario.                                                    |                         -                          |   🔨   |
+| **Calibration** |                   Enhanced energy demand profiles for all sectors and Austrian NUTS3 regions                                   |                                                        Update demand curves for industry, transport, domestic, commercial and agriculture sectors with NUTS3 resolution in AT.                                                        |                         -                          |   📌   |
+|                 |                   Calibrate renewable energy production capacity potentials in AT                                              |  Limit RES deployment in accordance with [Studie Erneuerbaren Energiepotenziale](https://www.aee-intec.at/project/erneuerbare-energiepotenziale-oesterreich-studie-erneuerbare-energiepotenziale-in-oesterreich-fuer-2030-und-2040/)  |                         -                          |   📌   |
+|                 |                                     Restrict technology occurrences                                                            |                                                             Review technology occurrences such as V2G, SynGas, Pyrolysis, etc. and restrict their first appearance years.                                                             |                         -                          |   📌   |
+|                 |                                          Calibrate Heat sector                                                                 |                                            Review and calibrate heat sector including existing capacities per heat system, demand profiles, and endogenous building thermal retrofitting.                                             |                         -                          |   📌   |
+| **Validation**  |                    Compare model results with Eurostat Energy Balance                                                          |                                             Compare PyPSA-AT baseline scenario results with historical energy demands reported in the Eurostat Energy Balance to validate model results.                                              |                         -                          |   🔨   |
+| **Input Data**  |       Improved brownfield data for gas and hydrogen infrastructure provided by [AGGM](https://www.aggm.at/en)                  |                                              Include accurate data on the Austrian methane and hydrogen grids, storage infrastructure, trade volumes and retrofit potentials and costs.                                               |                         -                          |   🔨   |
+|                 |                                    Austrian biomass potentials                                                                 | Include Austrian wet and solid biomass potentials as reported by [UBA](https://www.umweltbundesamt.at/energie/erneuerbare-energie/nachhaltige-biomasse-brennstoffe) and [BeST](https://best-research.eu/de/startseite), respectively. |                         -                          |   📌   |
+|                 |                                  Electricity grid brownfield update                                                            |                                                             Update 380 kV network topology and improve resolution of electricity transmission grid for Austrian regions.                                                              |                         -                          |   📌   |
 
 ## Installation
+
+Please note that PyPSA-AT is only supported on **Linux** platforms. Installations on Windows or macOS require
+modifications currently not supported.
 
 1. Clone the repository:
    ```bash
@@ -63,10 +72,12 @@ For detailed implementation information, see the [mods module documentation](ref
 
 ## Contributing
 
-!!! note "PyPSA-AT is in pre-release"
-Expect things to change rapidly, or even break until the first release is published.
+!!! note "Limited contribution capacity"
+    The development team focuses on establishing a well-calibrated representation of the Austrian energy system and
+    has limited capacity to review contributions from the community at the moment.
 
-Please install the `pre-commit` hooks if you plan to contribute to this project. 
+In general, please install the `pre-commit` hooks if you plan to contribute to this project.
+
 ```bash
 pixi run pre-commit install
 ```
@@ -88,7 +99,7 @@ If you use PyPSA-AT in your research, please cite it as:
 ```
 Worschischek, Philip; Zechner, Nicole; Avetisjan, Vartan; Wernhart, Helmut (2026):
 PyPSA-AT - Sektorgekoppeltes Energiesystemmodell des österreichischen Energiesystems.
-Version 0.0.0. Austrian Gas Grid Management AG.
+Version 0.1.0. Austrian Gas Grid Management AG.
 https://github.com/AGGM-AG/pypsa-at
 ```
 
