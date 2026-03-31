@@ -180,12 +180,10 @@ mods:
   # AT10 or NUTS3 administrative clustering
   modify_nuts3_shapes: AT35DE5
 
-  # scale_capacity does not work for Line components, hence we use this
-  # modification to update any transmission capacity (Links or Lines)
-  modify_austrian_transmission_capacities: true
 
-  # update urban population share for AT regions
-  modify_population_layouts: true
+  # stop transit of gas into Europe via Ukrainian import
+  # locations on the borders with PL, SK, HU, RO
+  ukrainian_gas_transit_stop: true
 
   # split gas generators by type and multiply generator
   # marginal costs by the following factors

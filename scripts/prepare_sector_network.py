@@ -6560,10 +6560,11 @@ if __name__ == "__main__":
             simpl="",
             clusters="adm",
             opts="",
-            ll="vopt",
+            ll="v1.25",
             sector_opts="none",
             planning_horizons="2025",
             run="AT_KN2040",
+            configfiles=["config/test/config.at10.yaml"],
         )
 
     configure_logging(snakemake)  # pylint: disable=E0606

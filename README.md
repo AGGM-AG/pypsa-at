@@ -74,7 +74,8 @@ the [mods module documentation](https://pypsa-at.readthedocs.io/en/latest/refere
 |                 |                                                                                                                                                                                                                                                       Restrict technology occurrences                                                                                                                                                                                                                                                        |                                                             Review technology occurrences such as V2G, SynGas, Pyrolysis, etc. and restrict their first appearance years.                                                             |                         -                          |   📌   |
 |                 |                                                                                                                                                                                                                                                            Calibrate Heat sector                                                                                                                                                                                                                                                             |                                            Review and calibrate heat sector including existing capacities per heat system, demand profiles, and endogenous building thermal retrofitting.                                             |                         -                          |   📌   |
 | **Validation**  | Compare model results with [Eurostat Energy Balance](https://ec.europa.eu/eurostat/cache/visualisations/energy-balances/enbal.html?geo=EU27_2020&unit=KTOE&language=EN&year=&fuel=fuelMainFuel&siec=TOTAL&details=1&chartOptions=0&stacking=normal&chartBal=&chart=&full=0&chartBalText=&order=DESC&siecs=&dataset=nrg_bal_c&decimals=0&agregates=0&share=false&fuelList=fuelElectricity%2CfuelCombustible%2CfuelNonCombustible%2CfuelOtherPetroleum%2CfuelMainPetroleum%2CfuelOil%2CfuelOtherFossil%2CfuelFossil%2CfuelCoal%2CfuelMainFuel) |                                             Compare PyPSA-AT baseline scenario results with historical energy demands reported in the Eurostat Energy Balance to validate model results.                                              |                         -                          |   🔨   |
-| **Input Data**  |                                                                                                                                                                                                                   Improved brownfield data for gas and hydrogen infrastructure provided by [AGGM](https://www.aggm.at/en)                                                                                                                                                                                                                    |                                              Include accurate data on the Austrian methane and hydrogen grids, storage infrastructure, trade volumes and retrofit potentials and costs.                                               |                         -                          |   🔨   |
+| **Input Data**                 |                                                                                                                                                                                                                                             Remove import of methane via Ukrainian border points                                                                                                                                                                                                                                             |                                                   Stop the possibility to import methane from outside the EU into countries bordering Ukraine, where no gas is imported in reality.                                                   |                         -                          |    ✅    |
+|  |                                                                                                                                                                                                                   Improved brownfield data for gas and hydrogen infrastructure provided by [AGGM](https://www.aggm.at/en)                                                                                                                                                                                                                    |                                              Include accurate data on the Austrian methane and hydrogen grids, storage infrastructure, trade volumes and retrofit potentials and costs.                                               |                         -                          |   🔨   |
 |                 |                                                                                                                                                                                                                                                         Austrian biomass potentials                                                                                                                                                                                                                                                          | Include Austrian wet and solid biomass potentials as reported by [UBA](https://www.umweltbundesamt.at/energie/erneuerbare-energie/nachhaltige-biomasse-brennstoffe) and [BeST](https://best-research.eu/de/startseite), respectively. |                         -                          |   📌   |
 |                 |                                                                                                                                                                                                                                                      Electricity grid brownfield update                                                                                                                                                                                                                                                      |                                                             Update 380 kV network topology and improve resolution of electricity transmission grid for Austrian regions.                                                              |                         -                          |   📌   |
 
@@ -127,6 +128,39 @@ In general, please install the `pre-commit` hooks if you plan to contribute to t
 ```bash
 pixi run pre-commit install
 ```   
+
+## 🗄️ Data sources
+
+### Scenario data: Ariadne
+
+`ariadne-data/ariadne-database.csv`
+
+* **Source:** Kopernikus Projekt Ariadne
+* **Link:** [Ariadne Scenario Explorer](https://ariadne2.apps.ece.iiasa.ac.at/en/explorer?type=line-chart)
+* **License:** CC-BY 4.0
+* **Description:** Results from
+  the [Ariadne Report: Die Energiewende kosteneffizient gestalten](https://ariadneprojekt.de/publikation/report-szenarien-zur-klimaneutralitat-2045/)
+
+### Data on Ukrainian gas transit: AGGM AG 
+`data/pypsa-at/ukrainian_gas_transit_stop.json` 
+
+- **Source**: experts of AGGM (Austrian Gas Grid Management) AG 
+- **Format**: geojson dataset of affected `network.generators.loc[f"{country_code} gas pipeline import"]`
+- **Description**: input of European gas network experts at AGGM on which cross-border transit points between the EU and Ukraine are closed down. 
+
+### Data on Austrian gas network capacities: AGGM AG 
+`data/pypsa-at/AGGM_gas_network_base_AT10.csv` and
+`data/pypsa-at/AGGM_gas_network_base_AT35.csv`
+
+- **Source**: experts of AGGM (Austrian Gas Grid Management) AG
+- **Format**: table of gas transport corridors in Austria and their properties
+- **Description**: input of experts on the Austrian gas network, clustered for AT-10 (~ NUTS2) and AT-35 (NUTS3). The data contains information on transport corridors - not exact gas pipeline locations - and their properties
+
+The properties improved with expert input are: 
+- `p_nom`: nominal capacity 
+- `max_pressure_bar`: maximum pressure 
+- `build_year`: year of construction
+
 
 ## ⚖️ License
 

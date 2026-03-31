@@ -1,3 +1,3 @@
 # Changelog
 
-- changed upper limit for electricity transmission expansion to 25% between myopic years 
+- modified gas network to stop transit through Ukraine

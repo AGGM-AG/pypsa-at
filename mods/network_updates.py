@@ -303,6 +303,84 @@ def add_methane_pyrolysis_plasma(
     )
 
 
+def update_network_to_stop_ukrainian_gas_transit(
+    n: pypsa.Network, snakemake: Snakemake
+) -> None:
+    """
+    Stop Ukrainian gas transit by disabling gas imports in affected locations.
+    Selection of relevant cross border points between EU countries and Ukraine
+    by AGGM AG experts.
+
+    Locations are identified in data/pypsa-at/ukrainian_gas_transit_stop.json.
+    Matched with n.generators using their country_bus.
+    Imported capacities via Ukraine are subtracted from summed capacity.
+    The relevant countries are only connected to EU countries and Ukraine,
+    leaving their import capacity == 0 .
+
+    The network n is updated in place.
+
+    Parameters
+    ----------
+    n
+        The network before optimisation.
+    snakemake
+        The snakemake workflow object.
+
+    Returns
+    -------
+    :
+        Updates the pypsa.Network in place.
+
+    """
+    if not snakemake.params.get("ukrainian_gas_transit_stop", False):
+        logger.info(
+            "Skip updating network to stop ukrainian gas transit because "
+            "ukrainian_gas_transit_stop is off in config.at.yaml ."
+        )
+        return
+    current_year = int(snakemake.wildcards.planning_horizons)
+    if current_year <= 2025:
+        logger.info(
+            "Skip updating network to stop ukrainian gas transit for years after 2025."
+        )
+        return
+
+    country_bus = "properties.bus"
+    capacity = "properties.capacity"
+
+    ukrainian_import_locations = pd.read_json(
+        snakemake.input.ukrainian_gas_transit_stop
+    )
+    to_drop = pd.json_normalize(ukrainian_import_locations.features).astype(
+        {capacity: "float"}
+    )
+
+    # drop 'None' country with import node in Moldavia
+    to_drop = to_drop.dropna(subset=[country_bus])
+
+    # filter for countries in config - or CI pipeline will fail
+    to_drop = to_drop[to_drop[country_bus].isin(snakemake.config["countries"])]
+
+    capacity_sum = to_drop[[country_bus, capacity]].groupby(country_bus).sum()
+    for cc in capacity_sum.index:
+        old_capacity = n.generators.loc[f"{cc} gas pipeline import", "p_nom"]
+        capacity_ukrainian_import = capacity_sum.loc[cc]
+
+        capacity_difference = old_capacity - capacity_ukrainian_import
+
+        if (
+            abs(capacity_difference.item()) > 0.001
+            and snakemake.config["p^refix"] != "test-sector-myopic-at10"
+        ):
+            raise Exception("Detected capacity difference without ukrainian imports.")
+        n.generators.loc[f"{cc} gas pipeline import", "p_nom"] = 0
+
+        # disable optimization of Ukrainian gas imports
+        n.generators.loc[f"{cc} gas pipeline import", "p_nom_extendable"] = False
+
+    logger.info("Updated network to stop ukrainian gas transit.")
+
+
 def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
     Apply all PyPSA-AT specific modifications to the pre-network.
