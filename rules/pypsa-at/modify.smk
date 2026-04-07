@@ -20,10 +20,8 @@ if OSM_DATASET["source"] == "build":
         threads: 1
         resources:
             mem_mb=2000,
-        conda:
-            "../envs/environment.yaml"
         script:
-            "../scripts/pypsa-at/build_osm_network_at.py"
+            scripts("pypsa-at/build_osm_network_at.py")
 
     def input_base_network(w):
         """Updates the input network to pick up filtered files.
@@ -58,10 +56,8 @@ rule modify_nuts3_shapes:
     threads: 1
     resources:
         mem_mb=1500,
-    conda:
-        "../envs/environment.yaml"
     script:
-        "../scripts/pypsa-at/modify_nuts3_shapes.py"
+        scripts("pypsa-at/modify_nuts3_shapes.py")
 
 
 rule modify_population_layouts:
@@ -77,10 +73,8 @@ rule modify_population_layouts:
         mem_mb=2000,
     log:
         logs("modify_population_layouts.log"),
-    conda:
-        "../envs/environment.yaml"
     script:
-        "../scripts/pypsa-at/modify_population_layouts.py"
+        scripts("pypsa-at/modify_population_layouts.py")
 
 
 rule export_evaluation_pypsa_at:
@@ -105,8 +99,7 @@ rule export_evaluation_pypsa_at:
 
 rule validate_pypsa_at:
     message:
-        "Execute all tests via pytest that are marked as either 'unit' "
-        "or 'integration' to validate optimization results."
+        "Execute pypsa-at modifications layer tests. They are marked as 'AT' and require the `--result-path` extra argument."
     params:
         clustering=config_provider("clustering"),
         rdir=RESULTS,
@@ -120,4 +113,4 @@ rule validate_pypsa_at:
     resources:
         mem_mb=16000,
     shell:
-        'pixi run -e test pytest -m "unit or integration" --html {params.rdir}/test_report.html --result-path={params.rdir}'
+        'pixi run -e test pytest -m "AT" --html {params.rdir}/test_report.html --result-path={params.rdir}'

@@ -31,7 +31,8 @@ gurobi.log
 !/data/pypsa-at/
 /cutouts
 /tmp
-public  # mkdocs build
+# mkdocs build
+public
 doc/_build
 _build
 
@@ -102,8 +103,7 @@ figures
 dev/*
 
 # ai coding tools
-CLAUDE.md
-.claude/
+.claude/*local*
 .github/copilot-instructions.md
 CLAUDE.local.md
 

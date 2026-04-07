@@ -75,7 +75,7 @@ include: "rules/build_sector.smk"
 include: "rules/solve_electricity.smk"
 include: "rules/postprocess.smk"
 include: "rules/development.smk"
-include: "rules/modify.smk"  # PyPSA-AT specific modifications
+include: "rules/pypsa-at/modify.smk"  # PyPSA-AT specific modifications
 include: "rules/open-tyndp/retrieve.smk"  # Open-TYNDP data retrieval (PEMMDB, reference grids)
 
 

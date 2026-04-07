@@ -13,7 +13,7 @@ def is_testrun(nc):
     return any(n.meta["run"]["prefix"] == "test-sector-myopic-at10" for n in nc)
 
 
-@pytest.mark.integration
+@pytest.mark.AT
 def test_custom_clustering(nc, is_testrun):
     """
     Make sure the custom clustering yields the expected regions.
@@ -60,7 +60,7 @@ def test_custom_clustering(nc, is_testrun):
     assert len(clusterings) == 1, "Varying myopic clustering is not supported."
 
 
-@pytest.mark.integration
+@pytest.mark.AT
 def test_national_co2_budget_constraint(nc):
     """
     Make sure the national CO2 budget constraints are adhered to.

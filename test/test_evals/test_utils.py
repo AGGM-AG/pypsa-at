@@ -107,7 +107,7 @@ def df_metric(name="foo", unit="(bar)"):
     return df
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("axis", "pos", "expected_index"),
     [
@@ -154,7 +154,7 @@ def test_insert_index_level(axis, pos, expected_index, simple_data_frame):
     assert idx.equals(expected_index)
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("input_str", "expected_output"),
     [
@@ -188,7 +188,7 @@ def test_get_unit(input_str, expected_output):
     assert result == expected_output
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("bus_a", "bus_b", "expected"),
     [
@@ -220,7 +220,7 @@ def test_get_trade_type(bus_a, bus_b, expected):
     assert result == expected
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("trade_type", "buses", "expected"),
     [
@@ -263,7 +263,7 @@ def test_trade_mask(trade_type, buses, expected, df_buses):
             trade_mask(df_buses.drop("bus1", axis=1), str(trade_type), buses)
 
 
-# @pytest.mark.unit
+# @pytest.mark.AT
 # @pytest.mark.parametrize(
 #     ("value", "level", "expected"),
 #     [
@@ -312,7 +312,7 @@ def test_trade_mask(trade_type, buses, expected, df_buses):
 #             replace_index_level_values(df_multi_index, str(value), str(level))
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("exclude", "kwargs", "expected"),
     [
@@ -406,7 +406,7 @@ def test_filter_by_data_frame(exclude, kwargs, expected, df_multi_index):
         pd.testing.assert_frame_equal(result, expected, check_index_type=False)
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("exclude", "kwargs", "expected"),
     [
@@ -494,7 +494,7 @@ def test_filter_by_series(exclude, kwargs, expected, ser_multi_index):
         pd.testing.assert_series_equal(result, expected, check_index_type=False)
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("values", "ascending", "expected"),
     [
@@ -557,7 +557,7 @@ def test_custom_sort_happy_and_edge_cases(values, ascending, expected, df_sort):
     pd.testing.assert_frame_equal(result, expected)
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("values", "by", "expected"),
     [
@@ -576,7 +576,7 @@ def test_custom_sort_error_cases(values, by, expected, df_sort):
         custom_sort(df_sort, by, values, True)
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("df", "year", "expected"),
     [
@@ -621,7 +621,7 @@ def test_fix_snapshots(df, year, expected):
     pd.testing.assert_frame_equal(result, expected)
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("index", "names", "expected"),
     [
@@ -716,7 +716,7 @@ def test_split_location_carrier(index, names, expected):
     pd.testing.assert_index_equal(result, expected)
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("df", "to_unit", "expected"),
     [
@@ -818,7 +818,7 @@ def test_scale(df, to_unit, expected):
         assert result.attrs.get("unit", "") == to_unit
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("mapper", "level", "agg", "expected"),
     [
@@ -867,7 +867,7 @@ def test_apply_mapping(mapper, level, agg, expected, df_multi_index):
         pd.testing.assert_frame_equal(result, expected, check_dtype=False)
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("df", "limit", "drop", "expected"),
     [
@@ -947,7 +947,7 @@ def test_apply_cutoff(df, limit, drop, expected):
     pd.testing.assert_frame_equal(result, expected, check_index_type=False)
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("x", "expected"),
     [
@@ -987,7 +987,7 @@ def minimal_exporter():
     return FileExporter(cfg, metric_name="capacity")
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("template", "groupby", "idx", "expected"),
     [
@@ -1087,7 +1087,7 @@ def minimal_layout_cfg():
     )
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 def test_layout_styler_set_base_layout(minimal_layout_cfg):
     """LayoutStyler.set_base_layout applies height and font_family to the figure."""
     fig = go.Figure()
@@ -1096,7 +1096,7 @@ def test_layout_styler_set_base_layout(minimal_layout_cfg):
     assert fig.layout.font.family == "Calibri"
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 def test_layout_styler_apply_does_not_raise(minimal_layout_cfg):
     """LayoutStyler.apply completes without error for an empty figure."""
     fig = go.Figure()
@@ -1108,7 +1108,7 @@ def test_layout_styler_apply_does_not_raise(minimal_layout_cfg):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize("width", [0.6, 0.8])
 def test_bar_trace_styler_apply_sets_width(width):
     """BarTraceStyler.apply configures bar trace width correctly."""
@@ -1122,7 +1122,7 @@ def test_bar_trace_styler_apply_sets_width(width):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 @pytest.mark.parametrize(
     ("df", "expected"),
     [
@@ -1149,7 +1149,7 @@ def test_empty_input(df, expected):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 def test_construct_file_name_mismatched_lengths_raises(minimal_exporter):
     """construct_file_name raises ValueError when groupby and idx lengths differ."""
     minimal_exporter.cfg.file_name_template = "{location}_{year}"
@@ -1157,7 +1157,7 @@ def test_construct_file_name_mismatched_lengths_raises(minimal_exporter):
         minimal_exporter.construct_file_name(["location", "year"], ("AT",))
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 def test_file_exporter_to_json_writes_expected_keys(tmp_path):
     """to_json writes a file containing the expected top-level JSON keys."""
     import json
@@ -1194,7 +1194,7 @@ def test_file_exporter_to_json_writes_expected_keys(tmp_path):
     assert data["year"] == 2030
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 def test_file_exporter_to_json_year_none(tmp_path):
     """to_json correctly stores year=None in the JSON payload."""
     import json
@@ -1221,7 +1221,7 @@ def test_file_exporter_to_json_year_none(tmp_path):
     assert data["year"] is None
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 def test_file_exporter_to_html_writes_file(tmp_path):
     """to_html writes an HTML file at the expected path."""
     (tmp_path / "HTML").mkdir()
@@ -1251,7 +1251,7 @@ def minimal_ts_cfg():
     return SimpleNamespace(yaxis_color="#333333")
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 def test_time_series_styler_style_inflexible_demand(minimal_ts_cfg):
     """style_inflexible_demand overrides fill, stackgroup, and legendrank on the matching trace."""
     fig = go.Figure()
@@ -1270,7 +1270,7 @@ def test_time_series_styler_style_inflexible_demand(minimal_ts_cfg):
     assert trace.legendrank == 2000
 
 
-@pytest.mark.unit
+@pytest.mark.AT
 def test_time_series_styler_style_axes_and_layout(minimal_ts_cfg):
     """style_axes_and_layout sets title text, y-axis unit, and key axis properties."""
     fig = go.Figure()
