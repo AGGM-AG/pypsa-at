@@ -5,10 +5,10 @@
 """Functions to update resources during the `snakemake` workflow."""
 
 from logging import getLogger
+from types import SimpleNamespace
 
 import pandas as pd
 import pypsa
-from snakemake.exceptions import MissingInputException
 from snakemake.script import Snakemake
 
 logger = getLogger(__name__)
@@ -49,11 +49,9 @@ def attach_resources_to_network_meta(
         Updates ``n.meta`` and ``n.name`` in place.
     """
     if not hasattr(snakemake.input, "energy_totals"):
-        raise MissingInputException(msg="Required input file not found: energy_totals.")
+        raise ValueError("Required input file not found: energy_totals.")
     if not hasattr(snakemake.input, "co2_totals_name"):
-        raise MissingInputException(
-            msg="Required input parameter not found: energy_totals_name."
-        )
+        raise ValueError("Required input parameter not found: energy_totals_name.")
 
     energy_totals_year = snakemake.params.get(
         "energy_year",
@@ -74,84 +72,6 @@ def attach_resources_to_network_meta(
         f"Attached energy_totals (year={energy_totals_year}) and co2_totals "
         f"to network meta for planning horizon {planning_horizon}."
     )
-
-
-def modify_austrian_transmission_capacities(
-    n: pypsa.Network, austrian_transmission_capacities: str
-):
-    """
-    Update transmission capacities for Austria.
-
-    The function is expected to run on clustered pre-networks. It
-    Will read capacities provided in a data file and update the
-    respective values.
-
-    Parameters
-    ----------
-    n
-        The pre-network to update during rule `modify_prenetwork`.
-
-    austrian_transmission_capacities
-        The path to the data file used to update the capacities.
-
-    Returns
-    -------
-    :
-    """
-    if (nuts_at := n.meta["clustering"]["administrative"]["AT"]) != 2:
-        logger.info(
-            f"Skipping grid capacity updates for Austria. The NUTS "
-            f"level for Austria is {nuts_at}, but only NUTS level 2 is supported."
-        )
-        return
-
-    logger.info("Modifying grid capacities for Austria.")
-
-    # transmission_carrier = get_transmission_carriers(n)
-    # to_concat = []
-    # for component, carrier in transmission_carrier:
-    #     capacity_column = f"{'p' if component == 'Link' else 's'}_nom"
-    #     to_concat.append(
-    #         n.static(component).query(f"carrier == @carrier "
-    #                                   f"& (bus0.str.startswith('AT') "
-    #                                   f"| bus1.str.startswith('AT'))")[["bus0", "bus1", capacity_column]]
-    #     )
-    # template = pd.concat(to_concat).sort_index()
-    # template.to_csv(austrian_grid_capacities)
-
-    capacities = pd.read_csv(austrian_transmission_capacities, index_col=0).sort_index()
-
-    for c in n.branch_components:
-        p = f"{'p' if c == 'Link' else 's'}_nom"
-        overwrite = capacities[["bus0", "bus1", p]].dropna(subset=[p])
-        n.static(c).update(overwrite)
-
-    # todo: test if 2020 capacities are in result network
-    # todo: support all years. currently only 2020 is supported
-
-
-def modify_austrian_industry_demand(existing_industry, year):
-    """Update the industry demand in the PyPSA-AT model for Austria."""
-
-    logger.info("Updating industry demand for Austria.")
-
-    return existing_industry
-
-
-def modify_austrian_gas_storage_capacities():
-    """Update gas and H2 storage capacities for Austria."""
-
-
-def modify_biomass_potentials():
-    """Update biomass potentials."""
-
-
-def modify_heat_demand():
-    """Update heat demands."""
-
-
-def electricity_base_load_split(n: pypsa.Network, snakemake: Snakemake):
-    """Split electricity base load to sectoral loads."""
 
 
 def unravel_gas_import_and_production(
@@ -236,35 +156,255 @@ def unravel_gas_import_and_production(
     )
 
 
-def unravel_electricity_base_load(n: pypsa.Network, snakemake: Snakemake) -> None:
+def add_methane_pyrolysis_plasma(
+    n: pypsa.Network,
+    snakemake: Snakemake,
+    costs: pd.DataFrame,
+    nodes: pd.Index,
+    spatial: SimpleNamespace,
+) -> None:
     """
-    Split electricity baseload into sectoral loads.
+    Add Methane Pyrolysis (Plasma) H₂ production Links to the sector network.
+
+    Methane pyrolysis (plasma variant) splits CH₄ into H₂ and solid carbon
+    (carbon black) using a plasma torch.  No CO₂ is emitted during the
+    process; the carbon is captured as a solid material, enabling turquoise
+    hydrogen production with negative emissions potential if the carbon black
+    is permanently stored.
+
+    * bus0 = gas (CH₄ input, ``p_nom`` reference in MW_CH4)
+    * bus1 = H2  (H₂ output)
+    * bus2 = AC  (electricity consumption for plasma torch)
+    * bus3 = urban central heat  — **only** where district heating exists
+    * CO₂ stored bus is intentionally **not** connected: carbon black is
+      a solid transported by road/rail/ship, not through the CO₂ pipeline
+      network.
+
+    All cost parameters in ``costs`` are normalized to MWh_H₂.  Since bus0
+    is gas (MW_CH4), efficiencies and capital cost are converted using
+    ``eta_H2 = 1 / methane-input``.
+
+    Carbon black revenue: carbon black sold to the market is valued at
+    the CO₂ price of the same planning horizon, scaled by the stoichiometric
+    CO₂ intensity of carbon black.
 
     Parameters
     ----------
     n
+        Pre-network to modify in place.
     snakemake
+        The workflow snakemake object.
+    costs
+        Processed cost DataFrame for the current planning horizon.
+    nodes
+        Clustered node index (``pop_layout.index``).
+    spatial
+        Spatial namespace produced by ``define_spatial``.
 
     Returns
     -------
     :
+        Modifies ``n`` in place.
     """
-    # config = snakemake.config
-    # print(config)
+    config = snakemake.config.get("mods", {}).get("methane_pyrolysis", {})
+    # config = {"plasma": True, "utilization_share": 0.0}
 
-    # electricity base load is from: https://nbviewer.org/github/Open-Power-System-Data/datapackage_timeseries/blob/2020-10-06/main.ipynb
-    # total load=total generation−auxilary/self−consumption in power plants+imports−exports−consumption by storages
-    # base_load = n.static("Load").query("carrier == 'electricity'")
-    # print(base_load)
+    if not config.get("plasma", False):
+        logger.info("Methane pyrolysis plasma: disabled — skipping.")
+        return
 
-    # energy_totals.csv:
-    # contains load data for sectors:
-    #  - residential
-    #  - services
-    #  - transport (road, international & national navigation & aviation)
-    # by energy carrier: electricity, heat, fuel
-    #
+    # carrier name. Used to mitigate downstream repetitions
+    tech = "methane pyrolysis plasma"
 
-    # todo: households and services
-    # todo: electricity transport rail
-    # todo: electricity industry
+    # Guard: technology not available before 2030 (no cost data in custom_costs).
+    # process_cost_data fills missing investment with 0; capital_cost would also
+    # be 0, making capacity free. Skip silently for those planning horizons.
+    if tech not in costs.index or costs.at[tech, "investment"] == 0:
+        logger.info(
+            f"Methane pyrolysis plasma not available in "
+            f"{snakemake.wildcards.planning_horizons} "
+            f"(not available before 2030) — skipping."
+        )
+        return
+
+    logger.info("Adding Methane Pyrolysis (Plasma) H₂ production Links.")
+
+    # All costs.csv values are normalized to MWh_H2. This is a DEA choice preserved
+    # in technology-data and ultimately a consequence here at model level. Since
+    # bus0 = gas → need to convert efficiencies and capital cost to per-MWh_CH4.
+    ch4_input = costs.at[tech, "methane-input"]  # MWh_CH4/MWh_H2
+    eta_H2 = 1.0 / ch4_input  # MWh_H2/MWh_CH4
+
+    cb_revenue = 0  # no revenue from carbon black sales by default
+    if cb_utilization := float(config.get("utilization_share", 0.0)):
+        # Carbon black (cb) revenue: priced at CO2 cost of the same planning horizon.
+        co2_price = costs.at["CO2", "fuel"]  # EUR/tCO2
+        co2_stored_total = costs.at[tech, "CO2 stored"]  # tCO2/MWh_H2
+        cb_energy = costs.at[tech, "carbon-black-output"]  # MWh_Cblack/MWh_H2
+        cb_co2_intensity = co2_stored_total / cb_energy  # tCO2/MWh_Cblack
+        cb_revenue = (
+            cb_utilization * cb_energy * cb_co2_intensity * co2_price
+        )  # EUR/MWh_H2
+
+    cost_capital = costs.at[tech, "capital_cost"] * eta_H2  # to EUR/MW_CH4
+    cost_marginal = costs.at[tech, "VOM"] * eta_H2 - cb_revenue  # EUR/MWh_CH4
+    efficiency_elec = -costs.at[tech, "electricity-input"] * eta_H2
+    efficiency_heat = costs.at[tech, "heat-output"] * eta_H2
+    lifetime = costs.at[tech, "lifetime"]
+
+    # heat output only where urban central heating infrastructure exists.
+    urban_heat_buses = n.buses.index[n.buses.carrier == "urban central heat"]
+    heat_mask = pd.array(
+        [f"{node} urban central heat" in urban_heat_buses for node in nodes]
+    )
+    nodes_w_central_heat = nodes[heat_mask]
+    nodes_no_central_heat = nodes[~heat_mask]
+
+    common_kwargs = dict(
+        carrier=tech,
+        suffix=f" {tech}",
+        p_nom_extendable=True,
+        efficiency=eta_H2,
+        efficiency2=efficiency_elec,
+        capital_cost=cost_capital,
+        marginal_cost=cost_marginal,
+        lifetime=lifetime,
+        # Note: CO2 stored bus (bus4) intentionally NOT connected.
+        # Carbon black is a solid transported by road/rail/ship,
+        # not via the CO2 pipeline network.
+    )
+
+    if len(nodes_w_central_heat):
+        n.add(
+            "Link",
+            nodes_w_central_heat,
+            bus0=spatial.gas.df.loc[nodes_w_central_heat, "nodes"].values,
+            bus1=nodes_w_central_heat + " H2",
+            bus2=nodes_w_central_heat,
+            bus3=nodes_w_central_heat + " urban central heat",
+            efficiency3=efficiency_heat,
+            **common_kwargs,
+        )
+
+    if len(nodes_no_central_heat):
+        n.add(
+            "Link",
+            nodes_no_central_heat,
+            bus0=spatial.gas.df.loc[nodes_no_central_heat, "nodes"].values,
+            bus1=nodes_no_central_heat + " H2",
+            bus2=nodes_no_central_heat,
+            **common_kwargs,
+        )
+
+    logger.info(
+        f"Added methane pyrolysis plasma Links: "
+        f"{len(nodes_w_central_heat)} with heat recovery, "
+        f"{len(nodes_no_central_heat)} without."
+    )
+
+
+def update_network_to_stop_ukrainian_gas_transit(
+    n: pypsa.Network, snakemake: Snakemake
+) -> None:
+    """
+    Stop Ukrainian gas transit by disabling gas imports in affected locations.
+    Selection of relevant cross border points between EU countries and Ukraine
+    by AGGM AG experts.
+
+    Locations are identified in data/pypsa-at/ukrainian_gas_transit_stop.json.
+    Matched with n.generators using their country_bus.
+    Imported capacities via Ukraine are subtracted from summed capacity.
+    The relevant countries are only connected to EU countries and Ukraine,
+    leaving their import capacity == 0 .
+
+    The network n is updated in place.
+
+    Parameters
+    ----------
+    n
+        The network before optimisation.
+    snakemake
+        The snakemake workflow object.
+
+    Returns
+    -------
+    :
+        Updates the pypsa.Network in place.
+
+    """
+    if not snakemake.params.get("ukrainian_gas_transit_stop", False):
+        logger.info(
+            "Skip updating network to stop ukrainian gas transit because "
+            "ukrainian_gas_transit_stop is off in config.at.yaml ."
+        )
+        return
+    current_year = int(snakemake.wildcards.planning_horizons)
+    if current_year <= 2025:
+        logger.info(
+            "Skip updating network to stop ukrainian gas transit for years after 2025."
+        )
+        return
+
+    country_bus = "properties.bus"
+    capacity = "properties.capacity"
+
+    ukrainian_import_locations = pd.read_json(
+        snakemake.input.ukrainian_gas_transit_stop
+    )
+    to_drop = pd.json_normalize(ukrainian_import_locations.features).astype(
+        {capacity: "float"}
+    )
+
+    # drop 'None' country with import node in Moldavia
+    to_drop = to_drop.dropna(subset=[country_bus])
+
+    # filter for countries in config - or CI pipeline will fail
+    to_drop = to_drop[to_drop[country_bus].isin(snakemake.config["countries"])]
+
+    capacity_sum = to_drop[[country_bus, capacity]].groupby(country_bus).sum()
+    for cc in capacity_sum.index:
+        old_capacity = n.generators.loc[f"{cc} gas pipeline import", "p_nom"]
+        capacity_ukrainian_import = capacity_sum.loc[cc]
+
+        capacity_difference = old_capacity - capacity_ukrainian_import
+
+        if (
+            abs(capacity_difference.item()) > 0.001
+            and snakemake.config["p^refix"] != "test-sector-myopic-at10"
+        ):
+            raise Exception("Detected capacity difference without ukrainian imports.")
+        n.generators.loc[f"{cc} gas pipeline import", "p_nom"] = 0
+
+        # disable optimization of Ukrainian gas imports
+        n.generators.loc[f"{cc} gas pipeline import", "p_nom_extendable"] = False
+
+    logger.info("Updated network to stop ukrainian gas transit.")
+
+
+def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
+    """
+    Apply all PyPSA-AT specific modifications to the pre-network.
+
+    This is the single entry point for all AT-specific modifications during
+    the ``modify_prenetwork`` Snakemake step. It orchestrates the individual
+    modification functions and encapsulates the conditional logic for when
+    each modification applies.
+
+    Parameters
+    ----------
+    n
+        The pre-network to be modified in place.
+    snakemake
+        The Snakemake workflow object providing inputs, params, config,
+        and wildcards.
+
+    Returns
+    -------
+    :
+        Updates the :class:`pypsa.Network` in place.
+    """
+    from scripts.add_electricity import load_costs
+
+    costs = load_costs(snakemake.input.costs)
+
+    unravel_gas_import_and_production(n, snakemake, costs)

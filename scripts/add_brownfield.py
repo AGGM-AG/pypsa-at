@@ -342,10 +342,13 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "add_brownfield",
-            clusters="39",
+            clusters="adm",
             opts="",
-            sector_opts="",
-            planning_horizons=2050,
+            ll="v1.25",
+            sector_opts="none",
+            planning_horizons="2030",
+            run="AT_KN2040",
+            configfiles=["config/test/config.at10.yaml"],
         )
 
     configure_logging(snakemake)  # pylint: disable=E0606

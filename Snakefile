@@ -75,7 +75,8 @@ include: "rules/build_sector.smk"
 include: "rules/solve_electricity.smk"
 include: "rules/postprocess.smk"
 include: "rules/development.smk"
-include: "rules/modify.smk"  # PyPSA-AT specific modifications
+include: "rules/pypsa-at/modify.smk"  # PyPSA-AT specific modifications
+include: "rules/open-tyndp/retrieve.smk"  # Open-TYNDP data retrieval (PEMMDB, reference grids)
 
 
 if config["foresight"] == "overnight":
@@ -647,9 +648,7 @@ rule modify_district_heat_share:
 
 rule modify_prenetwork:
     params:
-        modify_austrian_transmission_capacities=config_provider(
-            "mods", "modify_austrian_transmission_capacities"
-        ),
+        ukrainian_gas_transit_stop=config_provider("mods", "ukrainian_gas_transit_stop"),
         efuel_export_ban=config_provider("solving", "constraints", "efuel_export_ban"),
         enable_kernnetz=config_provider("wasserstoff_kernnetz", "enable"),
         technology_occurrence=config_provider("first_technology_occurrence"),
@@ -688,6 +687,7 @@ rule modify_prenetwork:
         ),
     input:
         austrian_transmission_capacities="data/austrian_transmission_capacities.csv",
+        ukrainian_gas_transit_stop="data/pypsa-at/ukrainian_gas_transit_stop.json",
         gas_input_nodes_simplified=resources(
             "gas_input_locations_s_{clusters}_simplified.csv"
         ),

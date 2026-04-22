@@ -6,12 +6,14 @@
 
 from pathlib import Path
 
+from pypsa import NetworkCollection
+
 from evals.fileio import Exporter
 
 
 def view_price_map(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -21,14 +23,14 @@ def view_price_map(
     ----------
     result_path : str | Path
         The path to the results directory.
-    networks : dict
-        A dictionary of networks.
+    nc : NetworkCollection
+        The loaded networks.
     config : dict
         Configuration dictionary.
     """
     statistics = []
 
-    # marginal_cost = collect_myopic_statistics(networks, "")
+    # marginal_cost = collect_myopic_statistics(nc, "")
 
     exporter = Exporter(statistics=statistics, view_config=config["view"])
     exporter.export(result_path, subdir=config["view"]["subdir"])

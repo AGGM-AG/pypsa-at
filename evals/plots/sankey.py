@@ -44,7 +44,6 @@ from plotly.subplots import make_subplots
 
 from evals.constants import COLOUR, COLOUR_SCHEME, RUN_META_DATA
 from evals.constants import DataModel as DM
-from evals.plots._base import ESMChart
 from evals.utils import (
     drop_from_multtindex_by_regex,
     filter_by,
@@ -149,7 +148,7 @@ for group, section, side in product(
     )
 
 
-class SankeyChart(ESMChart):
+class SankeyChart:
     """
     Interactive Sankey diagram for energy system flow visualization.
 
@@ -188,7 +187,13 @@ class SankeyChart(ESMChart):
         Extracts location and year from the input data, sets up node
         and flow tracking structures, and initializes the base chart configuration.
         """
-        super().__init__(*args, **kwargs)
+        df, cfg = args[0], args[1]
+        self._df = df
+        self.cfg = cfg
+        self.unit = cfg.unit or df.attrs["unit"]
+        self.metric_name = df.attrs["name"]
+        self.fig = go.Figure()
+        self.col_values = ""
         self.location = self._df.index.unique(DM.LOCATION).item()
         self.year = self._df.index.unique(DM.YEAR).item()
         self._df = self._df.droplevel(DM.YEAR).droplevel(DM.LOCATION)

@@ -1,4 +1,4 @@
-![Version](https://img.shields.io/badge/version-v0.1.0-purple)
+![Version](https://img.shields.io/badge/version-alpha-purple)
 ![Size](https://img.shields.io/github/repo-size/AGGM-AG/pypsa-at)
 [![Test workflows](https://github.com/AGGM-AG/pypsa-at/actions/workflows/test.yaml/badge.svg)](https://github.com/AGGM-AG/pypsa-at/actions/workflows/test.yaml)
 [![CodeQL](https://github.com/AGGM-AG/pypsa-at/actions/workflows/codeql.yaml/badge.svg?branch=main&event=push)](https://github.com/AGGM-AG/pypsa-at/actions/workflows/codeql.yaml)
@@ -7,15 +7,14 @@
 ![pixi](https://img.shields.io/badge/pixi-≥0.23-brightgreen)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Snakemake](https://img.shields.io/badge/snakemake-≥9-brightgreen.svg?style=flat)](https://snakemake.readthedocs.io)
-![Python](https://img.shields.io/badge/python-≥3.10-blue)
+![Python](https://img.shields.io/badge/python-≥3.12-blue)
 [![Docs](https://img.shields.io/badge/docs-mkdocs-blue)](https://pypsa-at.readthedocs.io/en/latest/)
 [![Discord](https://img.shields.io/discord/911692131440148490?logo=discord)](https://discord.gg/AnuJBk23FU)
 
 # PyPSA-AT: A Sector-Coupled Open Optimisation Model of the Austrian Energy System
 
 > [!WARNING]
-> PyPSA-AT is under very active early development. Pull requests are not being accepted until the first official release
-> due to limited resources. After the initial release, we welcome contributions from the community.
+> PyPSA-AT is under very active early development. Expect things to change rapidly.
 
 **PyPSA-AT** is an Austrian adaptation of the open European energy system
 model [PyPSA-Eur](https://github.com/pypsa/pypsa-eur).
@@ -64,6 +63,7 @@ the [mods module documentation](https://pypsa-at.readthedocs.io/en/latest/refere
 |      TOPIC      |                                                                                                                                                                                                                                                                   FEATURE                                                                                                                                                                                                                                                                    |                                                                                                              DESCRIPTION                                                                                                              |                         PR                         | STATUS |
 |:---------------:|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:--------------------------------------------------:|:------:|
 |  **Modeling**   |                                                                                                                                                                                                                                                  High spatial and temporal resolution in AT                                                                                                                                                                                                                                                  |                                            Maintain NUTS2 and NUTS3 spatial resolution using administrative clustering in AT and at 1H and 3H temporal resolution in the myopic workflow.                                             | [#53](https://github.com/AGGM-AG/pypsa-at/pull/55) |   ✅    |
+|                 |                                                                                                                                                                                                                                              Methane Pyrolysis (Plasma) — turquoise hydrogen                                                                                                                                                                                                                                               |                                        Add methane pyrolysis (plasma variant) as a configurable H₂ production pathway. CH₄ is split into H₂ and solid carbon black; no CO₂ is emitted. Cost data from DEA sheet 104 (2024).          | [#73](https://github.com/AGGM-AG/pypsa-at/pull/73)  |   🔨   |
 |                 |                                                                                                                                                                                                                                                       Improve Hydropower technologies                                                                                                                                                                                                                                                        |                                             Differentiate Open- and Closed Loop PHS, reservoirs with and without inflows and improve inflow time series for Austrian hydro power plants.                                              |                         -                          |   📌   |
 |                 |                                                                                                                                                                                                                                                                Model coupling                                                                                                                                                                                                                                                                |                                                                       Improve biomass sector accuracy by coupling PyPSA-AT with a dedicated carbon cycle model.                                                                       |                         -                          |   📌   |
 |                 |                                                                                                                                                                                                                                                         Endogenous industry demands                                                                                                                                                                                                                                                          |                                                                   Replace the exogenous energy modal split per industry sub-sector with optimized production paths.                                                                   |                         -                          |   📌   |
@@ -74,7 +74,8 @@ the [mods module documentation](https://pypsa-at.readthedocs.io/en/latest/refere
 |                 |                                                                                                                                                                                                                                                       Restrict technology occurrences                                                                                                                                                                                                                                                        |                                                             Review technology occurrences such as V2G, SynGas, Pyrolysis, etc. and restrict their first appearance years.                                                             |                         -                          |   📌   |
 |                 |                                                                                                                                                                                                                                                            Calibrate Heat sector                                                                                                                                                                                                                                                             |                                            Review and calibrate heat sector including existing capacities per heat system, demand profiles, and endogenous building thermal retrofitting.                                             |                         -                          |   📌   |
 | **Validation**  | Compare model results with [Eurostat Energy Balance](https://ec.europa.eu/eurostat/cache/visualisations/energy-balances/enbal.html?geo=EU27_2020&unit=KTOE&language=EN&year=&fuel=fuelMainFuel&siec=TOTAL&details=1&chartOptions=0&stacking=normal&chartBal=&chart=&full=0&chartBalText=&order=DESC&siecs=&dataset=nrg_bal_c&decimals=0&agregates=0&share=false&fuelList=fuelElectricity%2CfuelCombustible%2CfuelNonCombustible%2CfuelOtherPetroleum%2CfuelMainPetroleum%2CfuelOil%2CfuelOtherFossil%2CfuelFossil%2CfuelCoal%2CfuelMainFuel) |                                             Compare PyPSA-AT baseline scenario results with historical energy demands reported in the Eurostat Energy Balance to validate model results.                                              |                         -                          |   🔨   |
-| **Input Data**  |                                                                                                                                                                                                                   Improved brownfield data for gas and hydrogen infrastructure provided by [AGGM](https://www.aggm.at/en)                                                                                                                                                                                                                    |                                              Include accurate data on the Austrian methane and hydrogen grids, storage infrastructure, trade volumes and retrofit potentials and costs.                                               |                         -                          |   🔨   |
+| **Input Data**                 |                                                                                                                                                                                                                                             Remove import of methane via Ukrainian border points                                                                                                                                                                                                                                             |                                                   Stop the possibility to import methane from outside the EU into countries bordering Ukraine, where no gas is imported in reality.                                                   |                         -                          |    ✅    |
+|  |                                                                                                                                                                                                                   Improved brownfield data for gas and hydrogen infrastructure provided by [AGGM](https://www.aggm.at/en)                                                                                                                                                                                                                    |                                              Include accurate data on the Austrian methane and hydrogen grids, storage infrastructure, trade volumes and retrofit potentials and costs.                                               |                         -                          |   🔨   |
 |                 |                                                                                                                                                                                                                                                         Austrian biomass potentials                                                                                                                                                                                                                                                          | Include Austrian wet and solid biomass potentials as reported by [UBA](https://www.umweltbundesamt.at/energie/erneuerbare-energie/nachhaltige-biomasse-brennstoffe) and [BeST](https://best-research.eu/de/startseite), respectively. |                         -                          |   📌   |
 |                 |                                                                                                                                                                                                                                                      Electricity grid brownfield update                                                                                                                                                                                                                                                      |                                                             Update 380 kV network topology and improve resolution of electricity transmission grid for Austrian regions.                                                              |                         -                          |   📌   |
 
@@ -102,20 +103,14 @@ modifications currently not supported.
 
 1. Configure your model by adjusting the base scenario in `config/config.at.yaml`
 2. Include scenario settings that differ from the base scenario in `config/scenarios.manual.yaml`
-3. Generate the scenarios file picked up by the snakemake workflow:
+3. Run the model using the default rule `all`:
    ```bash
-   pixi run snakemake build_scenarios -f --cores 'all'
-   ```
-   This will populate `config/scenarios.automated.yaml`.
-
-4. Run the model using the default rule `all`:
-   ```bash
-   pixi run snakemake all --cores 'all' 
+   pixi run snakemake all --cores 'all'
    ```
 
    or activate the virtual environment and call the same workflow using a shorthand
    ```bash
-   pixi shell && snakemake -call all 
+   pixi shell && snakemake -call all
    ```
 
 ## 📖 Documentation
@@ -125,9 +120,8 @@ More detailed documentation of PyPSA-AT is hosted on [pypsa-at.readthedocs.io](h
 ## 🤝 Contributing
 
 > [!NOTE]
-> The development team focuses on establishing a well calibrated representation of the Austrian energy system and does
-> not have capacities available to review contributions from the community at the moment. We hope that this will change
-> end of 2026 when a first stable version with tests and quality checks has been released.
+> The development team focuses on establishing a well-calibrated representation of the Austrian energy system and 
+> has limited capacity to review contributions from the community at the moment.
 
 In general, please install the `pre-commit` hooks if you plan to contribute to this project.
 
@@ -146,6 +140,27 @@ pixi run pre-commit install
 * **License:** CC-BY 4.0
 * **Description:** Results from
   the [Ariadne Report: Die Energiewende kosteneffizient gestalten](https://ariadneprojekt.de/publikation/report-szenarien-zur-klimaneutralitat-2045/)
+
+### Data on Ukrainian gas transit: AGGM AG 
+`data/pypsa-at/ukrainian_gas_transit_stop.json` 
+
+- **Source**: experts of AGGM (Austrian Gas Grid Management) AG 
+- **Format**: geojson dataset of affected `network.generators.loc[f"{country_code} gas pipeline import"]`
+- **Description**: input of European gas network experts at AGGM on which cross-border transit points between the EU and Ukraine are closed down. 
+
+### Data on Austrian gas network capacities: AGGM AG 
+`data/pypsa-at/AGGM_gas_network_base_AT10.csv` and
+`data/pypsa-at/AGGM_gas_network_base_AT35.csv`
+
+- **Source**: experts of AGGM (Austrian Gas Grid Management) AG
+- **Format**: table of gas transport corridors in Austria and their properties
+- **Description**: input of experts on the Austrian gas network, clustered for AT-10 (~ NUTS2) and AT-35 (NUTS3). The data contains information on transport corridors - not exact gas pipeline locations - and their properties
+
+The properties improved with expert input are: 
+- `p_nom`: nominal capacity 
+- `max_pressure_bar`: maximum pressure 
+- `build_year`: year of construction
+
 
 ## ⚖️ License
 

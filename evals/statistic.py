@@ -9,11 +9,10 @@ import warnings
 from functools import partial
 from inspect import getmembers
 from itertools import product
-from pathlib import Path
 
 import pandas as pd
 import pypsa
-from pandas import DataFrame
+from pypsa import NetworkCollection
 from pypsa.statistics import (
     StatisticsAccessor,
     get_transmission_carriers,
@@ -22,7 +21,6 @@ from pypsa.statistics import (
 
 from evals.constants import (
     BusCarrier,
-    Carrier,
     DataModel,
     Group,
     Regex,
@@ -38,6 +36,10 @@ from evals.utils import (
 )
 
 logger = logging.getLogger(__file__)
+
+# Configure PyPSA statistics defaults once at import time.
+pypsa.options.params.statistics.nice_names = False
+pypsa.options.params.statistics.drop_zero = True
 
 
 def get_location(
@@ -121,8 +123,14 @@ def get_location_from_name_at_port(
     )
 
 
+# Register custom groupers once, after the grouper functions are defined.
+groupers.add_grouper("location", get_location)
+groupers.add_grouper("bus0", partial(get_location_from_name_at_port, location_port="0"))
+groupers.add_grouper("bus1", partial(get_location_from_name_at_port, location_port="1"))
+
+
 def collect_myopic_statistics(
-    networks: dict,
+    nc: NetworkCollection,
     statistic: str,
     aggregate_components: str | None = "sum",
     drop_zeros: bool = True,
@@ -139,8 +147,8 @@ def collect_myopic_statistics(
 
     Parameters
     ----------
-    networks
-        The loaded networks in a dictionary with the year as keys.
+    nc
+        The loaded networks as a NetworkCollection, with the year as index.
     statistic
         The name of the metric to build.
     aggregate_components
@@ -175,13 +183,14 @@ def collect_myopic_statistics(
         kwargs.setdefault("groupby", ["location", "carrier", "bus_carrier", "unit"])
 
     year_statistics = []
-    for year, n in networks.items():
+    for year, n in nc.networks.items():
         func = getattr(n.statistics, statistic)
-        assert func, (
-            f"Statistic '{statistic}' not found. "
-            f"Available statistics are: "
-            f"'{[m[0] for m in getmembers(n.statistics)]}'."
-        )
+        if not func:
+            raise AttributeError(
+                f"Statistic '{statistic}' not found. "
+                f"Available statistics are: "
+                f"'{[m[0] for m in getmembers(n.statistics)]}'."
+            )
 
         if allow_missing and year in allow_missing and "bus_carrier" in kwargs:
             kwargs["bus_carrier"] = [
@@ -223,7 +232,7 @@ def collect_myopic_statistics(
             try:
                 statistic.attrs["unit"] = statistic.index.unique("unit").item()
             except ValueError:
-                logger.warning(
+                logger.debug(
                     f"Mixed units detected in statistic: {statistic.index.unique('unit')}."
                 )
         statistic = statistic.droplevel("unit")
@@ -251,96 +260,10 @@ class ESMStatistics(StatisticsAccessor):
     ----------
     n
         The loaded postnetwork.
-
-    result_path
-        The output path including the subdirectory, i.e. the path
-        where the evaluation results are stored.
     """
 
-    def __init__(self, n: pypsa.Network, result_path: Path) -> None:
+    def __init__(self, n: pypsa.Network) -> None:
         super().__init__(n)
-        self.result_path = result_path
-        pypsa.options.params.statistics.nice_names = False
-        pypsa.options.params.statistics.drop_zero = True
-        groupers.add_grouper("location", get_location)
-        groupers.add_grouper(
-            "bus0", partial(get_location_from_name_at_port, location_port="0")
-        )
-        groupers.add_grouper(
-            "bus1", partial(get_location_from_name_at_port, location_port="1")
-        )
-
-    def bev_v2g(self, drop_v2g_withdrawal: bool = True) -> DataFrame:
-        """
-        Calculate BEV and V2G energy amounts.
-
-        Parameters
-        ----------
-        drop_v2g_withdrawal
-            Whether to exclude vehicle to grid technologies from the
-            results. This option is included since the predecessor
-            implementation drops them too.
-
-        Returns
-        -------
-        :
-            A DataFrame containing the calculated BEV and V2G energy
-            amounts.
-        """
-        c = Carrier
-        names_supply = {
-            c.bev_charger: c.bev_charger_supply,
-            c.v2g: c.v2g_supply,
-        }
-        names_withdrawal = {
-            c.bev: c.bev_passenger_withdrawal,
-            c.bev_charger: c.bev_charger_draw,
-            c.v2g: c.v2g_withdrawal,
-        }
-        carrier = [Carrier.bev, Carrier.bev_charger, Carrier.v2g]
-        supply = self.supply(
-            comps="Link",
-            groupby=["location", "carrier", "bus_carrier"],
-            bus_carrier=[BusCarrier.AC, BusCarrier.LI_ION],
-        )
-        supply = filter_by(supply, carrier=carrier)
-
-        withdrawal = self.withdrawal(
-            comps="Link",
-            groupby=["location", "carrier", "bus_carrier"],
-            bus_carrier=[BusCarrier.AC, BusCarrier.LI_ION],
-        )
-        withdrawal = filter_by(withdrawal, carrier=carrier)
-        withdrawal = withdrawal.mul(-1)  # to keep withdrawal negative
-
-        # rename carrier to avoid name clashes for supply/withdrawal
-        supply = supply.rename(names_supply, level=DataModel.CARRIER)
-        withdrawal = withdrawal.rename(names_withdrawal, level=DataModel.CARRIER)
-
-        # join along index, sum duplicates and pivot carriers to columns
-        p = (
-            pd.concat([withdrawal, supply])
-            .groupby([DataModel.LOCATION, DataModel.CARRIER])
-            .sum()
-            .unstack()
-        )
-
-        ratio = (p[c.bev_charger_draw] / p[c.bev_charger_supply]).abs()
-
-        p[c.bev_charger_losses] = p[c.bev_charger_draw] + p[c.bev_charger_supply]
-        p[c.bev_demand] = ratio * p[c.bev_passenger_withdrawal]
-        p[c.bev_losses] = p[c.bev_demand] - p[c.bev_passenger_withdrawal]
-        p[c.v2g_demand] = ratio * p[c.v2g_withdrawal] if c.v2g_withdrawal in p else 0
-        p[c.v2g_losses] = p[c.v2g_demand] + p[c.v2g_supply] if c.v2g_supply in p else 0
-
-        ser = insert_index_level(p.stack(), BusCarrier.AC, DataModel.BUS_CARRIER, pos=2)
-        ser.attrs["name"] = "BEV&V2G"
-        ser.attrs["unit"] = "MWh"
-
-        if drop_v2g_withdrawal:
-            ser = ser.drop(c.v2g_withdrawal, level=DataModel.CARRIER, errors="ignore")
-
-        return ser
 
     def phs_split(
         self, aggregate_time: str = "sum", drop_hydro_cols: bool = True

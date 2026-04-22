@@ -5,6 +5,7 @@
 from pathlib import Path
 
 import pandas as pd
+from pypsa import NetworkCollection
 
 from evals.constants import BusCarrier, DataModel, Group, TradeTypes
 from evals.constants import DataModel as DM
@@ -23,7 +24,7 @@ from evals.utils import (
 
 
 def simple_bus_balance(
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
     result_path,
 ) -> None:
@@ -37,8 +38,8 @@ def simple_bus_balance(
 
     Parameters
     ----------
-    networks
-        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    nc
+        NetworkCollection containing PyPSA network objects, keyed by year.
     config
         Configuration dictionary containing view settings including bus_carrier, storage_links,
         and export parameters.
@@ -57,13 +58,13 @@ def simple_bus_balance(
         transmission_carrier,
         storage_carrier,
         storage_links,
-    ) = _parse_view_config_items(networks, config)
+    ) = _parse_view_config_items(nc, config)
 
     # some bus_carrier are not present in the network at given years
     allow_missing = config["view"].get("exclude", {})
 
     supply = collect_myopic_statistics(
-        networks,
+        nc,
         statistic="supply",
         bus_carrier=bus_carrier,
         aggregate_components=None,
@@ -90,7 +91,7 @@ def simple_bus_balance(
 
     demand = (
         collect_myopic_statistics(
-            networks,
+            nc,
             statistic="withdrawal",
             bus_carrier=bus_carrier,
             aggregate_components=None,
@@ -137,7 +138,7 @@ def simple_bus_balance(
         (TradeTypes.DOMESTIC, "export", Group.export_domestic),
     ]:
         trade = collect_myopic_statistics(
-            networks,
+            nc,
             statistic="trade_energy",
             scope=scope,
             direction=direction,
@@ -169,7 +170,7 @@ def simple_bus_balance(
 
 
 def simple_timeseries(
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
     result_path: str | Path,
 ) -> None:
@@ -183,8 +184,8 @@ def simple_timeseries(
 
     Parameters
     ----------
-    networks
-        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    nc
+        NetworkCollection containing PyPSA network objects, keyed by year.
     config
         Configuration dictionary containing view settings including bus_carrier, storage_links,
         and export parameters.
@@ -203,13 +204,13 @@ def simple_timeseries(
         transmission_carrier,
         storage_carrier,
         storage_links,
-    ) = _parse_view_config_items(networks, config)
+    ) = _parse_view_config_items(nc, config)
 
     allow_missing = config["view"].get("exclude", {})
 
     supply = (
         collect_myopic_statistics(
-            networks,
+            nc,
             statistic="supply",
             bus_carrier=bus_carrier,
             aggregate_time=False,
@@ -241,7 +242,7 @@ def simple_timeseries(
 
     demand = (
         collect_myopic_statistics(
-            networks,
+            nc,
             statistic="withdrawal",
             bus_carrier=bus_carrier,
             aggregate_time=False,
@@ -300,7 +301,7 @@ def simple_timeseries(
 
     trade_saldo = (
         collect_myopic_statistics(
-            networks,
+            nc,
             statistic="trade_energy",
             scope=(TradeTypes.FOREIGN, TradeTypes.DOMESTIC),
             direction="saldo",
@@ -327,7 +328,7 @@ def simple_timeseries(
 
 
 def simple_optimal_capacity(
-    networks: dict, config: dict, result_path: str | Path, kind: str = None
+    nc: NetworkCollection, config: dict, result_path: str | Path, kind: str = None
 ) -> None:
     """
     Calculate and export optimal capacity statistics for energy system components.
@@ -339,8 +340,8 @@ def simple_optimal_capacity(
 
     Parameters
     ----------
-    networks
-        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    nc
+        NetworkCollection containing PyPSA network objects, keyed by year.
     config
         Configuration dictionary containing view settings including bus_carrier, storage_links,
         and export parameters.
@@ -361,11 +362,11 @@ def simple_optimal_capacity(
         transmission_carrier,
         storage_carrier,
         storage_links,
-    ) = _parse_view_config_items(networks, config)
+    ) = _parse_view_config_items(nc, config)
 
     optimal_capacity = (
         collect_myopic_statistics(
-            networks,
+            nc,
             statistic="optimal_capacity",
             bus_carrier=bus_carrier,
             aggregate_components=None,
@@ -421,7 +422,7 @@ def simple_optimal_capacity(
 
 
 def simple_storage_capacity(
-    networks: dict, config: dict, result_path: str | Path
+    nc: NetworkCollection, config: dict, result_path: str | Path
 ) -> None:
     """
     Calculate and export optimal storage capacity statistics.
@@ -432,8 +433,8 @@ def simple_storage_capacity(
 
     Parameters
     ----------
-    networks
-        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    nc
+        NetworkCollection containing PyPSA network objects, keyed by year.
     config
         Configuration dictionary containing view settings including bus_carrier, storage_links,
         and export parameters.
@@ -451,10 +452,10 @@ def simple_storage_capacity(
         _,
         storage_carrier,
         _,
-    ) = _parse_view_config_items(networks, config)
+    ) = _parse_view_config_items(nc, config)
 
     stores = collect_myopic_statistics(
-        networks,
+        nc,
         statistic="optimal_capacity",
         bus_carrier=bus_carrier,
         storage=True,
@@ -465,11 +466,11 @@ def simple_storage_capacity(
         view_config=config["view"],
     )
 
-    exporter.defaults.plotly.cutoff_drop = False  # prevent dropping empty years
+    exporter.defaults.cutoff_drop = False  # prevent dropping empty years
     exporter.export(result_path, config["global"]["subdir"])
 
 
-def _parse_view_config_items(networks: dict, config: dict) -> tuple:
+def _parse_view_config_items(nc: NetworkCollection, config: dict) -> tuple:
     """
     Parse and extract view configuration items for statistics collection.
 
@@ -479,8 +480,8 @@ def _parse_view_config_items(networks: dict, config: dict) -> tuple:
 
     Parameters
     ----------
-    networks
-        Dictionary containing PyPSA network objects, used to identify transmission
+    nc
+        NetworkCollection containing PyPSA network objects, used to identify transmission
         technologies and storage carriers.
     config
         Configuration dictionary containing view settings. Must include a "view" key
@@ -504,10 +505,10 @@ def _parse_view_config_items(networks: dict, config: dict) -> tuple:
     bus_carrier = (
         config["view"]["bus_carrier"] or None
     )  # replace '' by None because TOML has no None type
-    transmission_techs = get_transmission_techs(networks, bus_carrier)
+    transmission_techs = get_transmission_techs(nc, bus_carrier)
     transmission_comps = [comp for comp, carr in transmission_techs]
     transmission_carrier = [carr for comp, carr in transmission_techs]
-    storage_carrier = get_storage_carriers(networks)
+    storage_carrier = get_storage_carriers(nc)
     storage_links = config["view"].get("storage_links", [])
 
     return (
@@ -520,7 +521,7 @@ def _parse_view_config_items(networks: dict, config: dict) -> tuple:
 
 
 def get_energy_for_heat_production(
-    networks: dict, drop_regex: str = "water tanks|water pits"
+    nc: NetworkCollection, drop_regex: str = "water tanks|water pits"
 ) -> pd.Series:
     """
     Calculate the energy input share for heat production across all heat bus carriers.
@@ -532,8 +533,8 @@ def get_energy_for_heat_production(
 
     Parameters
     ----------
-    networks
-        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    nc
+        NetworkCollection containing PyPSA network objects, keyed by year.
         Each network should contain Link components with energy balance data.
     drop_regex
         A regular expression to exclude certain carriers from analysis.
@@ -552,7 +553,7 @@ def get_energy_for_heat_production(
     energy carriers that directly contribute to heat production.
     """
     energy_balance = (
-        collect_myopic_statistics(networks, comps="Link", statistic="energy_balance")
+        collect_myopic_statistics(nc, comps="Link", statistic="energy_balance")
         .drop(["co2", "co2 stored"], level=DataModel.BUS_CARRIER)
         .pipe(drop_from_multtindex_by_regex, drop_regex)
         .pipe(filter_for_carrier_connected_to, BusCarrier.heat_buses())

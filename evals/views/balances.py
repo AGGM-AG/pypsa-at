@@ -5,6 +5,7 @@
 from pathlib import Path
 
 import pandas as pd
+from pypsa import NetworkCollection
 
 from evals.constants import DataModel as DM
 from evals.fileio import Exporter
@@ -19,7 +20,7 @@ from evals.views.common import get_energy_for_heat_production, simple_bus_balanc
 
 def view_balance_carbon(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -32,7 +33,7 @@ def view_balance_carbon(
     ----------
     result_path
         Path where the evaluation results will be saved.
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
     config
         Configuration dictionary containing view settings including bus_carrier specification,
@@ -41,13 +42,13 @@ def view_balance_carbon(
     bus_carrier = config["view"]["bus_carrier"]
 
     co2_balance = collect_myopic_statistics(
-        networks, "energy_balance", bus_carrier=bus_carrier
+        nc, "energy_balance", bus_carrier=bus_carrier
     )
 
     # need to deduct emission from international aviation.
-    first_year = next(iter(networks.keys()))
+    first_year = nc.index[0]
     energy_totals = pd.DataFrame.from_dict(
-        networks[first_year].meta["resources"]["energy_totals"], orient="tight"
+        nc[first_year].meta["resources"]["energy_totals"], orient="tight"
     )
     domestic_aviation_factors = get_energy_totals_domestic_share(
         energy_totals, kind="aviation"
@@ -69,7 +70,7 @@ def view_balance_carbon(
 
 def view_balance_electricity(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -83,7 +84,7 @@ def view_balance_electricity(
     ----------
     result_path
         Path where the evaluation results will be saved.
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
     config
         Configuration dictionary containing view settings including bus_carrier specification,
@@ -93,12 +94,12 @@ def view_balance_electricity(
     -----
     Balances do not add up to zero, because of domestic transmission losses.
     """
-    simple_bus_balance(networks, config, result_path)
+    simple_bus_balance(nc, config, result_path)
 
 
 def view_balance_heat(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -115,7 +116,7 @@ def view_balance_heat(
     ----------
     result_path
         Path where the evaluation results will be saved.
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
     config
         Configuration dictionary containing view settings including bus_carrier specification,
@@ -130,21 +131,21 @@ def view_balance_heat(
     """
     bus_carrier = config["view"]["bus_carrier"]
 
-    heat_mix = get_energy_for_heat_production(networks, drop_regex="")
+    heat_mix = get_energy_for_heat_production(nc, drop_regex="")
     heat_mix = heat_mix.swaplevel(DM.CARRIER, DM.BUS_CARRIER)
     heat_mix.index.names = DM.YEAR_IDX_NAMES
 
     generator_supply = collect_myopic_statistics(
-        networks,
+        nc,
         statistic="supply",
         comps="Generator",
         bus_carrier=bus_carrier,
     )
 
-    heat_loss_factor = get_heat_loss_factor(networks)
+    heat_loss_factor = get_heat_loss_factor(nc)
     demand = (
         collect_myopic_statistics(
-            networks,
+            nc,
             statistic="withdrawal",
             bus_carrier=bus_carrier,
         )
@@ -160,7 +161,7 @@ def view_balance_heat(
 
 def view_balance_hydrogen(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -176,18 +177,18 @@ def view_balance_hydrogen(
     ----------
     result_path
         Path where the evaluation results will be saved.
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
     config
         Configuration dictionary containing view settings including bus_carrier specification,
         chart type, and export parameters.
     """
-    simple_bus_balance(networks, config, result_path)
+    simple_bus_balance(nc, config, result_path)
 
 
 def view_balance_methane(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -203,18 +204,18 @@ def view_balance_methane(
     ----------
     result_path
         Path where the evaluation results will be saved.
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
     config
         Configuration dictionary containing view settings including bus_carrier specification,
         chart type, and export parameters.
     """
-    simple_bus_balance(networks, config, result_path)
+    simple_bus_balance(nc, config, result_path)
 
 
 def view_balance_biomass(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -230,18 +231,18 @@ def view_balance_biomass(
     ----------
     result_path
         Path where the evaluation results will be saved.
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
     config
         Configuration dictionary containing view settings including bus_carrier specification,
         chart type, and export parameters.
     """
-    simple_bus_balance(networks, config, result_path)
+    simple_bus_balance(nc, config, result_path)
 
 
 def view_balance_fuels(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -257,7 +258,7 @@ def view_balance_fuels(
     ----------
     result_path
         Path where the evaluation results will be saved.
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
     config
         Configuration dictionary containing view settings including bus_carrier specification,
@@ -270,4 +271,4 @@ def view_balance_fuels(
     bus_carrier_groups configuration allows aggregation of similar fuels for clearer
     visualization, such as combining coal and lignite into a single "Coal" category.
     """
-    simple_bus_balance(networks, config, result_path)
+    simple_bus_balance(nc, config, result_path)

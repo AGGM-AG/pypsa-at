@@ -4,12 +4,14 @@
 # For license information, see the LICENSE.txt file in the project root.
 from pathlib import Path
 
+from pypsa import NetworkCollection
+
 from evals.views.common import simple_timeseries
 
 
 def view_timeseries_electricity(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -26,7 +28,7 @@ def view_timeseries_electricity(
     ----------
     result_path
         Path where the evaluation results will be saved.
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
     config
         Configuration dictionary containing view settings including bus_carrier specification,
@@ -38,12 +40,12 @@ def view_timeseries_electricity(
     storage cycling, and the integration of variable renewable energy sources.
     Net trade combines foreign and domestic imports/exports into a single saldo value.
     """
-    simple_timeseries(networks, config, result_path)
+    simple_timeseries(nc, config, result_path)
 
 
 def view_timeseries_hydrogen(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -61,7 +63,7 @@ def view_timeseries_hydrogen(
     ----------
     result_path
         Path where the evaluation results will be saved.
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
     config
         Configuration dictionary containing view settings including bus_carrier specification,
@@ -73,12 +75,12 @@ def view_timeseries_hydrogen(
     particularly the role of electrolyzers in providing demand flexibility and the
     operation of hydrogen storage for seasonal energy shifting.
     """
-    simple_timeseries(networks, config, result_path)
+    simple_timeseries(nc, config, result_path)
 
 
 def view_timeseries_methane(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -96,7 +98,7 @@ def view_timeseries_methane(
     ----------
     result_path
         Path where the evaluation results will be saved.
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
     config
         Configuration dictionary containing view settings including bus_carrier specification,
@@ -108,12 +110,12 @@ def view_timeseries_methane(
     and the role of gas storage in balancing supply and demand. It also reveals the
     transition from fossil natural gas to renewable and synthetic methane sources.
     """
-    simple_timeseries(networks, config, result_path)
+    simple_timeseries(nc, config, result_path)
 
 
 def view_timeseries_carbon(
     result_path: str | Path,
-    networks: dict,
+    nc: NetworkCollection,
     config: dict,
 ) -> None:
     """
@@ -130,7 +132,7 @@ def view_timeseries_carbon(
     ----------
     result_path
         Path where the evaluation results will be saved.
-    networks
+    nc
         Dictionary containing PyPSA network objects, typically keyed by year or scenario.
     config
         Configuration dictionary containing view settings including bus_carrier specification,
@@ -143,4 +145,4 @@ def view_timeseries_carbon(
     and heat demand, and how carbon capture facilities operate to manage system-wide
     emissions constraints.
     """
-    simple_timeseries(networks, config, result_path)
+    simple_timeseries(nc, config, result_path)

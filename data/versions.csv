@@ -131,9 +131,10 @@ osm,0.4,primary,supported,2026-01-13,,https://zenodo.org/records/13759222/files
 osm,0.4,archive,supported,2026-01-13,,https://data.pypsa.org/workflows/eur/osm/0.4
 osm,0.3,primary,supported,2026-01-13,,https://zenodo.org/records/13358976/files
 osm,0.3,archive,supported,2026-01-13,,https://data.pypsa.org/workflows/eur/osm/0.3
+osm,0.2-at,archive,supported,2026-02-27,Custom AT OSM dataset with domestic sub 110kV levels included,https://zenodo.org/records/19235142/files
 osm,0.2,primary,supported,2026-01-13,,https://zenodo.org/records/13342577/files
 osm,0.2,archive,supported,2026-01-13,,https://data.pypsa.org/workflows/eur/osm/0.2
-osm,0.1-at,archive,supported,2026-02-27,Custom AT OSM dataset with sub 110kV levels included (feat/activate-110kV-level),https://zenodo.org/records/18797490/files
+osm,0.1-at,archive,supported,2026-03-26,Custom AT OSM dataset with all sub 110kV levels included,https://zenodo.org/records/18799980/files
 osm,0.1,primary,supported,2026-01-13,,https://zenodo.org/records/12799202/files
 osm,0.1,archive,supported,2026-01-13,,https://data.pypsa.org/workflows/eur/osm/0.1
 osm_boundaries,unknown,primary,latest supported,2025-12-02,Overpass API is used to fetch the latest available data,
@@ -162,7 +163,7 @@ synthetic_electricity_demand,v2,primary,latest supported,2025-12-02,the primary 
 synthetic_electricity_demand,v2,archive,latest supported,2026-01-20,the primary is already from Zenodo published by original authors,https://data.pypsa.org/workflows/eur/synthetic_electricity_demand/v2
 synthetic_electricity_demand,0.1.0,archive,deprecated might-work,2026-01-13,,https://data.pypsa.org/workflows/eur/synthetic_electricity_demand/0.1.0/demand_hourly.csv
 tyndp,2024,primary,latest supported,2025-12-02,,https://2024-data.entsos-tyndp-scenarios.eu/files/scenarios-inputs
-tyndp,2024,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/tyndp/2024
+tyndp,2024,archive,latest supported,2026-03-31,Google data store via open-tyndp (includes PEMMDB),https://storage.googleapis.com/open-tyndp-data-store/2024
 wdpa,unknown,primary,latest supported,2025-12-02,"WDPA changes its URL every month, the URL here is used as a template and {bYYYY} is replaced inside the retrieve.smk.",https://d1gam3xoknrgr2.cloudfront.net/current/WDPA_{bYYYY}_Public_shp.zip
 wdpa,2025-07,archive,latest supported,2025-12-02,"We are legally not allowed to redistribute this dataset, luckily the web archive is keeping copies of it.",https://web.archive.org/web/20250715071823if_/https%3A//d1gam3xoknrgr2.cloudfront.net/current/WDPA_Jul2025_Public_shp.zip
 wdpa_marine,unknown,primary,latest supported,2025-12-02,"WDPA maritime changes its URL every month, the URL here is used as a template and {bYYYY} is replaced inside the retrieve.smk.",https://d1gam3xoknrgr2.cloudfront.net/current/WDPA_WDOECM_{bYYYY}_Public_marine_shp.zip

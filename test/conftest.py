@@ -12,6 +12,7 @@ import pandas as pd
 import pypsa
 import pytest
 import yaml
+from pypsa import NetworkCollection
 
 from evals.fileio import read_networks
 
@@ -196,7 +197,7 @@ def json_path(eval_path: pathlib.Path) -> pathlib.Path:
 
 
 @pytest.fixture(scope="session")
-def networks(result_path: pathlib.Path) -> dict:
+def nc(result_path: pathlib.Path) -> NetworkCollection:
     """Load the networks."""
     return read_networks(result_path)
 

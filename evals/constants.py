@@ -13,7 +13,6 @@ Key Components
 --------------
 - DataModel: Column and index level name constants
 - BusCarrier: Bus carrier technology identifiers
-- Carrier: Component carrier technology identifiers
 - Group: Nice names for carrier groupings
 - Regex: Regular expression patterns for parsing
 - COLOUR: Hex color code definitions
@@ -125,27 +124,6 @@ class BusCarrier:
         return [cls.OIL, cls.LIGNITE, cls.COAL, cls.METHANOL, cls.URANIUM]
 
 
-class Carrier:
-    """Container to collect carrier names used in PyPSA-AT evaluations."""
-
-    # Electricity carriers
-    AC: str = "AC"
-    DC: str = "DC"
-
-    # Gas carriers
-    gas_pipepline: str = "gas pipeline"
-    gas_pipepline_new: str = "gas pipeline new"
-
-    # Hydrogen carriers
-    H2: str = "H2"
-
-    # Storage carriers
-    LI_ION: str = "Li ion"
-
-    # Vehicle-to-grid
-    v2g: str = "V2G"
-
-
 class Group:
     """Container to collect carrier nice names used in PyPSA-AT evaluations."""
 
@@ -239,17 +217,6 @@ UNITS: frozendict = frozendict(
         "kt_co2": 1e3,
         "Mt_co2": 1e6,
     }
-)
-
-# transmission technologies
-TRANSMISSION_CARRIER: tuple = (
-    "AC",
-    "DC",
-    "gas pipeline",
-    "gas pipeline new",
-    "H2 pipeline",
-    "H2 pipeline retrofitted",
-    "H2 pipeline (Kernnetz)",
 )
 
 
@@ -397,6 +364,7 @@ COLOUR_SCHEME: dict = {
     "Methane Store": COLOUR.brown,
     "Gas PP": COLOUR.brown,
     "Methane Compressors": COLOUR.brown_sallow,
+    "Methane Pyrolysis": COLOUR.turquoise,
     Group.chp_ch4: COLOUR.brown_dark,
     "CHP": COLOUR.brown,
     "Thermal Powerplant": COLOUR.brown_light,

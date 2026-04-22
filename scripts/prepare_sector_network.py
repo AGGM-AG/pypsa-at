@@ -21,6 +21,7 @@ from networkx.algorithms.connectivity.edge_augmentation import k_edge_augmentati
 from pypsa.geo import haversine_pts
 from scipy.stats import beta
 
+from mods.network_updates import add_methane_pyrolysis_plasma
 from scripts._helpers import (
     configure_logging,
     get,
@@ -6559,10 +6560,11 @@ if __name__ == "__main__":
             simpl="",
             clusters="adm",
             opts="",
-            ll="vopt",
+            ll="v1.25",
             sector_opts="none",
-            planning_horizons="2020",
-            run="KN2045_Mix",
+            planning_horizons="2025",
+            run="AT_KN2040",
+            configfiles=["config/test/config.at10.yaml"],
         )
 
     configure_logging(snakemake)  # pylint: disable=E0606
@@ -6916,6 +6918,9 @@ if __name__ == "__main__":
         maybe_adjust_costs_and_potentials(
             n, snakemake.params["adjustments"], investment_year
         )
+
+    # PyPSA-AT: add AT-specific sector technologies
+    add_methane_pyrolysis_plasma(n, snakemake, costs, pop_layout.index, spatial)
 
     n.meta = dict(snakemake.config, **dict(wildcards=dict(snakemake.wildcards)))
 

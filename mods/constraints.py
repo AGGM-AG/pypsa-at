@@ -92,7 +92,6 @@ def add_national_co2_budgets(
             lhs.append(port_emissions)
 
         # Aviation demand
-        # todo: why do we not use the aviation/navigation emissions from co2_totals to calculate the domestic/international shares?
         country_year = (ct, snakemake.params.energy_year)
         energy_totals = pd.read_csv(snakemake.input.energy_totals, index_col=[0, 1])
         aviation_domestic = energy_totals.loc[country_year, "total domestic aviation"]

@@ -8,6 +8,8 @@ from math import isnan
 import pandas as pd
 import pypsa
 
+# todo: move to mods
+
 
 def calculate_additional_tooltip_statistics(
     n: pypsa.Network, carrier: str, carriers_in_eb: pd.Index
@@ -51,15 +53,15 @@ def get_flow_unit(unit_conversion: float, settings: dict) -> str:
 
 
 def get_import_node_coordinates(settings: dict) -> dict:
-    # User should define import node coordinates in config
-    # Example: import_node_coords = {"EU gas": {"x": 10.5, "y": 49.0, "label": "EU Gas Import"}}
+    # ToDo: define import node coordinates in config
+    #   Example: import_node_coords = {"EU gas": {"x": 10.5, "y": 49.0, "label": "EU Gas Import"}}
     return settings.get("import_node_coords", {})
 
 
 def remove_redundant_layer_items(deck, layer, value):
     return [
         d for d in deck.layers[layer].data if not isnan(d[value]) and d[value] > 0.001
-    ]  # todo: avoid magic number
+    ]  # todo: avoid magic threshold number
 
 
 def update_pydeck_layer_tooltip_for_paths(deck, stats: dict, flow_unit: str) -> None:
@@ -186,3 +188,53 @@ def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
         </p>
     </div>
     """
+
+
+def augment_and_export_html(
+    deck,
+    n: pypsa.Network,
+    carrier,
+    carriers_in_eb,
+    unit_conversion: float,
+    settings: dict,
+    region_unit: str,
+    output_path,
+) -> None:
+    """
+    Apply all augmentations to the deck and export as an HTML file.
+
+    Parameters
+    ----------
+    deck : pydeck.Deck
+        The interactive map deck to augment.
+    n : pypsa.Network
+        The solved network.
+    carrier : str or list[str]
+        The carrier(s) being visualised.
+    carriers_in_eb : pandas.Index
+        Carriers present in the energy balance.
+    unit_conversion : float
+        Divisor applied to flow values (1, 1_000, or 1_000_000).
+    settings : dict
+        Interactive map settings from snakemake params.
+    region_unit : str
+        Unit label for the regional choropleth price (e.g. "€/MWh").
+    output_path : str or pathlib.Path
+        Destination path for the HTML file.
+    """
+    stats = calculate_additional_tooltip_statistics(n, carrier, carriers_in_eb)
+    flow_unit = get_flow_unit(unit_conversion, settings)
+
+    update_pydeck_layer_tooltip_for_paths(deck, stats, flow_unit)
+    update_pydeck_layer_tooltip_for_circles(deck, stats, flow_unit)
+
+    html_output = deck.to_html(offline=False, as_string=True)
+
+    legend = build_legend_html(carrier, region_unit, flow_unit)
+    if "</body>" in html_output:
+        html_output = html_output.replace("</body>", f"{legend}\n</body>")
+    else:
+        html_output += legend
+
+    with open(output_path, "w") as f:
+        f.write(html_output)

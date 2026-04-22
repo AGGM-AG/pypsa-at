@@ -5,35 +5,43 @@
 """ESM time series scatter plots."""
 
 from functools import cached_property
+from types import SimpleNamespace
 
 import pandas as pd
 from plotly import graph_objects as go
 
 from evals.constants import DataModel
-from evals.plots._base import ESMChart, empty_figure
-from evals.utils import apply_cutoff
+from evals.plots.components import (
+    LayoutStyler,
+    TimeSeriesStyler,
+    empty_figure,
+    empty_input,
+)
+from evals.utils import apply_cutoff, custom_sort
 
 
-class ESMTimeSeriesChart(ESMChart):
+class ESMTimeSeriesChart:
     """
     A class that produces one time series chart.
 
     Parameters
     ----------
-    *args
-        Positional arguments of the base class.
-
-    **kwargs
-        Key word arguments of the base class.
+    df
+        Metric data frame complying with the evaluation data model.
+    cfg
+        Plotly configuration object with styling and export settings.
     """
 
-    def __init__(self, *args: tuple, **kwargs: dict) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, df: pd.DataFrame, cfg: SimpleNamespace) -> None:
+        self._df = df
+        self.cfg = cfg
         self.fig = go.Figure()
+        self.unit = self.cfg.unit or df.attrs["unit"]
+        self.metric_name = df.attrs["name"]
         self.year = self._df.index.unique("year")[0]
         self.location = self._df.index.unique(DataModel.LOCATION)[0]
+        self.col_values = ""
 
-        # overwrite default axis settings for timeseries plots
         self.cfg.yaxes_showgrid = self.cfg.yaxes_visible = True
 
     @cached_property
@@ -44,30 +52,25 @@ class ESMTimeSeriesChart(ESMChart):
         Returns
         -------
         :
-            The formatted data for creating bar charts.
+            The formatted data for creating time series charts.
         """
         df = apply_cutoff(self._df, limit=self.cfg.cutoff, drop=self.cfg.cutoff_drop)
-        df = self.custom_sort(
-            df, by=self.cfg.plot_category, values=self.cfg.category_orders
-        )
+        df = custom_sort(df, by=self.cfg.plot_category, values=self.cfg.category_orders)
         df = self.fix_snapshots(df, int(self.year))
         df = df.droplevel([DataModel.YEAR, DataModel.LOCATION])
-
-        return df.T  # transpose to iterate column wise over categories
+        return df.T
 
     def plot(self) -> None:
         """
         Plot the data to the chart.
 
-        This function iterates over the data series, adds traces to the
-        figure, styles the inflexible demand, sets the layout, styles
-        the title, legend, x-axis label, time series axes, and appends
-        footnotes.
+        Iterates over data series, adds scatter traces, applies styling,
+        and appends footnotes.
         """
         title = self.cfg.title.format(
             location=self.location, year=self.year, unit=self.unit
         )
-        if self.empty_input:
+        if empty_input(self._df):
             self.fig = empty_figure(title)
             return
 
@@ -94,11 +97,14 @@ class ESMTimeSeriesChart(ESMChart):
                 )
             )
 
-        self._style_inflexible_demand()
-        self._set_base_layout()
-        self._style_title_and_legend_and_xaxis_label()
-        self._style_time_series_axes_and_layout(title)
-        self._append_footnotes()
+        ts_styler = TimeSeriesStyler(self.cfg)
+        layout_styler = LayoutStyler(self.cfg)
+
+        ts_styler.style_inflexible_demand(self.fig)
+        layout_styler.set_base_layout(self.fig)
+        layout_styler.style_title_and_legend_and_xaxis_label(self.fig)
+        ts_styler.style_axes_and_layout(self.fig, title, self.unit)
+        layout_styler.append_footnotes(self.fig)
 
     @staticmethod
     def fix_snapshots(df: pd.DataFrame, year: int) -> pd.DataFrame:
@@ -120,39 +126,3 @@ class ESMTimeSeriesChart(ESMChart):
         if isinstance(df.columns, pd.DatetimeIndex):
             df.columns = [s.replace(year=year) for s in df.columns]
         return df
-
-    def _style_inflexible_demand(self) -> None:
-        """Set the inflexible demand style if it exists."""
-        self.fig.update_traces(
-            selector={"name": "Inflexible Demand"},
-            fillcolor=None,
-            fill=None,
-            stackgroup=None,
-            legendrank=2000,  # first entry in legend (from top)
-        )
-
-    def _style_time_series_axes_and_layout(self, title) -> None:
-        """
-        Update the layout and axes for time series charts.
-
-        Parameters
-        ----------
-        title
-            The figure title to show at the top of the graph.
-        """
-        self.fig.update_yaxes(
-            tickprefix="<b>",
-            ticksuffix="</b>",
-            tickfont_size=15,
-            color=self.cfg.yaxis_color,
-            title_font_size=15,
-            tickformat=".0f",  # if "TW" in self.unit else ".3f",
-            gridwidth=1,
-            gridcolor="gainsboro",
-        )
-        self.fig.update_xaxes(ticklabelmode="period")
-        self.fig.update_layout(
-            title=title,
-            yaxis_title=self.unit,
-            hovermode="x",
-        )

@@ -3,11 +3,19 @@
 #   * calibrations
 
 run:
-  prefix: v2025.04
+  prefix: methane-pyrolysis-plasma
   name:
   - AT_KN2040
+  scenarios:
+    enable: true
+    # PyPSA-DE uses config/scenarios.automated.yaml to incorporate Ariadne project
+    # specific scenario settings in model runs. PyPSA-AT uses the KN2045_Mix scenario
+    # for all AT scenarios as a base. As a result, the build_scenario step is obsolete.
+    # We simply use the manual file with hard coded values.
+    file: config/scenarios.manual.yaml
 
 countries: ['AL', 'AT', 'BA', 'BE', 'BG', 'CH', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'ME', 'MK', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'SE', 'SI', 'SK', 'XK']
+
 scenario:
   ll:
   - v1.25
@@ -41,8 +49,11 @@ clustering:
   temporal:
     resolution_sector: 365H
 
+costs:
+  custom_cost_fn: data/custom_costs.csv
+
 sector:
-  v2g: true
+  v2g: false
   solar_thermal: true
   biomass_transport: true
   regional_methanol_demand: true
@@ -53,7 +64,7 @@ sector:
   bioH2: true
   municipal_solid_waste: true
   cluster_heat_buses: true
-  hydrogen_turbines: true
+  hydrogen_turbines: false  # PyPSA-AT uses the PyPSA-DE implementation in electricity.H2_plants instead
   methanol:
     regional_methanol_demand: true
     methanol_reforming: true
@@ -82,6 +93,16 @@ sector:
   imports:  # this is for renewable gas/H2/methanol/oil imports
     enable: false
 
+  # PyPSA-DE KN2045_Mix scenario settings
+  aviation_demand_factor:
+    2020: 1.0
+    2025: 1.096
+    2030: 1.1816
+    2035: 1.2048
+    2040: 1.2285
+    2045: 1.1193
+    2050: 1.0157
+
 industry:
   # gas compression seems incompatible with gas network. Pipelines connect
   # gas buses. However, Generators in '{node} gas primary' buses introduce gas
@@ -90,12 +111,29 @@ industry:
   # Note that gas compression AC withdrawal still is implemented. Losses are
   # for methane to the atmosphere.
   gas_compression_losses: 0  # 0.04
-  # oil_refining_emissions: 0  # 0.013
+
+  # PyPSA-DE KN2045_Mix scenario settings
+  St_primary_fraction:
+    2020: 0.7023
+    2025: 0.705
+    2030: 0.6929
+    2035: 0.6592
+    2040: 0.6266
+    2045: 0.6047
+    2050: 0.5995
+  DRI_fraction:
+    2020: 0.0
+    2025: 0.0
+    2030: 0.2011
+    2035: 0.4974
+    2040: 0.7751
+    2045: 1.0
+    2050: 1.0
 
 data:
   osm:
     source: archive
-    version: 0.1-at
+    version: 0.2-at
 
 solving:
   # The default CO2 budget uses the KSG targets, and the non CO2 emissions from the REMIND model in the KN2045_Mix scenario
@@ -109,6 +147,14 @@ solving:
         2040: 0.00
         2045: -0.00
         2050: -0.05
+      DE:  # KN2045_Mix scenario settings
+        2020: 0.691
+        2025: 0.538
+        2030: 0.364
+        2035: 0.216
+        2040: 0.09
+        2045: -0.05
+        2050: -0.048
     limits_capacity_min:
       Link:
         H2 Electrolysis:
@@ -134,12 +180,10 @@ mods:
   # AT10 or NUTS3 administrative clustering
   modify_nuts3_shapes: AT35DE5
 
-  # scale_capacity does not work for Line components, hence we use this
-  # modification to update any transmission capacity (Links or Lines)
-  modify_austrian_transmission_capacities: true
 
-  # update urban population share for AT regions
-  modify_population_layouts: true
+  # stop transit of gas into Europe via Ukrainian import
+  # locations on the borders with PL, SK, HU, RO
+  ukrainian_gas_transit_stop: true
 
   # split gas generators by type and multiply generator
   # marginal costs by the following factors
@@ -148,3 +192,9 @@ mods:
     lng: 1.2
     pipeline: 1.0
     production: 0.95
+
+  methane_pyrolysis:
+    plasma: true
+    utilization_share: 0.0  # fraction of carbon black sold to market (0.0–1.0)
+                            # Note that sold carbon black eventually re-emits CO2
+                            # outside model boundary (Systemgrenze).

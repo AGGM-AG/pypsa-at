@@ -36,18 +36,12 @@ electricity:
 data:
   osm:
     source: archive
-    version: v0.1-at
+    version: v0.2-at
 ```
 
-The archive dataset `v0.1-at` is published on Zenodo
+The archive dataset `v0.2-at` is published on Zenodo
 ([records/18797490](https://zenodo.org/records/18797490)) and is fetched
 automatically by the `retrieve_osm_archive` Snakemake rule.
-
-!!! warning "110 kV lines are not validated"
-Sub-220 kV voltage levels in Austria are **not validated** against TSO data.
-They probably contain lines not used for cross-regional transmission. Use
-the 110 kV network for clustering purposes only; do not interpret individual
-line capacities as representing the actual Austrian transmission grid.
 
 ## Clustering Configurations
 

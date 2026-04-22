@@ -5,30 +5,34 @@
 """
 Command Line Interface to run evaluations.
 
-Commands must be run from project root and with the virtual environment
-activated, or via `pixi run`.
+The recommended way to invoke this CLI is via the ``pixi run evals`` task,
+which sets up ``PYTHONPATH`` correctly and runs from the project root:
+
+``` shell
+pixi run evals --help
+```
 
 Examples
 --------
 ``` shell
 # run a single evaluation by name
-PYTHONPATH="./" pixi run python evals/cli.py "/opt/data/esm/results" -n "view_demand_fed_sectoral"
+pixi run evals "results/v2025.02/KN2045_Mix" -n "view_demand_fed_sectoral"
 ```
 
 ``` shell
 # run multiple evaluations by name
-PYTHONPATH="./" pixi run python evals/cli.py  "/opt/data/esm/results" -n "view_balance_electricity" -n "view_capacity_electricity_production"
+pixi run evals "results/v2025.02/KN2045_Mix" -n "view_balance_electricity,view_capacity_electricity_production"
 ```
 
 ``` shell
-# run all evaluations and abort on errors and from with network files in "/opt/data/esm/custom"
-PYTHONPATH="./" pixi run python evals/cli.py "/opt/data/esm" --fail_fast=true --sub_directory="custom"
+# run all evaluations and abort on errors with network files in a custom sub-directory
+pixi run evals "results/v2025.02/KN2045_Mix" --fail_fast=true --sub_directory="custom"
 ```
 
 ``` shell
-# run evaluations as a script and from the project root with your virtual env activated
+# alternatively, activate the virtual environment and invoke directly
 $ pixi shell
-(pypsa-at)$ PYTHONPATH="./" python evals/cli.py "results/v2025.02/KN2045_Mix" -n "view_balance_heat"
+(pypsa-at)$ PYTHONPATH="./" python evals/cli.py run-eval "results/v2025.02/KN2045_Mix" -n "view_balance_heat"
 ```
 """
 
@@ -39,6 +43,25 @@ from time import time
 
 import click
 
+
+class ViewNames(click.ParamType):
+    """
+    Accept a single view name or a comma-separated list of view names.
+
+    Examples::
+
+        -n view_balance_electricity
+        -n "view_balance_electricity,view_balance_heat"
+    """
+
+    name = "names"
+
+    def convert(self, value, param, ctx):
+        if isinstance(value, list):
+            return value
+        return [v.strip() for v in value.split(",") if v.strip()]
+
+
 logging.basicConfig(
     level=logging.INFO,
     format="{levelname} - {name} - {message}",
@@ -48,7 +71,12 @@ logging.basicConfig(
 logger = logging.getLogger(__file__)
 
 
-@click.command()
+@click.group()
+def cli() -> None:
+    """Evals CLI — run and manage PyPSA-AT evaluation functions."""
+
+
+@cli.command()
 @click.argument("result_path", type=click.Path(exists=True), required=True)
 @click.option(
     "--sub_directory",
@@ -57,7 +85,7 @@ logger = logging.getLogger(__file__)
     required=False,
     default="networks",
 )
-@click.option("--names", "-n", multiple=True, required=False, default=[])
+@click.option("--names", "-n", type=ViewNames(), required=False, default=[])
 @click.option(
     "--config_override",
     "-c",
@@ -72,7 +100,7 @@ logger = logging.getLogger(__file__)
 def run_eval(
     result_path: click.Path,
     sub_directory: str,
-    names: tuple[str, ...],
+    names: list[str],
     config_override: str | None,
     fail_fast: bool,
 ) -> None:
@@ -92,9 +120,10 @@ def run_eval(
     sub_directory
         The subdirectory in the results folder that contains the network files.
     names
-        A list of evaluation names, e.g. "eval_electricity_amounts",
-        optional. Defaults to running all evaluations from
-        evals.__all__.
+        A single view name or a comma-separated list of view names,
+        e.g. ``"view_balance_electricity"`` or
+        ``"view_balance_electricity,view_balance_heat"``.
+        Optional — defaults to running all evaluations from ``evals.__all__``.
     config_override
         A path to a config.toml file with the same section as
         the config.defaults.toml used to override configurations
@@ -119,7 +148,7 @@ def run_eval(
 
     >>> run_eval(
     ...     "/opt/data/esm/results",
-    ...     names=("view_balance_electricity", "view_balance_heat")
+    ...     names=["view_balance_electricity", "view_balance_heat"]
     ... )
 
     Run all evaluations with custom config:
@@ -144,15 +173,15 @@ def run_eval(
         sys.exit(f"Found no evaluation functions named: {names}")
     logger.info(f"Selected {n_evals} evaluation functions.")
 
-    networks = read_networks(result_path, sub_directory=sub_directory)
+    nc = read_networks(result_path, sub_directory=sub_directory)
 
     # assuming no configuration changes in myopic workflow in the same scenario
     # Use deepcopy to avoid mutating the network's meta dict in place (pop below
     # would otherwise remove "resources" from the live network object, breaking
-    # downstream views that access networks[year].meta["resources"] directly).
-    _first_year = next(iter(networks))
-    merged_meta = copy.deepcopy(networks[_first_year].meta)
-    merged_meta["wildcards"]["planning_horizons"] = list(networks)
+    # downstream views that access nc[year].meta["resources"] directly).
+    _first_year = nc.index[0]
+    merged_meta = copy.deepcopy(nc[_first_year].meta)
+    merged_meta["wildcards"]["planning_horizons"] = nc.index.tolist()
     # additional resources are not used in the dashboard and bloat the runs.json file
     merged_meta.pop("resources", None)
 
@@ -164,7 +193,7 @@ def run_eval(
         try:
             config = read_views_config(func, config_override)
             config["view"]["meta"] = merged_meta
-            func(result_path=result_path, networks=networks, config=config)
+            func(result_path=result_path, nc=nc, config=config)
         except Exception as e:
             logger.exception(f"Exception during {func.__name__}.", exc_info=True)
             fails.append(func.__name__)
@@ -177,13 +206,17 @@ def run_eval(
         finally:
             logger.info(f"Finished {func.__name__}.")
 
-    logger.info(
-        f"Full run took {time() - run_start:.2f} seconds."
-        f"\nNumber of Errors: {len(fails)} {fails or ''}"
-    )
+    info = f"Full run took {time() - run_start:.2f} seconds."
+    if fails:
+        info += f"\nNumber of Errors: {len(fails)} {fails or ''}"
+        info += f"\nRun \"pixi run evals {result_path} -n '{','.join(fails)}'\" to execute failed evaluations."
+    else:
+        info += "\nAll Evaluations passed without Errors. Review your results now."
+    logger.info(info)
+
     sys.exit(len(fails))
 
 
 if __name__ == "__main__":
-    # args = (__file__, "../results/run_prefix/scenario", "-n", "view_balance_electricity")
-    run_eval(sys.argv[1:])
+    # args = (__file__, "run-eval", "../results/run_prefix/scenario", "-n", "view_balance_electricity")
+    cli(sys.argv[1:])

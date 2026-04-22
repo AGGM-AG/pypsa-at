@@ -13,13 +13,6 @@ import pypsa
 from pypsa.plot.maps.interactive import PydeckPlotter
 from pypsa.statistics import get_transmission_carriers
 
-from evals.plots.augmentations import (
-    build_legend_html,
-    calculate_additional_tooltip_statistics,
-    get_flow_unit,
-    update_pydeck_layer_tooltip_for_circles,
-    update_pydeck_layer_tooltip_for_paths,
-)
 from scripts._helpers import (
     configure_logging,
     set_scenario_config,
@@ -28,16 +21,6 @@ from scripts._helpers import (
 from scripts.add_electricity import sanitize_carriers
 
 VALID_MAP_STYLES = PydeckPlotter.VALID_MAP_STYLES
-
-
-def attach_legend_to_html_string(html: str):
-    # Inject legend before closing body tag
-    legend = build_legend_html(carrier, region_unit, flow_unit)
-
-    if "</body>" in html:
-        return html.replace("</body>", f"{legend}\n</body>")
-
-    return html + legend
 
 
 def scalar_to_rgba(
@@ -96,7 +79,7 @@ if __name__ == "__main__":
             opts="",
             sector_opts="none",
             planning_horizons="2030",
-            carrier="H2",
+            carrier="gas",
         )
 
     configure_logging(snakemake)
@@ -122,7 +105,7 @@ if __name__ == "__main__":
     sanitize_carriers(n, snakemake.config)
     pypsa.options.params.statistics.round = 8
     pypsa.options.params.statistics.drop_zero = True
-    pypsa.options.params.statistics.nice_names = True
+    pypsa.options.params.statistics.nice_names = False
 
     regions = gpd.read_file(snakemake.input.regions).set_index("name")
     carrier = snakemake.wildcards.carrier
@@ -154,7 +137,6 @@ if __name__ == "__main__":
     eb.loc[components] = eb.loc[components].drop(index=carriers_in_eb, level="carrier")
     eb = eb.dropna()
     bus_size = eb.groupby(level=["location", "carrier"]).sum()
-    # bus_size.index = bus_size.index.rename({"location": "bus"})
 
     # Line and links widths according to net annual flow
     flow = n.statistics.transmission(groupby=False, bus_carrier=carrier, at_port=[0])
@@ -269,23 +251,18 @@ if __name__ == "__main__":
 
     deck.layers.insert(0, regions_layer)
 
-    # todo: wrap all augmentations in one orchestrator function to reduce visual noise in pypsa-eur script
+    try:
+        from mods.interactive_map import augment_and_export_html
 
-    # prepare additional statistics for tooltip info
-    stats = calculate_additional_tooltip_statistics(n, carrier, carriers_in_eb)
-
-    # identify flow unit as a string depending on unit_conversion number
-    flow_unit = get_flow_unit(unit_conversion, settings)
-
-    # manipulates the global deck object in place
-    update_pydeck_layer_tooltip_for_paths(deck, stats, flow_unit)
-    update_pydeck_layer_tooltip_for_circles(deck, stats, flow_unit)
-
-    # Generate HTML and inject legend overlay
-    html_output = deck.to_html(offline=False, as_string=True)
-    html_output = attach_legend_to_html_string(html_output)
-
-    # Write enhanced HTML file
-    with open(snakemake.output[0], "w") as f:
-        # todo: minify HTML string before serializing
-        f.write(html_output)
+        augment_and_export_html(
+            deck,
+            n,
+            carrier,
+            carriers_in_eb,
+            unit_conversion,
+            settings,
+            region_unit,
+            snakemake.output[0],
+        )
+    except ImportError:
+        deck.to_html(snakemake.output[0], offline=True)

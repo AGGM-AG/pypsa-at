@@ -9,14 +9,12 @@ from scripts.prepare_sector_network import determine_emission_sectors
 
 
 @pytest.fixture(scope="session")
-def is_testrun(networks):
-    return any(
-        n.meta["run"]["prefix"] == "test-sector-myopic-at10" for n in networks.values()
-    )
+def is_testrun(nc):
+    return any(n.meta["run"]["prefix"] == "test-sector-myopic-at10" for n in nc)
 
 
-@pytest.mark.integration
-def test_custom_clustering(networks, is_testrun):
+@pytest.mark.AT
+def test_custom_clustering(nc, is_testrun):
     """
     Make sure the custom clustering yields the expected regions.
     """
@@ -25,7 +23,7 @@ def test_custom_clustering(networks, is_testrun):
             "Testrun has different countries and is expected to fail this test."
         )
     clusterings = set()
-    for n in networks.values():
+    for n in nc:
         # check for unexpected configurations
         clustering = n.meta["mods"]["modify_nuts3_shapes"]
         clusterings.add(clustering)
@@ -62,12 +60,12 @@ def test_custom_clustering(networks, is_testrun):
     assert len(clusterings) == 1, "Varying myopic clustering is not supported."
 
 
-@pytest.mark.integration
-def test_national_co2_budget_constraint(networks):
+@pytest.mark.AT
+def test_national_co2_budget_constraint(nc):
     """
     Make sure the national CO2 budget constraints are adhered to.
     """
-    for year, n in networks.items():
+    for year, n in nc.networks.items():
         national_co2_budgets = n.meta["solving"]["constraints"].get(
             "co2_budget_national"
         )
