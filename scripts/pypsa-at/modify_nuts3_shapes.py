@@ -28,7 +28,16 @@ if __name__ == "__main__":
     if "snakemake" not in globals():
         from scripts._helpers import mock_snakemake
 
-        snakemake = mock_snakemake("modify_nuts3_shapes")
+        snakemake = mock_snakemake(
+            "modify_nuts3_shapes",
+            simpl="",
+            clusters="adm",
+            opts="",
+            ll="v1.25",
+            sector_opts="none",
+            planning_horizons="2030",
+            run="AT_KN2040",
+        )
 
     configure_logging(snakemake)
     config = snakemake.config

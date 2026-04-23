@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: methane-pyrolysis-plasma
+  prefix: feat-brownfield-pipeline-network-update
   name:
   - AT_KN2040
   scenarios:
@@ -58,6 +58,7 @@ sector:
   biomass_transport: true
   regional_methanol_demand: true
   gas_network: true
+  gas_network_connectivity_upgrade: 1
   electrobiofuels: true
   biosng: true
   biosng_cc: true
@@ -180,6 +181,13 @@ mods:
   # AT10 or NUTS3 administrative clustering
   modify_nuts3_shapes: AT35DE5
 
+  # use improved Austrian gas grid capacities
+  # provided by AGGM experts
+  modify_brownfield_gas_network_AT: true
+
+  # threshold year for extending gas grid capacities
+  # until threshold year, no extension of the gas grid is possible
+  threshold_year_for_gas_grid_expansion: 2040
 
   # stop transit of gas into Europe via Ukrainian import
   # locations on the borders with PL, SK, HU, RO
@@ -192,6 +200,7 @@ mods:
     lng: 1.2
     pipeline: 1.0
     production: 0.95
+
 
   methane_pyrolysis:
     plasma: true
