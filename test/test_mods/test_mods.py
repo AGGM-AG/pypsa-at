@@ -32,20 +32,20 @@ def test_custom_clustering(nc, is_testrun):
         locations_at = [loc for loc in locations if loc.startswith("AT")]
         locations_de = [loc for loc in locations if loc.startswith("DE")]
         if clustering == "AT10DE5":
-            # 34 countries, + 9 AT, + 4 DE, + 2 IT, + 1 DK-GB-FR-ES, +1 EU
-            assert len(locations) == 54
+            # 34 countries, + 9 AT, + 4 DE, + 2 IT, + 1 DK-GB, +1 EU (FR and ES merged)
+            assert len(locations) == 52
             assert len(locations_at) == 10
             assert len(locations_de) == 5
         elif clustering == "AT10DE16":
-            assert len(locations) == 68
+            assert len(locations) == 66
             assert len(locations_at) == 10
             assert len(locations_de) == 16
         elif clustering == "AT35DE5":
-            assert len(locations) == 79
+            assert len(locations) == 77
             assert len(locations_at) == 35
             assert len(locations_de) == 5
         elif clustering == "AT35DE16":
-            assert len(locations) == 93
+            assert len(locations) == 91
             assert len(locations_at) == 35
             assert len(locations_de) == 16
         else:
@@ -54,8 +54,8 @@ def test_custom_clustering(nc, is_testrun):
         assert len([loc for loc in locations if loc.startswith("IT")]) == 3
         assert len([loc for loc in locations if loc.startswith("DK")]) == 2
         assert len([loc for loc in locations if loc.startswith("GB")]) == 2
-        assert len([loc for loc in locations if loc.startswith("FR")]) == 2
-        assert len([loc for loc in locations if loc.startswith("ES")]) == 2
+        assert len([loc for loc in locations if loc.startswith("FR")]) == 1
+        assert len([loc for loc in locations if loc.startswith("ES")]) == 1
 
     assert len(clusterings) == 1, "Varying myopic clustering is not supported."
 

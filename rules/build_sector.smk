@@ -11,9 +11,9 @@ rule build_population_layouts:
         urban_percent=rules.retrieve_worldbank_urban_population.output["csv"],
         cutout=lambda w: input_cutout(w),
     output:
-        pop_layout_total=resources("pop_layout_total-raw.nc"),
-        pop_layout_urban=resources("pop_layout_urban-raw.nc"),
-        pop_layout_rural=resources("pop_layout_rural-raw.nc"),
+        pop_layout_total=resources("pop_layout_total.nc"),
+        pop_layout_urban=resources("pop_layout_urban.nc"),
+        pop_layout_rural=resources("pop_layout_rural.nc"),
     log:
         logs("build_population_layouts.log"),
     resources:

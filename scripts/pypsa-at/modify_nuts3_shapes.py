@@ -35,7 +35,6 @@ if __name__ == "__main__":
             opts="",
             ll="v1.25",
             sector_opts="none",
-            planning_horizons="2030",
             run="AT_KN2040",
         )
 

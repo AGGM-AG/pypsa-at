@@ -7,6 +7,9 @@ from xarray import DataArray
 from mods.constraints import (
     add_national_co2_budgets as modified_add_national_co2_budgets,
 )
+from mods.constraints import (
+    add_solar_utility_trajectory_constraints,
+)
 from scripts.prepare_sector_network import determine_emission_sectors
 
 logger = logging.getLogger(__name__)
@@ -24,7 +27,9 @@ def add_capacity_limits(n, investment_year, limits_capacity, sense="maximum"):
                 if investment_year not in limits_capacity[c.name][carrier][ct].keys():
                     continue
 
-                limit = 1e3 * limits_capacity[c.name][carrier][ct][investment_year]
+                limit = (
+                    1e3 * limits_capacity[c.name][carrier][ct][investment_year]
+                )  # GW to MW
 
                 logger.info(
                     f"Adding constraint on {c.name} {carrier} capacity in {ct} to be {sense} {limit} {units}"
@@ -112,7 +117,7 @@ def add_capacity_limits(n, investment_year, limits_capacity, sense="maximum"):
                         carrier_attribute="",
                     )
                 else:
-                    logger.error("sense {sense} not recognised")
+                    logger.error(f"sense {sense} not recognised")
                     sys.exit()
 
 
@@ -896,3 +901,6 @@ def additional_functionality(n, snapshots, snakemake):
 
     if investment_year == 2020:
         adapt_nuclear_output(n)
+
+    if snakemake.config["mods"]["PEMMDB_trajectories"].get("enable"):
+        add_solar_utility_trajectory_constraints(n, snakemake, investment_year)

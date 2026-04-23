@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: feat-brownfield-pipeline-network-update
+  prefix: v2025.04
   name:
   - AT_KN2040
   scenarios:
@@ -41,11 +41,9 @@ clustering:
     level: 0 # countries
     AT: 3 # 10 regions if NUTS 2, 35 if NUTS 3
     DE: 3 # NUTS3 as a proxy for 5 regions
-    DK: 1 # +1 islands
-    GB: 1 # +1 North Ireland
-    FR: 1 # +1 islands
-    IT: 1 # +2 islands
-    ES: 1 # +1 islands
+    DK: 1 # +1 Sjaelland
+    GB: 1 # +1 Northern Ireland
+    IT: 1 # +2 Sicily, Sardinia
   temporal:
     resolution_sector: 365H
 
@@ -156,7 +154,7 @@ solving:
         2040: 0.09
         2045: -0.05
         2050: -0.048
-    limits_capacity_min:
+    limits_capacity_min:  # in GW
       Link:
         H2 Electrolysis:
           AT:
@@ -201,9 +199,14 @@ mods:
     pipeline: 1.0
     production: 0.95
 
-
   methane_pyrolysis:
     plasma: true
     utilization_share: 0.0  # fraction of carbon black sold to market (0.0–1.0)
                             # Note that sold carbon black eventually re-emits CO2
                             # outside model boundary (Systemgrenze).
+
+  PEMMDB_trajectories:
+    enable: true
+    tyndp_scenario: All  # All — default TYNDP 2024 scenario with complete list of techs.
+                         # Other options fail during runtime due to missing techs.
+    skip_countries: ["AT", "DE"]  # use calibrations from PyPSA-DE/AT

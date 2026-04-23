@@ -47,7 +47,7 @@ build_electricity
 ↓
 build_sector
 ↓
-modify ← most Austria specific model changes happen here
+modify ← most Austria-specific model changes happen here
 ↓
 solve
 ↓
@@ -92,6 +92,7 @@ Use helper functions from `scripts/_helpers.py`:
 - `logs()` - resolves Path to logs/
 - `benchmarks()` - resolves Path to benchmarks/
 - `scripts()` - resolves Path to scripts/
+- `config_provider()` - fetch items from the config 
 
 Rule functions from `rules/common.smk`:
 
@@ -215,12 +216,15 @@ pixi run pytest test/test_mods/ --result-path=results/{prefix}/{scenario}
 ## Conventions & Key Patterns
 
 - Each `scripts/**/*.py` maps 1:1 to a rule name in `rules/**/*.smk`
-- `inputs`/`outputs`/`params` come via the snakemake object
-- import one orchestrator function from `mods/` per Python script in `scripts/`
+- `inputs`/`outputs`/`params` come via the `snakemake` object
+- Import one orchestrator function from `mods/` per Python script in `scripts/`
+- Let the Snakemake workflow fail early on missing input (do not catch exceptions to raise warnings, just fail)
+- Prefer f-strings over %s whenever possible, especially during logging
+- Keep Snakemake simple: implement guard logic in Python scripts (The DAG should not depend on the config). 
 
 ## Common Gotchas
 
-- Test markers (`unit`, `integration`) are required for tests to run in CI
+- Tests marked with `AT` require the ``--result-path`` argument to load solved networks
 
 ## Agent Routing
 
