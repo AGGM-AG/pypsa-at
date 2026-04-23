@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: methane-pyrolysis-plasma
+  prefix: v2025.04
   name:
   - AT_KN2040
   scenarios:

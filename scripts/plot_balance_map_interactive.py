@@ -78,8 +78,8 @@ if __name__ == "__main__":
             clusters="adm",
             opts="",
             sector_opts="none",
-            planning_horizons="2030",
-            carrier="gas",
+            planning_horizons="2025",
+            carrier="oil",
         )
 
     configure_logging(snakemake)
@@ -252,9 +252,9 @@ if __name__ == "__main__":
     deck.layers.insert(0, regions_layer)
 
     try:
-        from mods.interactive_map import augment_and_export_html
+        from evals.plots.augments import augment_deck_before_export
 
-        augment_and_export_html(
+        augment_deck_before_export(
             deck,
             n,
             carrier,

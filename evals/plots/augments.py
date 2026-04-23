@@ -60,7 +60,9 @@ def get_import_node_coordinates(settings: dict) -> dict:
 
 def remove_redundant_layer_items(deck, layer, value):
     return [
-        d for d in deck.layers[layer].data if not isnan(d[value]) and d[value] > 0.001
+        d
+        for d in deck.layers[layer].data
+        if not isnan(d.get(value, 0)) and d.get(value, 0) > 0.001
     ]  # todo: avoid magic threshold number
 
 
@@ -190,7 +192,7 @@ def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
     """
 
 
-def augment_and_export_html(
+def augment_deck_before_export(
     deck,
     n: pypsa.Network,
     carrier,
