@@ -111,7 +111,7 @@ def view_demand_heat_system(
     result_path
         Path where the evaluation results (plots and data files) will be saved.
     nc
-        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+        Dictionary-like container for PyPSA network objects, typically keyed by year or scenario.
         Each network should contain Link and Generator components with energy data.
     config
         Configuration dictionary containing view settings and chart specifications.
@@ -421,7 +421,7 @@ def _get_sectoral_fed(nc):
     industry_cc.index.names = DataModel.YEAR_IDX_NAMES
     industry = pd.concat([industry, industry_cc])
 
-    # electricity base load contains loads not split
+    # electricity base load contain loads for rail transport and services sector
     base_load = filter_by(loads, carrier="electricity")
     # todo: base load splitting
 
