@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023-2025 Austrian Gas Grid Management AG
+# SPDX-FileCopyrightText: 2023-2026 Austrian Gas Grid Management AG
 #
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
@@ -10,6 +10,8 @@ from types import SimpleNamespace
 import pandas as pd
 import pypsa
 from snakemake.script import Snakemake
+
+from mods.pemmdb_overwrites import overwrite_pemmdb_capacities
 
 logger = getLogger(__name__)
 
@@ -338,6 +340,7 @@ def update_network_to_stop_ukrainian_gas_transit(
             "ukrainian_gas_transit_stop is off in config.at.yaml ."
         )
         return
+
     pyear = int(n.config["wildcards"]["planning_horizons"])
     if pyear <= 2025:
         logger.info(
@@ -443,5 +446,7 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
 
     unravel_gas_import_and_production(n, snakemake, costs)
 
-    if snakemake.config.get("mods").get("modify_brownfield_gas_network_AT"):
+    if snakemake.config["mods"].get("modify_brownfield_gas_network_AT"):
         make_gas_pipelines_unextendable(n, snakemake)
+
+    overwrite_pemmdb_capacities(n, snakemake)

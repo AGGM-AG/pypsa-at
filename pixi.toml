@@ -121,6 +121,9 @@ snakemake-executor-plugin-slurm = ">=1.9.2"
 [feature.doc.tasks.build-docs]
 cmd = "mkdocs build -d public/html"
 
+[feature.doc.tasks.serve-docs]
+cmd = "mkdocs serve"
+
 [feature.doc.dependencies]
 pygments = "*"
 markdown-it-py = "*"

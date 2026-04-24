@@ -49,6 +49,7 @@ class TestMetaResourcesRoundTrip:
         _attach_resources(n)
         return n
 
+    @pytest.mark.AT
     def test_resources_key_present_after_roundtrip(
         self, network_with_resources, tmp_path
     ):
@@ -59,6 +60,7 @@ class TestMetaResourcesRoundTrip:
         n2 = pypsa.Network(str(nc_path))
         assert "resources" in n2.meta, "n.meta['resources'] missing after round-trip"
 
+    @pytest.mark.AT
     def test_energy_totals_roundtrip(self, network_with_resources, tmp_path):
         """energy_totals DataFrame must be reconstructable after round-trip."""
         original = _make_energy_totals()
@@ -71,6 +73,7 @@ class TestMetaResourcesRoundTrip:
         )
         pd.testing.assert_frame_equal(recovered, original)
 
+    @pytest.mark.AT
     def test_co2_totals_roundtrip(self, network_with_resources, tmp_path):
         """co2_totals DataFrame must be reconstructable after round-trip."""
         original = _make_co2_totals()
@@ -83,6 +86,7 @@ class TestMetaResourcesRoundTrip:
         )
         pd.testing.assert_frame_equal(recovered, original)
 
+    @pytest.mark.AT
     def test_resources_not_lost_by_pop(self, network_with_resources, tmp_path):
         """
         Verify that popping 'resources' from a deepcopy does not affect the

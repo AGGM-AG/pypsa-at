@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 Austrian Gas Grid Management AG
+# SPDX-FileCopyrightText: 2025-2026 Austrian Gas Grid Management AG
 #
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
@@ -28,11 +28,22 @@ if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
     rule retrieve_open_tyndp:
         message:
             "Retrieving TYNDP 2024 data package from open-tyndp Google data store "
-            "(PEMMDB v2.4, reference grids, nodes)"
+            "(PEMMDB v2.4, reference grids, nodes, hydro inflows, demand profiles, "
+            "H2 data, investment datasets, offshore hubs)"
         input:
             pemmdb=storage(OPEN_TYNDP_DATASET["url"] + "/PEMMDB2.zip"),
             nodes=storage(OPEN_TYNDP_DATASET["url"] + "/Nodes.zip"),
             line_data=storage(OPEN_TYNDP_DATASET["url"] + "/Line-data.zip"),
+            hydro_inflows=storage(OPEN_TYNDP_DATASET["url"] + "/Hydro-Inflows.zip"),
+            supply_tool=storage(
+                OPEN_TYNDP_DATASET["url"] + "/20240518-Supply-Tool.xlsm.zip"
+            ),
+            demand_profiles=storage(OPEN_TYNDP_DATASET["url"] + "/Demand-Profiles.zip"),
+            hydrogen=storage(OPEN_TYNDP_DATASET["url"] + "/Hydrogen.zip"),
+            investment_datasets=storage(
+                OPEN_TYNDP_DATASET["url"] + "/Investment-Datasets.zip"
+            ),
+            offshore_hubs=storage(OPEN_TYNDP_DATASET["url"] + "/Offshore-hubs.zip"),
         output:
             pemmdb_zip=f"{OPEN_TYNDP_DATASET['folder']}/PEMMDB2.zip",
             pemmdb=directory(f"{OPEN_TYNDP_DATASET['folder']}/PEMMDB2"),
@@ -41,6 +52,25 @@ if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
             line_data_zip=f"{OPEN_TYNDP_DATASET['folder']}/Line-data.zip",
             elec_reference_grid=f"{OPEN_TYNDP_DATASET['folder']}/Line data/ReferenceGrid_Electricity.xlsx",
             h2_reference_grid=f"{OPEN_TYNDP_DATASET['folder']}/Line data/ReferenceGrid_Hydrogen.xlsx",
+            hydro_inflows_zip=f"{OPEN_TYNDP_DATASET['folder']}/Hydro-Inflows.zip",
+            hydro_inflows=directory(f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows"),
+            supply_tool_zip=f"{OPEN_TYNDP_DATASET['folder']}/20240518-Supply-Tool.xlsm.zip",
+            supply_tool=f"{OPEN_TYNDP_DATASET['folder']}/20240518-Supply-Tool.xlsm",
+            demand_profiles_zip=f"{OPEN_TYNDP_DATASET['folder']}/Demand-Profiles.zip",
+            demand_profiles=directory(f"{OPEN_TYNDP_DATASET['folder']}/Demand Profiles"),
+            hydrogen_zip=f"{OPEN_TYNDP_DATASET['folder']}/Hydrogen.zip",
+            hydrogen=directory(f"{OPEN_TYNDP_DATASET['folder']}/Hydrogen"),
+            h2_imports=f"{OPEN_TYNDP_DATASET['folder']}/Hydrogen/H2 IMPORTS GENERATORS PROPERTIES.xlsx",
+            h2_storages=f"{OPEN_TYNDP_DATASET['folder']}/Hydrogen/H2 STORAGES.xlsx",
+            smr=f"{OPEN_TYNDP_DATASET['folder']}/Hydrogen/SMR Figures.xlsx",
+            investment_datasets_zip=f"{OPEN_TYNDP_DATASET['folder']}/Investment-Datasets.zip",
+            trajectories=f"{OPEN_TYNDP_DATASET['folder']}/Investment Datasets/TRAJECTORY.xlsx",
+            invest_grid=f"{OPEN_TYNDP_DATASET['folder']}/Investment Datasets/GRID.xlsx",
+            offshore_hubs_zip=f"{OPEN_TYNDP_DATASET['folder']}/Offshore-hubs.zip",
+            offshore_nodes=f"{OPEN_TYNDP_DATASET['folder']}/Offshore hubs/NODE.xlsx",
+            offshore_grid=f"{OPEN_TYNDP_DATASET['folder']}/Offshore hubs/GRID.xlsx",
+            offshore_electrolysers=f"{OPEN_TYNDP_DATASET['folder']}/Offshore hubs/ELECTROLYSER.xlsx",
+            offshore_generators=f"{OPEN_TYNDP_DATASET['folder']}/Offshore hubs/GENERATOR.xlsx",
         log:
             "logs/retrieve_open_tyndp.log",
         run:

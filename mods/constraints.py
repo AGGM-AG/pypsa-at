@@ -5,6 +5,7 @@ import logging
 import pandas as pd
 import pypsa
 
+from mods.pemmdb_overwrites import aggregate_by_cluster_and_country
 from scripts.prepare_sector_network import determine_emission_sectors
 
 logger = logging.getLogger(__name__)
@@ -148,4 +149,177 @@ def add_national_co2_budgets(
             sense="<=",
             type="",
             carrier_attribute="",
+        )
+
+
+def add_solar_utility_trajectory_constraints(
+    n: pypsa.Network,
+    snakemake,
+    investment_year: int,
+) -> None:
+    """
+    Add joint solar utility trajectory floor/ceiling constraints.
+
+    Enforces combined ``solar`` + ``solar-hsat`` capacity per modelled location
+    against TYNDP ``solar-pv-utility`` trajectory bands, after deducting
+    existing brownfield capacity.
+
+    The constraint reads:
+
+    .. code-block:: none
+
+        p_nom_opt[solar @ loc] + p_nom_opt[solar-hsat @ loc]
+            >= max(0, traj_p_nom_min[loc] - brownfield[loc])   # floor
+        p_nom_opt[solar @ loc] + p_nom_opt[solar-hsat @ loc]
+            <= max(0, traj_p_nom_max[loc] - brownfield[loc])   # ceiling
+
+    Locations where both bounds equal 0 after brownfield deduction are skipped.
+
+    Parameters
+    ----------
+    n
+        The pypsa network with a linopy model attached (``n.model``).
+    snakemake
+        The snakemake workflow object.  Must expose
+        ``snakemake.input.tyndp_trajectories`` and the config key
+        ``mods.PEMMDB_trajectories``.
+    investment_year
+        The myopic planning horizon (e.g. 2030, 2040, 2050).
+
+    Notes
+    -----
+    ``solar-pv-utility`` trajectories cover the *combined* deployment of
+    ``solar`` (flat-panel) and ``solar-hsat`` (single-axis tracking).  They
+    are intentionally skipped in ``overwrite_pemmdb_capacities`` and handled
+    here as linopy constraints so that the solver can choose the mix freely.
+    """
+    cfg = snakemake.config["mods"]["PEMMDB_trajectories"]
+    if not cfg.get("enable"):
+        logger.info(
+            "PEMMDB_trajectories disabled — skipping solar utility trajectory constraints."
+        )
+        return
+
+    skip_countries = cfg["skip_countries"]
+
+    trajectories = pd.read_csv(snakemake.input.tyndp_trajectories).query(
+        "pyear == @investment_year"
+    )
+    traj_clustered = aggregate_by_cluster_and_country(trajectories, [])
+
+    # solar-pv-utility rows carry pypsa_eur_carrier == "solar(-hsat)"
+    traj_solar = traj_clustered.xs("solar(-hsat)", level="pypsa_eur_carrier")
+
+    # Pre-compute brownfield: sum of installed solar + solar-hsat per location
+    carrier = ["solar", "solar-hsat"]
+    brownfield = n.statistics.installed_capacity(
+        groupby=["location", "carrier"],
+        carrier=carrier,
+        aggregate_across_components=True,
+        nice_names=False,
+        drop_zero=False,
+    )
+    # Sum over the carrier level → single Series indexed by location
+    brownfield_by_loc = brownfield.groupby(level="location").sum()
+
+    for loc in brownfield_by_loc.index:
+        if loc.startswith(tuple(skip_countries)):
+            logger.info(f"Skipping solar trajectory constraint for {loc}.")
+            continue
+
+        # Kosovo "XK" has no TYNDP data. Always use RS trajectories instead. Note
+        # that the location proxy is different from the missing p_nom_min/max
+        # replacements further below. Here, we always want to replace values, not only
+        # if they are zero.
+        loc_proxy = "RS" if loc == "XK" else loc
+        p_nom_min = traj_solar.at[loc_proxy, "p_nom_min"]
+        p_nom_max = traj_solar.at[loc_proxy, "p_nom_max"]
+
+        # some countries do not have trajectories for solar-utility. Want to
+        # replace by trajectory values from a nearby country of similar size.
+        if p_nom_min == 0.0 and p_nom_max == 0.0:
+            traj_proxy = {"BE": "NL", "CH": "AT", "NO": "SE", "SI": "SK", "XK": "RS"}
+            if loc not in traj_proxy:
+                raise KeyError(
+                    f"Unexpected missing trajectories detected for loc {loc} and {investment_year}."
+                )
+            # fetch trajectories again from updated locations
+            p_nom_min = traj_solar.at[traj_proxy[loc], "p_nom_min"]
+            p_nom_max = traj_solar.at[traj_proxy[loc], "p_nom_max"]
+
+        # existing brownfield from the original country
+        existing_brownfield = brownfield_by_loc.at[loc]
+
+        # determine brownfield correction
+        pyear = int(n.meta["wildcards"]["planning_horizons"])
+        deduction = 0  # for base year 2025
+        if pyear > 2025:
+            # reduce total boundaries by already built and still existing
+            # capacities from previous myopic optimizations
+            deduction = existing_brownfield
+
+        # apply brownfield correction
+        rhs_min = max(0.0, p_nom_min - deduction)
+        rhs_max = max(0.0, p_nom_max - deduction)
+
+        # it is possible that extrapolated p_nom_max values are smaller than the existing
+        # brownfield from powerplant-matching. The function add_existing_baseyear.py
+        # automatically adds p_nom-lower >= existing_brownfield constraints. We cannot set
+        # upper boundaries smaller than the lower limit, which is the existing capactiy.
+        if pyear == 2025:
+            rhs_max = max(rhs_max, existing_brownfield)
+
+        # Collect extendable solar and solar-hsat generators at this location
+        gens = n.generators.query(
+            "carrier in @carrier and bus.str.startswith(@loc) and p_nom_extendable"
+        ).index.tolist()
+        if not gens:
+            logger.debug(
+                f"No extendable solar/solar-hsat generators at {loc} — skipping."
+            )
+            continue
+
+        lhs = n.model["Generator-p_nom"].sel(name=gens).sum()
+
+        cname_upper = f"tyndp-combined-solar-upper[{loc} solar(-hsat)-{pyear}]"
+        cname_lower = f"tyndp-combined-solar-lower[{loc} solar(-hsat)-{pyear}]"
+
+        if rhs_min == 0.0 and rhs_max == 0.0:
+            # Brownfield fills the ceiling — lock new builds to zero.
+            n.model.add_constraints(lhs <= 0.0, name=cname_upper)
+            logger.info(
+                f"Solar utility capacity locked at 0 for {loc}: "
+                f"brownfield={existing_brownfield:.1f} MW fills trajectory ceiling of {rhs_max:.1f} MW."
+            )
+            continue
+
+        # add constraints twice: once to model and once to the Network object
+        # constraints are only persisted to output networks if they are appended
+        # the network objects GlobalConstraint attribute.
+        n.model.add_constraints(lhs <= rhs_max, name=cname_upper)
+        if cname_upper not in n.global_constraints.index:
+            n.add(
+                "GlobalConstraint",
+                cname_upper,
+                constant=rhs_max,
+                sense="<=",
+                type="",
+                carrier_attribute="",
+            )
+
+        n.model.add_constraints(lhs >= rhs_min, name=cname_lower)
+        if cname_lower not in n.global_constraints.index:
+            n.add(
+                "GlobalConstraint",
+                cname_lower,
+                constant=rhs_min,
+                sense=">=",
+                type="",
+                carrier_attribute="",
+            )
+
+        logger.info(
+            f"Solar utility constraint added for {loc}: "
+            f"floor={rhs_min:.1f} MW, ceiling={rhs_max:.1f} MW "
+            f"(brownfield={deduction:.1f} MW deducted)"
         )

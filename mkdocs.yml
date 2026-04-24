@@ -49,6 +49,8 @@ nav:
     - NUTS3 Clustering: explanations/electricity-grid/nuts3-osm-data.md
     - OSM-AT Base Network: explanations/electricity-grid/osm-lines-at.md
     - Transmission Limits: explanations/electricity-grid/electricity-transmission.md
+  - Brownfield:
+    - Open-TYNDP Trajectories: explanations/brownfield/open-tyndp.md
 
 theme:
   name: "material"
