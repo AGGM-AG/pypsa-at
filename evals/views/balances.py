@@ -9,7 +9,7 @@ from pypsa import NetworkCollection
 
 from evals.constants import DataModel as DM
 from evals.fileio import Exporter
-from evals.statistic import collect_myopic_statistics
+from evals.stats import collect_myopic_statistics
 from evals.utils import (
     get_energy_totals_domestic_share,
     get_heat_loss_factor,

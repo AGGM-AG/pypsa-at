@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023-2025 Austrian Gas Grid Management AG
+# SPDX-FileCopyrightText: 2023-2026 Austrian Gas Grid Management AG
 #
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
@@ -10,6 +10,8 @@ from types import SimpleNamespace
 import pandas as pd
 import pypsa
 from snakemake.script import Snakemake
+
+from mods.pemmdb_overwrites import overwrite_pemmdb_capacities
 
 logger = getLogger(__name__)
 
@@ -338,8 +340,9 @@ def update_network_to_stop_ukrainian_gas_transit(
             "ukrainian_gas_transit_stop is off in config.at.yaml ."
         )
         return
-    current_year = int(snakemake.wildcards.planning_horizons)
-    if current_year <= 2025:
+
+    pyear = int(n.config["wildcards"]["planning_horizons"])
+    if pyear <= 2025:
         logger.info(
             "Skip updating network to stop ukrainian gas transit for years after 2025."
         )
@@ -381,6 +384,40 @@ def update_network_to_stop_ukrainian_gas_transit(
     logger.info("Updated network to stop ukrainian gas transit.")
 
 
+def make_gas_pipelines_unextendable(n: pypsa.Network, snakemake: Snakemake) -> None:
+    """
+    Disallow expansion of methane pipelines - both new and existing
+
+    Parameters
+    ----------
+    n
+        The pre-network to be modified in place.
+    snakemake
+        The Snakemake workflow object providing inputs, params, config,
+        and wildcards.
+
+    Returns
+    -------
+    :
+        Updates the pypsa.Network in place.
+
+    """
+    # always disable extendability of new pipelines
+    n.links.loc[n.links.carrier == "gas pipeline new", "p_nom_extendable"] = False
+
+    # disable extendability of gas pipelines until 2040
+    pyear = int(snakemake.wildcards.planning_horizons)
+    if snakemake.config.get("mods").get("threshold_year_for_gas_grid_expansion"):
+        threshold_year = int(
+            snakemake.config.get("mods").get("threshold_year_for_gas_grid_expansion")
+        )
+    else:
+        threshold_year = 2040
+
+    if pyear < threshold_year:
+        n.links.loc[n.links.carrier == "gas pipeline", "p_nom_extendable"] = False
+
+
 def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
     Apply all PyPSA-AT specific modifications to the pre-network.
@@ -408,3 +445,8 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     costs = load_costs(snakemake.input.costs)
 
     unravel_gas_import_and_production(n, snakemake, costs)
+
+    if snakemake.config["mods"].get("modify_brownfield_gas_network_AT"):
+        make_gas_pipelines_unextendable(n, snakemake)
+
+    overwrite_pemmdb_capacities(n, snakemake)

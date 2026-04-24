@@ -521,8 +521,6 @@ ALIAS_REGION: frozendict = frozendict(
         "DK1": "Sjaelland",
         "GB0": "Great Britain",
         "GB1": "North-Ireland",
-        "FR0": "France",
-        "FR1": "Corsica",
         "ES0": "Spain",
         "ES1": "Balearic Islands",
     }

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
-"""Collect statistics for evaluations."""  # noqa: A005
+"""Collect statistics for evaluations."""
 
 import logging
 import warnings
@@ -51,7 +51,8 @@ def get_location(
     """
     Return the grouper series for the location of a component.
 
-    By default, the function avoids EU-locations by looking into port 0 and port 1 and prefering locations, that are not 'EU'.
+    By default, the function avoids EU-locations by looking
+    into port 0 and port 1 and prefering locations, that are not 'EU'.
 
     Note, that the bus_carrier will still be the bus_carrier
     from the "port" argument, i.e. only the location is swapped.
@@ -118,7 +119,7 @@ def get_location_from_name_at_port(
     return (
         n.static(c)[f"bus{location_port}"]
         .str.extract(group, expand=False)
-        .str.strip()  # some white spaces still go through regex
+        .str.strip()  # some white space survives regex
         .rename(f"bus{location_port}")
     )
 
@@ -131,9 +132,8 @@ groupers.add_grouper("bus1", partial(get_location_from_name_at_port, location_po
 
 def collect_myopic_statistics(
     nc: NetworkCollection,
-    statistic: str,
+    statistics_name: str,
     aggregate_components: str | None = "sum",
-    drop_zeros: bool = True,
     drop_unit: bool = True,
     allow_missing: dict = None,
     **kwargs: object,
@@ -149,13 +149,12 @@ def collect_myopic_statistics(
     ----------
     nc
         The loaded networks as a NetworkCollection, with the year as index.
-    statistic
+    statistics_name
         The name of the metric to build.
     aggregate_components
-        The aggregation function to combine components by.
-    drop_zeros
-        Whether to drop rows from the returned statistic that have
-        only zeros as values.
+        The aggregation function to combine components by. Note, that pypsa's
+        agregate_across_components argument is deprectaded. The recommendedation
+        is exactly the approach taken in this function.
     drop_unit
         Whether to drop the unit index level from the returned statistic.
     allow_missing
@@ -179,15 +178,15 @@ def collect_myopic_statistics(
 
     pypsa_statistics = [m[0] for m in getmembers(pypsa.statistics.StatisticsAccessor)]
 
-    if statistic in pypsa_statistics:  # register a default to reduce verbosity
+    if statistics_name in pypsa_statistics:  # register a default to reduce verbosity
         kwargs.setdefault("groupby", ["location", "carrier", "bus_carrier", "unit"])
 
     year_statistics = []
     for year, n in nc.networks.items():
-        func = getattr(n.statistics, statistic)
+        func = getattr(n.statistics, statistics_name)
         if not func:
             raise AttributeError(
-                f"Statistic '{statistic}' not found. "
+                f"Statistic '{statistics_name}' not found. "
                 f"Available statistics are: "
                 f"'{[m[0] for m in getmembers(n.statistics)]}'."
             )
@@ -215,18 +214,11 @@ def collect_myopic_statistics(
         _names = statistic.index.droplevel("component").names
         statistic = statistic.groupby(_names).agg(aggregate_components)
 
+    # FixMe: is this hotfix still needed?
     if kwargs.get("aggregate_time") is False:
         statistic.columns.name = DataModel.SNAPSHOTS
 
-    if drop_zeros:
-        if isinstance(statistic, pd.Series):
-            statistic = statistic.loc[statistic != 0]
-        elif isinstance(statistic, pd.DataFrame):
-            statistic = statistic.loc[(statistic != 0).any(axis=1)]
-        else:
-            raise TypeError(f"Unknown statistic type '{type(statistic)}'")
-
-    # assign the correct unit the statistic if possible
+    # assign the correct unit to the statistic if possible
     if "unit" in statistic.index.names and drop_unit:
         if not statistic.empty:
             try:

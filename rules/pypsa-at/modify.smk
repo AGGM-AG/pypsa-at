@@ -60,23 +60,6 @@ rule modify_nuts3_shapes:
         scripts("pypsa-at/modify_nuts3_shapes.py")
 
 
-rule modify_population_layouts:
-    input:
-        pop_layout_total=resources("pop_layout_total-raw.nc"),
-        pop_layout_urban=resources("pop_layout_urban-raw.nc"),
-        pop_layout_rural=resources("pop_layout_rural-raw.nc"),
-    output:
-        pop_layout_total=resources("pop_layout_total.nc"),
-        pop_layout_urban=resources("pop_layout_urban.nc"),
-        pop_layout_rural=resources("pop_layout_rural.nc"),
-    resources:
-        mem_mb=2000,
-    log:
-        logs("modify_population_layouts.log"),
-    script:
-        scripts("pypsa-at/modify_population_layouts.py")
-
-
 rule export_evaluation_pypsa_at:
     message:
         "Runs all evaluations from the evals module to generate aggregated result views."

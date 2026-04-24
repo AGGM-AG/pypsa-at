@@ -13,6 +13,5 @@ gas pipeline CH <-> AT34,CH,AT34,1000,1500,70,0,500,169.3878817,PLS_5735_Seg_0_S
 gas pipeline DE2 <-> AT33,DE2,AT33,3922,5900,46.5,0,450,234.8417615,LKD_PS_90_Seg_0_Seg_0 LKD_PS_92_Seg_0_Seg_0_Seg_1,0
 gas pipeline SK <-> AT12,SK,AT12,96080,11250,64.57171027,0,900,348.2906012,PLL_537_Seg_0_Seg_0_Seg_0,-1
 gas pipeline AT31 <-> SK,AT31,SK,1119,0,0,0,0,0,Pipeline_01,0
-gas pipeline AT31 <-> AT12,AT31,AT12,6400,0,0,0,0,0,Pipeline_02,0
 gas pipeline AT32 <-> DE2,AT32,DE2,1500,0,0,0,0,0,Pipeline_03,0
 gas pipeline AT21 <-> AT22,AT21,AT22,51980,0,0,0,0,0,Pipeline_04,0

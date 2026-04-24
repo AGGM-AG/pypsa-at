@@ -77,6 +77,7 @@ include: "rules/postprocess.smk"
 include: "rules/development.smk"
 include: "rules/pypsa-at/modify.smk"  # PyPSA-AT specific modifications
 include: "rules/open-tyndp/retrieve.smk"  # Open-TYNDP data retrieval (PEMMDB, reference grids)
+include: "rules/open-tyndp/build.smk"  # Open-TYNDP build rules (PEMMDB capacity tables)
 
 
 if config["foresight"] == "overnight":
@@ -685,7 +686,15 @@ rule modify_prenetwork:
         limit_cross_border_flows_ac=config_provider(
             "pypsa-de", "limit_cross_border_flows_ac"
         ),
+        PEMMDB_projections=config_provider("mods", "PEMMDB_projections"),
     input:
+        **(
+            {
+                "tyndp_trajectories": resources("tyndp_trajectories.csv"),
+            }
+            if config_provider("mods", "PEMMDB_projections", "enabled", default=False)
+            else {}
+        ),
         austrian_transmission_capacities="data/austrian_transmission_capacities.csv",
         ukrainian_gas_transit_stop="data/pypsa-at/ukrainian_gas_transit_stop.json",
         gas_input_nodes_simplified=resources(
@@ -733,7 +742,7 @@ rule modify_prenetwork:
         RESULTS
         + "logs/modify_prenetwork_base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.log",
     script:
-        "scripts/pypsa-de/modify_prenetwork.py"
+        scripts("pypsa-de/modify_prenetwork.py")
 
 
 ruleorder: modify_industry_production > build_industrial_production_per_country_tomorrow

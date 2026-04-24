@@ -33,7 +33,7 @@ import geopandas as gpd
 logger = logging.getLogger(__name__)
 
 #: Valid clustering configurations and their implied NUTS levels.
-VALID_CONFIGURATIONS: tuple[str, ...] = ("AT10DE5", "AT10DE16", "AT35DE5", "AT35DE16")
+VALID_CONFIGURATIONS = ("AT10DE5", "AT10DE16", "AT35DE5", "AT35DE16")
 
 
 def override_nuts(
@@ -77,13 +77,8 @@ def override_nuts(
 
     >>> nuts3 = override_nuts(nuts3, ("DK01", "DK02"), "DK1", level="level1")
     """
-    logger.debug("Overriding regions with code %s to %s.", nuts_code, override)
-    if isinstance(nuts_code, str):
-        mask = nuts3_regions.index.str.startswith(nuts_code)
-    else:
-        mask = nuts3_regions.index.str.startswith(nuts_code[0])
-        for code in nuts_code[1:]:
-            mask |= nuts3_regions.index.str.startswith(code)
+    logger.debug(f"Overriding regions starting with codes {nuts_code} to {override}.")
+    mask = nuts3_regions.index.str.startswith(nuts_code)
     nuts3_regions.loc[mask, level] = override
     return nuts3_regions
 
@@ -122,7 +117,7 @@ def assert_expected_region_count(
 
     Raises
     ------
-    AssertionError
+    ValueError
         If the number of distinct regions does not equal ``expected``.
 
     Examples
@@ -138,10 +133,11 @@ def assert_expected_region_count(
     mask = nuts3_regions[col].astype(str).str.startswith(nuts_code)
     regions_at_level = nuts3_regions[mask]
     entries = regions_at_level[col].unique()
-    assert len(entries) == expected, (
-        f"Expected {expected} regions for '{nuts_code}' at level {lvl}, "
-        f"but found {len(entries)}: {sorted(entries)}"
-    )
+    if len(entries) != expected:
+        raise ValueError(
+            f"Expected {expected} regions for '{nuts_code}' at level {lvl}, "
+            f"but found {len(entries)}: {sorted(entries)}"
+        )
 
 
 def apply_custom_clustering(
@@ -156,7 +152,8 @@ def apply_custom_clustering(
     Validates configuration consistency and reassigns NUTS region codes in
     ``nuts3_regions`` so that PyPSA-Eur's clustering pipeline produces the
     requested spatial resolution for Austria, Germany, Italy, Denmark, Great
-    Britain, France, and Spain.
+    Britain, and Spain. France is modelled at NUTS level 0 (single country
+    region) — Corsica has no OSM transmission buses.
 
     Supported configurations:
 
@@ -200,7 +197,7 @@ def apply_custom_clustering(
 
     >>> import geopandas as gpd
     >>> nuts3 = gpd.read_file("resources/nuts3_shapes-raw.geojson").set_index("index")
-    >>> admin_levels = {"AT": 3, "DE": 3, "IT": 1, "DK": 1, "GB": 1, "FR": 1, "ES": 1}
+    >>> admin_levels = {"AT": 3, "DE": 3, "IT": 1, "DK": 1, "GB": 1, "ES": 1}
     >>> result = apply_custom_clustering(nuts3, "AT35DE5", admin_levels)
     """
     if custom_clustering not in VALID_CONFIGURATIONS:
@@ -210,94 +207,87 @@ def apply_custom_clustering(
         )
 
     # Determine implied NUTS levels from configuration name
-    nuts_at = 2 if custom_clustering.startswith("AT10") else 3
-    nuts_de = 3 if custom_clustering.endswith("DE5") else 1
+    expected_at_level = 2 if custom_clustering.startswith("AT10") else 3
+    expected_de_level = 3 if custom_clustering.endswith("DE5") else 1
 
-    logger.info("Applying custom administrative clustering: %s.", custom_clustering)
+    logger.info(f"Applying custom administrative clustering: {custom_clustering}")
 
-    # --- Austria ---
-    assert admin_levels.get("AT") == nuts_at, (
-        f"Inconsistent config for Austria: admin_levels['AT']={admin_levels.get('AT')}, "
-        f"but '{custom_clustering}' requires NUTS level {nuts_at}."
-    )
-    if nuts_at == 2:
-        # AT333 (Osttirol) has the same NUTS2 prefix as other Tyrolean districts.
-        # Map it to itself to preserve it as a distinct region at NUTS2 resolution.
-        nuts3_regions = override_nuts(nuts3_regions, "AT333", "AT333", "level2")
-        assert_expected_region_count(
-            nuts3_regions, "AT", expected=10, lvl=2, run_prefix=run_prefix
+    # check consistency between clustering configuration items
+    if admin_levels.get("AT") != expected_at_level:
+        raise ValueError(
+            f"Inconsistent config for Austria: admin_levels['AT']={admin_levels.get('AT')}, "
+            f"but '{custom_clustering}' requires NUTS level {expected_at_level}."
         )
-    # else: NUTS level 3 is already correct as-is.
 
-    # --- Germany ---
-    assert admin_levels.get("DE") == nuts_de, (
-        f"Inconsistent config for Germany: admin_levels['DE']={admin_levels.get('DE')}, "
-        f"but '{custom_clustering}' requires NUTS level {nuts_de}."
-    )
-    if nuts_de == 3:
-        # NUTS3 codes are used as a proxy to aggregate Germany into 5 macro-regions.
-        # Baden-Württemberg
-        nuts3_regions = override_nuts(nuts3_regions, "DE1", "DE1", level="level3")
-        # Bavaria
-        nuts3_regions = override_nuts(nuts3_regions, "DE2", "DE2", level="level3")
-        # Midwest (Hesse, Rhineland-Palatinate, Saarland, North Rhine-Westphalia)
-        for code in ("DE7", "DEB", "DEC", "DEA"):
-            nuts3_regions = override_nuts(nuts3_regions, code, "DE3", level="level3")
-        # Mideast (Brandenburg, Berlin, Mecklenburg-Vorpommern, Saxony, Saxony-Anhalt, Thuringia)
-        for code in ("DE3", "DE4", "DE8", "DED", "DEE", "DEG"):
-            nuts3_regions = override_nuts(nuts3_regions, code, "DE4", level="level3")
-        # North (Schleswig-Holstein, Hamburg, Bremen, Lower Saxony)
-        for code in ("DEF", "DE6", "DE9", "DE5"):
-            nuts3_regions = override_nuts(nuts3_regions, code, "DE5", level="level3")
-        assert_expected_region_count(
-            nuts3_regions, "DE", expected=5, lvl=3, run_prefix=run_prefix
+    if admin_levels.get("DE") != expected_de_level:
+        raise ValueError(
+            f"Inconsistent config for Germany: admin_levels['DE']={admin_levels.get('DE')}, "
+            f"but '{custom_clustering}' requires NUTS level {expected_de_level}."
         )
-    # else: nuts_de == 1 → NUTS1 (16 federal states) is already correct as-is.
 
-    # --- Italy: always 3 regions (mainland + Sicily + Sardinia) ---
-    assert admin_levels.get("IT") == 1, (
-        f"Custom clustering requires NUTS level 1 for Italy, "
-        f"but {admin_levels.get('IT')} is configured."
-    )
-    nuts3_regions = override_nuts(nuts3_regions, "IT", "IT0")  # mainland
-    nuts3_regions = override_nuts(nuts3_regions, "ITG1", "IT1")  # Sicily
-    nuts3_regions = override_nuts(nuts3_regions, "ITG2", "IT2")  # Sardinia
-    assert_expected_region_count(nuts3_regions, "IT", expected=3, run_prefix=run_prefix)
+    # AT333 (Osttirol) has the same NUTS2 prefix as other Tyrolean districts.
+    # Map it to itself to preserve it as a distinct region at NUTS2 resolution.
+    nuts3_regions = override_nuts(nuts3_regions, "AT333", "AT333", "level2")
+    assert_expected_region_count(nuts3_regions, "AT", expected=10, lvl=2)
 
-    # --- Denmark: always 2 regions ---
-    assert admin_levels.get("DK") == 1, (
-        f"Custom clustering requires NUTS level 1 for Denmark, "
-        f"but {admin_levels.get('DK')} is configured."
+    # NUTS3 codes are used as a proxy to aggregate Germany into 5 macro-regions.
+    # Baden-Württemberg
+    nuts3_regions = override_nuts(nuts3_regions, "DE1", "DE1", level="level3")
+    # Bavaria
+    nuts3_regions = override_nuts(nuts3_regions, "DE2", "DE2", level="level3")
+    # Midwest (Hesse, Rhineland-Palatinate, Saarland, North Rhine-Westphalia)
+    nuts3_regions = override_nuts(
+        nuts3_regions, ("DE7", "DEB", "DEC", "DEA"), "DE3", level="level3"
     )
-    nuts3_regions = override_nuts(nuts3_regions, "DK", "DK0")
-    nuts3_regions = override_nuts(nuts3_regions, ("DK01", "DK02"), "DK1")  # Sjaelland
-    assert_expected_region_count(nuts3_regions, "DK", expected=2, run_prefix=run_prefix)
+    # Mideast (Brandenburg, Berlin, Mecklenburg-Vorpommern, Saxony, Saxony-Anhalt, Thuringia)
+    nuts3_regions = override_nuts(
+        nuts3_regions, ("DE3", "DE4", "DE8", "DED", "DEE", "DEG"), "DE4", level="level3"
+    )
+    # North (Schleswig-Holstein, Hamburg, Bremen, Lower Saxony)
+    nuts3_regions = override_nuts(
+        nuts3_regions, ("DEF", "DE6", "DE9", "DE5"), "DE5", level="level3"
+    )
+    assert_expected_region_count(
+        nuts3_regions, "DE", expected=5, lvl=3, run_prefix=run_prefix
+    )
 
-    # --- Great Britain: always 2 regions ---
-    assert admin_levels.get("GB") == 1, (
-        f"Custom clustering requires NUTS level 1 for Great Britain, "
-        f"but {admin_levels.get('GB')} is configured."
-    )
-    nuts3_regions = override_nuts(nuts3_regions, "GB", "GB0")
-    nuts3_regions = override_nuts(nuts3_regions, "GBN", "GB1")  # Northern Ireland
-    assert_expected_region_count(nuts3_regions, "GB", expected=2, run_prefix=run_prefix)
+    # Separate Islands from main land for IT, DK, GB, and ES
+    if admin_levels.get("IT") == 1:
+        nuts3_regions = override_nuts(nuts3_regions, "IT", "IT0")  # mainland
+        nuts3_regions = override_nuts(nuts3_regions, "ITG1", "IT1")  # Sicily
+        nuts3_regions = override_nuts(nuts3_regions, "ITG2", "IT2")  # Sardinia
+        assert_expected_region_count(
+            nuts3_regions, "IT", expected=3, run_prefix=run_prefix
+        )
 
-    # --- France: always 2 regions (mainland + Corsica) ---
-    assert admin_levels.get("FR") == 1, (
-        f"Custom clustering requires NUTS level 1 for France, "
-        f"but {admin_levels.get('FR')} is configured."
-    )
-    nuts3_regions = override_nuts(nuts3_regions, "FR", "FR0")
-    nuts3_regions = override_nuts(nuts3_regions, "FRM0", "FR1")  # Corsica
-    assert_expected_region_count(nuts3_regions, "FR", expected=2, run_prefix=run_prefix)
+    if admin_levels.get("DK") == 1:
+        nuts3_regions = override_nuts(nuts3_regions, "DK", "DK0")
+        nuts3_regions = override_nuts(
+            nuts3_regions, ("DK01", "DK02"), "DK1"
+        )  # Sjaelland
+        assert_expected_region_count(
+            nuts3_regions, "DK", expected=2, run_prefix=run_prefix
+        )
 
-    # --- Spain: always 2 regions (mainland + Balearic Islands) ---
-    assert admin_levels.get("ES") == 1, (
-        f"Custom clustering requires NUTS level 1 for Spain, "
-        f"but {admin_levels.get('ES')} is configured."
-    )
-    nuts3_regions = override_nuts(nuts3_regions, "ES", "ES0")
-    nuts3_regions = override_nuts(nuts3_regions, "ES53", "ES1")  # Balearic Islands
-    assert_expected_region_count(nuts3_regions, "ES", expected=2, run_prefix=run_prefix)
+    if admin_levels.get("GB") == 1:
+        nuts3_regions = override_nuts(nuts3_regions, "GB", "GB0")
+        nuts3_regions = override_nuts(nuts3_regions, "GBN", "GB1")  # Northern Ireland
+        assert_expected_region_count(
+            nuts3_regions, "GB", expected=2, run_prefix=run_prefix
+        )
+
+    if admin_levels.get("ES") == 1:
+        nuts3_regions = override_nuts(nuts3_regions, "ES", "ES0")
+        nuts3_regions = override_nuts(nuts3_regions, "ES53", "ES1")  # Balearic Islands
+        assert_expected_region_count(
+            nuts3_regions, "ES", expected=2, run_prefix=run_prefix
+        )
+
+    if admin_levels.get("FR") == 1:
+        nuts3_regions = override_nuts(nuts3_regions, "FR", "FR0")
+        nuts3_regions = override_nuts(nuts3_regions, "FRM0", "FR1")  # Corsica
+        assert_expected_region_count(
+            nuts3_regions, "FR", expected=2, run_prefix=run_prefix
+        )
 
     return nuts3_regions

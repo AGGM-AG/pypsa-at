@@ -11,9 +11,9 @@ rule build_population_layouts:
         urban_percent=rules.retrieve_worldbank_urban_population.output["csv"],
         cutout=lambda w: input_cutout(w),
     output:
-        pop_layout_total=resources("pop_layout_total-raw.nc"),
-        pop_layout_urban=resources("pop_layout_urban-raw.nc"),
-        pop_layout_rural=resources("pop_layout_rural-raw.nc"),
+        pop_layout_total=resources("pop_layout_total.nc"),
+        pop_layout_urban=resources("pop_layout_urban.nc"),
+        pop_layout_rural=resources("pop_layout_rural.nc"),
     log:
         logs("build_population_layouts.log"),
     resources:
@@ -135,7 +135,7 @@ rule cluster_gas_network:
         regions_onshore=resources("regions_onshore_base_s_{clusters}.geojson"),
         regions_offshore=resources("regions_offshore_base_s_{clusters}.geojson"),
     output:
-        clustered_gas_network=resources("gas_network_base_s_{clusters}.csv"),
+        clustered_gas_network_raw=resources("gas_network_base_s_{clusters}_raw.csv"),
     resources:
         mem_mb=4000,
     log:
@@ -144,6 +144,21 @@ rule cluster_gas_network:
         benchmarks("cluster_gas_network/s_{clusters}")
     script:
         scripts("cluster_gas_network.py")
+
+
+rule modify_brownfield_gas_network_AT:
+    input:
+        clustered_gas_network_raw=resources("gas_network_base_s_{clusters}_raw.csv"),
+        brownfield_gas_network_AT10=("data/pypsa-at/AGGM_gas_network_base_AT10.csv"),
+        brownfield_gas_network_AT35=("data/pypsa-at/AGGM_gas_network_base_AT35.csv"),
+    output:
+        clustered_gas_network=resources("gas_network_base_s_{clusters}.csv"),
+    log:
+        logs("modify_brownfield_gas_network_AT_{clusters}.log"),
+    resources:
+        mem_mb=4000,
+    script:
+        scripts("pypsa-at/modify_brownfield_gas_network_AT.py")
 
 
 rule build_daily_heat_demand:
@@ -1619,7 +1634,8 @@ rule prepare_sector_network:
     input:
         unpack(input_profile_offwind),
         unpack(input_heat_source_power),
-        **rules.cluster_gas_network.output,
+        #**rules.cluster_gas_network.output,
+        **rules.modify_brownfield_gas_network_AT.output,
         **rules.build_gas_input_locations.output,
         snapshot_weightings=resources(
             "snapshot_weightings_base_s_{clusters}_elec_{opts}_{sector_opts}.csv"

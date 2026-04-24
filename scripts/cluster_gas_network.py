@@ -108,7 +108,9 @@ if __name__ == "__main__":
     if "snakemake" not in globals():
         from scripts._helpers import mock_snakemake
 
-        snakemake = mock_snakemake("cluster_gas_network", clusters="37")
+        snakemake = mock_snakemake(
+            "cluster_gas_network", clusters="adm", run="AT_KN2040"
+        )
     configure_logging(snakemake)
     set_scenario_config(snakemake)
 
@@ -126,4 +128,4 @@ if __name__ == "__main__":
     reindex_pipes(gas_network)
     gas_network = aggregate_parallel_pipes(gas_network)
 
-    gas_network.to_csv(snakemake.output.clustered_gas_network)
+    gas_network.to_csv(snakemake.output.clustered_gas_network_raw)

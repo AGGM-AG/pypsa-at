@@ -15,9 +15,30 @@ def _():
 @app.cell
 def _(pypsa):
     # read the relevant result network - base network in 2025
-    file = r"res_stop_UA_transit-base_s_adm__none_2025.nc"
+    file = r"results/v2025.04/AT_KN2040/networks/base_s_adm__none_2020.nc"
     n = pypsa.Network(file)
+    n
     return (n,)
+
+
+@app.cell
+def _(n):
+    gas_pipelines = n.links[n.links.carrier == "gas pipeline"]
+    gas_pipelines
+    return
+
+
+@app.cell
+def _(n):
+    countries = n.buses.location.unique()
+    countries
+    return (countries,)
+
+
+@app.cell
+def _(countries):
+    len(countries)
+    return
 
 
 @app.cell

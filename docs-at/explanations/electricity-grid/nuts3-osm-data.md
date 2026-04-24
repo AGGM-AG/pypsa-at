@@ -71,9 +71,10 @@ The "DE5" configurations aggregate German NUTS3 codes into five macro-regions:
 | `DE4`       | Mideast (Brandenburg, Berlin, MV, Saxony, SA, Thuringia)  |
 | `DE5`       | North (Schleswig-Holstein, Hamburg, Bremen, Lower Saxony) |
 
-Other countries (Italy, Denmark, Great Britain, France, Spain) are always split
-into 2–3 regions to separate mainland from islands (e.g. Corsica, Sardinia,
-Sicily, Sjaelland, Northern Ireland, Balearic Islands).
+Other countries (Italy, Denmark, Great Britain, Spain) are split into 2–3
+regions to separate mainland from islands (e.g. Sardinia, Sicily, Sjaelland,
+Northern Ireland, Balearic Islands). France is modelled as a single region —
+Corsica has no OSM transmission buses and is merged into the mainland.
 
 ## How the Clustering Pipeline Works
 
