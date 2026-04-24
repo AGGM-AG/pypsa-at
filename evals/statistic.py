@@ -51,7 +51,8 @@ def get_location(
     """
     Return the grouper series for the location of a component.
 
-    By default, the function avoids EU-locations by looking into port 0 and port 1 and prefering locations, that are not 'EU'.
+    By default, the function avoids EU-locations by looking
+    into port 0 and port 1 and prefering locations, that are not 'EU'.
 
     Note, that the bus_carrier will still be the bus_carrier
     from the "port" argument, i.e. only the location is swapped.
@@ -118,7 +119,7 @@ def get_location_from_name_at_port(
     return (
         n.static(c)[f"bus{location_port}"]
         .str.extract(group, expand=False)
-        .str.strip()  # some white spaces still go through regex
+        .str.strip()  # some white space survives regex
         .rename(f"bus{location_port}")
     )
 
@@ -131,7 +132,7 @@ groupers.add_grouper("bus1", partial(get_location_from_name_at_port, location_po
 
 def collect_myopic_statistics(
     nc: NetworkCollection,
-    statistic: str,
+    statistics_name: str,
     aggregate_components: str | None = "sum",
     drop_zeros: bool = True,
     drop_unit: bool = True,
@@ -149,10 +150,10 @@ def collect_myopic_statistics(
     ----------
     nc
         The loaded networks as a NetworkCollection, with the year as index.
-    statistic
+    statistics_name
         The name of the metric to build.
     aggregate_components
-        The aggregation function to combine components by.
+        The aggregation function to combine components by.  # todo: obsolete since PyPSA v1.0
     drop_zeros
         Whether to drop rows from the returned statistic that have
         only zeros as values.
@@ -179,15 +180,15 @@ def collect_myopic_statistics(
 
     pypsa_statistics = [m[0] for m in getmembers(pypsa.statistics.StatisticsAccessor)]
 
-    if statistic in pypsa_statistics:  # register a default to reduce verbosity
+    if statistics_name in pypsa_statistics:  # register a default to reduce verbosity
         kwargs.setdefault("groupby", ["location", "carrier", "bus_carrier", "unit"])
 
     year_statistics = []
     for year, n in nc.networks.items():
-        func = getattr(n.statistics, statistic)
+        func = getattr(n.statistics, statistics_name)
         if not func:
             raise AttributeError(
-                f"Statistic '{statistic}' not found. "
+                f"Statistic '{statistics_name}' not found. "
                 f"Available statistics are: "
                 f"'{[m[0] for m in getmembers(n.statistics)]}'."
             )
