@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from evals.statistic import collect_myopic_statistics
+from evals.stats import collect_myopic_statistics
 from evals.utils import get_transmission_carriers, rename_aggregate
 
 

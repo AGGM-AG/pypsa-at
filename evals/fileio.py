@@ -29,7 +29,7 @@ from evals.constants import (
     Regex,
 )
 from evals.plots.components import FileExporter
-from evals.statistic import ESMStatistics
+from evals.stats import ESMStatistics
 from evals.utils import (
     build_plot_config,
     combine_statistics,

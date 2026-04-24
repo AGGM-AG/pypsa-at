@@ -31,7 +31,7 @@ from pyam import IamDataFrame
 from evals.constants import DataModel as DM
 from evals.constants import TradeTypes
 from evals.fileio import read_networks
-from evals.statistic import collect_myopic_statistics
+from evals.stats import collect_myopic_statistics
 from evals.utils import (
     filter_by,
     get_transmission_techs,

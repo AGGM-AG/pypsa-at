@@ -24,7 +24,7 @@ from evals import plots as plots
 from evals.constants import BusCarrier, Group, TradeTypes
 from evals.constants import DataModel as DM
 from evals.fileio import Exporter
-from evals.statistic import collect_myopic_statistics
+from evals.stats import collect_myopic_statistics
 from evals.utils import (
     drop_from_multtindex_by_regex,
     filter_by,

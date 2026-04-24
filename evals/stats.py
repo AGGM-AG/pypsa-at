@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
-"""Collect statistics for evaluations."""  # noqa: A005
+"""Collect statistics for evaluations."""
 
 import logging
 import warnings

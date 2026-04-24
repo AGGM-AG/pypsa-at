@@ -10,7 +10,7 @@ from pypsa import NetworkCollection
 from evals.constants import BusCarrier, DataModel, Group, TradeTypes
 from evals.constants import DataModel as DM
 from evals.fileio import Exporter
-from evals.statistic import collect_myopic_statistics
+from evals.stats import collect_myopic_statistics
 from evals.utils import (
     calculate_input_share,
     drop_from_multtindex_by_regex,
