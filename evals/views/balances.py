@@ -137,7 +137,7 @@ def view_balance_heat(
 
     generator_supply = collect_myopic_statistics(
         nc,
-        statistic="supply",
+        "supply",
         comps="Generator",
         bus_carrier=bus_carrier,
     )
@@ -146,7 +146,7 @@ def view_balance_heat(
     demand = (
         collect_myopic_statistics(
             nc,
-            statistic="withdrawal",
+            "withdrawal",
             bus_carrier=bus_carrier,
         )
         .pipe(split_urban_central_heat_losses_and_consumption, heat_loss_factor)

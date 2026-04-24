@@ -65,7 +65,7 @@ def view_demand_heat_total(
 
     generator_supply = collect_myopic_statistics(
         nc,
-        statistic="supply",
+        "supply",
         comps="Generator",
         bus_carrier=BusCarrier.heat_buses(),
     )
@@ -141,7 +141,7 @@ def view_demand_heat_system(
 
     generator_supply = collect_myopic_statistics(
         nc,
-        statistic="supply",
+        "supply",
         comps="Generator",
         bus_carrier=BusCarrier.heat_buses(),
     ).pipe(rename_aggregate, "solar heat")
@@ -355,7 +355,7 @@ def _get_sectoral_fed(nc):
     # bus_carrier collectively, and we need to treat central and decentral
     # systems differently.
     decentral_production = (
-        collect_myopic_statistics(nc, comps="Link", statistic="energy_balance")
+        collect_myopic_statistics(nc, "energy_balance", comps="Link")
         .drop(["co2", "co2 stored"], level=DataModel.BUS_CARRIER)
         .pipe(drop_from_multtindex_by_regex, "water tanks|water pits")
         .pipe(filter_for_carrier_connected_to, decentral_heat_bus_carrier)

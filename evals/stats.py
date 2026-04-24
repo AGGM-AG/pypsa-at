@@ -113,7 +113,7 @@ def get_location_from_name_at_port(
     Returns
     -------
     :
-
+        The location prefix extracted from component names.
     """
     group = f"({Regex.region.pattern})"
     return (
