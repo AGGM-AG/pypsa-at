@@ -390,6 +390,8 @@ def _get_sectoral_fed(nc):
     loads.loc[central_heat_loads.index] = central_heat_loads / (1 + loss_factor)
 
     # transport Loads are final energy
+    # FixMe: aviation includes international amounts. International aviation
+    #  demands should not be in regional demands.
     transport = loads.filter(regex="transport|shipping|aviation")
     # no need to harmonize V2g:
     # bev_load = filter_by(transport, bus_carrier="EV battery")
