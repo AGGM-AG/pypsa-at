@@ -134,7 +134,6 @@ def collect_myopic_statistics(
     nc: NetworkCollection,
     statistics_name: str,
     aggregate_components: str | None = "sum",
-    drop_zeros: bool = True,
     drop_unit: bool = True,
     allow_missing: dict = None,
     **kwargs: object,
@@ -153,10 +152,9 @@ def collect_myopic_statistics(
     statistics_name
         The name of the metric to build.
     aggregate_components
-        The aggregation function to combine components by.  # todo: obsolete since PyPSA v1.0
-    drop_zeros
-        Whether to drop rows from the returned statistic that have
-        only zeros as values.
+        The aggregation function to combine components by. Note, that pypsa's
+        agregate_across_components argument is deprectaded. The recommendedation
+        is exactly the approach taken in this function.
     drop_unit
         Whether to drop the unit index level from the returned statistic.
     allow_missing
@@ -216,18 +214,11 @@ def collect_myopic_statistics(
         _names = statistic.index.droplevel("component").names
         statistic = statistic.groupby(_names).agg(aggregate_components)
 
+    # FixMe: is this hotfix still needed?
     if kwargs.get("aggregate_time") is False:
         statistic.columns.name = DataModel.SNAPSHOTS
 
-    if drop_zeros:
-        if isinstance(statistic, pd.Series):
-            statistic = statistic.loc[statistic != 0]
-        elif isinstance(statistic, pd.DataFrame):
-            statistic = statistic.loc[(statistic != 0).any(axis=1)]
-        else:
-            raise TypeError(f"Unknown statistic type '{type(statistic)}'")
-
-    # assign the correct unit the statistic if possible
+    # assign the correct unit to the statistic if possible
     if "unit" in statistic.index.names and drop_unit:
         if not statistic.empty:
             try:
