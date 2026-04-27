@@ -8,8 +8,6 @@ from math import isnan
 import pandas as pd
 import pypsa
 
-# todo: move to mods
-
 
 def calculate_additional_tooltip_statistics(
     n: pypsa.Network, carrier: str, carriers_in_eb: pd.Index
