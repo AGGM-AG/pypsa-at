@@ -9,6 +9,7 @@ nav:
 - Home: index.md
 - How-to-Guides:
   - how-to-guides/index.md
+  - Working with Evaluations: how-to-guides/evals.md
 - Tutorials:
   - tutorials/index.md
   - tutorials/model-modifications.md
