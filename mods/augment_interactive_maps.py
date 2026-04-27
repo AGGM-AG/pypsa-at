@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """A module for functions that augment existing pypsa-eur or pypsa-de modules."""
 
+import re
 from math import isnan
 
 import pandas as pd
@@ -123,9 +124,13 @@ def update_pydeck_layer_tooltip_for_circles(deck, stats: dict, flow_unit: str) -
                     f"</table>"
                 )
             else:
+                # pypsa sets bus as the DataFrame index (lost in pydeck JSON serialisation),
+                # but embeds it as <b>BUS_NAME</b> in the existing tooltip_html
+                match = re.search(r"<b>(.*?)</b>", item.get("tooltip_html", ""))
+                bus_name = match.group(1) if match else ""
                 direction = "Supply" if item["size"] >= 0 else "Withdrawal"
                 item["tooltip_html"] = (
-                    f"<b>{item['bus']}</b>\n<table>\n"
+                    f"<b>{bus_name}</b>\n<table>\n"
                     f"<tr><td style='font-weight:bold'>Technology:</td>"
                     f"<td style='text-align:left'>{item['label']}</td></tr>\n"
                     f"<tr><td style='font-weight:bold'>{direction}:</td>"
