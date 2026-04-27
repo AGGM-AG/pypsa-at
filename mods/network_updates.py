@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023-2026 Austrian Gas Grid Management AG
+# SPDX-FileCopyrightText: 2023-2025 Austrian Gas Grid Management AG
 #
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
@@ -341,7 +341,7 @@ def update_network_to_stop_ukrainian_gas_transit(
         )
         return
 
-    pyear = int(n.config["wildcards"]["planning_horizons"])
+    pyear = int(snakemake.wildcards.planning_horizons)
     if pyear <= 2025:
         logger.info(
             "Skip updating network to stop ukrainian gas transit for years after 2025."
@@ -373,7 +373,7 @@ def update_network_to_stop_ukrainian_gas_transit(
 
         if (
             abs(capacity_difference.item()) > 0.001
-            and snakemake.config["p^refix"] != "test-sector-myopic-at10"
+            and snakemake.config["run"]["prefix"] != "test-sector-myopic-at10"
         ):
             raise Exception("Detected capacity difference without ukrainian imports.")
         n.generators.loc[f"{cc} gas pipeline import", "p_nom"] = 0
@@ -442,11 +442,15 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
     from scripts.add_electricity import load_costs
 
+    mods = snakemake.config["mods"]
     costs = load_costs(snakemake.input.costs)
 
     unravel_gas_import_and_production(n, snakemake, costs)
 
-    if snakemake.config["mods"].get("modify_brownfield_gas_network_AT"):
+    if mods.get("ukrainian_gas_transit_stop"):
+        update_network_to_stop_ukrainian_gas_transit(n, snakemake)
+
+    if mods.get("modify_brownfield_gas_network_AT"):
         make_gas_pipelines_unextendable(n, snakemake)
 
     overwrite_pemmdb_capacities(n, snakemake)

@@ -3,6 +3,10 @@
 /*    color: black;*/
 /*}*/
 
+.md-grid {
+    max-width: 78.0rem; /* ~10% wider than Material default of 76.25rem */
+}
+
 .badge.dark-badge .value {
     background-color: black;
     color: white;

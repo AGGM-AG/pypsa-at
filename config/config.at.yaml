@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: v2025.04
+  prefix: fix-stop-ukrainian-methane-transit
   name:
   - AT_KN2040
   scenarios:
