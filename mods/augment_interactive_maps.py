@@ -56,25 +56,28 @@ def get_import_node_coordinates(settings: dict) -> dict:
     return settings.get("import_node_coords", {})
 
 
-def remove_redundant_layer_items(deck, layer, value):
+def remove_redundant_layer_items(layer, value, threshold=0.001):
     return [
         d
-        for d in deck.layers[layer].data
-        if not isnan(d.get(value, 0)) and d.get(value, 0) > 0.001
-    ]  # todo: avoid magic threshold number
+        for d in layer.data
+        if not isnan(d.get(value, 0)) and d.get(value, 0) > threshold
+    ]
 
 
 def update_pydeck_layer_tooltip_for_paths(deck, stats: dict, flow_unit: str) -> None:
-    idx_paths_layer = {
+    paths_layer_index = {
         i for i, layer in enumerate(deck.layers) if layer.type == "PathLayer"
-    }.pop()
-    paths = deck.layers[idx_paths_layer]
+    }
+    # if len(first_paths_layer_index) > 1:
+    #     raise KeyError(f"Multiple PathLayer objects detected: {first_paths_layer_index}")
 
-    # purge irrelevant paths to save disk space
-    paths.data = remove_redundant_layer_items(deck, idx_paths_layer, "width")
+    layer = deck.layers[paths_layer_index.pop()]
 
-    for item in paths.data:
-        # make width absolute value. The flow arrow contains this info.
+    # remove irrelevant paths to save disk space
+    layer.data = remove_redundant_layer_items(layer, "width")
+
+    for item in layer.data:
+        # make width absolute value. The flow arrow contains direction info.
         item["width"] = abs(item["width"])
         item["width_pdk"] = abs(item["width_pdk"])
 
@@ -99,27 +102,36 @@ def update_pydeck_layer_tooltip_for_paths(deck, stats: dict, flow_unit: str) -> 
 
 
 def update_pydeck_layer_tooltip_for_circles(deck, stats: dict, flow_unit: str) -> None:
-    idx_circles_layers = [
+    circles_layers_index = [
         i for i, layer in enumerate(deck.layers) if layer.type == "PolygonLayer"
     ]
-    for idx in idx_circles_layers:
+    for idx in circles_layers_index:
         if is_arrow := "arrow" in deck.layers[idx].data[0]:
             value = "flow"
         else:
             value = "size"
-        deck.layers[idx].data = remove_redundant_layer_items(deck, idx, value)
 
-        for item in deck.layers[idx].data:
-            # todo: add more stats info in tooltips
+        layer = deck.layers[idx]
+        layer.data = remove_redundant_layer_items(layer, value)
+
+        for item in layer.data:
             if is_arrow:
                 item["tooltip_html"] = (
                     f"<b>{item['name']}</b>\n<table>\n"
-                    f"<td style='font-weight:bold'>flow:</td><tr>"
-                    f"<td style='text-align:left'>0.01</td></tr>\n"
+                    f"<tr><td style='font-weight:bold'>Flow:</td>"
+                    f"<td style='text-align:left'>{item['flow']:.2f} {flow_unit}</td></tr>\n"
                     f"</table>"
                 )
-            # else:
-            # item["tooltip_html"] = item["tootip_html"].replace("size:", "")
+            else:
+                direction = "Supply" if item["size"] >= 0 else "Withdrawal"
+                item["tooltip_html"] = (
+                    f"<b>{item['bus']}</b>\n<table>\n"
+                    f"<tr><td style='font-weight:bold'>Technology:</td>"
+                    f"<td style='text-align:left'>{item['label']}</td></tr>\n"
+                    f"<tr><td style='font-weight:bold'>{direction}:</td>"
+                    f"<td style='text-align:left'>{abs(item['size']):.2f} {flow_unit}</td></tr>\n"
+                    f"</table>"
+                )
 
 
 def build_legend_html(carrier: str, region_unit: str, flow_unit: str) -> str:
@@ -205,21 +217,21 @@ def augment_deck_before_export(
 
     Parameters
     ----------
-    deck : pydeck.Deck
+    deck
         The interactive map deck to augment.
-    n : pypsa.Network
+    n
         The solved network.
-    carrier : str or list[str]
+    carrier
         The carrier(s) being visualised.
-    carriers_in_eb : pandas.Index
+    carriers_in_eb
         Carriers present in the energy balance.
-    unit_conversion : float
+    unit_conversion
         Divisor applied to flow values (1, 1_000, or 1_000_000).
-    settings : dict
+    settings
         Interactive map settings from snakemake params.
-    region_unit : str
+    region_unit
         Unit label for the regional choropleth price (e.g. "€/MWh").
-    output_path : str or pathlib.Path
+    output_path
         Destination path for the HTML file.
     """
     stats = calculate_additional_tooltip_statistics(n, carrier, carriers_in_eb)
