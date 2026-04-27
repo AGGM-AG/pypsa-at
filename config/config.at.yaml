@@ -133,6 +133,15 @@ data:
   osm:
     source: archive
     version: 0.2-at
+  klien_pv_buildings_potential:
+    source: primary
+    version: 2026-v1
+  klien_pv_ground_mounted_sealed_potential:
+    source: primary
+    version: 2026-v1
+  klien_pv_ground_mounted_unsealed_potential:
+    source: primary
+    version: 2026-v1
 
 solving:
   # The default CO2 budget uses the KSG targets, and the non CO2 emissions from the REMIND model in the KN2045_Mix scenario
@@ -210,3 +219,11 @@ mods:
     tyndp_scenario: All  # All — default TYNDP 2024 scenario with complete list of techs.
                          # Other options fail during runtime due to missing techs.
     skip_countries: ["AT", "DE"]  # use calibrations from PyPSA-DE/AT
+
+  pv_potential_limits:
+    enable: true
+    use_technical_potentials: false # if true, technical potentials are used.
+                                    # if true, climate_scenario, year and ambition are ignored.
+    climate_scenario: mocc   # wocc | mocc | stcc
+    year: 2040               # 2030 | 2040
+    ambition: medium         # low | medium | high

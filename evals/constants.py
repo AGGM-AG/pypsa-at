@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023-2025 Austrian Gas Grid Management AG
+# SPDX-FileCopyrightText: 2023-2026 Austrian Gas Grid Management AG
 #
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
@@ -409,6 +409,8 @@ COLOUR_SCHEME: dict = {
     "Demand": COLOUR.grey_neutral,
     # yellow - solar
     "Solar Power": COLOUR.yellow_bright,
+    "Solar Rooftop": COLOUR.yellow_vivid,
+    "Solar Hsat": COLOUR.yellow_canary,
     "Photovoltaics": COLOUR.yellow_bright,
     "PV-Utility": COLOUR.yellow_bright,
     "PV-Rooftop": COLOUR.yellow_vivid,

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023-2025 Austrian Gas Grid Management AG
+# SPDX-FileCopyrightText: 2023-2026 Austrian Gas Grid Management AG
 #
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
@@ -12,6 +12,7 @@ import pypsa
 from snakemake.script import Snakemake
 
 from mods.pemmdb_overwrites import overwrite_pemmdb_capacities
+from mods.pv_potentials import apply_pv_potential_limits
 
 logger = getLogger(__name__)
 
@@ -454,3 +455,4 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
         make_gas_pipelines_unextendable(n, snakemake)
 
     overwrite_pemmdb_capacities(n, snakemake)
+    apply_pv_potential_limits(n, snakemake)

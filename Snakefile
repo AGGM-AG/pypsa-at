@@ -76,6 +76,7 @@ include: "rules/solve_electricity.smk"
 include: "rules/postprocess.smk"
 include: "rules/development.smk"
 include: "rules/pypsa-at/modify.smk"  # PyPSA-AT specific modifications
+include: "rules/pypsa-at/retrieve.smk"  # PyPSA-AT specific data retrieval
 include: "rules/open-tyndp/retrieve.smk"  # Open-TYNDP data retrieval (PEMMDB, reference grids)
 include: "rules/open-tyndp/build.smk"  # Open-TYNDP build rules (PEMMDB capacity tables)
 
@@ -649,6 +650,19 @@ rule modify_district_heat_share:
 
 rule modify_prenetwork:
     params:
+        pv_potential_limits_enable=config_provider(
+            "mods", "pv_potential_limits", "enable"
+        ),
+        pv_potential_limits_use_technical_potentials=config_provider(
+            "mods", "pv_potential_limits", "use_technical_potentials"
+        ),
+        pv_potential_limits_climate_scenario=config_provider(
+            "mods", "pv_potential_limits", "climate_scenario"
+        ),
+        pv_potential_limits_year=config_provider("mods", "pv_potential_limits", "year"),
+        pv_potential_limits_ambition=config_provider(
+            "mods", "pv_potential_limits", "ambition"
+        ),
         ukrainian_gas_transit_stop=config_provider("mods", "ukrainian_gas_transit_stop"),
         efuel_export_ban=config_provider("solving", "constraints", "efuel_export_ban"),
         enable_kernnetz=config_provider("wasserstoff_kernnetz", "enable"),
@@ -695,6 +709,10 @@ rule modify_prenetwork:
             if config_provider("mods", "PEMMDB_projections", "enabled", default=False)
             else {}
         ),
+        nuts3_buildings="data/pypsa-at/pv_potentials/nuts3_pv_buildings.csv",
+        nuts3_ground="data/pypsa-at/pv_potentials/nuts3_pv_ground.csv",
+        at10_buildings="data/pypsa-at/pv_potentials/at10_pv_buildings.csv",
+        at10_ground="data/pypsa-at/pv_potentials/at10_pv_ground.csv",
         austrian_transmission_capacities="data/austrian_transmission_capacities.csv",
         ukrainian_gas_transit_stop="data/pypsa-at/ukrainian_gas_transit_stop.json",
         gas_input_nodes_simplified=resources(

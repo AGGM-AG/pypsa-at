@@ -97,3 +97,23 @@ rule validate_pypsa_at:
         mem_mb=16000,
     shell:
         'pixi run -e test pytest -m "AT" --html {params.rdir}/test_report.html --result-path={params.rdir}'
+
+
+rule aggregate_pv_potentials:
+    input:
+        nuts3_shapes=resources("nuts3_shapes.geojson"),
+        pv_buildings=f"{dataset_version('klien_pv_buildings_potential')['folder']}/pv_buildings_potential.geojson",
+        pv_ground_sealed=f"{dataset_version('klien_pv_ground_mounted_sealed_potential')['folder']}/pv_ground_sealed_potential.geojson",
+        pv_ground_unsealed=f"{dataset_version('klien_pv_ground_mounted_unsealed_potential')['folder']}/pv_ground_unsealed_potential.geojson",
+    output:
+        nuts3_buildings="data/pypsa-at/pv_potentials/nuts3_pv_buildings.csv",
+        nuts3_ground="data/pypsa-at/pv_potentials/nuts3_pv_ground.csv",
+        at10_buildings="data/pypsa-at/pv_potentials/at10_pv_buildings.csv",
+        at10_ground="data/pypsa-at/pv_potentials/at10_pv_ground.csv",
+    log:
+        logs("aggregate_pv_potentials.log"),
+    threads: 1
+    resources:
+        mem_mb=2000,
+    script:
+        scripts("pypsa-at/aggregate_pv_potentials.py")
