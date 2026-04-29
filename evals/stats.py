@@ -124,7 +124,40 @@ def get_location_from_name_at_port(
     )
 
 
+def get_carrier(n: pypsa.Network, c: str, nice_names=True) -> pd.Series:
+    """
+    Grouper function to return carrier or carrier nice names.
+
+    Parameters
+    ----------
+    n
+        The network to evaluate.
+    c
+        The component name, e.g. 'Load', 'Generator', 'Link', etc.
+    nice_names
+        Wether to retrun mapped nice names from the global mapping.
+
+    Returns
+    -------
+    :
+        The component carrier name, or the mapped nice name.
+    """
+    # vendored from pypsa.statistics.grouping.Grouper.carrier
+    static = n.c[c].static
+    fall_back = pd.Series("", index=static.index)
+    carrier_series = static.get("carrier", fall_back).rename("carrier")
+
+    # updated nice_name logic for PyPSA-AT
+    if nice_names:
+        raise NotImplementedError(
+            "implement https://github.com/AGGM-AG/pypsa-at-planning/issues/80"
+        )
+
+    return carrier_series
+
+
 # Register custom groupers once, after the grouper functions are defined.
+groupers.add_grouper("carrier", get_carrier)
 groupers.add_grouper("location", get_location)
 groupers.add_grouper("bus0", partial(get_location_from_name_at_port, location_port="0"))
 groupers.add_grouper("bus1", partial(get_location_from_name_at_port, location_port="1"))
