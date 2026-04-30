@@ -146,21 +146,6 @@ rule cluster_gas_network:
         scripts("cluster_gas_network.py")
 
 
-rule modify_brownfield_gas_network_AT:
-    input:
-        clustered_gas_network_raw=resources("gas_network_base_s_{clusters}_raw.csv"),
-        brownfield_gas_network_AT10=("data/pypsa-at/AGGM_gas_network_base_AT10.csv"),
-        brownfield_gas_network_AT35=("data/pypsa-at/AGGM_gas_network_base_AT35.csv"),
-    output:
-        clustered_gas_network=resources("gas_network_base_s_{clusters}.csv"),
-    log:
-        logs("modify_brownfield_gas_network_AT_{clusters}.log"),
-    resources:
-        mem_mb=4000,
-    script:
-        scripts("pypsa-at/modify_brownfield_gas_network_AT.py")
-
-
 rule build_daily_heat_demand:
     input:
         pop_layout=resources("pop_layout_total.nc"),
