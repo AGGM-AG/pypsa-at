@@ -135,12 +135,12 @@ def get_carrier(n: pypsa.Network, c: str, nice_names=True) -> pd.Series:
     c
         The component name, e.g. 'Load', 'Generator', 'Link', etc.
     nice_names
-        Wether to retrun mapped nice names from the global mapping.
+        Whether to return mapped nice names from the global mapping.
 
     Returns
     -------
     :
-        The component carrier name, or the mapped nice name.
+        The component carrier name, or its nice name alias.
     """
     # vendored from pypsa.statistics.grouping.Grouper.carrier
     static = n.c[c].static
