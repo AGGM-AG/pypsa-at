@@ -189,10 +189,10 @@ rule modify_prenetwork:
             if config_provider("mods", "PEMMDB_projections", "enabled", default=False)
             else {}
         ),
-        nuts3_buildings="data/pypsa-at/pv_potentials/nuts3_pv_buildings.csv",
-        nuts3_ground="data/pypsa-at/pv_potentials/nuts3_pv_ground.csv",
-        at10_buildings="data/pypsa-at/pv_potentials/at10_pv_buildings.csv",
-        at10_ground="data/pypsa-at/pv_potentials/at10_pv_ground.csv",
+        nuts3_buildings=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_buildings.csv",
+        nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
+        at10_buildings=f"{KLIEN_POTENTIALS['folder']}/at10_pv_buildings.csv",
+        at10_ground=f"{KLIEN_POTENTIALS['folder']}/at10_pv_ground.csv",
         ukrainian_gas_transit_stop="data/pypsa-at/ukrainian_gas_transit_stop.json",
         gas_input_nodes_simplified=resources(
             "gas_input_locations_s_{clusters}_simplified.csv"

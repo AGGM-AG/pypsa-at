@@ -84,6 +84,8 @@ KLIEN_POTENTIALS = dataset_version("klien_potentials")
 include: "rules/collect.smk"
 include: "rules/retrieve.smk"
 include: "rules/build_electricity.smk"
+include: "rules/pypsa-at/modify.smk"  # PyPSA-AT specific modifications (must precede build_sector.smk — rules.modify_brownfield_gas_network_AT is referenced there)
+include: "rules/pypsa-at/retrieve.smk"  # PyPSA-AT specific data retrieval
 include: "rules/build_sector.smk"
 include: "rules/solve_electricity.smk"
 include: "rules/postprocess.smk"
@@ -93,8 +95,6 @@ include: "rules/pypsa-de/modifications.smk"
 include: "rules/pypsa-de/reporting.smk"
 include: "rules/open-tyndp/retrieve.smk"  # Open-TYNDP data retrieval (PEMMDB, reference grids)
 include: "rules/open-tyndp/build.smk"  # Open-TYNDP build rules (PEMMDB capacity tables)
-include: "rules/pypsa-at/modify.smk"  # PyPSA-AT specific modifications
-include: "rules/pypsa-at/retrieve.smk"  # PyPSA-AT specific data retrieval
 
 
 if config["foresight"] == "overnight":
