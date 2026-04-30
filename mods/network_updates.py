@@ -11,8 +11,8 @@ import pandas as pd
 import pypsa
 from snakemake.script import Snakemake
 
+from mods.klien_potentials import apply_klien_potential_limits
 from mods.pemmdb_overwrites import overwrite_pemmdb_capacities
-from mods.pv_potentials import apply_pv_potential_limits
 
 logger = getLogger(__name__)
 
@@ -455,4 +455,4 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
         make_gas_pipelines_unextendable(n, snakemake)
 
     overwrite_pemmdb_capacities(n, snakemake)
-    apply_pv_potential_limits(n, snakemake)
+    apply_klien_potential_limits(n, snakemake)

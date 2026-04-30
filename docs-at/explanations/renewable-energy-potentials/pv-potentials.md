@@ -1,123 +1,97 @@
-# PV Expansion Potentials in Austria
+# Photovoltaic Potentials in Austria
 
-PyPSA-AT limits the optimised expansion of photovoltaics in Austrian regions based on empirically derived potentials
-from the study "Erneuerbare Energiepotenziale in Österreich 2030 & 2040" (Renewable Energy Potentials in Austria
-2030 & 2040). This page describes the data source, the available scenario categories, and the processing steps that
-generate regional capacity limits for the model from the raw data.
+Austria's photovoltaic expansion pathway is shaped by land availability, building stock, grid infrastructure, and
+societal acceptance. The study *Erneuerbare Energiepotenziale in Österreich 2030 & 2040*, conducted on behalf of the
+Austrian Climate and Energy Fund (KLIEN), quantifies these constraints at municipality level and derives realisable
+PV potentials for three area categories, two target years, and three ambition storylines.
 
+PyPSA-AT uses these potentials to constrain the optimised expansion of PV generators in Austrian regions. For the
+shared data pipeline, scenario dimensions, and configuration reference, see
+[KLIEN Renewable Energy Potentials](klien-potentials.md).
 
-## Data Source: KLIEN Study
+## PV in the KLIEN Study
 
-The input data originates from the study
-[Erneuerbare Energiepotenziale in Österreich 2030 & 2040](https://gtif-austria.info/narratives/photovoltaic)
-(Renewable Energy Potentials in Austria 2030 & 2040). The study quantifies realisable PV potentials for all Austrian
-municipalities, differentiated by area category, time horizon, political and economic ambition level, and climate scenario.
+The KLIEN study distinguishes three area categories for PV deployment, each governed by different technical,
+economic, and social constraints:
 
-The raw data are provided as GeoJSON files at municipality level and are aggregated to NUTS3 and AT10 level for the
-model. The data versions used are configured in `config/config.at.yaml` under `data` and recorded in
-`data/versions.csv`.
+**Buildings (rooftop and façade)**
 
-## Data Categories
+The technical potential for roof and façade installations is derived from GIS datasets of the Austrian building
+stock. System efficiency is assumed to improve over time — from 19.0 % in 2030 to 20.4 % in 2040 — reflecting
+expected advances in module technology. The long-term 2040 potential extends to roof areas with global irradiation
+of at least 550 kWh/m²·a, unlocking a larger share of the building stock compared to 2030. Realisable potentials
+are derived by applying economic and social realisation factors to the technically usable area, differentiated
+between pitched and flat roofs and weighted by three storylines (Low, Medium, High).
 
-The study distinguishes three area categories, which are mapped to different carriers (`carrier`) in the model:
+**Ground-mounted PV on sealed surfaces**
 
-| Category | Source file | Model carrier |
-|----------|-------------|---------------|
-| Buildings (rooftop PV) | `pv_buildings_potential.geojson` | `solar-rooftop` |
-| Ground-mounted – sealed surfaces | `pv_ground_sealed_potential.geojson` | `solar`, `solar-hsat` |
-| Ground-mounted – unsealed surfaces | `pv_ground_unsealed_potential.geojson` | `solar`, `solar-hsat` |
+This category covers areas where land is already sealed or otherwise compromised, including car parks, landfills,
+industrial sites, and linear technical infrastructure (e.g., motorway verges, railway embankments). These sites
+combine PV deployment with minimal additional land-use conflict.
 
-Sealed surfaces include, for example, car parks, landfills, and industrial sites. Unsealed surfaces refer to
-open-land areas suitable for agricultural or ecological use.
+**Ground-mounted PV on unsealed surfaces**
 
-The potentials of the two ground-mounted categories are summed: the combined ground-mounted potential serves as a
-shared upper bound for all ground-level PV carriers in a region — i.e. `solar` and `solar-hsat` share the same
-budget.
+Unsealed open land is assessed across 26 land-use categories. Areas unsuitable for ground-mounted PV — including
+forests, protected natural areas, and settlement zones — are excluded from the analysis. Realisable potentials are
+determined by applying economic and social realisation factors in a two-step procedure, with individual usability
+factors assigned per land-use class.
 
-## Scenario Dimensions
+The three storylines represent distinct assumptions about the pace of barrier removal:
 
-Each potential file contains columns following this naming scheme:
+- **Low**: Permitting, grid connection, and supply chain constraints persist. PV remains concentrated on buildings
+  using the best-suited areas. Ground-mounted PV falls significantly short of its area potential.
+- **Medium**: Gradual removal of administrative and grid-related barriers enables continued growth on buildings,
+  complemented by increasing ground-mounted and agrivoltaic installations.
+- **High**: Most barriers are resolved. Grid access is widely available. Storage, energy communities, and digital
+  energy management enable high system flexibility, activating the full potential on buildings and open land.
+
+New and renovated buildings are assumed to be PV-optimised in line with EU building regulations.
+
+## Input Data
+
+The study provides three GeoJSON files at municipality level, each containing `C_`-prefixed scenario columns:
+
+| GeoJSON file                              | Area category                     |
+|-------------------------------------------|-----------------------------------|
+| `pv_buildings_EEPOT_W23.geojson`          | Buildings (rooftop and façade)    |
+| `pv_ground_mounted_sealed_EEPOT_W23.geojson`   | Ground-mounted, sealed surfaces  |
+| `pv_ground_mounted_unsealed_EEPOT_W23.geojson` | Ground-mounted, unsealed surfaces|
+
+These files are fetched and processed by the `build_klien_potentials` rule
+(`scripts/pypsa-at/build_klien_potentials.py`). The sealed and unsealed ground-mounted files are summed
+element-wise to form the combined ground-mounted output (`nuts3_pv_ground.csv`, `at10_pv_ground.csv`).
+
+## Carrier Mapping
+
+The three area categories map to PyPSA carriers as follows:
+
+| Area category                    | PyPSA carrier    |
+|----------------------------------|------------------|
+| Buildings                        | `solar rooftop`  |
+| Ground-mounted (sealed + unsealed combined) | `solar`, `solar-hsat` |
+
+`solar` (fixed-tilt ground-mounted) and `solar-hsat` (single-axis horizontal tracking) are treated as distinct
+technologies but share the same physical land area. Both are capped against the combined ground-mounted potential.
+
+## Shared Land-Use Constraint for `solar` and `solar-hsat`
+
+Because `solar` and `solar-hsat` compete for the same land, setting the same `p_nom_max` on both carriers would
+allow the model to install up to twice the available potential. `apply_klien_potential_limits()` therefore sets
+identical `p_nom_max` values on both carriers as a first-order bound.
+
+The precise combined limit is then enforced at solve time by the constraint `solar_potential` in
+`scripts/solve_network.py` (`add_solar_potential_constraints()`):
 
 ```
-C_{year}_{ambition}_{climate_scenario}
+solar_p_nom + solar_hsat_p_nom × 1.13 ≤ total_solar_potential
 ```
 
-Example: `C_2030_medium_mocc`
+The factor **1.13** is the ratio of land-use intensities:
 
-**Time horizon** (`year`)
-
-| Value | Meaning |
-|-------|---------|
-| `2030` | Mobilisable potential up to 2030 |
-| `2040` | Mobilisable potential up to 2040 |
-
-**Ambition level** (`ambition`)
-
-| Value | Meaning |
-|-------|---------|
-| `low` | Conservative political and societal framework conditions |
-| `medium` | Medium mobilisation assumptions |
-| `high` | Optimistic mobilisation assumptions |
-
-**Climate scenario** (`climate_scenario`)
-
-| Code | Meaning |
-|------|---------|
-| `wocc` | Without climate change |
-| `mocc` | Moderate climate change (RCP 4.5) |
-| `stcc` | Strong temperature climate change (RCP 8.5) |
-
-Each file also contains the column `C_technical_potential`, which represents the maximum technical potential without
-political or economic constraints.
-
-## Data Transformation
-
-The raw potentials are available at municipality level and are aggregated to model regions in two steps by the
-Snakemake rule `aggregate_pv_potentials` (`scripts/pypsa-at/aggregate_pv_potentials.py`):
-
-1. **Spatial assignment**: The representative point of each municipality is assigned to a NUTS3 area via a spatial
-   join. Municipalities that do not fall within any polygon are assigned to the geometrically nearest NUTS3 area
-   (`sjoin_nearest`).
-
-2. **Aggregation**: The potential values (all `C_` columns) are summed by `nuts3` and `at10`. The result is written
-   as CSV to `data/pv_potentials/`.
-
-The combined ground-mounted potentials (`nuts3_pv_ground.csv`, `at10_pv_ground.csv`) are produced as the sum of the
-sealed and unsealed potentials.
-
-## Application in the Model
-
-The function `apply_pv_potential_limits()` in `mods/pv_potentials.py` sets the aggregated potentials as `p_nom_max`
-bounds for extendable Austrian solar generators:
-
-1. The function reads the CSV at the granularity matching the clustering resolution: `at10` for
-   `clustering.administrative.AT = 2`, `nuts3` for `AT = 3`.
-2. The target column is constructed from the configuration using the pattern `C_{year}_{ambition}_{climate_scenario}`.
-   Alternatively, the column `C_technical_potential` is used.
-3. Already installed capacity from past years is subtracted from the potential value.
-4. The remaining potential is set as `p_nom_max` for each extendable generator. If the potential falls below
-   `p_nom_min`, `p_nom_max = p_nom_min` is set to avoid infeasibility.
-
-Only generators at buses with the index prefix `AT` are modified. Generators from other countries (e.g. DE, CH) are
-left unchanged.
-
-For the technologies `solar` and `solar-hsat`, the same limit is applied to both. A corresponding constraint is set
-in `add_solar_potential_constraints` in `solve_network.py`.
-
-## Configuration
-
-The PV potential limit is controlled via `mods.pv_potential_limits` in `config/config.at.yaml`:
-
-```yaml
-mods:
-  pv_potential_limits:
-    use_technical_potentials: false # if true, technical potentials are used.
-                                    # if true, climate_scenario, year and ambition are ignored.
-    enable: false           # true activates the limit
-    climate_scenario: mocc  # wocc | mocc | stcc
-    year: 2040              # 2030 | 2040
-    ambition: medium        # low | medium | high
+```
+solar.capacity_per_sqkm / solar-hsat.capacity_per_sqkm = 5.1 / 4.43 ≈ 1.13
 ```
 
-**Default setting**: The limit is enabled (`enable: true`). By default, the scenario `C_2040_medium_mocc` is used —
-moderate climate change, medium ambition level, time horizon 2040.
+Single-axis tracking systems require wider row spacing to avoid self-shading, so a given land area yields
+less installed capacity in MW for `solar-hsat` than for fixed-tilt `solar`. The constraint corrects for this
+by penalising `solar-hsat` capacity relative to the shared land budget.

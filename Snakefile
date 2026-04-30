@@ -66,6 +66,7 @@ include: "rules/common.smk"
 
 # Data constants
 OSM_DATASET = dataset_version("osm")
+KLIEN_POTENTIALS = dataset_version("klien_potentials")
 
 
 include: "rules/collect.smk"
@@ -650,18 +651,20 @@ rule modify_district_heat_share:
 
 rule modify_prenetwork:
     params:
-        pv_potential_limits_enable=config_provider(
-            "mods", "pv_potential_limits", "enable"
+        klien_potential_limits_technologies=config_provider(
+            "mods", "klien_potential_limits", "technologies"
         ),
-        pv_potential_limits_use_technical_potentials=config_provider(
-            "mods", "pv_potential_limits", "use_technical_potentials"
+        klien_potential_limits_use_technical_potentials=config_provider(
+            "mods", "klien_potential_limits", "use_technical_potentials"
         ),
-        pv_potential_limits_climate_scenario=config_provider(
-            "mods", "pv_potential_limits", "climate_scenario"
+        klien_potential_limits_climate_scenario=config_provider(
+            "mods", "klien_potential_limits", "climate_scenario"
         ),
-        pv_potential_limits_year=config_provider("mods", "pv_potential_limits", "year"),
-        pv_potential_limits_ambition=config_provider(
-            "mods", "pv_potential_limits", "ambition"
+        klien_potential_limits_year=config_provider(
+            "mods", "klien_potential_limits", "year"
+        ),
+        klien_potential_limits_ambition=config_provider(
+            "mods", "klien_potential_limits", "ambition"
         ),
         ukrainian_gas_transit_stop=config_provider("mods", "ukrainian_gas_transit_stop"),
         efuel_export_ban=config_provider("solving", "constraints", "efuel_export_ban"),
@@ -709,10 +712,12 @@ rule modify_prenetwork:
             if config_provider("mods", "PEMMDB_projections", "enabled", default=False)
             else {}
         ),
-        nuts3_buildings="data/pypsa-at/pv_potentials/nuts3_pv_buildings.csv",
-        nuts3_ground="data/pypsa-at/pv_potentials/nuts3_pv_ground.csv",
-        at10_buildings="data/pypsa-at/pv_potentials/at10_pv_buildings.csv",
-        at10_ground="data/pypsa-at/pv_potentials/at10_pv_ground.csv",
+        nuts3_buildings=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_buildings.csv",
+        nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
+        at10_buildings=f"{KLIEN_POTENTIALS['folder']}/at10_pv_buildings.csv",
+        at10_ground=f"{KLIEN_POTENTIALS['folder']}/at10_pv_ground.csv",
+        nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
+        at10_wind=f"{KLIEN_POTENTIALS['folder']}/at10_wind.csv",
         austrian_transmission_capacities="data/austrian_transmission_capacities.csv",
         ukrainian_gas_transit_stop="data/pypsa-at/ukrainian_gas_transit_stop.json",
         gas_input_nodes_simplified=resources(
