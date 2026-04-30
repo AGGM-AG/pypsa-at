@@ -11,74 +11,65 @@ Downloads AT-specific data from the sources for the dataset entries in
 
 # `dataset_version` and Snakemake imports are available from the enclosing
 # Snakefile scope (rules/common.smk is included before this file).
-# `copy2`, `unpack_archive`, `rmtree` are imported in rules/retrieve.smk.
+# `copy2`, `unpack_archive`, `rmtree` and `storage` are imported in rules/retrieve.smk.
 
-if (KLIEN_PV_BUILDINGS_POTENTIAL := dataset_version("klien_pv_buildings_potential"))[
-    "source"
-] in [
-    "primary",
-    "archive",
-]:
+# KLIEN_POTENTIALS is defined in Snakefile (dataset_version("klien_potentials"))
+# and available via include scope. Individual GeoJSON files are fetched via storage()
+# using per-file path fragments appended to KLIEN_POTENTIALS['url'].
 
-    rule retrieve_klien_pv_buildings_potential:
+if KLIEN_POTENTIALS["source"] == "build":
+
+    rule build_klien_potentials:
         message:
-            "Retrieving KLIEN PV Buildings Potential"
+            "Building aggregated KLIEN potentials (PV + wind) from KLIEN GeoJSON sources"
         input:
-            klien_pv_buildings_potential=storage(KLIEN_PV_BUILDINGS_POTENTIAL["url"]),
-        output:
-            klien_pv_buildings_potential=f"{KLIEN_PV_BUILDINGS_POTENTIAL['folder']}/pv_buildings_potential.geojson",
-        run:
-            copy2(
-                input["klien_pv_buildings_potential"],
-                output["klien_pv_buildings_potential"],
-            )
-
-
-if (
-    KLIEN_PV_GROUND_MOUNTED_SEALED_POTENTIAL := dataset_version(
-        "klien_pv_ground_mounted_sealed_potential"
-    )
-)["source"] in [
-    "primary",
-    "archive",
-]:
-
-    rule retrieve_klien_pv_ground_mounted_sealed_potential:
-        message:
-            "Retrieving KLIEN PV Ground Mounted Sealed Potential"
-        input:
-            klien_pv_ground_mounted_sealed_potential=storage(
-                KLIEN_PV_GROUND_MOUNTED_SEALED_POTENTIAL["url"]
+            nuts3_shapes=resources("nuts3_shapes.geojson"),
+            pv_buildings=storage(
+                f"{KLIEN_POTENTIALS['url']}/pv/pv_buildings/pv_buildings_EEPOT_W23.geojson"
             ),
-        output:
-            klien_pv_ground_mounted_sealed_potential=f"{KLIEN_PV_GROUND_MOUNTED_SEALED_POTENTIAL['folder']}/pv_ground_sealed_potential.geojson",
-        run:
-            copy2(
-                input["klien_pv_ground_mounted_sealed_potential"],
-                output["klien_pv_ground_mounted_sealed_potential"],
-            )
-
-
-if (
-    KLIEN_PV_GROUND_MOUNTED_UNSEALED_POTENTIAL := dataset_version(
-        "klien_pv_ground_mounted_unsealed_potential"
-    )
-)["source"] in [
-    "primary",
-    "archive",
-]:
-
-    rule retrieve_klien_pv_ground_mounted_unsealed_potential:
-        message:
-            "Retrieving KLIEN PV Ground Mounted Unsealed Potential"
-        input:
-            klien_pv_ground_mounted_unsealed_potential=storage(
-                KLIEN_PV_GROUND_MOUNTED_UNSEALED_POTENTIAL["url"]
+            pv_ground_sealed=storage(
+                f"{KLIEN_POTENTIALS['url']}/pv/pv_ground_mounted_sealed/pv_ground_mounted_sealed_EEPOT_W23.geojson"
             ),
+            pv_ground_unsealed=storage(
+                f"{KLIEN_POTENTIALS['url']}/pv/pv_ground_mounted_unsealed/pv_ground_mounted_unsealed_EEPOT_W23.geojson"
+            ),
+            wind=storage(f"{KLIEN_POTENTIALS['url']}/wind/wind_EEPOT_W23.geojson"),
         output:
-            klien_pv_ground_mounted_unsealed_potential=f"{KLIEN_PV_GROUND_MOUNTED_UNSEALED_POTENTIAL['folder']}/pv_ground_unsealed_potential.geojson",
+            nuts3_buildings=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_buildings.csv",
+            nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
+            at10_buildings=f"{KLIEN_POTENTIALS['folder']}/at10_pv_buildings.csv",
+            at10_ground=f"{KLIEN_POTENTIALS['folder']}/at10_pv_ground.csv",
+            nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
+            at10_wind=f"{KLIEN_POTENTIALS['folder']}/at10_wind.csv",
+        log:
+            logs("build_klien_potentials.log"),
+        threads: 1
+        resources:
+            mem_mb=2000,
+        script:
+            scripts("pypsa-at/build_klien_potentials.py")
+
+elif KLIEN_POTENTIALS["source"] == "archive":
+
+    rule retrieve_klien_potentials:
+        message:
+            "Retrieving pre-aggregated KLIEN potentials (PV + wind) from archive"
+        input:
+            nuts3_buildings=storage(f"{KLIEN_POTENTIALS['url']}/nuts3_pv_buildings.csv"),
+            nuts3_ground=storage(f"{KLIEN_POTENTIALS['url']}/nuts3_pv_ground.csv"),
+            at10_buildings=storage(f"{KLIEN_POTENTIALS['url']}/at10_pv_buildings.csv"),
+            at10_ground=storage(f"{KLIEN_POTENTIALS['url']}/at10_pv_ground.csv"),
+            nuts3_wind=storage(f"{KLIEN_POTENTIALS['url']}/nuts3_wind.csv"),
+            at10_wind=storage(f"{KLIEN_POTENTIALS['url']}/at10_wind.csv"),
+        output:
+            nuts3_buildings=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_buildings.csv",
+            nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
+            at10_buildings=f"{KLIEN_POTENTIALS['folder']}/at10_pv_buildings.csv",
+            at10_ground=f"{KLIEN_POTENTIALS['folder']}/at10_pv_ground.csv",
+            nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
+            at10_wind=f"{KLIEN_POTENTIALS['folder']}/at10_wind.csv",
+        log:
+            logs("retrieve_klien_potentials.log"),
         run:
-            copy2(
-                input["klien_pv_ground_mounted_unsealed_potential"],
-                output["klien_pv_ground_mounted_unsealed_potential"],
-            )
+            for key in input.keys():
+                copy2(input[key], output[key])

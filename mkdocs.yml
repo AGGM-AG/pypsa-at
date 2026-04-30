@@ -52,6 +52,10 @@ nav:
     - Transmission Limits: explanations/electricity-grid/electricity-transmission.md
   - Brownfield:
     - Open-TYNDP Trajectories: explanations/brownfield/open-tyndp.md
+  - Renewable Energy Potentials:
+    - KLIEN Potentials: explanations/renewable-energy-potentials/klien-potentials.md
+    - Photovoltaic Potentials: explanations/renewable-energy-potentials/pv-potentials.md
+    - Wind Power Potentials: explanations/renewable-energy-potentials/wind-potentials.md
 
 theme:
   name: "material"

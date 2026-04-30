@@ -78,6 +78,7 @@ include: "rules/common.smk"
 
 # Data constants
 OSM_DATASET = dataset_version("osm")
+KLIEN_POTENTIALS = dataset_version("klien_potentials")
 
 
 include: "rules/collect.smk"
