@@ -26,10 +26,6 @@ if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
 ]:
 
     rule retrieve_open_tyndp:
-        message:
-            "Retrieving TYNDP 2024 data package from open-tyndp Google data store "
-            "(PEMMDB v2.4, reference grids, nodes, hydro inflows, demand profiles, "
-            "H2 data, investment datasets, offshore hubs)"
         input:
             pemmdb=storage(OPEN_TYNDP_DATASET["url"] + "/PEMMDB2.zip"),
             nodes=storage(OPEN_TYNDP_DATASET["url"] + "/Nodes.zip"),
@@ -73,6 +69,10 @@ if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
             offshore_generators=f"{OPEN_TYNDP_DATASET['folder']}/Offshore hubs/GENERATOR.xlsx",
         log:
             "logs/retrieve_open_tyndp.log",
+        message:
+            "Retrieving TYNDP 2024 data package from open-tyndp Google data store "
+            "(PEMMDB v2.4, reference grids, nodes, hydro inflows, demand profiles, "
+            "H2 data, investment datasets, offshore hubs)"
         run:
             for key in input.keys():
                 zip_output_key = f"{key}_zip"
