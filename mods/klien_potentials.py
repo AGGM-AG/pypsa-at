@@ -49,14 +49,12 @@ def _set_p_nom_max(
         ``p_nom_min`` if the value is below it.
 
     """
-    gen_p_nom_max = n.generators.loc[gen_idx, "p_nom_max"]
-    p_nom_max_value = min(p_nom_max, gen_p_nom_max)
     gen_p_nom_min = n.generators.loc[gen_idx, "p_nom_min"]
-    if gen_p_nom_min > p_nom_max_value:
+    if gen_p_nom_min > p_nom_max:
         # Happens due to issues in wind distribution for the base year
         logger.warning(f"KLIEN potential is below minimum for {gen_idx}")
-        p_nom_max_value = gen_p_nom_min
-    n.generators.loc[gen_idx, "p_nom_max"] = p_nom_max_value
+        p_nom_max = gen_p_nom_min
+    n.generators.loc[gen_idx, "p_nom_max"] = p_nom_max
 
 
 def _resolve_scenario_column(snakemake: Snakemake) -> str:
@@ -74,14 +72,20 @@ def _resolve_scenario_column(snakemake: Snakemake) -> str:
     * ``klien_potential_limits_climate_scenario``: climate scenario code; must
       be ``"wocc"``, ``"mocc"``, or ``"stcc"``.
 
-    Args:
-        snakemake: Snakemake workflow object providing ``snakemake.params``.
+    Parameters
+    ----------
+    snakemake
+         Snakemake workflow object providing ``snakemake.params``.
 
-    Returns:
+    Returns
+    -------
+    :
         The column name to look up in the KLIEN potential CSV.
 
-    Raises:
-        ValueError: If any of ``climate_scenario``, ``year``, or ``ambition`` is invalid.
+    Raises
+    ------
+    ValueError
+         If any of ``climate_scenario``, ``year``, or ``ambition`` is invalid.
     """
     use_technical_potentials = snakemake.params[
         "klien_potential_limits_use_technical_potentials"
@@ -118,11 +122,15 @@ def _paths_for_at_level(at_level: int, snakemake: Snakemake) -> dict[str, str]:
     """
     Return a mapping from CSV type to file path for the given AT clustering level.
 
-    Args:
-        at_level: Integer NUTS level for Austria (2 = AT10, 3 = NUTS3).
+    Parameters
+    ----------
+    at_level
+        Integer NUTS level for Austria (2 = AT10, 3 = NUTS3).
         snakemake: Snakemake workflow object providing ``snakemake.input``.
 
-    Returns:
+    Returns
+    -------
+    :
         Dict mapping ``"buildings"``, ``"ground"``, ``"wind"`` to absolute file paths,
         or an empty dict when ``at_level`` is unsupported.
     """
@@ -229,15 +237,12 @@ def apply_klien_potential_limits(n: pypsa.Network, snakemake: Snakemake) -> None
     brownfield_at = brownfield[
         brownfield.index.get_level_values("location").str.startswith("AT")
     ]
-    planning_horizon = int(snakemake.wildcards.planning_horizons)
 
     for (location, carrier), brownfield_value in brownfield_at.items():
         potential = carrier_potential[carrier][location]
-        if planning_horizon > 2025:
-            potential -= brownfield_value
 
         mask_ext = (
-            (n.generators.index.str.startswith(location))
+            (n.generators.index.str.startswith(f"{location} "))
             & (n.generators["carrier"] == carrier)
             & (n.generators["p_nom_extendable"])
         )
@@ -245,7 +250,8 @@ def apply_klien_potential_limits(n: pypsa.Network, snakemake: Snakemake) -> None
         if not any(mask_ext):
             continue
 
-        new_upper_limit = max(0.0, potential)
+        # Make sure that the upper limit can always be reached
+        new_upper_limit = max(0.0, potential, brownfield_value)
 
         for gen_idx in n.generators.index[mask_ext]:
             _set_p_nom_max(n, gen_idx, new_upper_limit)

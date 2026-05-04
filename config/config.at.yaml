@@ -220,7 +220,7 @@ mods:
     - solar
     - solar-hsat
     - onwind
-    use_technical_potentials: true # if true, technical potentials are used.
+    use_technical_potentials: false # if true, technical potentials are used.
                                     # if true, climate_scenario, year and ambition are ignored.
     climate_scenario: wocc   # wocc | mocc | stcc
     year: 2040               # 2030 | 2040
