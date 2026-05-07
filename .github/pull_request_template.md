@@ -8,7 +8,7 @@ Before asking for a review for this PR make sure to complete the following check
 **Required:**
 - [ ] Changes are tested locally and behave as expected.
 - [ ] Code and workflow changes are documented.
-- [ ] A brief description of the changes has been added to `Changelog.md`.
+- [ ] A brief description of the changes has been added to `Changelog.AT.md`.
 - [ ] All Sourcery Bot review suggestions have been implemented or discarded with an explanation.
 - [ ] All github actions succeed.
 

@@ -178,14 +178,11 @@ def test_process_potential_file_aggregates_multiple_municipalities_into_nuts3_an
     potential_path = tmp_path / "muni.geojson"
     muni_gdf.to_file(potential_path, driver="GeoJSON")
 
-    nuts3_df, at10_df = process_potential_file(str(potential_path), nuts3_shapes)
+    nuts3_df = process_potential_file(str(potential_path), nuts3_shapes)
 
     assert nuts3_df.index.name == "nuts3"
-    assert at10_df.index.name == "at10"
     assert nuts3_df.loc["AT111", "C_energy"] == pytest.approx(100.0, rel=0.01)
     assert nuts3_df.loc["AT121", "C_energy"] == pytest.approx(500.0, rel=0.01)
-    assert at10_df.loc["AT11", "C_energy"] == pytest.approx(100.0, rel=0.01)
-    assert at10_df.loc["AT12", "C_energy"] == pytest.approx(500.0, rel=0.01)
 
 
 def test_map_to_nuts3_weighted_non_at_fragment_redirected():

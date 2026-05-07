@@ -60,6 +60,7 @@ jobs:
       with:
         filters: |
           src:
+            - 'mods/**'
             - 'scripts/**'
             - 'rules/**'
             - 'data/**'

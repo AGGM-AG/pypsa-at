@@ -199,9 +199,6 @@ def aggregate_by_cluster_and_country(
     # trajectories with both: clustered locations and country codes
     result = traj_location.combine_first(traj_countries).sort_index()
 
-    # # Need to drop some countries: They are not modeled in PyPSA-AT
-    # result = result.drop(index=["CY"], level="location")
-
     return result
 
 
@@ -294,6 +291,22 @@ def apply_trajectories(
         # reduce total boundaries by already built and still existing capacities
         if is_myopic_year:
             p_nom_min = max(0, p_nom_min - existing_brownfield)
+
+        # For wind and solar, add_land_use_constraint() in solve_network.py subtracts
+        # existing non-extendable p_nom from p_nom_max during the solve step.
+        # Deducting here too would cause the brownfield to be subtracted twice.
+        # solar-utility is not affected, because a constraint directly sets p_nom_opt
+        # ceilings for combined solar + solar-hsat technologies.
+        land_use_constraint_carrier = (
+            "onwind",
+            "solar rooftop",
+            "solar-utility",
+            "solar-hsat",
+            "offwind-ac",
+            "offwind-dc",
+            "offwind-float",
+        )
+        if is_myopic_year and carrier not in land_use_constraint_carrier:
             p_nom_max = max(0, p_nom_max - existing_brownfield)
 
         # some trajectories are given for bus1 output capacities

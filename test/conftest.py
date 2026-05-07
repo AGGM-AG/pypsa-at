@@ -179,9 +179,7 @@ def result_path(pytestconfig) -> pathlib.Path:
     Note, that we cannot directly access the run_path (project root), because
     we want to run the tests on copied results folders as well.
     """
-    default_path = pytestconfig.rootpath / "tests" / "data"
-    result_path = pytestconfig.getoption("result_path")
-    return pathlib.Path(result_path) if result_path else default_path
+    return pathlib.Path(pytestconfig.getoption("result_path"))
 
 
 @pytest.fixture(scope="session")
@@ -205,5 +203,10 @@ def nc(result_path: pathlib.Path) -> NetworkCollection:
 def pytest_addoption(parser) -> None:
     """Register command line arguments."""
     parser.addoption(
-        "--result-path", action="store", help="Path to the ESM results folder."
+        "--result-path", action="store", help="Path to the results folder."
     )
+
+
+@pytest.fixture(scope="session")
+def is_testrun(nc):
+    return any(n.meta["run"]["prefix"] == "test-sector-myopic-at10" for n in nc)

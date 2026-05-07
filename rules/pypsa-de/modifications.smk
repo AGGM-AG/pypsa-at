@@ -192,9 +192,6 @@ rule modify_prenetwork:
         nuts3_buildings=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_buildings.csv",
         nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
         nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
-        at10_buildings=f"{KLIEN_POTENTIALS['folder']}/at10_pv_buildings.csv",
-        at10_ground=f"{KLIEN_POTENTIALS['folder']}/at10_pv_ground.csv",
-        at10_wind=f"{KLIEN_POTENTIALS['folder']}/at10_wind.csv",
         ukrainian_gas_transit_stop="data/pypsa-at/ukrainian_gas_transit_stop.json",
         gas_input_nodes_simplified=resources(
             "gas_input_locations_s_{clusters}_simplified.csv"

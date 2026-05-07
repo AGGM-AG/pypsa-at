@@ -38,6 +38,8 @@ generate-config = "python -c 'from scripts.lib.validation.config import generate
 
 evals = "PYTHONPATH='./' python evals/cli.py run-eval"
 
+workflow = "snakemake -call"
+
 [dependencies]
 # Add additional packages only to pypsa-at specific section
 # All other packages should be identical to pypsa-eur and pypsa-de

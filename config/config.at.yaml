@@ -134,7 +134,7 @@ data:
     source: archive
     version: 0.2-at
   klien_potentials:
-    source: archive
+    source: build
     version: 2026-v1
 
 solving:

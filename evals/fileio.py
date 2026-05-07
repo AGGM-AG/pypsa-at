@@ -115,7 +115,9 @@ def read_networks(
     if not networks:
         raise FileNotFoundError(f"No networks found in {file_paths}.")
 
-    return NetworkCollection(networks)
+    nc = NetworkCollection(networks)
+    nc.statistics = ESMStatistics(nc)
+    return nc
 
 
 def read_views_config(

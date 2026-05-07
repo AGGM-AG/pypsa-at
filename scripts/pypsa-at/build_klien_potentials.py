@@ -26,7 +26,6 @@ import logging
 
 import geopandas as gpd
 import pandas as pd
-from snakemake.script import Snakemake
 
 from scripts._helpers import configure_logging
 
@@ -130,7 +129,7 @@ def map_to_nuts3_weighted(
     for col in capacity_cols:
         overlay[col] = overlay[col] * overlay["weight"]
 
-    # AT10 corresponds directly to the NUTS2 level2 code (e.g. "AT11", "AT12").
+    # AT10 corresponds directly to the NUTS2 level2 code (e.g. "AT11", "AT12") and AT333.
     overlay["at10"] = overlay["level2"]
     overlay["nuts3"] = overlay["level3"]
 
@@ -140,67 +139,66 @@ def map_to_nuts3_weighted(
 def process_potential_file(
     potential_path: str,
     nuts3_shapes: gpd.GeoDataFrame,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> pd.DataFrame:
     """
     Load one KLIEN GeoJSON, apply area-weighted NUTS3 mapping, and aggregate.
 
-    Args:
-        potential_path: Path to the municipality-level KLIEN GeoJSON file.
+    Parameters
+    ----------
+    potential_path
+        Path to the municipality-level KLIEN GeoJSON file.
         nuts3_shapes: NUTS3 shapes GeoDataFrame (with ``level2`` and ``level3`` columns).
 
-    Returns:
-        Tuple of ``(nuts3_agg, at10_agg)`` DataFrames with aggregated potentials,
-        indexed by ``nuts3`` and ``at10`` respectively.
+    nuts3_shapes
+        NUTS3 shape file with region polygons.
 
-    Raises:
-        ValueError: If no ``C_``-prefixed capacity columns are found in the GeoJSON,
-            or if municipality-to-NUTS3 area-weight validation fails.
+    Returns
+    -------
+    :
+        Aggregated potentials indexed by ``nuts3`` region codes.
+
+    Raises
+    ------
+    ValueError:
+        If no ``C_``-prefixed capacity columns are found in the GeoJSON,
+        or if municipality-to-NUTS3 area-weight validation fails.
     """
     gdf = gpd.read_file(potential_path)
     gdf.columns = gdf.columns.str.strip()
 
-    capacity_cols = [c for c in gdf.columns if c.startswith("C_")]
-    if not capacity_cols:
+    cols = [c for c in gdf.columns if c.startswith("C_")]
+    if not cols:
         raise ValueError(
             f"No 'C_'-prefixed energy columns found in '{potential_path}'."
         )
 
-    mapped = map_to_nuts3_weighted(gdf, nuts3_shapes)
-
-    nuts3_agg = mapped.groupby("nuts3")[capacity_cols].sum()
-    at10_agg = mapped.groupby("at10")[capacity_cols].sum()
-
-    return nuts3_agg, at10_agg
+    return map_to_nuts3_weighted(gdf, nuts3_shapes).groupby("nuts3")[cols].sum()
 
 
-def main(snakemake: Snakemake) -> None:
+def main() -> None:
     """
     Orchestrate KLIEN potentials aggregation for a Snakemake run.
 
     Processes PV buildings, ground-mounted (sealed + unsealed combined), and wind
     GeoJSON files into NUTS3- and AT10-level capacity potential CSVs.
 
-    Parameters
-    ----------
-    snakemake
-        Snakemake workflow object providing ``input``, ``output``, and ``log`` paths.
+    Returns
+    -------
+    :
     """
     configure_logging(snakemake)
 
     nuts3_shapes = gpd.read_file(snakemake.input.nuts3_shapes).set_index("index")
 
     # ── PV buildings ─────────────────────────────────────────────────────────
-    nuts3_buildings, at10_buildings = process_potential_file(
-        snakemake.input.pv_buildings, nuts3_shapes
-    )
+    nuts3_buildings = process_potential_file(snakemake.input.pv_buildings, nuts3_shapes)
     nuts3_buildings.to_csv(snakemake.output.nuts3_buildings)
-    at10_buildings.to_csv(snakemake.output.at10_buildings)
 
     # ── PV ground-mounted (sealed + unsealed, summed) ─────────────────────────
-    nuts3_sealed, at10_sealed = process_potential_file(
+    nuts3_sealed = process_potential_file(
         snakemake.input.pv_ground_sealed, nuts3_shapes
     )
-    nuts3_unsealed, at10_unsealed = process_potential_file(
+    nuts3_unsealed = process_potential_file(
         snakemake.input.pv_ground_unsealed, nuts3_shapes
     )
 
@@ -209,15 +207,9 @@ def main(snakemake: Snakemake) -> None:
     nuts3_ground.index.name = "nuts3"
     nuts3_ground.to_csv(snakemake.output.nuts3_ground)
 
-    at10_ground = at10_sealed.add(at10_unsealed, fill_value=0)
-    # .add() resets .index.name when operands have different names; restore explicitly.
-    at10_ground.index.name = "at10"
-    at10_ground.to_csv(snakemake.output.at10_ground)
-
     # ── Wind ──────────────────────────────────────────────────────────────────
-    nuts3_wind, at10_wind = process_potential_file(snakemake.input.wind, nuts3_shapes)
+    nuts3_wind = process_potential_file(snakemake.input.wind, nuts3_shapes)
     nuts3_wind.to_csv(snakemake.output.nuts3_wind)
-    at10_wind.to_csv(snakemake.output.at10_wind)
 
 
 if __name__ == "__main__":
@@ -226,4 +218,4 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake("build_klien_potentials")
 
-    main(snakemake)
+    main()  # uses snakemake object from global scope

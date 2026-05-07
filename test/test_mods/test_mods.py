@@ -8,11 +8,6 @@ from evals.utils import get_energy_totals_domestic_share
 from scripts.prepare_sector_network import determine_emission_sectors
 
 
-@pytest.fixture(scope="session")
-def is_testrun(nc):
-    return any(n.meta["run"]["prefix"] == "test-sector-myopic-at10" for n in nc)
-
-
 @pytest.mark.AT
 def test_custom_clustering(nc, is_testrun):
     """
