@@ -159,6 +159,67 @@ def unravel_gas_import_and_production(
     )
 
 
+def add_h2_for_industry_bus(n: pypsa.Network, nodes: pd.Index) -> None:
+    """
+    Create per-node "H2 for industry" Bus + Link topology and rewire existing Loads.
+
+    Adds a dedicated "H2 for industry" bus per node, adds a unidirectional
+    H2 → H2 for industry Link (so industry H2 demand is supplied from the H2
+    bus but cannot flow back), and rewires the existing "H2 for industry" Loads
+    from the H2 bus to the new dedicated bus.
+
+    Mirrors the "gas for industry" Bus + Link + Load topology used in
+    ``prepare_sector_network.add_industry``.  Links are unidirectional by
+    PyPSA default (p_min_pu=0).
+
+    Parameters
+    ----------
+    n
+        Pre-network to modify in place.
+    nodes
+        Clustered node index (``pop_layout.index``).
+
+    Returns
+    -------
+    :
+        Modifies ``n`` in place.
+    """
+    h2_industry = nodes + " H2 for industry"
+
+    n.add(
+        "Bus",
+        h2_industry,
+        location=nodes,
+        carrier="H2 for industry",
+        unit="MWh_LHV",
+    )
+
+    # Rewire existing loads: "{node} H2 for industry" to new dedicated bus
+    loads_to_rewire = h2_industry[h2_industry.isin(n.loads.index)]
+    n.loads.loc[loads_to_rewire, "bus"] = loads_to_rewire
+
+    # Nodal disaggregation can yield negative demands (non-negative country ratio ×
+    # negative nodal production). Clip to zero to avoid infeasibility.
+    negative = n.loads.loc[loads_to_rewire, "p_set"] < 0
+    if negative.any():
+        logger.warning(
+            f"Clipping negative H2 for industry p_set to zero at: "
+            f"{loads_to_rewire[negative].tolist()}"
+        )
+        n.loads.loc[loads_to_rewire[negative], "p_set"] = 0.0
+
+    n.add(
+        "Link",
+        h2_industry,
+        bus0=nodes + " H2",
+        bus1=h2_industry,
+        carrier="H2 for industry",
+        p_nom_extendable=True,
+        efficiency=1.0,
+    )
+    logger.info(f"Set up H2 for industry Bus + Link topology for {len(nodes)} nodes.")
+
+
 def add_methane_pyrolysis_plasma(
     n: pypsa.Network,
     snakemake: Snakemake,
@@ -176,12 +237,14 @@ def add_methane_pyrolysis_plasma(
     is permanently stored.
 
     * bus0 = gas (CH₄ input, ``p_nom`` reference in MW_CH4)
-    * bus1 = H2  (H₂ output)
+    * bus1 = H2 for industry  (H₂ output, directly to industry demand bus)
     * bus2 = AC  (electricity consumption for plasma torch)
-    * bus3 = urban central heat  — **only** where district heating exists
     * CO₂ stored bus is intentionally **not** connected: carbon black is
       a solid transported by road/rail/ship, not through the CO₂ pipeline
       network.
+
+    Requires ``add_h2_for_industry_bus`` to have been called beforehand so that
+    the "H2 for industry" Bus + Link topology already exists in the network.
 
     All cost parameters in ``costs`` are normalized to MWh_H₂.  Since bus0
     is gas (MW_CH4), efficiencies and capital cost are converted using
@@ -209,8 +272,7 @@ def add_methane_pyrolysis_plasma(
     :
         Modifies ``n`` in place.
     """
-    config = snakemake.config.get("mods", {}).get("methane_pyrolysis", {})
-    # config = {"plasma": True, "utilization_share": 0.0}
+    config = snakemake.config["mods"]["methane_pyrolysis"]
 
     if not config.get("plasma", False):
         logger.info("Methane pyrolysis plasma: disabled — skipping.")
@@ -219,16 +281,23 @@ def add_methane_pyrolysis_plasma(
     # carrier name. Used to mitigate downstream repetitions
     tech = "methane pyrolysis plasma"
 
+    pyear = int(snakemake.wildcards.planning_horizons)
+
     # Guard: technology not available before 2030 (no cost data in custom_costs).
-    # process_cost_data fills missing investment with 0; capital_cost would also
-    # be 0, making capacity free. Skip silently for those planning horizons.
-    if tech not in costs.index or costs.at[tech, "investment"] == 0:
+    if tech not in costs.index:
         logger.info(
             f"Methane pyrolysis plasma not available in "
-            f"{snakemake.wildcards.planning_horizons} "
-            f"(not available before 2030) — skipping."
+            f"{pyear} (not available before 2030) — skipping."
         )
         return
+
+    # fail-safe against zero costs technologies caused by incomplete costs entries
+    if costs.at[tech, "investment"] == 0:
+        raise ValueError(
+            "`process_cost_data` fills missing investment with 0; "
+            "capital_cost would also be 0, making capacity free. "
+            "Check your costs file and processing pipeline."
+        )
 
     logger.info("Adding Methane Pyrolysis (Plasma) H₂ production Links.")
 
@@ -252,58 +321,25 @@ def add_methane_pyrolysis_plasma(
     cost_capital = costs.at[tech, "capital_cost"] * eta_H2  # to EUR/MW_CH4
     cost_marginal = costs.at[tech, "VOM"] * eta_H2 - cb_revenue  # EUR/MWh_CH4
     efficiency_elec = -costs.at[tech, "electricity-input"] * eta_H2
-    efficiency_heat = costs.at[tech, "heat-output"] * eta_H2
     lifetime = costs.at[tech, "lifetime"]
 
-    # heat output only where urban central heating infrastructure exists.
-    urban_heat_buses = n.buses.index[n.buses.carrier == "urban central heat"]
-    heat_mask = pd.array(
-        [f"{node} urban central heat" in urban_heat_buses for node in nodes]
-    )
-    nodes_w_central_heat = nodes[heat_mask]
-    nodes_no_central_heat = nodes[~heat_mask]
-
-    common_kwargs = dict(
+    n.add(
+        "Link",
+        nodes,
         carrier=tech,
         suffix=f" {tech}",
+        bus0=spatial.gas.df.loc[nodes, "nodes"].values,
+        bus1=nodes + " H2 for industry",
+        bus2=nodes,
         p_nom_extendable=True,
         efficiency=eta_H2,
         efficiency2=efficiency_elec,
         capital_cost=cost_capital,
         marginal_cost=cost_marginal,
         lifetime=lifetime,
-        # Note: CO2 stored bus (bus4) intentionally NOT connected.
-        # Carbon black is a solid transported by road/rail/ship,
-        # not via the CO2 pipeline network.
     )
 
-    if len(nodes_w_central_heat):
-        n.add(
-            "Link",
-            nodes_w_central_heat,
-            bus0=spatial.gas.df.loc[nodes_w_central_heat, "nodes"].values,
-            bus1=nodes_w_central_heat + " H2",
-            bus2=nodes_w_central_heat,
-            bus3=nodes_w_central_heat + " urban central heat",
-            efficiency3=efficiency_heat,
-            **common_kwargs,
-        )
-
-    if len(nodes_no_central_heat):
-        n.add(
-            "Link",
-            nodes_no_central_heat,
-            bus0=spatial.gas.df.loc[nodes_no_central_heat, "nodes"].values,
-            bus1=nodes_no_central_heat + " H2",
-            bus2=nodes_no_central_heat,
-            **common_kwargs,
-        )
-
-    logger.info(
-        f"Added methane pyrolysis plasma Links: "
-        f"{len(nodes_w_central_heat)} with heat recovery, "
-        f"{len(nodes_no_central_heat)} without."
-    )
+    logger.info(f"Added {len(nodes)} methane pyrolysis plasma Links.")
 
 
 def update_network_to_stop_ukrainian_gas_transit(

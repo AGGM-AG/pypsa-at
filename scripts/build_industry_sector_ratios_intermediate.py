@@ -90,6 +90,18 @@ def build_industry_sector_ratios_intermediate():
 
     today_sector_ratios = demand.div(production, axis=1).replace([np.inf, -np.inf], 0)
 
+    negative = (
+        today_sector_ratios[today_sector_ratios.lt(0)]
+        .stack([0, 1], future_stack=True)
+        .dropna()
+    )
+    if not negative.empty:
+        logger.debug(
+            f"Negative today sector ratios after country-level disaggregation "
+            f"(JRC-IDEES attribution differences). Clipping to zero: {negative.to_dict()}"
+        )
+        today_sector_ratios = today_sector_ratios.clip(lower=0)
+
     today_sector_ratios.dropna(how="all", axis=1, inplace=True)
 
     rename = {
@@ -130,7 +142,8 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "build_industry_sector_ratios_intermediate",
-            planning_horizons="2030",
+            run="AT_KN2040",
+            planning_horizons="2025",
         )
     configure_logging(snakemake)
     set_scenario_config(snakemake)

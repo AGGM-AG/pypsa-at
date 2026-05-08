@@ -43,6 +43,8 @@ from time import time
 
 import click
 
+from evals.utils import get_latest_results_folder
+
 
 class ViewNames(click.ParamType):
     """
@@ -77,7 +79,9 @@ def cli() -> None:
 
 
 @cli.command()
-@click.argument("result_path", type=click.Path(exists=True), required=True)
+@click.argument(
+    "result_path", type=click.Path(exists=True), required=False, default=None
+)
 @click.option(
     "--sub_directory",
     "-s",
@@ -172,6 +176,9 @@ def run_eval(
     if n_evals == 0:
         sys.exit(f"Found no evaluation functions named: {names}")
     logger.info(f"Selected {n_evals} evaluation functions.")
+
+    if not result_path:
+        result_path = get_latest_results_folder()
 
     nc = read_networks(result_path, sub_directory=sub_directory)
 
