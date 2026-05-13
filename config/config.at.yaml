@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: upstream-merge-20260430
+  prefix: feat-gas-network-split-bidirectional-links
   name:
   - AT_KN2040
   scenarios:
@@ -91,6 +91,22 @@ sector:
   co2_network: true
   imports:  # this is for renewable gas/H2/methanol/oil imports
     enable: false
+  transmission_efficiency:
+    # all link carriers must be enabled and given an efficiency here
+    # this ensures that bidirectional links (p_min_pu=-1) are split into two monodirectional pairs
+    # and prevents negative shadow prices depending on direction of energy flows
+    enable:
+    - H2 pipeline retrofitted
+    - gas pipeline new
+    - CO2 pipeline
+    H2 pipeline retrofitted:
+      efficiency_per_1000km: 1
+      compression_per_1000km: 0.018
+    gas pipeline new:
+      efficiency_per_1000km: 1
+      compression_per_1000km: 0.01
+    CO2 pipeline:
+      efficiency_per_1000km: 1
 
   # PyPSA-DE KN2045_Mix scenario settings
   aviation_demand_factor:
