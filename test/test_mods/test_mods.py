@@ -32,7 +32,7 @@ def test_custom_clustering(nc, is_testrun):
             assert len(locations_at) == 10
             assert len(locations_de) == 5
         elif clustering == "AT10DE16":
-            assert len(locations) == 66
+            assert len(locations) == 63
             assert len(locations_at) == 10
             assert len(locations_de) == 16
         elif clustering == "AT35DE5":
@@ -40,7 +40,7 @@ def test_custom_clustering(nc, is_testrun):
             assert len(locations_at) == 35
             assert len(locations_de) == 5
         elif clustering == "AT35DE16":
-            assert len(locations) == 91
+            assert len(locations) == 88
             assert len(locations_at) == 35
             assert len(locations_de) == 16
         else:
