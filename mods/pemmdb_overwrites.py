@@ -214,6 +214,8 @@ def apply_trajectories(
     1. Looks up the pre-aggregated trajectory bounds from *traj*.
     2. Subtracts existing brownfield capacity (planning horizons > 2025 only) so
        that the bounds represent *additional* capacity still available to the solver.
+       The brownfield is measured at the same port as the trajectory: bus-1 units
+       (``p_nom × efficiency``) when ``at_port=1``, bus-0 units otherwise.
     3. Converts bus-1 output capacity bounds to bus-0 input bounds when
        ``at_port=1`` by dividing by component efficiency.
     4. Writes the final bounds directly to ``n.components[c].static``.
@@ -260,12 +262,17 @@ def apply_trajectories(
         if name[0][:2] not in skip_countries
     ]
 
-    # Sum up p_nom of all assets. End-of-life assets have been
-    # removed during add_brownfield(...)
+    # Sum up p_nom of all assets in the same port units as the trajectory.
+    # For at_port=1 carriers (battery discharger, home battery discharger) the
+    # trajectory p_nom_max is expressed in bus1 (output) MW, so the brownfield
+    # deduction must also be in bus1 units (p_nom * efficiency). Using bus0 units
+    # would cause a ~(1-eff) relative error per MW of existing brownfield.
+    # End-of-life assets have been removed during add_brownfield(...)
     brownfield_capacities = n.statistics.installed_capacity(
         groupby=["location", "carrier"],
         components=c,
         carrier=carrier,
+        at_port=str(at_port),
         aggregate_across_components=True,
         nice_names=False,
         drop_zero=False,
