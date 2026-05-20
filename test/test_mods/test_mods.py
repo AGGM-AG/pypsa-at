@@ -105,3 +105,27 @@ def test_national_co2_budget_constraint(nc):
                 f"Exceeded emission limit for country {ct} and year "
                 f"{year}: {country_limit} > {country_emissions} in Mt_CO2"
             )
+
+
+@pytest.mark.AT
+def test_no_load_supply(nc):
+    """
+    Verify that no Load components supply energy to buses. Ever.
+
+    The ``process emissions`` carrier is excluded: PyPSA-Eur models exogenous
+    industrial CO2 emissions as a Load with negative ``p_set`` on a CO2 bus
+    (``unit="t_co2"``), so that ``-p_set`` injects positive flow representing
+    emissions. This is an upstream design pattern, not energy supply, but
+    ``statistics.supply`` cannot distinguish the bus unit and reports it.
+    See ``scripts/prepare_sector_network.py`` (upstream) for the construction.
+    """
+    load_supply = nc.statistics.supply(
+        components="Load", groupby=["location", "carrier"]
+    )
+    load_supply = load_supply.drop(
+        "process emissions", level="carrier", errors="ignore"
+    )
+
+    assert load_supply.empty, (
+        f"Detected node supply from Load components: {load_supply}"
+    )

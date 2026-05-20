@@ -455,6 +455,49 @@ def make_gas_pipelines_unextendable(n: pypsa.Network, snakemake: Snakemake) -> N
         n.links.loc[n.links.carrier == "gas pipeline", "p_nom_extendable"] = False
 
 
+def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -> None:
+    """
+    Clip negative Loads for selected edge cases.
+
+    This is neccessary, because some electricity demands are calculated
+    from heuristics. For example, ``heat for electricity`` from
+    ``energy_totals`` and population share is deducted from
+    regional ``base load``. This can lead to negative Loads if
+    heuristics yield larger values than input data sets. However,
+    there are many examples where this may happen.
+
+    Parameters
+    ----------
+    n
+        The network before solve step.
+    snakemake
+        The Snakemake workflow object providing inputs, params,
+        config, and outputs.
+
+    Returns
+    -------
+    :
+        Updates network in place.
+
+    Raises
+    ------
+    RunTimeError
+        If expected edge cases could not be found.
+
+    """
+    cfg = snakemake.config
+
+    resolution_time = cfg["clustering"]["temporal"]["resolution_sector"]
+    clustering = cfg["mods"]["modify_nuts3_shapes"]
+
+    # Edge case: electricity for heat is larger than base load in AT126
+    if resolution_time.startswith("365") and clustering.startswith("AT35"):
+        negatives = n.loads_t["p_set"]["AT126"].lt(0)
+        if not any(negatives):
+            raise RuntimeError("Expected negative electricity Load for AT126.")
+        n.loads_t["p_set"].loc[negatives, "AT126"] = 0
+
+
 def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
     Apply all PyPSA-AT specific modifications to the pre-network.
@@ -492,3 +535,4 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
 
     overwrite_pemmdb_capacities(n, snakemake)
     apply_klien_potential_limits(n, snakemake)
+    clip_negative_loads_for_edge_cases(n, snakemake)
