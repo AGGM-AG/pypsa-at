@@ -45,12 +45,12 @@ nav:
 - Explanations:
   - explanations/index.md
   - National CO2 Balance: explanations/co2-balancing.md
-  - H2 for Industry Bus: explanations/h2-for-industry.md
   - Electricity Grid:
     - explanations/electricity-grid/index.md
     - NUTS3 Clustering: explanations/electricity-grid/nuts3-osm-data.md
     - OSM-AT Base Network: explanations/electricity-grid/osm-lines-at.md
     - Transmission Limits: explanations/electricity-grid/electricity-transmission.md
+    - TYNDP Transmission Trajectories: explanations/electricity-grid/tyndp-transmission-trajectories.md
   - Brownfield:
     - Open-TYNDP Trajectories: explanations/brownfield/open-tyndp.md
   - Renewable Energy Potentials:

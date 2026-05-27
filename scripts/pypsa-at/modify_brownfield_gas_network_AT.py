@@ -86,9 +86,9 @@ if __name__ == "__main__":
     gas_network_raw_df = pd.read_csv(gas_network_raw)
 
     if snakemake.config.get("mods").get("modify_brownfield_gas_network_AT"):
-        if custom_clustering.startswith("AT10"):
+        if custom_clustering == "AT10DE5":
             gas_network_input = snakemake.input.brownfield_gas_network_AT10
-        elif custom_clustering.startswith("AT35"):
+        elif custom_clustering == "AT35DE5":
             gas_network_input = snakemake.input.brownfield_gas_network_AT35
 
         else:

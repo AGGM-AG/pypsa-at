@@ -7,7 +7,6 @@
 import logging
 import re
 from itertools import product
-from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -1134,20 +1133,3 @@ def build_plot_config(global_cfg: dict) -> SimpleNamespace:
         yaxes_showgrid=global_cfg["yaxes_showgrid"],
         yaxes_visible=global_cfg["yaxes_visible"],
     )
-
-
-def get_latest_results_folder() -> Path:
-    """Find the results folder with the latest file system timestamp."""
-    results_root = Path("results")
-    scenario_dirs = [
-        scenario
-        for prefix in results_root.iterdir()
-        if prefix.is_dir()
-        for scenario in prefix.iterdir()
-        if scenario.is_dir()
-    ]
-    if not scenario_dirs:
-        raise FileNotFoundError(
-            f"No scenario directories found under {results_root.resolve()}"
-        )
-    return max(scenario_dirs, key=lambda p: p.stat().st_mtime)

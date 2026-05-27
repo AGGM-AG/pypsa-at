@@ -84,8 +84,6 @@ KLIEN_POTENTIALS = dataset_version("klien_potentials")
 include: "rules/collect.smk"
 include: "rules/retrieve.smk"
 include: "rules/build_electricity.smk"
-include: "rules/pypsa-at/modify.smk"  # PyPSA-AT specific modifications (must precede build_sector.smk — rules.modify_brownfield_gas_network_AT is referenced there)
-include: "rules/pypsa-at/retrieve.smk"  # PyPSA-AT specific data retrieval
 include: "rules/build_sector.smk"
 include: "rules/solve_electricity.smk"
 include: "rules/postprocess.smk"
@@ -110,6 +108,13 @@ if config["foresight"] == "myopic":
 if config["foresight"] == "perfect":
 
     include: "rules/solve_perfect.smk"
+
+
+include: "rules/pypsa-at/retrieve.smk"  # PyPSA-AT specific data retrieval
+include: "rules/pypsa-at/build.smk"  # PyPSA-AT specific data build rules
+include: "rules/pypsa-at/modify.smk"  # PyPSA-AT specific modifications (must precede build_sector.smk — rules.modify_brownfield_gas_network_AT is referenced there)
+include: "rules/pypsa-at/build-sector.smk"  # PyPSA-AT specific build sector rule extensions
+include: "rules/pypsa-at/solve.smk"  # PyPSA-AT specific solve rule extensions
 
 
 rule all:

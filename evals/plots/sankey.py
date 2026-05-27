@@ -363,7 +363,6 @@ class SankeyChart:
                 "gas pipeline",
                 "H2 pipeline",
                 "H2 pipeline (Kernnetz)",
-                "H2 pipeline retrofitted",
             ],
         )
         self._connect(

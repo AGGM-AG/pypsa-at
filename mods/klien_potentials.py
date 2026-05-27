@@ -4,7 +4,9 @@
 # For license information, see the LICENSE.txt file in the project root.
 """AT KLIEN potential overrides for the ``modify_prenetwork`` step."""
 
+from collections import defaultdict
 from logging import getLogger
+from pathlib import Path
 
 import pandas as pd
 import pypsa
@@ -23,15 +25,36 @@ _PYPSA_TO_KLIEN_MAPPING: dict[str, str] = {
     "onwind": "wind",
 }
 
-LAND_USE_CONSTRAINT_CARRIER = (
-    "onwind",
-    "solar rooftop",
-    "solar",
-    "solar-hsat",
-    "offwind-ac",
-    "offwind-dc",
-    "offwind-float",
-)
+_KLIEN_TO_PYPSA_MAPPING: dict[str, list[str]] = defaultdict(list)
+for _k, _v in _PYPSA_TO_KLIEN_MAPPING.items():
+    _KLIEN_TO_PYPSA_MAPPING[_v].append(_k)
+
+
+def _set_p_nom_max(
+    n: pypsa.Network,
+    gen_idx: str,
+    p_nom_max: float,
+) -> None:
+    """
+    Set ``p_nom_max`` for one extendable generator, capped to ``p_nom_min``.
+
+    Parameters
+    ----------
+    n
+        The network whose generator table is modified in place.
+    gen_idx
+        Row label of the generator in ``n.generators``.
+    p_nom_max
+        The new upper bound on nominal capacity (MW). Clamped to
+        ``p_nom_min`` if the value is below it.
+
+    """
+    gen_p_nom_min = n.generators.loc[gen_idx, "p_nom_min"]
+    if gen_p_nom_min > p_nom_max:
+        # Happens due to issues in wind distribution for the base year
+        logger.warning(f"KLIEN potential is below minimum for {gen_idx}")
+        p_nom_max = gen_p_nom_min
+    n.generators.loc[gen_idx, "p_nom_max"] = p_nom_max
 
 
 def _resolve_scenario_column(snakemake: Snakemake) -> str:
@@ -95,6 +118,37 @@ def _resolve_scenario_column(snakemake: Snakemake) -> str:
     return f"C_{year}_{ambition}_{climate_scenario}"
 
 
+def _paths_for_at_level(at_level: int, snakemake: Snakemake) -> dict[str, str]:
+    """
+    Return a mapping from CSV type to file path for the given AT clustering level.
+
+    Parameters
+    ----------
+    at_level
+        Integer NUTS level for Austria (2 = AT10, 3 = NUTS3).
+        snakemake: Snakemake workflow object providing ``snakemake.input``.
+
+    Returns
+    -------
+    :
+        Dict mapping ``"buildings"``, ``"ground"``, ``"wind"`` to absolute file paths,
+        or an empty dict when ``at_level`` is unsupported.
+    """
+    if at_level == 2:
+        return {
+            "buildings": snakemake.input.at10_buildings,
+            "ground": snakemake.input.at10_ground,
+            "wind": snakemake.input.at10_wind,
+        }
+    if at_level == 3:
+        return {
+            "buildings": snakemake.input.nuts3_buildings,
+            "ground": snakemake.input.nuts3_ground,
+            "wind": snakemake.input.nuts3_wind,
+        }
+    return {}
+
+
 def apply_klien_potential_limits(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
     Cap extendable AT generator ``p_nom_max`` values by regional KLIEN study potentials.
@@ -154,26 +208,29 @@ def apply_klien_potential_limits(n: pypsa.Network, snakemake: Snakemake) -> None
 
     col = _resolve_scenario_column(snakemake)
 
-    file_paths = {
-        "buildings": snakemake.input.nuts3_buildings,
-        "ground": snakemake.input.nuts3_ground,
-        "wind": snakemake.input.nuts3_wind,
-    }
+    at_level = snakemake.config["clustering"]["administrative"]["AT"]
+    paths = _paths_for_at_level(at_level, snakemake)
+    if not paths:
+        logger.warning(
+            f"Unsupported clustering level AT={at_level!r}. Expected 2 or 3. "
+            "— Skipping KLIEN potential limits."
+        )
+        return
 
-    # DataFrame: index=NUTS3 region, columns=technology. solar and solar-hsat
-    # share the ground CSV, so both columns carry identical values.
-    to_concat = []
-    for tech in technologies:
-        file_path = file_paths[_PYPSA_TO_KLIEN_MAPPING[tech]]
-        to_concat.append(pd.read_csv(file_path, index_col=0)[col].rename(tech))
+    # Load each CSV type once; map each requested carrier to its potential dict.
+    klien_types_needed = {_PYPSA_TO_KLIEN_MAPPING[t] for t in technologies}
+    carrier_potential: dict[str, dict] = {}
+    for klien_type in klien_types_needed:
+        df = pd.read_csv(Path(paths[klien_type]), index_col=0)
+        potential_dict = df[col].to_dict()
+        for tech in _KLIEN_TO_PYPSA_MAPPING[klien_type]:
+            carrier_potential[tech] = potential_dict
 
-    carrier_potential = pd.concat(to_concat, axis=1)
-
-    c = "Generator"
     brownfield = n.statistics.installed_capacity(
         groupby=["location", "carrier"],
-        components=c,
+        components="Generator",
         carrier=list(technologies),
+        aggregate_across_components=True,
         nice_names=False,
         drop_zero=False,
     )
@@ -182,51 +239,21 @@ def apply_klien_potential_limits(n: pypsa.Network, snakemake: Snakemake) -> None
     ]
 
     for (location, carrier), brownfield_value in brownfield_at.items():
-        _nuts3 = carrier_potential.index.get_level_values("nuts3")
-        location_mask = _nuts3.str.startswith(location)
-        potential = carrier_potential.loc[location_mask, carrier]
+        potential = carrier_potential[carrier][location]
 
-        comp = n.components[c].static
-        extendable_mask = (
-            comp.index.str.startswith(location + " ")
-            & (comp["carrier"] == carrier)
-            & comp["p_nom_extendable"]
+        mask_ext = (
+            (n.generators.index.str.startswith(f"{location} "))
+            & (n.generators["carrier"] == carrier)
+            & (n.generators["p_nom_extendable"])
         )
 
-        # edge case east tyrol: AT333 starts with AT33 but needs to be kept outside AT33 sum
-        if location == "AT33" and "AT333" in potential.index:
-            potential.pop("AT333")
-            extendable_mask &= ~comp.index.str.startswith("AT333 ")
-
-        # n.components[c].static breaks df.query()
-        extendable_idx = comp[extendable_mask].index
-
-        if len(extendable_idx) == 0:
-            # conventional assets e.g. nuclear are non-extendable
+        if not any(mask_ext):
             continue
-        elif len(extendable_idx) != 1:
-            # There must not be more than one extendable asset for above query
-            raise ValueError(
-                f"Multiple extendable assets for the same component {c}, "
-                f"location {location} and carrier {carrier} detected."
-            )
-
-        if carrier not in LAND_USE_CONSTRAINT_CARRIER:
-            raise NotImplementedError(
-                f"Missing brownfield deduction logic for "
-                f"carrier {carrier} not covered by add_land_use_constraint() "
-                f"during solve_network."
-            )
 
         # Make sure that the upper limit can always be reached
-        limit_upper = max(0.0, potential.sum(), brownfield_value)
-        limit_lower = comp.loc[extendable_idx, "p_nom_min"].item()
+        new_upper_limit = max(0.0, potential, brownfield_value)
 
-        if limit_lower > limit_upper:
-            # Happens due to issues in wind distribution for the base year
-            logger.warning(f"KLIEN potential is below minimum for {extendable_idx}.")
-
-        # assign new limits to network component
-        comp.loc[extendable_idx, "p_nom_max"] = max(limit_lower, limit_upper)
+        for gen_idx in n.generators.index[mask_ext]:
+            _set_p_nom_max(n, gen_idx, new_upper_limit)
 
     logger.info(f"AT KLIEN potential limits applied for: {list(technologies)}.")

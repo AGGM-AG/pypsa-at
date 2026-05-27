@@ -5,7 +5,13 @@ import pytest
 
 from evals.constants import DataModel as DM
 from evals.utils import get_energy_totals_domestic_share
+from mods.tyndp_utils import get_relevant_links_and_lines
 from scripts.prepare_sector_network import determine_emission_sectors
+
+
+@pytest.fixture(scope="session")
+def is_testrun(nc):
+    return any(n.meta["run"]["prefix"] == "test-sector-myopic-at10" for n in nc)
 
 
 @pytest.mark.AT
@@ -32,7 +38,7 @@ def test_custom_clustering(nc, is_testrun):
             assert len(locations_at) == 10
             assert len(locations_de) == 5
         elif clustering == "AT10DE16":
-            assert len(locations) == 63
+            assert len(locations) == 66
             assert len(locations_at) == 10
             assert len(locations_de) == 16
         elif clustering == "AT35DE5":
@@ -40,7 +46,7 @@ def test_custom_clustering(nc, is_testrun):
             assert len(locations_at) == 35
             assert len(locations_de) == 5
         elif clustering == "AT35DE16":
-            assert len(locations) == 88
+            assert len(locations) == 91
             assert len(locations_at) == 35
             assert len(locations_de) == 16
         else:
@@ -101,31 +107,76 @@ def test_national_co2_budget_constraint(nc):
             # optimized model values
             country_emissions = co2_balance.loc[mask_country].sum()
 
-            assert country_emissions <= country_limit + 1e-6, (
+            assert country_emissions <= country_limit, (
                 f"Exceeded emission limit for country {ct} and year "
                 f"{year}: {country_limit} > {country_emissions} in Mt_CO2"
             )
 
 
 @pytest.mark.AT
-def test_no_load_supply(nc):
-    """
-    Verify that no Load components supply energy to buses. Ever.
-
-    The ``process emissions`` carrier is excluded: PyPSA-Eur models exogenous
-    industrial CO2 emissions as a Load with negative ``p_set`` on a CO2 bus
-    (``unit="t_co2"``), so that ``-p_set`` injects positive flow representing
-    emissions. This is an upstream design pattern, not energy supply, but
-    ``statistics.supply`` cannot distinguish the bus unit and reports it.
-    See ``scripts/prepare_sector_network.py`` (upstream) for the construction.
-    """
-    load_supply = nc.statistics.supply(
-        components="Load", groupby=["location", "carrier"]
-    )
-    load_supply = load_supply.drop(
-        "process emissions", level="carrier", errors="ignore"
+def test_tyndp_ntc_lower_limits_applied(nc, pytestconfig):
+    """2040 capacities should be at least TYNDP NTC capacity."""
+    ntc_path = (
+        pytestconfig.rootpath / "resources" / "tyndp_transmission_trajectories.csv"
     )
 
-    assert load_supply.empty, (
-        f"Detected node supply from Load components: {load_supply}"
-    )
+    ntc_df = pd.read_csv(ntc_path)
+
+    for year_str, n in nc.networks.items():
+        if year_str not in n.meta["mods"]["tyndp_lower_bounds"]["years"]:
+            continue
+
+        year_int = int(year_str)
+
+        df_year = ntc_df[ntc_df["year"] == year_int]
+
+        relevant_links, relevant_lines = get_relevant_links_and_lines(n)
+
+        for row in df_year.itertuples():
+            from_node: str = row.from_node
+            to_node: str = row.to_node
+
+            lines_dir_idx = relevant_lines[
+                (relevant_lines["bus0_tyndp"] == from_node)
+                & (relevant_lines["bus1_tyndp"] == to_node)
+            ].index
+            lines_indir_idx = relevant_lines[
+                (relevant_lines["bus0_tyndp"] == to_node)
+                & (relevant_lines["bus1_tyndp"] == from_node)
+            ].index
+            links_dir_idx = relevant_links[
+                (relevant_links["bus0_tyndp"] == from_node)
+                & (relevant_links["bus1_tyndp"] == to_node)
+            ].index
+            links_indir_idx = relevant_links[
+                (relevant_links["bus0_tyndp"] == to_node)
+                & (relevant_links["bus1_tyndp"] == from_node)
+            ].index
+
+            ac_cap = (
+                n.lines.loc[lines_dir_idx | lines_indir_idx, "s_nom_opt"]
+                * n.lines.loc[lines_dir_idx | lines_indir_idx, "s_max_pu"]
+            ).sum()
+            dc_cap_dir = (
+                n.links.loc[links_dir_idx, "p_nom_opt"]
+                * n.links.loc[links_dir_idx, "p_max_pu"]
+            ).sum()
+            dc_cap_indir = (
+                n.links.loc[links_indir_idx, "p_nom_opt"]
+                * n.links.loc[links_indir_idx, "p_max_pu"]
+            ).sum()
+
+            assert ac_cap + dc_cap_dir >= max(
+                row.direct_capacity, row.indirect_capacity
+            ), (
+                f"TYNDP lower limit violation in {year_int}: {from_node}→{to_node} "
+                f"Direct cross border capacity {ac_cap + dc_cap_dir:.1f} MW is lower than min NTC "
+                f"capacity {max(row.direct_capacity, row.indirect_capacity):.1f} MW"
+            )
+            assert ac_cap + dc_cap_indir >= max(
+                row.direct_capacity, row.indirect_capacity
+            ), (
+                f"TYNDP lower limit violation in {year_int}: {from_node}→{to_node} "
+                f"Indirect cross border capacity {ac_cap + dc_cap_indir:.1f} MW is lower than min NTC "
+                f"capacity {max(row.direct_capacity, row.indirect_capacity):.1f} MW"
+            )

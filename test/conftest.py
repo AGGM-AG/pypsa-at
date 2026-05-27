@@ -12,8 +12,9 @@ import pandas as pd
 import pypsa
 import pytest
 import yaml
+from pypsa import NetworkCollection
 
-from evals.utils import get_latest_results_folder
+from evals.fileio import read_networks
 
 
 @pytest.fixture(scope="function")
@@ -178,8 +179,9 @@ def result_path(pytestconfig) -> pathlib.Path:
     Note, that we cannot directly access the run_path (project root), because
     we want to run the tests on copied results folders as well.
     """
+    default_path = pytestconfig.rootpath / "tests" / "data"
     result_path = pytestconfig.getoption("result_path")
-    return pathlib.Path(result_path) if result_path else get_latest_results_folder()
+    return pathlib.Path(result_path) if result_path else default_path
 
 
 @pytest.fixture(scope="session")
@@ -192,6 +194,12 @@ def eval_path(result_path: pathlib.Path) -> pathlib.Path:
 def json_path(eval_path: pathlib.Path) -> pathlib.Path:
     """Build the JSON result path."""
     return eval_path / "JSON"
+
+
+@pytest.fixture(scope="session")
+def nc(result_path: pathlib.Path) -> NetworkCollection:
+    """Load the networks."""
+    return read_networks(result_path)
 
 
 def pytest_addoption(parser) -> None:

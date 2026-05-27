@@ -63,23 +63,6 @@ rule build_pemmdb_data:
         scripts("open-tyndp/build_pemmdb_data.py")
 
 
-rule build_tyndp_trajectories:
-    input:
-        trajectories=rules.retrieve_open_tyndp.output.trajectories,
-        carrier_mapping="data/pypsa-at/tyndp_technology_map.csv",
-    output:
-        tyndp_trajectories=resources("tyndp_trajectories.csv"),
-    log:
-        logs("build_tyndp_trajectories.log"),
-    benchmark:
-        benchmarks("build_tyndp_trajectories")
-    threads: 1
-    message:
-        "Building TYNDP capacity trajectories (p_nom_min/p_nom_max)"
-    script:
-        scripts("open-tyndp/build_tyndp_trajectories.py")
-
-
 rule build_tyndp_gas_demand:
     input:
         supply_tool=rules.retrieve_open_tyndp.output.supply_tool,
@@ -217,6 +200,25 @@ rule build_tyndp_transmission_projects:
         "Building TYNDP transmission investment projects for {wildcards.planning_horizons}"
     script:
         scripts("open-tyndp/build_tyndp_transmission_projects.py")
+
+
+rule build_tyndp_transmission_trajectories:
+    input:
+        invest_grid=rules.retrieve_open_tyndp.output.invest_grid,
+        elec_reference_grid=rules.retrieve_open_tyndp.output.elec_reference_grid,
+    output:
+        tyndp_transmission_trajectories=resources("tyndp_transmission_trajectories.csv"),
+    log:
+        logs("build_tyndp_transmission_trajectories.log"),
+    benchmark:
+        benchmarks("build_tyndp_transmission_trajectories")
+    threads: 1
+    resources:
+        mem_mb=1000,
+    message:
+        "Building TYNDP transmission capacity trajectories"
+    script:
+        scripts("pypsa-at/build_tyndp_transmission_trajectories.py")
 
 
 if config.get("sector", {}).get("h2_topology_tyndp", False):

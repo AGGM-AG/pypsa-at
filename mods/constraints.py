@@ -6,6 +6,7 @@ import pandas as pd
 import pypsa
 
 from mods.pemmdb_overwrites import aggregate_by_cluster_and_country
+from mods.tyndp_utils import get_relevant_links_and_lines
 from scripts.prepare_sector_network import determine_emission_sectors
 
 logger = logging.getLogger(__name__)
@@ -149,6 +150,143 @@ def add_national_co2_budgets(
             sense="<=",
             type="",
             carrier_attribute="",
+        )
+
+
+def add_cross_border_flow_limits(
+    n: pypsa.Network, snakemake, investment_year: int
+) -> None:
+    """
+    Add TYNDP NTC-style net cross-border flow limit constraints per snapshot.
+
+    Reads the TYNDP transmission trajectory CSV for ``investment_year``,
+    validates corridor coverage via :func:`compare_tyndp_and_model_borders`,
+    and adds two per-snapshot linopy constraints to ``n.model`` for each
+    corridor: one limiting net flow in the direct direction and one limiting
+    net flow in the indirect direction.
+
+    Net flow from location A to location B is defined as:
+
+    .. code-block:: none
+
+        sum(Line-s for lines with bus0_tyndp == A, bus1_tyndp == B)
+        − sum(Line-s for lines with bus0_tyndp == B, bus1_tyndp == A)
+        + sum(efficiency × Link-p for DC links with bus0_tyndp == A, bus1_tyndp == B)
+        − sum(Link-p for DC links with bus0_tyndp == B, bus1_tyndp == A)
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        PyPSA network with a linopy model attached (``n.model``).
+    snakemake
+        Snakemake workflow object. Must expose
+        ``snakemake.input.tyndp_transmission_trajectories`` — path to a CSV
+        with columns ``from_node``, ``to_node``, ``direct_capacity``,
+        ``indirect_capacity``, and ``year``.  ``direct_capacity`` is the
+        capacity in the ``from_node → to_node`` direction (MW);
+        ``indirect_capacity`` is the capacity in the reverse direction (MW).
+    investment_year : int
+        Planning horizon year used to filter the CSV.
+
+    Raises
+    ------
+    ValueError
+        If the CSV contains no rows for ``investment_year``.
+
+    Notes
+    -----
+    * The ``enable`` guard (``mods.tyndp_cross_border_flow_limits.enable``) is
+      handled by the caller; this function does not check it.
+    * DC Links are **included** in the NTC constraint alongside AC Lines: direct
+      links contribute ``efficiency × link_p`` (power received at bus1); indirect
+      links contribute raw ``link_p`` (power dispatched from their grid).
+    * Constraint names follow the pattern
+      ``tyndp_ntc_flow_dir-{A}-{B}-{year}`` (direct) and
+      ``tyndp_ntc_flow_indir-{B}-{A}-{year}`` (indirect).
+    * Corridors with no matching active AC Lines or DC Links in the network
+      are skipped with a warning (no constraint is added).
+    * Constraints are time-varying (one inequality per snapshot) and are
+      therefore **not** registered as ``GlobalConstraint`` network objects.
+    """
+    df = pd.read_csv(snakemake.input.tyndp_transmission_trajectories)
+    df = df[df["year"] == investment_year]
+
+    if df.empty:
+        raise ValueError(
+            f"No cross-border NTC limits defined for year {investment_year}."
+        )
+
+    logger.info(f"Adding cross-border flow limits for year {investment_year}")
+
+    relevant_links, relevant_lines = get_relevant_links_and_lines(n)
+
+    line_s = n.model["Line-s"]
+    link_p = n.model["Link-p"]
+
+    for row in df.itertuples():
+        from_node: str = row.from_node
+        to_node: str = row.to_node
+        dir_cap: float = row.direct_capacity
+        indir_cap: float = row.indirect_capacity
+
+        links_dir_idx = relevant_links[
+            (relevant_links["bus0_tyndp"] == from_node)
+            & (relevant_links["bus1_tyndp"] == to_node)
+        ].index
+        links_indir_idx = relevant_links[
+            (relevant_links["bus0_tyndp"] == to_node)
+            & (relevant_links["bus1_tyndp"] == from_node)
+        ].index
+
+        lines_dir_idx = relevant_lines[
+            (relevant_lines["bus0_tyndp"] == from_node)
+            & (relevant_lines["bus1_tyndp"] == to_node)
+        ].index
+        lines_indir_idx = relevant_lines[
+            (relevant_lines["bus0_tyndp"] == to_node)
+            & (relevant_lines["bus1_tyndp"] == from_node)
+        ].index
+
+        if (
+            links_dir_idx.empty
+            and links_indir_idx.empty
+            and lines_dir_idx.empty
+            and lines_indir_idx.empty
+        ):
+            logger.warning(
+                f"Ignoring constraints for border {from_node}->{to_node} in {investment_year}"
+            )
+            continue
+
+        lines_lhs_dir = line_s.sel(name=lines_dir_idx).sum("name") - line_s.sel(
+            name=lines_indir_idx
+        ).sum("name")
+        lines_lhs_indir = -1 * lines_lhs_dir
+
+        eff_dir = n.links.loc[links_dir_idx, "efficiency"]
+        eff_indir = n.links.loc[links_indir_idx, "efficiency"]
+
+        links_lhs_dir = link_p.sel(name=links_dir_idx).mul(eff_dir).sum(
+            "name"
+        ) - link_p.sel(name=links_indir_idx).sum("name")
+
+        links_lhs_indir = link_p.sel(name=links_indir_idx).mul(eff_indir).sum(
+            "name"
+        ) - link_p.sel(name=links_dir_idx).sum("name")
+
+        cname_dir = f"tyndp_ntc_flow_dir-{from_node}-{to_node}-{investment_year}"
+        cname_indir = f"tyndp_ntc_flow_indir-{to_node}-{from_node}-{investment_year}"
+
+        n.model.add_constraints(
+            lines_lhs_dir + links_lhs_dir <= dir_cap, name=cname_dir
+        )
+        n.model.add_constraints(
+            lines_lhs_indir + links_lhs_indir <= indir_cap, name=cname_indir
+        )
+
+        logger.info(
+            f"TYNDP NTC constraint added: {from_node}→{to_node} ≤ {dir_cap} MW, "
+            f"{to_node}→{from_node} ≤ {indir_cap} MW."
         )
 
 

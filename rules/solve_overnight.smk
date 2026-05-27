@@ -5,11 +5,6 @@
 
 rule solve_sector_network:
     input:
-        **(
-            {"tyndp_trajectories": resources("tyndp_trajectories.csv")}
-            if config_provider("mods", "PEMMDB_trajectories", "enable", default=False)
-            else {}
-        ),
         network=resources(
             "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc"
         ),

@@ -32,105 +32,9 @@ import pandas as pd
 import pypsa
 from snakemake.script import Snakemake
 
+from mods.constants import PROXIES, TYNDP_TO_PYPSA_LOCATION
+
 logger = getLogger(__name__)
-
-TYNDP_TO_PYPSA_LOCATION: dict[str, str] = {
-    # Albania
-    "AL00": "AL",
-    # Austria
-    "AT00": "AT",
-    # Bosnia and Herzegovina
-    "BA00": "BA",
-    # Belgium
-    "BE00": "BE",
-    # Bulgaria
-    "BG00": "BG",
-    # Switzerland
-    "CH00": "CH",
-    # Cyprus
-    "CY00": "CY",
-    # Czech Republic
-    "CZ00": "CZ",
-    # Germany
-    "DE00": "DE",
-    "DEKF": "DE",  # Kriegers Flak offshore wind zone
-    # Denmark — west/east split mirrors DK0/DK1 in PyPSA-AT clustering
-    "DKW1": "DK0",  # DK0 West — DK1 bidding zone (Jutland + Funen)
-    "DKE1": "DK1",  # DK1 East — DK2 bidding zone (Sjaelland)
-    "DKKF": "DK1",  # DK1 Kriegers Flak offshore → East Denmark (DK2 connection)
-    # Estonia
-    "EE00": "EE",
-    # Spain — Balearic split mirrors ES0/ES1 in PyPSA-AT clustering
-    "ES00": "ES",  # ES0 mainland
-    # (no Balearic/Mallorca TYNDP node in dataset; would map to "ES1")
-    # Finland
-    "FI00": "FI",
-    # France (Corsica has no OSM transmission buses; modeled as single node)
-    "FR00": "FR",
-    # Great Britain — Northern Ireland split mirrors GB0/GB1 in PyPSA-AT clustering
-    "GB00": "GB0",  # GB0 Great Britain mainland
-    "GBNI": "GB1",  # GB1 Northern Ireland
-    # Greece (Crete not separated in PyPSA-AT)
-    "GR00": "GR",
-    "GR03": "GR",  # Crete — not separated in PyPSA-AT
-    # Croatia
-    "HR00": "HR",
-    # Hungary
-    "HU00": "HU",
-    # Ireland
-    "IE00": "IE",
-    # Italy — Sicily and Sardinia split mirrors IT0/IT1/IT2 in PyPSA-AT clustering
-    "ITA0": "IT0",  # Italy aggregated (treated as mainland)
-    "ITN1": "IT0",  # North (NORD)
-    "ITCN": "IT0",  # Centre-North (CNOR)
-    "ITCS": "IT0",  # Centre-South (CSUD)
-    "ITS1": "IT0",  # South (SUD)
-    "ITCA": "IT0",  # Calabria (CAL) — continental peninsula
-    "ITSI": "IT1",  # Sicily (SICI)
-    "ITSA": "IT2",  # IT2 Sardinia (SARD)
-    # Lithuania
-    "LT00": "LT",
-    # Luxembourg — 4 sub-nodes aggregate to single country
-    "LUB1": "LU",
-    "LUF1": "LU",
-    "LUG1": "LU",
-    "LUV1": "LU",
-    # Latvia
-    "LV00": "LV",
-    # Montenegro
-    "ME00": "ME",
-    # North Macedonia
-    "MK00": "MK",
-    # Malta
-    "MT00": "MT",
-    # Netherlands
-    "NL00": "NL",
-    # Norway — 3 bidding zones aggregate to single country in PyPSA-AT
-    "NOS0": "NO",  # South (NO1 + NO2)
-    "NOM1": "NO",  # Mid (NO3)
-    "NON1": "NO",  # North (NO4 + NO5)
-    # Poland
-    "PL00": "PL",
-    # Portugal
-    "PT00": "PT",
-    # Romania
-    "RO00": "RO",
-    # Serbia
-    "RS00": "RS",
-    # Sweden — 4 bidding zones; not sub-nationally split in PyPSA-AT
-    "SE01": "SE",  # SE1 (Luleå area)
-    "SE02": "SE",  # SE2 (Sundsvall area)
-    "SE03": "SE",  # SE3 (Stockholm area)
-    "SE04": "SE",  # SE4 (Malmö area)
-    # Slovenia
-    "SI00": "SI",
-    # Slovakia
-    "SK00": "SK",
-}
-
-# for key countries use trajectories from values country
-# because some countries do not exist in Open-TYNDP data
-PROXIES = {"XK": "RS"}
 
 
 def aggregate_by_cluster_and_country(
@@ -199,6 +103,9 @@ def aggregate_by_cluster_and_country(
     # trajectories with both: clustered locations and country codes
     result = traj_location.combine_first(traj_countries).sort_index()
 
+    # # Need to drop some countries: They are not modeled in PyPSA-AT
+    # result = result.drop(index=["CY"], level="location")
+
     return result
 
 
@@ -214,8 +121,6 @@ def apply_trajectories(
     1. Looks up the pre-aggregated trajectory bounds from *traj*.
     2. Subtracts existing brownfield capacity (planning horizons > 2025 only) so
        that the bounds represent *additional* capacity still available to the solver.
-       The brownfield is measured at the same port as the trajectory: bus-1 units
-       (``p_nom × efficiency``) when ``at_port=1``, bus-0 units otherwise.
     3. Converts bus-1 output capacity bounds to bus-0 input bounds when
        ``at_port=1`` by dividing by component efficiency.
     4. Writes the final bounds directly to ``n.components[c].static``.
@@ -262,17 +167,12 @@ def apply_trajectories(
         if name[0][:2] not in skip_countries
     ]
 
-    # Sum up p_nom of all assets in the same port units as the trajectory.
-    # For at_port=1 carriers (battery discharger, home battery discharger) the
-    # trajectory p_nom_max is expressed in bus1 (output) MW, so the brownfield
-    # deduction must also be in bus1 units (p_nom * efficiency). Using bus0 units
-    # would cause a ~(1-eff) relative error per MW of existing brownfield.
-    # End-of-life assets have been removed during add_brownfield(...)
+    # Sum up p_nom of all assets. End-of-life assets have been
+    # removed during add_brownfield(...)
     brownfield_capacities = n.statistics.installed_capacity(
         groupby=["location", "carrier"],
         components=c,
         carrier=carrier,
-        at_port=str(at_port),
         aggregate_across_components=True,
         nice_names=False,
         drop_zero=False,
@@ -298,22 +198,6 @@ def apply_trajectories(
         # reduce total boundaries by already built and still existing capacities
         if is_myopic_year:
             p_nom_min = max(0, p_nom_min - existing_brownfield)
-
-        # For wind and solar, add_land_use_constraint() in solve_network.py subtracts
-        # existing non-extendable p_nom from p_nom_max during the solve step.
-        # Deducting here too would cause the brownfield to be subtracted twice.
-        # solar-utility is not affected, because a constraint directly sets p_nom_opt
-        # ceilings for combined solar + solar-hsat technologies.
-        land_use_constraint_carrier = (
-            "onwind",
-            "solar rooftop",
-            "solar-utility",
-            "solar-hsat",
-            "offwind-ac",
-            "offwind-dc",
-            "offwind-float",
-        )
-        if is_myopic_year and carrier not in land_use_constraint_carrier:
             p_nom_max = max(0, p_nom_max - existing_brownfield)
 
         # some trajectories are given for bus1 output capacities

@@ -35,7 +35,10 @@ if KLIEN_POTENTIALS["source"] == "build":
         output:
             nuts3_buildings=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_buildings.csv",
             nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
+            at10_buildings=f"{KLIEN_POTENTIALS['folder']}/at10_pv_buildings.csv",
+            at10_ground=f"{KLIEN_POTENTIALS['folder']}/at10_pv_ground.csv",
             nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
+            at10_wind=f"{KLIEN_POTENTIALS['folder']}/at10_wind.csv",
         log:
             logs("build_klien_potentials.log"),
         threads: 1
@@ -52,11 +55,17 @@ elif KLIEN_POTENTIALS["source"] == "archive":
         input:
             nuts3_buildings=storage(f"{KLIEN_POTENTIALS['url']}/nuts3_pv_buildings.csv"),
             nuts3_ground=storage(f"{KLIEN_POTENTIALS['url']}/nuts3_pv_ground.csv"),
+            at10_buildings=storage(f"{KLIEN_POTENTIALS['url']}/at10_pv_buildings.csv"),
+            at10_ground=storage(f"{KLIEN_POTENTIALS['url']}/at10_pv_ground.csv"),
             nuts3_wind=storage(f"{KLIEN_POTENTIALS['url']}/nuts3_wind.csv"),
+            at10_wind=storage(f"{KLIEN_POTENTIALS['url']}/at10_wind.csv"),
         output:
             nuts3_buildings=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_buildings.csv",
             nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
+            at10_buildings=f"{KLIEN_POTENTIALS['folder']}/at10_pv_buildings.csv",
+            at10_ground=f"{KLIEN_POTENTIALS['folder']}/at10_pv_ground.csv",
             nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
+            at10_wind=f"{KLIEN_POTENTIALS['folder']}/at10_wind.csv",
         log:
             logs("retrieve_klien_potentials.log"),
         message:

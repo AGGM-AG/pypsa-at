@@ -5,10 +5,11 @@ import pandas as pd
 from xarray import DataArray
 
 from mods.constraints import (
-    add_national_co2_budgets as modified_add_national_co2_budgets,
+    add_cross_border_flow_limits,
+    add_solar_utility_trajectory_constraints,
 )
 from mods.constraints import (
-    add_solar_utility_trajectory_constraints,
+    add_national_co2_budgets as modified_add_national_co2_budgets,
 )
 from scripts.prepare_sector_network import determine_emission_sectors
 
@@ -904,3 +905,6 @@ def additional_functionality(n, snapshots, snakemake):
 
     if snakemake.config["mods"]["PEMMDB_trajectories"].get("enable"):
         add_solar_utility_trajectory_constraints(n, snakemake, investment_year)
+
+    if snakemake.config["mods"]["tyndp_cross_border_flow_limits"].get("enable"):
+        add_cross_border_flow_limits(n, snakemake, investment_year)

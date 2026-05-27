@@ -1585,7 +1585,6 @@ rule prepare_sector_network:
         unpack(input_profile_offwind),
         unpack(input_heat_source_power),
         #**rules.cluster_gas_network.output,
-        **rules.modify_brownfield_gas_network_AT.output,
         **rules.build_gas_input_locations.output,
         snapshot_weightings=resources(
             "snapshot_weightings_base_s_{clusters}_elec_{opts}_{sector_opts}.csv"

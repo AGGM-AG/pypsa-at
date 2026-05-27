@@ -6,29 +6,17 @@
 
 import logging
 import warnings
-from collections.abc import Callable, Sequence
 from functools import partial
 from inspect import getmembers
 from itertools import product
 
 import pandas as pd
 import pypsa
-from pypsa import Network, NetworkCollection
-from pypsa.common import (
-    MethodHandlerWrapper,
-    deprecated_kwargs,
-    pass_empty_series_if_keyerror,
-)
-from pypsa.descriptors import nominal_attrs
+from pypsa import NetworkCollection
 from pypsa.statistics import (
     StatisticsAccessor,
     get_transmission_carriers,
     groupers,
-)
-from pypsa.statistics.expressions import (
-    StatisticHandler,
-    port_efficiency,
-    resolve_at_port,
 )
 
 from evals.constants import (
@@ -91,8 +79,8 @@ def get_location(
 
     if avoid_eu_locations and c in n.branch_components:
         # avoid EU buses for branch components, e.g. oil CHP
-        bus0 = groupers._map_with_multiindex(comp["bus0"], bus_locations).rename("loc0")
-        bus1 = groupers._map_with_multiindex(comp["bus1"], bus_locations).rename("loc1")
+        bus0 = comp["bus0"].map(bus_locations).rename("loc0")
+        bus1 = comp["bus1"].map(bus_locations).rename("loc1")
         buses = pd.concat([bus0, bus1], axis=1)
 
         def location_selection_logic(row) -> str:
@@ -103,9 +91,7 @@ def get_location(
         return buses.apply(location_selection_logic, axis=1).rename("location")
 
     # default logic to return location groupers
-    return groupers._map_with_multiindex(comp[f"bus{port}"], bus_locations).rename(
-        "location"
-    )
+    return comp[f"bus{port}"].map(bus_locations).rename("location")
 
 
 def get_location_from_name_at_port(
@@ -749,215 +735,3 @@ class ESMStatistics(StatisticsAccessor):
             result = add_grid_lines(n.static("Bus"), result)
 
         return result.sort_index()
-
-    @MethodHandlerWrapper(handler_class=StatisticHandler, inject_attrs={"n": "_n"})
-    @deprecated_kwargs(
-        deprecated_in="1.0",
-        removed_in="2.0",
-        comps="components",
-        aggregate_groups="groupby_method",
-        aggregate_time="groupby_time",
-    )
-    def remaining_capacity(  # noqa: D417
-        self,
-        components: str | Sequence[str] | None = None,
-        groupby_method: Callable | str = "sum",
-        aggregate_across_components: bool = False,
-        groupby: str | Sequence[str] | Callable = "carrier",
-        at_port: str | None = None,
-        carrier: str | Sequence[str] | None = None,
-        bus_carrier: str | Sequence[str] | None = None,
-        nice_names: bool | None = None,
-        drop_zero: bool | None = None,
-        round: int | None = None,
-        storage: bool = False,
-    ) -> pd.DataFrame:
-        """
-        Calculate the **remaining buildable capacity** in MW.
-
-        Returns ``p_nom_max - p_nom`` for extendable components in the current investment
-        period, and zero for non-extendable (already-built) components. This
-        represents how much additional capacity could still be installed on top of
-        the current ``installed_capacity``.
-
-        Note
-        ----
-        In brownfield myopic networks, ``p_nom`` for extendable components is
-        typically zero while ``p_nom_min`` holds a committed floor (from
-        brownfield carry-over, PEMMDB contracted additions, or other sources).
-        The formula ``p_nom_max - p_nom`` therefore intentionally includes this
-        committed capacity (``p_nom_min - p_nom``), ensuring that
-        ``technical_potential = installed_capacity + remaining_capacity``
-        algebraically reduces to ``p_nom_max`` (the raw trajectory ceiling).
-
-        Parameters
-        ----------
-        components : str | Sequence[str] | None, default=None
-            Components to include. If None, includes all one-port and branch
-            components.
-        groupby_method : Callable | str, default="sum"
-            Aggregation function for groups.
-        aggregate_across_components : bool, default=False
-            Whether to aggregate across components.
-        groupby : str | Sequence[str] | Callable, default="carrier"
-            How to group components.
-        at_port : str | None, default=None
-            Which ports to consider.
-        carrier : str | Sequence[str] | None, default=None
-            Filter by carrier.
-        bus_carrier : str | Sequence[str] | None, default=None
-            Filter by carrier of connected buses.
-        nice_names : bool | None, default=None
-            Whether to use carrier nice names.
-        drop_zero : bool | None, default=None
-            Whether to drop zero values from the result.
-        round : int | None, default=None
-            Number of decimal places to round to.
-
-        Other Parameters
-        ----------------
-        storage : bool, default=False
-            Whether to consider only storage capacities.
-
-        Returns
-        -------
-        pd.DataFrame
-            Remaining buildable capacity in MW.
-
-        See Also
-        --------
-        installed_capacity : Already installed capacity.
-        technical_potential : Total ceiling (installed + remaining).
-        """
-        if storage:
-            components = ("Store", "StorageUnit")
-        resolved_at_port = resolve_at_port(at_port, bus_carrier)
-
-        @pass_empty_series_if_keyerror
-        def func(n: Network, c: str, port: str) -> pd.Series:
-            efficiency = port_efficiency(n, c, port=port)
-            if n.c[c]._as_ports(resolved_at_port) == [0]:
-                efficiency = abs(efficiency)
-            static = n.c[c].static
-            col = (
-                (static[f"{nominal_attrs[c]}_max"] - static[nominal_attrs[c]])
-                .where(static[f"{nominal_attrs[c]}_extendable"], 0)
-                .mul(efficiency)
-            )
-            if storage and (c == "StorageUnit"):
-                col = col * static.max_hours
-            return col
-
-        df = self._aggregate_components(
-            func,
-            components=components,
-            agg=groupby_method,
-            aggregate_across_components=aggregate_across_components,
-            groupby=groupby,
-            at_port=at_port,
-            carrier=carrier,
-            bus_carrier=bus_carrier,
-            nice_names=nice_names,
-            drop_zero=drop_zero,
-            round=round,
-        )
-        df.attrs["name"] = "Remaining Capacity"
-        df.attrs["unit"] = "MW"
-        return df
-
-    @MethodHandlerWrapper(handler_class=StatisticHandler, inject_attrs={"n": "_n"})
-    @deprecated_kwargs(
-        deprecated_in="1.0",
-        removed_in="2.0",
-        comps="components",
-        aggregate_groups="groupby_method",
-        aggregate_time="groupby_time",
-    )
-    def technical_potential(  # noqa: D417
-        self,
-        components: str | Sequence[str] | None = None,
-        groupby_method: Callable | str = "sum",
-        aggregate_across_components: bool = False,
-        groupby: str | Sequence[str] | Callable = "carrier",
-        at_port: str | None = None,
-        carrier: str | Sequence[str] | None = None,
-        bus_carrier: str | Sequence[str] | None = None,
-        nice_names: bool | None = None,
-        drop_zero: bool | None = None,
-        round: int | None = None,
-        storage: bool = False,
-    ) -> pd.DataFrame:
-        """
-        Calculate the **technical potential** (total capacity ceiling) in MW.
-
-        Returns the absolute upper bound on how much capacity a region could
-        ever have installed: already-built capacity from all past investment
-        periods plus the maximum additionally buildable capacity in the current
-        period.
-
-        Computed as ``installed_capacity + remaining_capacity``.
-
-        Parameters
-        ----------
-        components : str | Sequence[str] | None, default=None
-            Components to include. If None, includes all one-port and branch
-            components.
-        groupby_method : Callable | str, default="sum"
-            Aggregation function for groups.
-        aggregate_across_components : bool, default=False
-            Whether to aggregate across components.
-        groupby : str | Sequence[str] | Callable, default="carrier"
-            How to group components.
-        at_port : str | None, default=None
-            Which ports to consider.
-        carrier : str | Sequence[str] | None, default=None
-            Filter by carrier.
-        bus_carrier : str | Sequence[str] | None, default=None
-            Filter by carrier of connected buses.
-        nice_names : bool | None, default=None
-            Whether to use carrier nice names.
-        drop_zero : bool | None, default=None
-            Whether to drop zero values from the result.
-        round : int | None, default=None
-            Number of decimal places to round to.
-
-        Other Parameters
-        ----------------
-        storage : bool, default=False
-            Whether to consider only storage capacities.
-
-        Returns
-        -------
-        pd.DataFrame
-            Technical potential in MW.
-
-        See Also
-        --------
-        installed_capacity : Already installed capacity.
-        remaining_capacity : Capacity still buildable in the current period.
-        """
-        shared = dict(
-            components=components,
-            groupby_method=groupby_method,
-            aggregate_across_components=aggregate_across_components,
-            groupby=groupby,
-            at_port=at_port,
-            carrier=carrier,
-            bus_carrier=bus_carrier,
-            nice_names=nice_names,
-            drop_zero=False,
-            round=None,
-            storage=storage,
-        )
-        installed = self.installed_capacity(**shared)
-        remaining = self.remaining_capacity(**shared)
-        df = installed.add(remaining, fill_value=0)
-        if drop_zero is None:
-            drop_zero = True
-        if drop_zero:
-            df = df[df != 0]
-        if round is not None:
-            df = df.round(round)
-        df.attrs["name"] = "Technical Potential"
-        df.attrs["unit"] = "MW"
-        return df

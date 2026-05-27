@@ -53,7 +53,6 @@ class BusCarrier:
     DC: str = "DC"
     CH4: str = "gas"
     H2: str = "H2"
-    H2_FOR_INDUSTRY: str = "H2 for industry"
     OIL: str = "oil"
     LIGNITE: str = "lignite"
     COAL: str = "coal"
