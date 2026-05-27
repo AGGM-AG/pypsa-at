@@ -32,8 +32,79 @@ import geopandas as gpd
 
 logger = logging.getLogger(__name__)
 
-#: Valid clustering configurations and their implied NUTS levels.
+# Valid clustering configurations and their implied NUTS levels.
 VALID_CONFIGURATIONS = ("AT10DE5", "AT10DE16", "AT35DE5", "AT35DE16")
+
+# Single source of truth for the DE5 macro-region groupings.
+# Maps each DE5 aggregate code to the DE NUTS1 state codes it contains.
+# Consumed by apply_custom_clustering() and by network update functions that
+# need to aggregate DE NUTS1 storage data to DE5 resolution.
+DE5_GROUPS = {
+    "DE1": ("DE1",),  # Baden-Württemberg
+    "DE2": ("DE2",),  # Bavaria
+    "DE3": ("DE7", "DEB", "DEC", "DEA"),  # Midwest: Hesse, RP, Saarland, NRW
+    "DE4": (  # Mideast
+        "DE3",  # Berlin
+        "DE4",  # Brandenburg
+        "DE8",  # MV
+        "DED",  # Saxony
+        "DEE",  # SA
+        "DEG",  # Thuringia
+    ),
+    "DE5": ("DEF", "DE6", "DE9", "DE5"),  # North: SH, Hamburg, Bremen, Lower Saxony
+}
+
+
+_DE_NUTS1_TO_DE5: dict[str, str] = {
+    nuts1: de5 for de5, nuts1_codes in DE5_GROUPS.items() for nuts1 in nuts1_codes
+}
+
+
+def map_at_nuts3_to_nuts2(code: str) -> str:
+    """
+    Map an AT NUTS3 code to its NUTS2 parent; all other codes pass through.
+
+    - AT NUTS3 → AT NUTS2, e.g. ``"AT125"`` → ``"AT12"``
+    - AT333 (Osttirol) → ``"AT333"`` (preserved as its own NUTS2 region)
+    - All other codes pass through unchanged.
+
+    Parameters
+    ----------
+    code
+        Region code to map.
+
+    Returns
+    -------
+    :
+        The NUTS2 parent code for AT NUTS3 inputs, or the original code
+        unchanged for everything else.
+    """
+    if code == "AT333":
+        return code
+    if code.startswith("AT") and len(code) == 5:
+        return code[:4]
+    return code
+
+
+def map_de_nuts1_to_de5(code: str) -> str:
+    """
+    Map a DE NUTS1 code to its DE5 macro-region; all other codes pass through.
+
+    - DE NUTS1 → DE5 macro-region, e.g. ``"DE7"`` → ``"DE3"``
+    - All other codes pass through unchanged.
+
+    Parameters
+    ----------
+    code
+        Region code to map.
+
+    Returns
+    -------
+    :
+        The DE5 macro-region code for DE NUTS1 inputs, or the original code
+        unchanged for everything else.
+    """
+    return _DE_NUTS1_TO_DE5.get(code, code)
 
 
 def override_nuts(
@@ -231,22 +302,10 @@ def apply_custom_clustering(
     assert_expected_region_count(nuts3_regions, "AT", expected=10, lvl=2)
 
     # NUTS3 codes are used as a proxy to aggregate Germany into 5 macro-regions.
-    # Baden-Württemberg
-    nuts3_regions = override_nuts(nuts3_regions, "DE1", "DE1", level="level3")
-    # Bavaria
-    nuts3_regions = override_nuts(nuts3_regions, "DE2", "DE2", level="level3")
-    # Midwest (Hesse, Rhineland-Palatinate, Saarland, North Rhine-Westphalia)
-    nuts3_regions = override_nuts(
-        nuts3_regions, ("DE7", "DEB", "DEC", "DEA"), "DE3", level="level3"
-    )
-    # Mideast (Brandenburg, Berlin, Mecklenburg-Vorpommern, Saxony, Saxony-Anhalt, Thuringia)
-    nuts3_regions = override_nuts(
-        nuts3_regions, ("DE3", "DE4", "DE8", "DED", "DEE", "DEG"), "DE4", level="level3"
-    )
-    # North (Schleswig-Holstein, Hamburg, Bremen, Lower Saxony)
-    nuts3_regions = override_nuts(
-        nuts3_regions, ("DEF", "DE6", "DE9", "DE5"), "DE5", level="level3"
-    )
+    for de5_code, nuts1_prefixes in DE5_GROUPS.items():
+        nuts3_regions = override_nuts(
+            nuts3_regions, nuts1_prefixes, de5_code, level="level3"
+        )
     assert_expected_region_count(
         nuts3_regions, "DE", expected=5, lvl=3, run_prefix=run_prefix
     )

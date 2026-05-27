@@ -8,5 +8,6 @@
 - https://github.com/AGGM-AG/pypsa-at/pull/100: New statistics for `remaining_capacity` and `technical_potentials`
 - https://github.com/AGGM-AG/pypsa-at/pull/102: New `H2 for industry` bus to support industrial on-site conversion technologies; models `Methane Pyrolysis - Plasma` as on-site H2 production pathway  
 - https://github.com/AGGM-AG/pypsa-at/pull/105: Fixed bidirectional links of gaseous energy carriers via config.at.yaml. Will be in an upstream merge to PyPSA-Eur to fix there.
+- https://github.com/AGGM-AG/pypsa-at/pull/111: Updated gas storage capacities from AGSI and AT specific data sources
 - https://github.com/AGGM-AG/pypsa-at/pull/104: EAG §4(2) net-zero country level electricity balance constraint
 - https://github.com/AGGM-AG/pypsa-at/pull/112: Limit cross-country electricity flows by NTCs (TYNDP)

@@ -53,6 +53,7 @@ nav:
     - TYNDP Transmission Trajectories: explanations/electricity-grid/tyndp-transmission-trajectories.md
   - Brownfield:
     - Open-TYNDP Trajectories: explanations/brownfield/open-tyndp.md
+    - Gas Storage Capacities: explanations/brownfield/gas-storage-capacities.md
   - Renewable Energy Potentials:
     - KLIEN Potentials: explanations/renewable-energy-potentials/klien-potentials.md
     - Photovoltaic Potentials: explanations/renewable-energy-potentials/pv-potentials.md

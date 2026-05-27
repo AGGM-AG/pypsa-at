@@ -4,7 +4,8 @@ import pandas as pd
 import pytest
 
 from evals.constants import DataModel as DM
-from evals.utils import get_energy_totals_domestic_share
+from evals.utils import filter_by, get_energy_totals_domestic_share
+from mods.clustering import map_at_nuts3_to_nuts2, map_de_nuts1_to_de5
 from mods.tyndp_utils import get_relevant_links_and_lines
 from scripts.prepare_sector_network import determine_emission_sectors
 from test.conftest import require_config
@@ -131,6 +132,47 @@ def test_no_load_supply(nc):
     assert load_supply.empty, (
         f"Detected node supply from Load components: {load_supply}"
     )
+
+
+@pytest.mark.AT
+def test_gas_storage_update(nc, project_root, is_testrun):
+    """
+    Verify input data values in solve networks.
+
+    Parameters
+    ----------
+    nc
+        The solved networks.
+    """
+    file_name = "gas_input_locations_s_AT35DE16_updated.csv"
+    file_path = project_root / "data" / "pypsa-at" / file_name
+    expected = pd.read_csv(file_path, index_col=0)["storage update (GWh)"]
+    expected = expected.dropna().mul(1e3)
+    expected = expected[expected > 0]
+    # aggregate update values depending on custom clustering
+    clustering = nc[0].meta["mods"][
+        "modify_nuts3_shapes"
+    ]  # todo: use "require_config" once available
+    if clustering.startswith("AT10"):
+        expected = expected.groupby(expected.index.map(map_at_nuts3_to_nuts2)).sum()
+    if clustering.endswith("DE5"):
+        expected = expected.groupby(expected.index.map(map_de_nuts1_to_de5)).sum()
+
+    gas_storage_capacity = nc.statistics.optimal_capacity(
+        groupby="location",
+        components="Store",
+        bus_carrier="gas",
+    )
+
+    # align indices for CI regions
+    if is_testrun:
+        model_locations = list(gas_storage_capacity.index.unique("location"))
+        expected = filter_by(expected, Region=model_locations)
+
+    for year in nc.index:
+        pd.testing.assert_series_equal(
+            gas_storage_capacity[year], expected, rtol=1e-03, check_names=False
+        )
 
 
 @pytest.mark.AT

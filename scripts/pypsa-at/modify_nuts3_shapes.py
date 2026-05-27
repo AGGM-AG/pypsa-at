@@ -58,6 +58,7 @@ if __name__ == "__main__":
             f"Base clustering level is {base_level!r}, but only 0 is supported."
         )
 
+    custom_clustering = config["mods"]["modify_nuts3_shapes"]
     run_prefix = config["run"]["prefix"]
 
     nuts3_regions = gpd.read_file(snakemake.input.nuts3_shapes).set_index("index")

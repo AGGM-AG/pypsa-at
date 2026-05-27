@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: net-zero-electricity
+  prefix: update-gas-storage
   name:
   - AT_KN2040
   scenarios:
@@ -235,6 +235,9 @@ mods:
     tyndp_scenario: All  # All — default TYNDP 2024 scenario with complete list of techs.
                          # Other options fail during runtime due to missing techs.
     skip_countries: ["AT", "DE"]  # use calibrations from PyPSA-DE/AT
+
+  override_gas_storage_capacities:
+    enable: true
 
   klien_potential_limits:
     technologies:            # carriers to cap; empty list disables all limits
