@@ -194,7 +194,7 @@ def apply_klien_potential_limits(n: pypsa.Network, snakemake: Snakemake) -> None
     which captures carry-over from previous myopic periods.  Unsupported AT
     clustering levels emit a warning and cause an early return rather than raising.
     """
-    technologies: list[str] = snakemake.params["klien_potential_limits_technologies"]
+    technologies = snakemake.params["klien_potential_limits_technologies"]
     if not technologies:
         logger.info("KLIEN potential limits: technologies list is empty — skipping.")
         return

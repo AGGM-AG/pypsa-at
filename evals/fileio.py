@@ -9,7 +9,7 @@ import json
 import logging
 import re
 from collections.abc import Callable
-from functools import cached_property
+from functools import cached_property, partial
 from importlib import resources
 from pathlib import Path
 
@@ -18,6 +18,9 @@ import pypsa
 import tomllib
 from pydantic.v1.utils import deep_update
 from pypsa import NetworkCollection
+from pypsa.statistics import (
+    groupers,
+)
 
 from evals import plots as plots
 from evals.constants import (
@@ -37,6 +40,104 @@ from evals.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# Configure PyPSA statistics defaults once at import time.
+pypsa.options.params.statistics.nice_names = False
+pypsa.options.params.statistics.drop_zero = True
+
+
+def get_location(
+    n: pypsa.Network,
+    c: str,
+    port: str = "",
+    avoid_eu_locations: bool = True,
+) -> pd.Series:
+    """
+    Return the grouper series for the location of a component.
+
+    By default, the function avoids EU-locations by looking into port 0 and port 1 and prefering locations, that are not 'EU'.
+
+    Note, that the bus_carrier will still be the bus_carrier
+    from the "port" argument, i.e. only the location is swapped.
+
+    Parameters
+    ----------
+    n
+        The network to evaluate.
+    c
+        The component name, e.g. 'Load', 'Generator', 'Link', etc.
+    port
+        Limit results to this branch port.
+    avoid_eu_locations
+        Look into the port 0 and port 1 location in branch components
+        and prefer locations that are not 'EU'. By default,
+        pypsa.statistics assigns the respective bus port location.
+
+    Returns
+    -------
+    :
+        A list of series to group statistics by.
+    """
+    comp = n.components[c].static
+    bus_locations = n.components.buses.static.location
+
+    if avoid_eu_locations and c in n.branch_components:
+        # avoid EU buses for branch components, e.g. oil CHP
+        bus0 = groupers._map_with_multiindex(comp["bus0"], bus_locations).rename("loc0")
+        bus1 = groupers._map_with_multiindex(comp["bus1"], bus_locations).rename("loc1")
+        buses = pd.concat([bus0, bus1], axis=1)
+
+        def location_selection_logic(row) -> str:
+            if row.loc0 != "EU" or pd.isna(row.loc1):
+                return row.loc0
+            return row.loc1
+
+        return buses.apply(location_selection_logic, axis=1).rename("location")
+
+    # default logic to return location groupers
+    return groupers._map_with_multiindex(comp[f"bus{port}"], bus_locations).rename(
+        "location"
+    )
+
+
+def get_location_from_name_at_port(
+    n: pypsa.Network, c: str, location_port: str = ""
+) -> pd.Series:
+    """
+    Return the location from the component name.
+
+    Parameters
+    ----------
+    n
+        The network to evaluate.
+    c
+        The component name, e.g. 'Load', 'Generator', 'Link', etc.
+    location_port
+        Limit results to this branch port.
+
+    Returns
+    -------
+    :
+
+    """
+    group = f"({Regex.region.pattern})"
+    return (
+        n.static(c)[f"bus{location_port}"]
+        .str.extract(group, expand=False)
+        .str.strip()  # some white spaces still go through regex
+        .rename(f"bus{location_port}")
+    )
+
+
+# Register custom groupers once, after the grouper functions are defined.
+groupers.add_grouper("location", get_location)
+groupers.add_grouper(
+    "loc_bus0", partial(get_location_from_name_at_port, location_port="0")
+)
+groupers.add_grouper(
+    "loc_bus1", partial(get_location_from_name_at_port, location_port="1")
+)
 
 
 def read_networks(
@@ -100,22 +201,23 @@ def read_networks(
         input_path = Path(result_path) / sub_directory
         file_paths = input_path.glob(r"*[0-9].nc")
 
+    file_paths = [*file_paths]  # store paths in a list for error messages
     networks = {}
     for file_path in file_paths:
         year = re.search(Regex.year, file_path.stem).group()
         n = pypsa.Network(file_path)
-        # extend the statistic module with custom statistics
-        n.statistics = ESMStatistics(n)
-        # todo: apply preprocessing steps to simplify evaluations:
-        # AC Load splitting: extract electricity rail and industry from electricity base load
-        # attach required resources to network
-        n.year = year
+        n.statistics = ESMStatistics(n)  # register custom statistics
+        n.year = year  # for convenience
         networks[year] = n
 
     if not networks:
         raise FileNotFoundError(f"No networks found in {file_paths}.")
 
-    return NetworkCollection(networks)
+    # needed to make NetworkCollections work
+    nc = NetworkCollection(networks)
+    nc.statistics = ESMStatistics(nc)
+
+    return nc
 
 
 def read_views_config(

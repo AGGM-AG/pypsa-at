@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.20.4"
+__generated_with = "0.23.4"
 app = marimo.App(width="medium")
 
 
@@ -60,9 +60,9 @@ def _(mo):
 
 @app.cell
 def _(Path, gpd, pd, wkt):
-    osm_dir = Path("data/osm/archive/v0.1-at")
+    osm_dir = Path("data/osm/archive/0.2-at")
 
-    buses_raw = pd.read_csv(osm_dir / "buses.csv")
+    buses_raw = pd.read_csv(osm_dir / "buses.csv", quotechar="'")
 
     # --- Buses 110 kV ---
     buses_at_110 = buses_raw[
@@ -75,7 +75,7 @@ def _(Path, gpd, pd, wkt):
     lines_raw = pd.read_csv(osm_dir / "lines.csv", quotechar="'")
     at_bus_ids = set(buses_at_110["bus_id"])
     lines_at_110 = lines_raw[
-        (lines_raw["voltage"] == 110.0)
+        (lines_raw["voltage"] >= 65.0)
         & (lines_raw["bus0"].isin(at_bus_ids) | lines_raw["bus1"].isin(at_bus_ids))
     ].copy()
     lines_at_110["geometry"] = lines_at_110["geometry"].apply(wkt.loads)
@@ -83,7 +83,7 @@ def _(Path, gpd, pd, wkt):
 
     print(f"Buses (AT, 110 kV): {len(buses_gdf)}")
     print(f"Lines  (AT, 110 kV): {len(lines_gdf)}")
-    return buses_gdf, lines_gdf
+    return buses_gdf, lines_gdf, osm_dir
 
 
 @app.cell
@@ -155,11 +155,11 @@ def _(mo):
 
 
 @app.cell
-def _(Path, gpd, pd, wkt):
-    osm_dir_all = Path("data/osm/archive/v0.1-at")
+def _(gpd, osm_dir, pd, wkt):
+    # osm_dir_all = Path("data/osm/archive/v0.2-at")
 
-    buses_raw_all = pd.read_csv(osm_dir_all / "buses.csv")
-    lines_raw_all = pd.read_csv(osm_dir_all / "lines.csv", quotechar="'")
+    buses_raw_all = pd.read_csv(osm_dir / "buses.csv", quotechar="'")
+    lines_raw_all = pd.read_csv(osm_dir / "lines.csv", quotechar="'")
 
     # All AT buses (any voltage)
     at_buses_all_v = buses_raw_all[buses_raw_all["country"] == "AT"].copy()
@@ -250,11 +250,11 @@ def _(mo):
 
 
 @app.cell
-def _(Path, gpd, pd, wkt):
-    osm_dir_xb = Path("data/osm/archive/v0.1-at")
+def _(gpd, osm_dir, pd, wkt):
+    # osm_dir_xb = Path("data/osm/archive/v0.1-at")
 
-    buses_all = pd.read_csv(osm_dir_xb / "buses.csv")
-    lines_all = pd.read_csv(osm_dir_xb / "lines.csv", quotechar="'")
+    buses_all = pd.read_csv(osm_dir / "buses.csv", quotechar="'")
+    lines_all = pd.read_csv(osm_dir / "lines.csv", quotechar="'")
 
     # Map bus_id → country for quick lookup
     bus_country = buses_all.set_index("bus_id")["country"].to_dict()
@@ -496,10 +496,10 @@ def _(gpd, pd):
 
 
 @app.cell
-def _(Path, pd, remove_cross_border_lines_lv):
-    _osm_dir = Path("data/osm/archive/v0.1-at")
-    _buses_raw = pd.read_csv(_osm_dir / "buses.csv")
-    _lines_raw = pd.read_csv(_osm_dir / "lines.csv", quotechar="'")
+def _(osm_dir, pd, remove_cross_border_lines_lv):
+    # _osm_dir = Path("data/osm/archive/v0.1-at")
+    _buses_raw = pd.read_csv(osm_dir / "buses.csv", quotechar="'")
+    _lines_raw = pd.read_csv(osm_dir / "lines.csv", quotechar="'")
 
     lines_kept, lines_removed = remove_cross_border_lines_lv(_lines_raw, _buses_raw)
 

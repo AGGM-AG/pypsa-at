@@ -57,6 +57,9 @@ nav:
     - KLIEN Potentials: explanations/renewable-energy-potentials/klien-potentials.md
     - Photovoltaic Potentials: explanations/renewable-energy-potentials/pv-potentials.md
     - Wind Power Potentials: explanations/renewable-energy-potentials/wind-potentials.md
+  - Regulatory Requirements:
+    - explanations/regulatory-requirements/index.md
+    - EAG Net-Zero Electricity: explanations/regulatory-requirements/eag-net-zero-electricity.md
 
 theme:
   name: "material"
@@ -139,6 +142,12 @@ markdown_extensions:
       class: mkdocs-plotly
       format: !!python/name:mkdocs_plotly_plugin.fences.fence_plotly
 - tables
+- md_in_html
+- pymdownx.arithmatex:
+    generic: true
+
+extra_javascript:
+- https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
 
 extra_css:
 - assets/css/custom.css

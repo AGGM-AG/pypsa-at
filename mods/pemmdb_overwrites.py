@@ -198,6 +198,13 @@ def apply_trajectories(
         # reduce total boundaries by already built and still existing capacities
         if is_myopic_year:
             p_nom_min = max(0, p_nom_min - existing_brownfield)
+
+        # For wind and solar, add_land_use_constraint() in solve_network.py subtracts
+        # existing non-extendable p_nom from p_nom_max during the solve step.
+        # Deducting here too would cause the brownfield to be subtracted twice.
+        # solar-utility is not affected, because a constraint directly sets p_nom_opt
+        # ceilings for combined solar + solar-hsat technologies.
+        if is_myopic_year and carrier not in ("onwind", "solar rooftop"):
             p_nom_max = max(0, p_nom_max - existing_brownfield)
 
         # some trajectories are given for bus1 output capacities

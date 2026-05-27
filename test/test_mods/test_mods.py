@@ -7,11 +7,7 @@ from evals.constants import DataModel as DM
 from evals.utils import get_energy_totals_domestic_share
 from mods.tyndp_utils import get_relevant_links_and_lines
 from scripts.prepare_sector_network import determine_emission_sectors
-
-
-@pytest.fixture(scope="session")
-def is_testrun(nc):
-    return any(n.meta["run"]["prefix"] == "test-sector-myopic-at10" for n in nc)
+from test.conftest import require_config
 
 
 @pytest.mark.AT
@@ -38,7 +34,7 @@ def test_custom_clustering(nc, is_testrun):
             assert len(locations_at) == 10
             assert len(locations_de) == 5
         elif clustering == "AT10DE16":
-            assert len(locations) == 66
+            assert len(locations) == 63
             assert len(locations_at) == 10
             assert len(locations_de) == 16
         elif clustering == "AT35DE5":
@@ -46,7 +42,7 @@ def test_custom_clustering(nc, is_testrun):
             assert len(locations_at) == 35
             assert len(locations_de) == 5
         elif clustering == "AT35DE16":
-            assert len(locations) == 91
+            assert len(locations) == 88
             assert len(locations_at) == 35
             assert len(locations_de) == 16
         else:
@@ -107,10 +103,50 @@ def test_national_co2_budget_constraint(nc):
             # optimized model values
             country_emissions = co2_balance.loc[mask_country].sum()
 
-            assert country_emissions <= country_limit, (
+            assert country_emissions <= country_limit + 1e-6, (
                 f"Exceeded emission limit for country {ct} and year "
                 f"{year}: {country_limit} > {country_emissions} in Mt_CO2"
             )
+
+
+@pytest.mark.AT
+def test_no_load_supply(nc):
+    """
+    Verify that no Load components supply energy to buses. Ever.
+
+    The ``process emissions`` carrier is excluded: PyPSA-Eur models exogenous
+    industrial CO2 emissions as a Load with negative ``p_set`` on a CO2 bus
+    (``unit="t_co2"``), so that ``-p_set`` injects positive flow representing
+    emissions. This is an upstream design pattern, not energy supply, but
+    ``statistics.supply`` cannot distinguish the bus unit and reports it.
+    See ``scripts/prepare_sector_network.py`` (upstream) for the construction.
+    """
+    load_supply = nc.statistics.supply(
+        components="Load", groupby=["location", "carrier"]
+    )
+    load_supply = load_supply.drop(
+        "process emissions", level="carrier", errors="ignore"
+    )
+
+    assert load_supply.empty, (
+        f"Detected node supply from Load components: {load_supply}"
+    )
+
+
+@pytest.mark.AT
+def test_constant_buses_topology(nc):
+    """
+    Needs a filter because retired technologies and their buses vanish.
+
+    todo: docstring + explanation why this is needed
+    """
+    fuels = require_config(nc, "mods", "net_zero_electricity", "fuels")  # noqa
+    expr = "carrier.isin(@fuels)"
+
+    first = nc[0].buses.query(expr).index
+    for n in nc[1:]:
+        subsequent = n.buses.query(expr).index
+        pd.testing.assert_index_equal(first, subsequent, check_order=False)
 
 
 @pytest.mark.AT

@@ -18,6 +18,7 @@
     },
     "postCreateCommand": "git fetch --unshallow && pixi run pre-commit install",
     "postAttachCommand": "",
+    "postStartCommand": "find /.jbdevcontainer/config/JetBrains -name '*.vmoptions' | xargs -I{} grep -lF 'Xmx' {} | xargs -I{} sh -c 'grep -qF \"rd.transport.ping.timeout\" \"{}\" || echo \"-Drd.transport.ping.timeout.ms=60000\" >> \"{}\"'",
     "customizations": {
       "jetbrains": {
         "backend": "PyCharm"
@@ -27,4 +28,4 @@
       "SHELL": "/bin/zsh"
     },
     "remoteUser": "root"
-  }
+  },
