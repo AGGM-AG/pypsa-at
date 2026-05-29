@@ -290,9 +290,25 @@ def constraint_combined_solar_trajectories(
         cname_upper = f"tyndp-combined-solar-upper[{loc} solar(-hsat)-{pyear}]"
         cname_lower = f"tyndp-combined-solar-lower[{loc} solar(-hsat)-{pyear}]"
 
+        # The model constraint must be prefixed with "GlobalConstraint-" so that
+        # pypsa's assign_duals() can split the name into the GlobalConstraint
+        # component and the matching index, and persist the shadow price as
+        # ``mu`` on the network. See eag.py for the same pattern.
+        model_cname_upper = f"GlobalConstraint-{cname_upper}"
+        model_cname_lower = f"GlobalConstraint-{cname_lower}"
+
         if rhs_min == 0.0 and rhs_max == 0.0:
             # Brownfield fills the ceiling — lock new builds to zero.
-            n.model.add_constraints(lhs <= 0.0, name=cname_upper)
+            n.model.add_constraints(lhs <= 0.0, name=model_cname_upper)
+            if cname_upper not in n.global_constraints.index:
+                n.add(
+                    "GlobalConstraint",
+                    cname_upper,
+                    constant=0.0,
+                    sense="<=",
+                    type="",
+                    carrier_attribute="",
+                )
             logger.info(
                 f"Solar utility capacity locked at 0 for {loc}: "
                 f"brownfield={existing_brownfield:.1f} MW fills trajectory ceiling of {rhs_max:.1f} MW."
@@ -302,7 +318,7 @@ def constraint_combined_solar_trajectories(
         # add constraints twice: once to model and once to the Network object
         # constraints are only persisted to output networks if they are appended
         # the network objects GlobalConstraint attribute.
-        n.model.add_constraints(lhs <= rhs_max, name=cname_upper)
+        n.model.add_constraints(lhs <= rhs_max, name=model_cname_upper)
         if cname_upper not in n.global_constraints.index:
             n.add(
                 "GlobalConstraint",
@@ -313,7 +329,7 @@ def constraint_combined_solar_trajectories(
                 carrier_attribute="",
             )
 
-        n.model.add_constraints(lhs >= rhs_min, name=cname_lower)
+        n.model.add_constraints(lhs >= rhs_min, name=model_cname_lower)
         if cname_lower not in n.global_constraints.index:
             n.add(
                 "GlobalConstraint",

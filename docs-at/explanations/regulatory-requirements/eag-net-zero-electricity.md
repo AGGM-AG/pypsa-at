@@ -54,7 +54,6 @@ $$G_c - L_c \geq D_c$$
 
 </div>
 <div markdown>
-<div markdown>
 
 **Right-hand side — exogenous demand**
 
@@ -179,7 +178,7 @@ Constraint 3, which requires the H2 it consumes to come from domestic green prod
 
 **Right-hand side** — gas attributed to electricity production:
 
-$$F_{\text{AT}}^{\text{gas}} \cdot \phi_i$$
+$$\sum_i \phi_i \cdot F_i^{\text{gas}}$$
 
 summed over all gas-to-power links $i$ (links with `bus0` in Austrian gas buses and a
 positive-efficiency electricity output port). For a pure gas turbine $\phi = 1.0$. For a gas
@@ -274,7 +273,7 @@ omitted from `h2_sources` so the single-stage constraint stack stays consistent.
 
 ## Implementation reference
 
-The four constraint functions live in [`mods/constraints.py`][mods.constraints]:
+The four constraint functions live in [`mods/constraints/eag.py`][mods.constraints.eag]:
 
 | Function | Constraint |
 |---|---|
@@ -284,8 +283,8 @@ The four constraint functions live in [`mods/constraints.py`][mods.constraints]:
 | `_add_methanol_production_constraint` | Constraint 4 |
 | `_compute_electricity_fraction` | shared helper computing $\phi_i$ |
 
-The orchestrator `add_national_net_zero_electricity_constraints` calls all four and is
-registered in `mods/__init__.py` via the top-level `pypsa_at_constraints` entry point.
+The orchestrator `constraint_net_zero_electricity` calls all four, is exported from
+`mods/__init__.py`, and is invoked from `scripts/pypsa-at/additional_functionality.py`.
 
 ## Verification
 
