@@ -19,7 +19,6 @@ from scripts._helpers import (
 )
 
 
-@pytest.mark.unit
 @pytest.mark.parametrize(
     "year, available, expected",
     [
@@ -34,13 +33,11 @@ def test_safe_pyear(year, available, expected):
     assert safe_pyear(year, available) == expected
 
 
-@pytest.mark.unit
 def test_safe_pyear_raises_on_empty_years():
     with pytest.raises(ValueError):
         safe_pyear(2030, [])
 
 
-@pytest.mark.unit
 def test_map_tyndp_carrier_names_basic(tmp_path):
     csv = textwrap.dedent("""\
         investment_dataset_carrier,open_tyndp_carrier,open_tyndp_index,open_tyndp_type,pypsa_eur_carrier
@@ -57,7 +54,6 @@ def test_map_tyndp_carrier_names_basic(tmp_path):
     assert result.iloc[0]["pypsa_eur_carrier"] == "solar(-hsat)"
 
 
-@pytest.mark.unit
 @pytest.mark.parametrize(
     "unit, value, expected_value, expected_unit",
     [
@@ -72,7 +68,6 @@ def test_convert_units(unit, value, expected_value, expected_unit):
     assert result.iloc[0]["unit"] == expected_unit
 
 
-@pytest.mark.unit
 @pytest.mark.parametrize(
     "cyear, scenario, expected",
     [
@@ -84,7 +79,6 @@ def test_check_cyear(cyear, scenario, expected):
     assert check_cyear(cyear, scenario) == expected
 
 
-@pytest.mark.unit
 @pytest.mark.parametrize(
     "request_year, expected",
     [
@@ -98,7 +92,6 @@ def test_interpolate_demand(request_year, expected):
     assert result.iloc[0]["AT"] == pytest.approx(expected)
 
 
-@pytest.mark.unit
 def test_align_demand_to_snapshots():
     snapshots = pd.date_range("2030-01-01", periods=3, freq="h")
     demand = pd.DataFrame(
@@ -110,7 +103,6 @@ def test_align_demand_to_snapshots():
     assert list(result["AT"]) == [1.0, 2.0, 3.0]
 
 
-@pytest.mark.unit
 @pytest.mark.parametrize(
     "row, prefix, expected",
     [

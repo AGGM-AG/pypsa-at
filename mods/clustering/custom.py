@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
 """
-Functions to apply custom administrative clustering to NUTS3 shape data.
+Apply PyPSA-AT custom administrative clustering to NUTS3 shape data.
 
 PyPSA-AT supports four custom clustering configurations that combine different
 NUTS resolution levels for Austria and Germany:
@@ -19,196 +19,16 @@ The clustering is applied as a pre-processing step in the Snakemake rule
 ``modify_nuts3_shapes`` before the network clustering step. The modifications
 are stored in the ``level1``, ``level2``, or ``level3`` columns of the NUTS3
 GeoDataFrame and are later consumed by PyPSA-Eur's clustering pipeline.
-
-The Austrian NUTS3 region AT333 (Osttirol) is treated specially at NUTS2 level:
-it belongs to Tyrol (AT33x) geographically, but its NUTS2 code (AT33) is shared
-with other Tyrolean districts. To keep it as a distinct region at NUTS2 resolution,
-AT333 is mapped to itself (``AT333 → AT333``).
 """
 
 import logging
 
 import geopandas as gpd
 
+from mods.clustering.constants import DE5_GROUPS, VALID_CONFIGURATIONS
+from mods.clustering.utils import assert_expected_region_count, override_nuts
+
 logger = logging.getLogger(__name__)
-
-# Valid clustering configurations and their implied NUTS levels.
-VALID_CONFIGURATIONS = ("AT10DE5", "AT10DE16", "AT35DE5", "AT35DE16")
-
-# Single source of truth for the DE5 macro-region groupings.
-# Maps each DE5 aggregate code to the DE NUTS1 state codes it contains.
-# Consumed by apply_custom_clustering() and by network update functions that
-# need to aggregate DE NUTS1 storage data to DE5 resolution.
-DE5_GROUPS = {
-    "DE1": ("DE1",),  # Baden-Württemberg
-    "DE2": ("DE2",),  # Bavaria
-    "DE3": ("DE7", "DEB", "DEC", "DEA"),  # Midwest: Hesse, RP, Saarland, NRW
-    "DE4": (  # Mideast
-        "DE3",  # Berlin
-        "DE4",  # Brandenburg
-        "DE8",  # MV
-        "DED",  # Saxony
-        "DEE",  # SA
-        "DEG",  # Thuringia
-    ),
-    "DE5": ("DEF", "DE6", "DE9", "DE5"),  # North: SH, Hamburg, Bremen, Lower Saxony
-}
-
-
-_DE_NUTS1_TO_DE5: dict[str, str] = {
-    nuts1: de5 for de5, nuts1_codes in DE5_GROUPS.items() for nuts1 in nuts1_codes
-}
-
-
-def map_at_nuts3_to_nuts2(code: str) -> str:
-    """
-    Map an AT NUTS3 code to its NUTS2 parent; all other codes pass through.
-
-    - AT NUTS3 → AT NUTS2, e.g. ``"AT125"`` → ``"AT12"``
-    - AT333 (Osttirol) → ``"AT333"`` (preserved as its own NUTS2 region)
-    - All other codes pass through unchanged.
-
-    Parameters
-    ----------
-    code
-        Region code to map.
-
-    Returns
-    -------
-    :
-        The NUTS2 parent code for AT NUTS3 inputs, or the original code
-        unchanged for everything else.
-    """
-    if code == "AT333":
-        return code
-    if code.startswith("AT") and len(code) == 5:
-        return code[:4]
-    return code
-
-
-def map_de_nuts1_to_de5(code: str) -> str:
-    """
-    Map a DE NUTS1 code to its DE5 macro-region; all other codes pass through.
-
-    - DE NUTS1 → DE5 macro-region, e.g. ``"DE7"`` → ``"DE3"``
-    - All other codes pass through unchanged.
-
-    Parameters
-    ----------
-    code
-        Region code to map.
-
-    Returns
-    -------
-    :
-        The DE5 macro-region code for DE NUTS1 inputs, or the original code
-        unchanged for everything else.
-    """
-    return _DE_NUTS1_TO_DE5.get(code, code)
-
-
-def override_nuts(
-    nuts3_regions: gpd.GeoDataFrame,
-    nuts_code: str | tuple[str, ...],
-    override: str,
-    level: str = "level1",
-) -> gpd.GeoDataFrame:
-    """
-    Reassign NUTS codes for matching regions.
-
-    Finds all rows in the GeoDataFrame whose index starts with any of the
-    provided ``nuts_code`` prefixes and sets their ``level`` column to
-    ``override``.
-
-    Parameters
-    ----------
-    nuts3_regions
-        GeoDataFrame with NUTS3 shapes, indexed by NUTS3 code.
-    nuts_code
-        A single NUTS prefix string or a tuple of prefixes. All regions
-        whose index starts with any prefix will be updated.
-    override
-        The new NUTS code to assign to matching regions.
-    level
-        Name of the column to update (e.g. ``"level1"``, ``"level2"``,
-        ``"level3"``).
-
-    Returns
-    -------
-    :
-        The GeoDataFrame with updated NUTS codes in place.
-
-    Examples
-    --------
-    Merge all AT NUTS3 codes that start with ``"AT1"`` into one region:
-
-    >>> nuts3 = override_nuts(nuts3, "AT1", "AT1", level="level2")
-
-    Merge two separate island groups into one region:
-
-    >>> nuts3 = override_nuts(nuts3, ("DK01", "DK02"), "DK1", level="level1")
-    """
-    logger.debug(f"Overriding regions starting with codes {nuts_code} to {override}.")
-    mask = nuts3_regions.index.str.startswith(nuts_code)
-    nuts3_regions.loc[mask, level] = override
-    return nuts3_regions
-
-
-def assert_expected_region_count(
-    nuts3_regions: gpd.GeoDataFrame,
-    nuts_code: str,
-    expected: int,
-    lvl: int = 1,
-    ci_prefix: str | None = "test-sector-myopic-at10",
-    run_prefix: str | None = None,
-) -> None:
-    """
-    Assert that a NUTS code maps to exactly the expected number of regions.
-
-    Queries the GeoDataFrame for all rows where the ``level{lvl}`` column
-    starts with ``nuts_code`` and checks the number of unique values. CI test
-    runs are exempt from this check.
-
-    Parameters
-    ----------
-    nuts3_regions
-        GeoDataFrame with NUTS3 shapes and level columns.
-    nuts_code
-        The NUTS prefix to filter by.
-    expected
-        Expected number of distinct regions at the given level.
-    lvl
-        The clustering level to inspect (default ``1``).
-    ci_prefix
-        Run prefix string used for CI tests. When ``run_prefix`` matches this
-        value the assertion is skipped.
-    run_prefix
-        The current run's prefix from ``snakemake.config["run"]["prefix"]``.
-        Pass ``None`` to always enforce the assertion.
-
-    Raises
-    ------
-    ValueError
-        If the number of distinct regions does not equal ``expected``.
-
-    Examples
-    --------
-    Verify Austria has exactly 10 NUTS2 regions after reassignment:
-
-    >>> assert_expected_region_count(nuts3, "AT", expected=10, lvl=2)
-    """
-    if run_prefix == ci_prefix:
-        return  # skip for CI tests
-
-    col = f"level{lvl}"
-    mask = nuts3_regions[col].astype(str).str.startswith(nuts_code)
-    regions_at_level = nuts3_regions[mask]
-    entries = regions_at_level[col].unique()
-    if len(entries) != expected:
-        raise ValueError(
-            f"Expected {expected} regions for '{nuts_code}' at level {lvl}, "
-            f"but found {len(entries)}: {sorted(entries)}"
-        )
 
 
 def apply_custom_clustering(

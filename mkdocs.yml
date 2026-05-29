@@ -16,9 +16,19 @@ nav:
 - Function Reference:
   - Modifications:
     - reference/mods/index.md
-    - clustering.py: reference/mods/clustering.md
-    - constraints.py: reference/mods/constraints.md
-    - network_updates.py: reference/mods/network_updates.md
+    - clustering: reference/mods/clustering.md
+    - Constraints:
+      - reference/mods/constraints/index.md
+      - co2_budget.py: reference/mods/constraints/co2_budget.md
+      - eag.py: reference/mods/constraints/eag.md
+      - tyndp.py: reference/mods/constraints/tyndp.md
+    - Network:
+      - reference/mods/network/index.md
+      - common.py: reference/mods/network/common.md
+      - electricity.py: reference/mods/network/electricity.md
+      - gas.py: reference/mods/network/gas.md
+      - h2.py: reference/mods/network/h2.md
+      - potentials.py: reference/mods/network/potentials.md
   - Evaluations:
     - reference/evals/index.md
     - cli.py: reference/evals/cli.md

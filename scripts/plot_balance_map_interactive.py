@@ -252,7 +252,7 @@ if __name__ == "__main__":
     deck.layers.insert(0, regions_layer)
 
     try:
-        from mods.interactive_map import augment_and_export_html
+        from evals.plots.augmentations import augment_and_export_html
 
         augment_and_export_html(
             deck,

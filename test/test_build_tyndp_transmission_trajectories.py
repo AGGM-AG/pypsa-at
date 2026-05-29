@@ -9,11 +9,9 @@ import sys
 sys.path.insert(0, "./scripts/pypsa-at")
 
 import pandas as pd
-import pytest
 from build_tyndp_transmission_trajectories import build_tyndp_transmission_trajectories
 
 
-@pytest.mark.unit
 def test_build_tyndp_transmission_trajectories_full_pipeline(tmp_path):
     """Full pipeline: read → map → sort → build_trajectories produces correct 4-year NTC table."""
     # --- synthetic elec_reference_grid (sheet "2030") ---

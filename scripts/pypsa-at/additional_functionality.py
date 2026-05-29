@@ -16,7 +16,12 @@ import logging
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
-from mods import pypsa_at_constraints
+from mods import (
+    constraint_combined_solar_trajectories,
+    constraint_national_co2_budgets,
+    constraint_net_zero_electricity,
+    constraint_ntc_flow_limits,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,4 +40,7 @@ def additional_functionality(n, snapshots, snakemake):
     _pypsa_de_additional_functionality.additional_functionality(n, snapshots, snakemake)
 
     investment_year = int(snakemake.wildcards.planning_horizons)
-    pypsa_at_constraints(n, snakemake, investment_year)
+    constraint_national_co2_budgets(n, snakemake, investment_year)
+    constraint_ntc_flow_limits(n, snakemake, investment_year)
+    constraint_net_zero_electricity(n, snakemake, investment_year)
+    constraint_combined_solar_trajectories(n, snakemake, investment_year)

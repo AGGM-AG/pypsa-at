@@ -289,3 +289,19 @@ def pytest_addoption(parser) -> None:
     parser.addoption(
         "--result-path", action="store", help="Path to the ESM results folder."
     )
+
+
+def pytest_configure(config):
+    """Register custom markers."""
+    config.addinivalue_line(
+        "markers",
+        "AT: integration test that loads solved networks via --result-path "
+        "(auto-applied to any test using the `nc` fixture)",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Auto-apply the AT mark to any test that (transitively) requests the `nc` fixture."""
+    for item in items:
+        if "nc" in getattr(item, "fixturenames", ()):
+            item.add_marker(pytest.mark.AT)

@@ -19,7 +19,7 @@ import logging
 
 import geopandas as gpd
 
-from mods.clustering import apply_custom_clustering
+from mods import apply_custom_clustering
 from scripts._helpers import configure_logging
 
 logger = logging.getLogger(__name__)

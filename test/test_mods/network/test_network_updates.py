@@ -8,6 +8,9 @@ import pandas as pd
 import pypsa
 import pytest
 
+from mods.utils import get_relevant_links_and_lines
+from test.conftest import require_config
+
 
 def _make_energy_totals() -> pd.DataFrame:
     """Return a minimal energy_totals DataFrame matching the real layout."""
@@ -49,7 +52,6 @@ class TestMetaResourcesRoundTrip:
         _attach_resources(n)
         return n
 
-    @pytest.mark.AT
     def test_resources_key_present_after_roundtrip(
         self, network_with_resources, tmp_path
     ):
@@ -60,7 +62,6 @@ class TestMetaResourcesRoundTrip:
         n2 = pypsa.Network(str(nc_path))
         assert "resources" in n2.meta, "n.meta['resources'] missing after round-trip"
 
-    @pytest.mark.AT
     def test_energy_totals_roundtrip(self, network_with_resources, tmp_path):
         """energy_totals DataFrame must be reconstructable after round-trip."""
         original = _make_energy_totals()
@@ -73,7 +74,6 @@ class TestMetaResourcesRoundTrip:
         )
         pd.testing.assert_frame_equal(recovered, original)
 
-    @pytest.mark.AT
     def test_co2_totals_roundtrip(self, network_with_resources, tmp_path):
         """co2_totals DataFrame must be reconstructable after round-trip."""
         original = _make_co2_totals()
@@ -86,7 +86,6 @@ class TestMetaResourcesRoundTrip:
         )
         pd.testing.assert_frame_equal(recovered, original)
 
-    @pytest.mark.AT
     def test_resources_not_lost_by_pop(self, network_with_resources, tmp_path):
         """
         Verify that popping 'resources' from a deepcopy does not affect the
@@ -105,3 +104,73 @@ class TestMetaResourcesRoundTrip:
         assert "resources" in n2.meta, (
             "Popping from deepcopy should not mutate the original network meta"
         )
+
+
+def test_tyndp_ntc_lower_limits_applied(nc, pytestconfig):
+    """2040 capacities should be at least TYNDP NTC capacity."""
+    lower_bounds_years = require_config(nc, "mods", "tyndp_lower_bounds")["years"]
+
+    ntc_path = (
+        pytestconfig.rootpath / "resources" / "tyndp_transmission_trajectories.csv"
+    )
+
+    ntc_df = pd.read_csv(ntc_path)
+
+    for year_str, n in nc.networks.items():
+        if year_str not in lower_bounds_years:
+            continue
+
+        year_int = int(year_str)
+
+        df_year = ntc_df[ntc_df["year"] == year_int]
+
+        relevant_links, relevant_lines = get_relevant_links_and_lines(n)
+
+        for row in df_year.itertuples():
+            from_node: str = row.from_node
+            to_node: str = row.to_node
+
+            lines_dir_idx = relevant_lines[
+                (relevant_lines["bus0_tyndp"] == from_node)
+                & (relevant_lines["bus1_tyndp"] == to_node)
+            ].index
+            lines_indir_idx = relevant_lines[
+                (relevant_lines["bus0_tyndp"] == to_node)
+                & (relevant_lines["bus1_tyndp"] == from_node)
+            ].index
+            links_dir_idx = relevant_links[
+                (relevant_links["bus0_tyndp"] == from_node)
+                & (relevant_links["bus1_tyndp"] == to_node)
+            ].index
+            links_indir_idx = relevant_links[
+                (relevant_links["bus0_tyndp"] == to_node)
+                & (relevant_links["bus1_tyndp"] == from_node)
+            ].index
+
+            ac_cap = (
+                n.lines.loc[lines_dir_idx | lines_indir_idx, "s_nom_opt"]
+                * n.lines.loc[lines_dir_idx | lines_indir_idx, "s_max_pu"]
+            ).sum()
+            dc_cap_dir = (
+                n.links.loc[links_dir_idx, "p_nom_opt"]
+                * n.links.loc[links_dir_idx, "p_max_pu"]
+            ).sum()
+            dc_cap_indir = (
+                n.links.loc[links_indir_idx, "p_nom_opt"]
+                * n.links.loc[links_indir_idx, "p_max_pu"]
+            ).sum()
+
+            assert ac_cap + dc_cap_dir >= max(
+                row.direct_capacity, row.indirect_capacity
+            ), (
+                f"TYNDP lower limit violation in {year_int}: {from_node}→{to_node} "
+                f"Direct cross border capacity {ac_cap + dc_cap_dir:.1f} MW is lower than min NTC "
+                f"capacity {max(row.direct_capacity, row.indirect_capacity):.1f} MW"
+            )
+            assert ac_cap + dc_cap_indir >= max(
+                row.direct_capacity, row.indirect_capacity
+            ), (
+                f"TYNDP lower limit violation in {year_int}: {from_node}→{to_node} "
+                f"Indirect cross border capacity {ac_cap + dc_cap_indir:.1f} MW is lower than min NTC "
+                f"capacity {max(row.direct_capacity, row.indirect_capacity):.1f} MW"
+            )

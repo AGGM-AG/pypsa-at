@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
-"""Shared TYNDP location utilities used by `mods.constraints` and `mods.transmission_lower_bounds`."""
+"""Shared utilities used by both `mods.constraints` and `mods.network` subpackages."""
 
 import logging
 

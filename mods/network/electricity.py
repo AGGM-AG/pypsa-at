@@ -32,7 +32,7 @@ import pandas as pd
 import pypsa
 from snakemake.script import Snakemake
 
-from mods.tyndp_utils import get_relevant_links_and_lines, sanity_check_links_and_lines
+from mods.utils import get_relevant_links_and_lines, sanity_check_links_and_lines
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,17 @@ class _CorridorComponents:
     dc_nonext: pd.DataFrame
     dc_indir_ext: pd.DataFrame
 
+    @property
+    def components(self) -> list[pd.DataFrame]:
+        """All classified component subsets, for iteration over the corridor."""
+        return [
+            self.ac_ext,
+            self.ac_nonext,
+            self.dc_ext,
+            self.dc_nonext,
+            self.dc_indir_ext,
+        ]
+
 
 def _validate_dc_link_symmetry(relevant_links: pd.DataFrame) -> None:
     """
@@ -56,7 +67,7 @@ def _validate_dc_link_symmetry(relevant_links: pd.DataFrame) -> None:
     ----------
     relevant_links : pd.DataFrame
         Active DC Links that cross a TYNDP border, as returned by
-        ``compare_tyndp_and_model_borders``.  Must contain columns
+        ``get_relevant_links_and_lines``.  Must contain columns
         ``bus0``, ``bus1``, and ``p_nom_min``.
 
     Raises
@@ -199,8 +210,8 @@ def apply_tyndp_transmission_lower_bounds(
 
     Notes
     -----
-    * This function is only called for the 2040 planning horizon; the guard is
-      enforced by the caller in ``network_updates.py``.
+    * The guard for which planning horizons trigger this function is enforced
+      by the caller in ``mods.network.__init__``.
     * ``installed_cap`` sums both extendable components (using ``s_nom_min`` /
       ``p_nom_min`` as their current lower bound) and non-extendable components
       (using fixed ``s_nom`` / ``p_nom``), each weighted by ``s_max_pu`` /
@@ -218,13 +229,17 @@ def apply_tyndp_transmission_lower_bounds(
       that the sum of effective capacities equals the shortfall.  A ``ValueError`` is
       raised if the relevant ``s_max_pu`` or ``p_max_pu`` sum is zero.
     """
+    pyear = int(snakemake.wildcards.planning_horizons)
+    if pyear not in snakemake.config["mods"]["tyndp_lower_bounds"]["years"]:
+        return
+
     tyndp_traj = pd.read_csv(snakemake.input.tyndp_transmission_trajectories)
 
     # max(direct_capacity, indirect_capacity) is used as the effective corridor
     # NTC target — the larger of the two direction capacities captures the dominant
     # transfer direction and is intentional per the algorithm design.
     df = (
-        tyndp_traj[tyndp_traj["year"] == int(snakemake.wildcards.planning_horizons)]
+        tyndp_traj[tyndp_traj["year"] == pyear]
         .set_index(["from_node", "to_node"])
         .drop(columns=["year"])
         .max(axis=1)
@@ -241,21 +256,31 @@ def apply_tyndp_transmission_lower_bounds(
     _validate_dc_link_symmetry(relevant_links_curr)
 
     for row in df.itertuples():
-        from_node: str = row.from_node
-        to_node: str = row.to_node
-        corridor = f"{from_node}→{to_node}"
+        node_from = row.from_node
+        node_to = row.to_node
+        from_to = f"{node_from}→{node_to}"
 
-        cc = _classify_corridor(
-            relevant_lines_curr, relevant_links_curr, from_node, to_node
+        corridor = _classify_corridor(
+            relevant_lines_curr, relevant_links_curr, node_from, node_to
         )
+
+        # Corridors present in the TYNDP CSV but entirely absent from the
+        # (clustered) network are tolerated.
+        if all(c.empty for c in corridor.components):
+            logger.info(f"Corridor {from_to}: not modelled in network — skipping.")
+            continue
 
         # Installed capacity: non-extendable components contribute fixed s_nom/p_nom;
         # extendable components contribute their current lower bound (s_nom_min/p_nom_min).
         # s_max_pu / p_max_pu weight converts apparent/rated capacity to effective active transfer limit.
-        ac_cap_nonext = (cc.ac_nonext["s_nom"] * cc.ac_nonext["s_max_pu"]).sum()
-        ac_cap_ext = (cc.ac_ext["s_nom_min"] * cc.ac_ext["s_max_pu"]).sum()
-        dc_cap_nonext = (cc.dc_nonext["p_nom"] * cc.dc_nonext["p_max_pu"]).sum()
-        dc_cap_ext = (cc.dc_ext["p_nom_min"] * cc.dc_ext["p_max_pu"]).sum()
+        ac_cap_nonext = (
+            corridor.ac_nonext["s_nom"] * corridor.ac_nonext["s_max_pu"]
+        ).sum()
+        ac_cap_ext = (corridor.ac_ext["s_nom_min"] * corridor.ac_ext["s_max_pu"]).sum()
+        dc_cap_nonext = (
+            corridor.dc_nonext["p_nom"] * corridor.dc_nonext["p_max_pu"]
+        ).sum()
+        dc_cap_ext = (corridor.dc_ext["p_nom_min"] * corridor.dc_ext["p_max_pu"]).sum()
 
         installed_cap = ac_cap_nonext + ac_cap_ext + dc_cap_nonext + dc_cap_ext
 
@@ -263,7 +288,7 @@ def apply_tyndp_transmission_lower_bounds(
 
         if target <= 0:
             logger.info(
-                f"Corridor {corridor}: TYNDP target already met "
+                f"Corridor {from_to}: TYNDP target already met "
                 f"(target={target:.1f} MW ≤ 0) — skipping."
             )
             continue
@@ -271,35 +296,38 @@ def apply_tyndp_transmission_lower_bounds(
         if ac_cap_ext == 0 and dc_cap_ext == 0:
             # Zero-cap branch: extendable lower bounds are all zero; target is distributed so
             # that the total (summed) effective capacity equals the shortfall.
-            if not cc.ac_ext.empty:
-                n.lines.loc[cc.ac_ext.index, "s_nom_min"] = (
-                    target / n.lines.loc[cc.ac_ext.index, "s_max_pu"].sum()
+            if not corridor.ac_ext.empty:
+                n.lines.loc[corridor.ac_ext.index, "s_nom_min"] = (
+                    target / n.lines.loc[corridor.ac_ext.index, "s_max_pu"].sum()
                 )
-            elif not cc.dc_ext.empty:
-                n.links.loc[cc.dc_ext.index, "p_nom_min"] = (
-                    target / n.links.loc[cc.dc_ext.index, "p_max_pu"].sum()
+            elif not corridor.dc_ext.empty:
+                n.links.loc[corridor.dc_ext.index, "p_nom_min"] = (
+                    target / n.links.loc[corridor.dc_ext.index, "p_max_pu"].sum()
                 )
-                n.links.loc[cc.dc_indir_ext.index, "p_nom_min"] = (
-                    target / n.links.loc[cc.dc_indir_ext.index, "p_max_pu"].sum()
+                n.links.loc[corridor.dc_indir_ext.index, "p_nom_min"] = (
+                    target / n.links.loc[corridor.dc_indir_ext.index, "p_max_pu"].sum()
                 )
             else:
-                msg = f"Corridor {corridor}: target={target:.1f} MW but no extendable lines or links found."
-                if snakemake.config["run"]["prefix"] == "test-sector-myopic-at10":
-                    logger.warning(msg)
-                else:
-                    raise ValueError(msg)
+                # The corridor is modelled (non-extendable components exist) but
+                # has no extendable capacity to scale up, so the NTC floor cannot
+                # be met. This is a genuine inconsistency — fail fast.
+                raise ValueError(
+                    f"Corridor {from_to}: target={target:.1f} MW shortfall but "
+                    f"only non-extendable lines or links found — cannot raise the "
+                    f"lower bound to meet the TYNDP NTC floor."
+                )
             logger.info(
-                f"Corridor {corridor}: lower bounds set (zero-cap) — shortfall={target:.1f} MW."
+                f"Corridor {from_to}: lower bounds set (zero-cap) — shortfall={target:.1f} MW."
             )
         else:
             total_ext_cap = ac_cap_ext + dc_cap_ext
             cap_factor = (total_ext_cap + target) / total_ext_cap
 
-            n.lines.loc[cc.ac_ext.index, "s_nom_min"] *= cap_factor
-            n.links.loc[cc.dc_ext.index, "p_nom_min"] *= cap_factor
-            n.links.loc[cc.dc_indir_ext.index, "p_nom_min"] *= cap_factor
+            n.lines.loc[corridor.ac_ext.index, "s_nom_min"] *= cap_factor
+            n.links.loc[corridor.dc_ext.index, "p_nom_min"] *= cap_factor
+            n.links.loc[corridor.dc_indir_ext.index, "p_nom_min"] *= cap_factor
 
             logger.info(
-                f"Corridor {corridor}: lower bounds scaled — shortfall={target:.1f} MW "
+                f"Corridor {from_to}: lower bounds scaled — shortfall={target:.1f} MW "
                 f"(cap_factor={cap_factor:.3f})."
             )

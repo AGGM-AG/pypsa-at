@@ -69,7 +69,7 @@ sum(Line-s rev) − sum(Line-s fwd) + sum(Link-p rev) − sum(Link-p fwd) ≤ in
 
 Constraint names follow the pattern `tyndp_ntc_flow_dir-{A}-{B}-{year}` (direct) and `tyndp_ntc_flow_indir-{B}-{A}-{year}` (indirect). Corridors where no matching active AC Lines or DC Links exist in the model are silently skipped with a warning.
 
-The shared helper `compare_tyndp_and_model_borders` (`mods/tyndp_utils.py`) validates that every model cross-border corridor is covered by the trajectory CSV — missing coverage raises a `ValueError`. Corridors defined in TYNDP but absent from the model are accepted (a warning is logged).
+The shared helper `compare_tyndp_and_model_borders` (`mods/utils.py`) validates that every model cross-border corridor is covered by the trajectory CSV — missing coverage raises a `ValueError`. Corridors defined in TYNDP but absent from the model are accepted (a warning is logged).
 
 !!! info "Time-varying, not a GlobalConstraint"
     Each constraint generates one inequality per snapshot. The constraints are **not** registered as `GlobalConstraint` network objects — they operate at the snapshot level, not as annual aggregates.

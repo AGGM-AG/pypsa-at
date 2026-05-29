@@ -107,7 +107,6 @@ def df_metric(name="foo", unit="(bar)"):
     return df
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("axis", "pos", "expected_index"),
     [
@@ -154,7 +153,6 @@ def test_insert_index_level(axis, pos, expected_index, simple_data_frame):
     assert idx.equals(expected_index)
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("input_str", "expected_output"),
     [
@@ -188,7 +186,6 @@ def test_get_unit(input_str, expected_output):
     assert result == expected_output
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("bus_a", "bus_b", "expected"),
     [
@@ -220,7 +217,6 @@ def test_get_trade_type(bus_a, bus_b, expected):
     assert result == expected
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("trade_type", "buses", "expected"),
     [
@@ -263,56 +259,6 @@ def test_trade_mask(trade_type, buses, expected, df_buses):
             trade_mask(df_buses.drop("bus1", axis=1), str(trade_type), buses)
 
 
-# @pytest.mark.AT
-# @pytest.mark.parametrize(
-#     ("value", "level", "expected"),
-#     [
-#         # Happy path tests
-#         pytest.param(
-#             "C",
-#             "idx1",
-#             pd.DataFrame(
-#                 {"col": [3, 5, 7]},
-#                 index=pd.MultiIndex.from_product(
-#                     [["C"], ["1", "2", "3"]], names=["idx1", "idx2"]
-#                 ),
-#             ),
-#             id="replace_level_1",
-#         ),
-#         pytest.param(
-#             "4",
-#             "idx2",
-#             pd.DataFrame(
-#                 {"col": [3, 12]},
-#                 index=pd.MultiIndex.from_product(
-#                     [["A", "B"], ["4"]], names=["idx1", "idx2"]
-#                 ),
-#             ),
-#             id="replace_level_2",
-#         ),
-#         # Error cases
-#         pytest.param("C", "invalid", KeyError, id="invalid_level"),
-#     ],
-# )
-# def test_replace_index_level_values(value, level, expected, df_multi_index):
-#     """Test the replace_index_level_values function.
-#
-#     This test verifies that the replace_index_level_values function
-#     correctly replaces index level values in a DataFrame with a
-#     specified value. The expected results are compared against the
-#     actual output from the function for both happy path and error
-#     cases.
-#     """
-#     # sourcery skip: no-conditionals-in-tests
-#     if isinstance(expected, pd.DataFrame):
-#         result = replace_index_level_values(df_multi_index, str(value), str(level))
-#         pd.testing.assert_frame_equal(result, expected)
-#     else:
-#         with pytest.raises(expected):
-#             replace_index_level_values(df_multi_index, str(value), str(level))
-
-
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("exclude", "kwargs", "expected"),
     [
@@ -406,7 +352,6 @@ def test_filter_by_data_frame(exclude, kwargs, expected, df_multi_index):
         pd.testing.assert_frame_equal(result, expected, check_index_type=False)
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("exclude", "kwargs", "expected"),
     [
@@ -494,7 +439,6 @@ def test_filter_by_series(exclude, kwargs, expected, ser_multi_index):
         pd.testing.assert_series_equal(result, expected, check_index_type=False)
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("values", "ascending", "expected"),
     [
@@ -557,7 +501,6 @@ def test_custom_sort_happy_and_edge_cases(values, ascending, expected, df_sort):
     pd.testing.assert_frame_equal(result, expected)
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("values", "by", "expected"),
     [
@@ -576,7 +519,6 @@ def test_custom_sort_error_cases(values, by, expected, df_sort):
         custom_sort(df_sort, by, values, True)
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("df", "year", "expected"),
     [
@@ -621,7 +563,6 @@ def test_fix_snapshots(df, year, expected):
     pd.testing.assert_frame_equal(result, expected)
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("index", "names", "expected"),
     [
@@ -716,7 +657,6 @@ def test_split_location_carrier(index, names, expected):
     pd.testing.assert_index_equal(result, expected)
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("df", "to_unit", "expected"),
     [
@@ -818,7 +758,6 @@ def test_scale(df, to_unit, expected):
         assert result.attrs.get("unit", "") == to_unit
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("mapper", "level", "agg", "expected"),
     [
@@ -867,7 +806,6 @@ def test_apply_mapping(mapper, level, agg, expected, df_multi_index):
         pd.testing.assert_frame_equal(result, expected, check_dtype=False)
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("df", "limit", "drop", "expected"),
     [
@@ -947,7 +885,6 @@ def test_apply_cutoff(df, limit, drop, expected):
     pd.testing.assert_frame_equal(result, expected, check_index_type=False)
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("x", "expected"),
     [
@@ -987,7 +924,6 @@ def minimal_exporter():
     return FileExporter(cfg, metric_name="capacity")
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("template", "groupby", "idx", "expected"),
     [
@@ -1087,7 +1023,6 @@ def minimal_layout_cfg():
     )
 
 
-@pytest.mark.AT
 def test_layout_styler_set_base_layout(minimal_layout_cfg):
     """LayoutStyler.set_base_layout applies height and font_family to the figure."""
     fig = go.Figure()
@@ -1096,7 +1031,6 @@ def test_layout_styler_set_base_layout(minimal_layout_cfg):
     assert fig.layout.font.family == "Calibri"
 
 
-@pytest.mark.AT
 def test_layout_styler_apply_does_not_raise(minimal_layout_cfg):
     """LayoutStyler.apply completes without error for an empty figure."""
     fig = go.Figure()
@@ -1108,7 +1042,6 @@ def test_layout_styler_apply_does_not_raise(minimal_layout_cfg):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize("width", [0.6, 0.8])
 def test_bar_trace_styler_apply_sets_width(width):
     """BarTraceStyler.apply configures bar trace width correctly."""
@@ -1122,7 +1055,6 @@ def test_bar_trace_styler_apply_sets_width(width):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize(
     ("df", "expected"),
     [
@@ -1149,7 +1081,6 @@ def test_empty_input(df, expected):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.AT
 def test_construct_file_name_mismatched_lengths_raises(minimal_exporter):
     """construct_file_name raises ValueError when groupby and idx lengths differ."""
     minimal_exporter.cfg.file_name_template = "{location}_{year}"
@@ -1157,7 +1088,6 @@ def test_construct_file_name_mismatched_lengths_raises(minimal_exporter):
         minimal_exporter.construct_file_name(["location", "year"], ("AT",))
 
 
-@pytest.mark.AT
 def test_file_exporter_to_json_writes_expected_keys(tmp_path):
     """to_json writes a file containing the expected top-level JSON keys."""
     import json
@@ -1194,7 +1124,6 @@ def test_file_exporter_to_json_writes_expected_keys(tmp_path):
     assert data["year"] == 2030
 
 
-@pytest.mark.AT
 def test_file_exporter_to_json_year_none(tmp_path):
     """to_json correctly stores year=None in the JSON payload."""
     import json
@@ -1221,7 +1150,6 @@ def test_file_exporter_to_json_year_none(tmp_path):
     assert data["year"] is None
 
 
-@pytest.mark.AT
 def test_file_exporter_to_html_writes_file(tmp_path):
     """to_html writes an HTML file at the expected path."""
     (tmp_path / "HTML").mkdir()
@@ -1251,7 +1179,6 @@ def minimal_ts_cfg():
     return SimpleNamespace(yaxis_color="#333333")
 
 
-@pytest.mark.AT
 def test_time_series_styler_style_inflexible_demand(minimal_ts_cfg):
     """style_inflexible_demand overrides fill, stackgroup, and legendrank on the matching trace."""
     fig = go.Figure()
@@ -1270,7 +1197,6 @@ def test_time_series_styler_style_inflexible_demand(minimal_ts_cfg):
     assert trace.legendrank == 2000
 
 
-@pytest.mark.AT
 def test_time_series_styler_style_axes_and_layout(minimal_ts_cfg):
     """style_axes_and_layout sets title text, y-axis unit, and key axis properties."""
     fig = go.Figure()

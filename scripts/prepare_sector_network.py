@@ -21,7 +21,7 @@ from networkx.algorithms.connectivity.edge_augmentation import k_edge_augmentati
 from pypsa.geo import haversine_pts
 from scipy.stats import beta
 
-from mods.network_updates import add_methane_pyrolysis_plasma
+from mods import add_methane_pyrolysis_plasma
 from scripts._helpers import (
     configure_logging,
     get,

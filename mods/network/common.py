@@ -1,0 +1,171 @@
+# SPDX-FileCopyrightText: 2023-2026 Austrian Gas Grid Management AG
+#
+# SPDX-License-Identifier: MIT
+# For license information, see the LICENSE.txt file in the project root.
+"""Cross-cutting network helpers: load clipping and resource meta-data attachment."""
+
+from logging import getLogger
+
+import pandas as pd
+import pypsa
+from snakemake.script import Snakemake
+
+from mods.network.electricity import apply_tyndp_transmission_lower_bounds
+from mods.network.gas import (
+    make_gas_pipelines_unextendable,
+    override_gas_storage_capacities,
+    unravel_gas_import_and_production,
+    update_network_to_stop_ukrainian_gas_transit,
+)
+from mods.network.potentials import (
+    apply_klien_potential_limits,
+    overwrite_pemmdb_capacities,
+)
+
+logger = getLogger(__name__)
+
+
+def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
+    """
+    Apply all PyPSA-AT specific modifications to the pre-network.
+
+    This is the single entry point for all AT-specific modifications during
+    the ``modify_prenetwork`` Snakemake step. It orchestrates the individual
+    modification functions and encapsulates the conditional logic for when
+    each modification applies.
+
+    Parameters
+    ----------
+    n
+        The pre-network to be modified in place.
+    snakemake
+        The Snakemake workflow object providing inputs, params, config,
+        and wildcards.
+
+    Returns
+    -------
+    :
+        Updates the :class:`pypsa.Network` in place.
+    """
+    from scripts.add_electricity import load_costs
+
+    costs = load_costs(snakemake.input.costs)
+
+    unravel_gas_import_and_production(n, snakemake, costs)
+    update_network_to_stop_ukrainian_gas_transit(n, snakemake)
+    make_gas_pipelines_unextendable(n, snakemake)
+
+    overwrite_pemmdb_capacities(n, snakemake)
+    override_gas_storage_capacities(n, snakemake)
+    apply_klien_potential_limits(n, snakemake)
+    clip_negative_loads_for_edge_cases(n, snakemake)
+    apply_tyndp_transmission_lower_bounds(n, snakemake)
+
+
+def attach_resources_to_network_meta(
+    n: pypsa.Network,
+    snakemake: Snakemake,
+) -> None:
+    """
+    Attach resource tables to the network meta before the netCDF export.
+
+    Embeds ``energy_totals`` and ``co2_totals`` CSV data directly into
+    ``n.meta["resources"]`` so that downstream evaluation rules can access
+    sectoral energy demand and CO₂ totals without relying on a separate
+    post-processing step or extra input files.
+
+    The network name is also updated to a human-readable string that
+    includes the planning horizon year.
+
+    Parameters
+    ----------
+    n
+        The solved network whose metadata will be updated in place.
+    snakemake
+        The Snakemake workflow object providing inputs, params, config,
+        and wildcards.
+
+    Raises
+    ------
+    MissingInputException
+        If the required inputs (``energy_totals`` and ``co2_totals_name``) are
+        not present on ``snakemake.input``.
+
+    Returns
+    -------
+    :
+        Updates ``n.meta`` and ``n.name`` in place.
+    """
+    energy_totals_year = snakemake.params["energy_year"]
+    investment_year = snakemake.wildcards.planning_horizons
+
+    energy_totals = pd.read_csv(snakemake.input.energy_totals, index_col=[0, 1]).xs(
+        energy_totals_year, level="year"
+    )
+    co2_totals = pd.read_csv(snakemake.input.co2_totals_name, index_col=0)
+
+    n.meta["resources"] = {
+        "energy_totals": energy_totals.to_dict(orient="tight"),
+        "co2_totals": co2_totals.to_dict(orient="tight"),
+    }
+    n.name = f"PyPSA-AT Network {investment_year}"
+    logger.info(
+        f"Attached energy_totals (year={energy_totals_year}) and co2_totals "
+        f"to network meta for planning horizon {investment_year}."
+    )
+
+
+def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -> None:
+    """
+    Clip negative Loads for selected edge cases.
+
+    This is neccessary, because some electricity demands are calculated
+    from heuristics. For example, ``heat for electricity`` from
+    ``energy_totals`` and population share is deducted from
+    regional ``base load``. This can lead to negative Loads if
+    heuristics yield larger values than input data sets. However,
+    there are many examples where this may happen.
+
+    Parameters
+    ----------
+    n
+        The network before solve step.
+    snakemake
+        The Snakemake workflow object providing inputs, params,
+        config, and outputs.
+
+    Returns
+    -------
+    :
+        Updates network in place.
+
+    Raises
+    ------
+    RunTimeError
+        If expected edge cases could not be found.
+
+    """
+    cfg = snakemake.config
+
+    resolution_time = cfg["clustering"]["temporal"]["resolution_sector"]
+    clustering = cfg["mods"]["modify_nuts3_shapes"]
+
+    # Edge case: electricity for heat is larger than base load in AT126
+    if resolution_time.startswith("365") and clustering.startswith("AT35"):
+        negatives = n.loads_t["p_set"]["AT126"].lt(0)
+        if not any(negatives):
+            raise RuntimeError("Expected negative electricity Load for AT126.")
+        n.loads_t["p_set"].loc[negatives, "AT126"] = 0
+
+    # Edge case (CI test config only): in the reduced at10 test network a few
+    # "H2 for industry" demands are net-negative (industry produces surplus H2),
+    # so the Load injects energy and trips test_no_load_supply. Clip to zero in
+    # the test run only; full-resolution production runs are left untouched.
+    if cfg["run"]["prefix"] == "test-sector-myopic-at10":
+        h2_industry = n.loads.index[n.loads["carrier"] == "H2 for industry"]
+        negatives = h2_industry[n.loads.loc[h2_industry, "p_set"] < 0]
+        if negatives.empty:
+            raise RuntimeError(
+                "Expected negative 'H2 for industry' Loads in test config."
+            )
+        n.loads.loc[negatives, "p_set"] = 0

@@ -10,7 +10,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from mods.pemmdb_overwrites import TYNDP_TO_PYPSA_LOCATION
+from mods.constants import TYNDP_TO_PYPSA_LOCATION
+from test.conftest import require_config
 
 _CARRIER_TO_KLIEN_FILE = {
     "solar rooftop": "nuts3_pv_buildings",
@@ -27,7 +28,6 @@ def _klien_scenario_column(meta) -> str:
     return f"C_{cfg['year']}_{cfg['ambition']}_{cfg['climate_scenario']}"
 
 
-@pytest.mark.AT
 def test_klien_potentials(nc, project_root, is_testrun):
     """
     Verify AT extendable generator p_nom_max against KLIEN study input data for all
@@ -40,12 +40,13 @@ def test_klien_potentials(nc, project_root, is_testrun):
     handle this case, mirroring the TYNDP test pattern.
     Only AT regions are compared. Skips when no KLIEN technologies are configured.
     """
-    meta = nc["2030"].meta
-    technologies = meta["mods"]["klien_potential_limits"]["technologies"]
+    klien_cfg = require_config(nc, "mods", "klien_potential_limits")
+    technologies = klien_cfg["technologies"]
     if not technologies:
         pytest.skip("klien_potential_limits.technologies is empty — nothing to verify.")
 
     # KLIEN column and file paths are global config — identical across planning horizons
+    meta = nc["2030"].meta
     meta_data = meta["data"]["klien_potentials"]
     col = _klien_scenario_column(meta)
     klien_by_carrier = {
@@ -110,7 +111,6 @@ def test_klien_potentials(nc, project_root, is_testrun):
         pd.testing.assert_series_equal(_actual, _expect, atol=1e-4, check_names=False)
 
 
-@pytest.mark.AT
 def test_tyndp_trajectory_ceilings(nc, project_root, is_testrun):
     """
     Verify component p_nom_max against TYNDP trajectory input data.
@@ -284,7 +284,7 @@ def _check_p_nom_bound(nc, carrier, csv_path, attr):
             continue
 
         expected.index = expected.index.str.replace(r"-\d{4}$", "", regex=True)
-        generators = n.generators
+        generators = n.generators.copy()
         generators.index = generators.index.str.replace(r"-\d{4}$", "", regex=True)
         generators = generators[generators.index.isin(expected.index)]
 
@@ -303,13 +303,12 @@ def _check_p_nom_bound(nc, carrier, csv_path, attr):
         pd.testing.assert_series_equal(actual, expected)
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize("carrier", ["onwind", "solar", "solar-hsat", "solar rooftop"])
 def test_p_nom_max(nc, carrier):
     """Verify p_nom_max (extendable) / p_nom (non-extendable) against reference CSV."""
     _check_p_nom_bound(
         nc,
         carrier,
-        Path(__file__).parent.parent / "test_data" / "gen_p_nom_max.csv",
+        Path(__file__).parents[2] / "test_data" / "gen_p_nom_max.csv",
         "p_nom_max",
     )

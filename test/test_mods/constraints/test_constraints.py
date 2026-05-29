@@ -12,16 +12,14 @@ from evals.utils import (
     filter_for_carrier_connected_to,
     get_energy_totals_domestic_share,
 )
-from mods.constraints import _compute_electricity_fraction
-from mods.tyndp_utils import get_relevant_links_and_lines
+from mods.constraints.eag import _compute_electricity_fraction
+from mods.utils import get_relevant_links_and_lines
 from scripts.prepare_sector_network import determine_emission_sectors
 from test.conftest import require_config
 
 
 class TestComputeElectricityFraction:
     """_compute_electricity_fraction returns fraction of input attributable to electricity output."""
-
-    pytestmark = pytest.mark.unit
 
     def _electricity_buses(self):
         return pd.Index(["AT0 AC", "AT0 low voltage"])
@@ -138,7 +136,6 @@ class TestComputeElectricityFraction:
         assert result["AT0 gas CHP"] == pytest.approx(0.5)
 
 
-@pytest.mark.AT
 def test_national_co2_budget_constraint(nc):
     """
     Make sure the national CO2 budget constraints are adhered to.
@@ -194,7 +191,6 @@ def test_national_co2_budget_constraint(nc):
             )
 
 
-@pytest.mark.AT
 def test_green_gas_constraint_bus_contracts(nc):
     """
     Contract test for ``_add_green_gas_production_constraint``.
@@ -264,7 +260,6 @@ def test_green_gas_constraint_bus_contracts(nc):
             )
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize("cc", ["AT"])
 def test_net_zero_electricity_constraint_statistics(nc, cc):
     """
@@ -392,7 +387,6 @@ def test_net_zero_electricity_constraint_statistics(nc, cc):
         )
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize("cc", ["AT"])
 def test_green_gas_constraint_statistics(nc, cc):
     """
@@ -473,7 +467,6 @@ def test_green_gas_constraint_statistics(nc, cc):
         )
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize("cc", ["AT"])
 def test_green_h2_constraint_statistics(nc, cc):
     """
@@ -571,7 +564,6 @@ def test_green_h2_constraint_statistics(nc, cc):
         )
 
 
-@pytest.mark.AT
 @pytest.mark.parametrize("cc", ["AT"])
 def test_green_methanol_constraint_statistics(nc, cc):
     """
@@ -664,7 +656,6 @@ def _sum_flows(flows_t: pd.DataFrame, idx: pd.Index) -> pd.Series:
     return flows_t[idx].sum(axis=1)
 
 
-@pytest.mark.AT
 def test_tyndp_ntc_flow_limits_satisfied(nc, pytestconfig):
     """
     Per-snapshot net flow on every TYNDP corridor must not exceed NTC capacity.
@@ -675,18 +666,18 @@ def test_tyndp_ntc_flow_limits_satisfied(nc, pytestconfig):
     horizons the optimizer is free to build transmission beyond the NTC values,
     so those years are skipped here to match the constraint's scope.
     """
+    require_config(nc, "mods", "tyndp_cross_border_flow_limits", enable=False)
+    lower_bounds_years = require_config(nc, "mods", "tyndp_lower_bounds")["years"]
+
     ntc_path = (
         pytestconfig.rootpath / "resources" / "tyndp_transmission_trajectories.csv"
     )
     ntc_df = pd.read_csv(ntc_path)
 
     for year_str, n in nc.networks.items():
-        if not n.meta["mods"]["tyndp_cross_border_flow_limits"]["enable"]:
-            continue
-
         year_int = int(year_str)
         # NTC limits are only applied for configured years; skip the rest.
-        if year_int not in n.meta["mods"]["tyndp_lower_bounds"]["years"]:
+        if year_int not in lower_bounds_years:
             continue
 
         df_year = ntc_df[ntc_df["year"] == year_int]

@@ -60,7 +60,9 @@ def get_import_node_coordinates(settings: dict) -> dict:
 
 def remove_redundant_layer_items(deck, layer, value):
     return [
-        d for d in deck.layers[layer].data if not isnan(d[value]) and d[value] > 0.001
+        d
+        for d in deck.layers[layer].data
+        if not isnan(d.get(value, 0)) and d.get(value, 0) > 0.001
     ]  # todo: avoid magic threshold number
 
 
