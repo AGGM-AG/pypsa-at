@@ -4,7 +4,6 @@ import sys
 import pandas as pd
 from xarray import DataArray
 
-from mods import pypsa_at_constraints
 from scripts.prepare_sector_network import determine_emission_sectors
 
 logger = logging.getLogger(__name__)
@@ -886,6 +885,3 @@ def additional_functionality(n, snapshots, snakemake):
 
     if investment_year == 2020:
         adapt_nuclear_output(n)
-
-    # PyPSA-AT constraints
-    pypsa_at_constraints(n, snakemake, investment_year)

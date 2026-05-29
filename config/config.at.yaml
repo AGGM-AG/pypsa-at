@@ -160,6 +160,8 @@ data:
     version: 2026-v1
 
 solving:
+  options:
+    custom_extra_functionality: "../scripts/pypsa-at/additional_functionality.py"
   # The default CO2 budget uses the KSG targets, and the non CO2 emissions from the REMIND model in the KN2045_Mix scenario
   constraints:
     co2_budget_national:
