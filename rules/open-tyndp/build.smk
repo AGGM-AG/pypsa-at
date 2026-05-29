@@ -25,7 +25,7 @@ Conditional on sector coupling (either flag):
 """
 
 # safe_pyear is used in _input_hydro_inflows below.
-from scripts._helpers import safe_pyear
+from scripts._tyndp_helpers import safe_pyear
 
 
 def _pemmdb_techs(w):

@@ -2788,7 +2788,7 @@ if __name__ == "__main__":
     set_scenario_config(snakemake)
     update_config_from_wildcards(snakemake.config, snakemake.wildcards)
 
-    ### Modify networks (this might be moved to a separate script)
+    ### Modify postnetworks (this might be moved to a separate script)
 
     # Load costs (needed for modification)
 
@@ -2825,7 +2825,7 @@ if __name__ == "__main__":
     del _networks
 
     # # for running with explicit networks not within repo structure (comment out load data and load regions)
-    # diry = "networks-folder"
+    # diry = "postnetworks-folder"
     # file_list = os.listdir(diry)
     # file_list.sort()
     # networks = [pypsa.Network(diry+"/"+fn) for fn in file_list]

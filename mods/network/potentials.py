@@ -23,6 +23,7 @@ import pandas as pd
 import pypsa
 from snakemake.script import Snakemake
 
+from mods.clustering.utils import combine_regions_by_clustering
 from mods.constants import PROXIES, TYNDP_TO_PYPSA_LOCATION
 
 logger = getLogger(__name__)
@@ -321,14 +322,14 @@ def overwrite_pemmdb_capacities(n: pypsa.Network, snakemake: Snakemake) -> None:
 # ``solar`` and ``solar-hsat`` share the ground-mounted CSV because they
 # share the same land area; the model enforces a combined land-use
 # constraint in ``solve_network``.
-_PYPSA_TO_KLIEN_MAPPING: dict[str, str] = {
+_PYPSA_TO_KLIEN_MAPPING = {
     "solar rooftop": "buildings",
     "solar": "ground",
     "solar-hsat": "ground",
     "onwind": "wind",
 }
 
-_KLIEN_TO_PYPSA_MAPPING: dict[str, list[str]] = defaultdict(list)
+_KLIEN_TO_PYPSA_MAPPING = defaultdict(list)
 for _k, _v in _PYPSA_TO_KLIEN_MAPPING.items():
     _KLIEN_TO_PYPSA_MAPPING[_v].append(_k)
 
@@ -421,37 +422,6 @@ def _resolve_scenario_column(snakemake: Snakemake) -> str:
     return f"C_{year}_{ambition}_{climate_scenario}"
 
 
-def _paths_for_at_level(at_level: int, snakemake: Snakemake) -> dict[str, str]:
-    """
-    Return a mapping from CSV type to file path for the given AT clustering level.
-
-    Parameters
-    ----------
-    at_level
-        Integer NUTS level for Austria (2 = AT10, 3 = NUTS3).
-        snakemake: Snakemake workflow object providing ``snakemake.input``.
-
-    Returns
-    -------
-    :
-        Dict mapping ``"buildings"``, ``"ground"``, ``"wind"`` to absolute file paths,
-        or an empty dict when ``at_level`` is unsupported.
-    """
-    if at_level == 2:
-        return {
-            "buildings": snakemake.input.at10_buildings,
-            "ground": snakemake.input.at10_ground,
-            "wind": snakemake.input.at10_wind,
-        }
-    if at_level == 3:
-        return {
-            "buildings": snakemake.input.nuts3_buildings,
-            "ground": snakemake.input.nuts3_ground,
-            "wind": snakemake.input.nuts3_wind,
-        }
-    return {}
-
-
 def apply_klien_potential_limits(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
     Cap extendable AT generator ``p_nom_max`` values by regional KLIEN study potentials.
@@ -469,11 +439,16 @@ def apply_klien_potential_limits(n: pypsa.Network, snakemake: Snakemake) -> None
     ``C_technical_potential`` is used regardless of ``year``, ``ambition``, or
     ``climate_scenario``.
 
+    The NUTS3-level potential CSVs are always read and aggregated to the
+    network's clustering resolution via
+    :func:`mods.clustering.utils.combine_regions_by_clustering` (AT10 collapses
+    NUTS3 -> NUTS2; AT35 keeps NUTS3).
+
     Supported carriers and their CSV source:
 
-    * ``solar rooftop`` — ``{resolution}_pv_buildings.csv``
-    * ``solar``, ``solar-hsat`` — ``{resolution}_pv_ground.csv`` (shared land area)
-    * ``onwind`` — ``{resolution}_wind.csv``
+    * ``solar rooftop`` — ``nuts3_pv_buildings.csv``
+    * ``solar``, ``solar-hsat`` — ``nuts3_pv_ground.csv`` (shared land area)
+    * ``onwind`` — ``nuts3_wind.csv``
 
     Parameters
     ----------
@@ -494,8 +469,7 @@ def apply_klien_potential_limits(n: pypsa.Network, snakemake: Snakemake) -> None
     Notes
     -----
     Brownfield capacity is estimated via ``n.statistics.installed_capacity()``,
-    which captures carry-over from previous myopic periods.  Unsupported AT
-    clustering levels emit a warning and cause an early return rather than raising.
+    which captures carry-over from previous myopic periods.
     """
     technologies = snakemake.params["klien_potential_limits_technologies"]
     if not technologies:
@@ -511,21 +485,23 @@ def apply_klien_potential_limits(n: pypsa.Network, snakemake: Snakemake) -> None
 
     col = _resolve_scenario_column(snakemake)
 
-    at_level = snakemake.config["clustering"]["administrative"]["AT"]
-    paths = _paths_for_at_level(at_level, snakemake)
-    if not paths:
-        logger.warning(
-            f"Unsupported clustering level AT={at_level!r}. Expected 2 or 3. "
-            "— Skipping KLIEN potential limits."
-        )
-        return
+    # Always read the NUTS3-level KLIEN potentials and aggregate them to the
+    # network's clustering resolution. For AT10 clusterings this collapses
+    # NUTS3 -> NUTS2 (potentials are additive); for AT35 the NUTS3 regions are
+    # kept as-is.
+    clustering = snakemake.config["mods"]["modify_nuts3_shapes"]
+    paths = {
+        "buildings": snakemake.input.nuts3_buildings,
+        "ground": snakemake.input.nuts3_ground,
+        "wind": snakemake.input.nuts3_wind,
+    }
 
     # Load each CSV type once; map each requested carrier to its potential dict.
     klien_types_needed = {_PYPSA_TO_KLIEN_MAPPING[t] for t in technologies}
-    carrier_potential: dict[str, dict] = {}
+    carrier_potential = {}
     for klien_type in klien_types_needed:
         df = pd.read_csv(Path(paths[klien_type]), index_col=0)
-        potential_dict = df[col].to_dict()
+        potential_dict = combine_regions_by_clustering(df[col], clustering).to_dict()
         for tech in _KLIEN_TO_PYPSA_MAPPING[klien_type]:
             carrier_potential[tech] = potential_dict
 

@@ -56,7 +56,8 @@ from typing import Literal
 import country_converter as coco
 import pandas as pd
 
-from scripts._helpers import configure_logging, interpolate_demand, set_scenario_config
+from scripts._helpers import configure_logging, set_scenario_config
+from scripts._tyndp_helpers import interpolate_demand
 
 logger = logging.getLogger(__name__)
 cc = coco.CountryConverter()

@@ -15,12 +15,8 @@ import logging
 
 import pandas as pd
 
-from scripts._helpers import (
-    SCENARIO_DICT,
-    configure_logging,
-    map_tyndp_carrier_names,
-    set_scenario_config,
-)
+from scripts._helpers import configure_logging, set_scenario_config
+from scripts._tyndp_helpers import SCENARIO_DICT, map_tyndp_carrier_names
 
 logger = logging.getLogger(__name__)
 

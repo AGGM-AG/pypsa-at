@@ -192,7 +192,7 @@ def _make_nuts3_shapes(level2, level3, geometries, crs="EPSG:4326"):
 
 
 def test_map_to_nuts3_weighted_basic():
-    """Municipalities fully inside known NUTS3 polygons receive correct nuts3/at10 labels."""
+    """Municipalities fully inside known NUTS3 polygons receive correct nuts3 labels."""
     nuts3_shapes = _make_nuts3_shapes(
         level2=["AT11", "AT12"],
         level3=["AT111", "AT121"],
@@ -210,10 +210,8 @@ def test_map_to_nuts3_weighted_basic():
 
     # After weighting and grouping, each municipality should map to its NUTS3 region.
     nuts3_agg = result.groupby("nuts3")["C_energy"].sum()
-    at10_agg = result.groupby("at10")["C_energy"].sum()
 
     assert set(nuts3_agg.index) == {"AT111", "AT121"}
-    assert set(at10_agg.index) == {"AT11", "AT12"}
 
 
 @pytest.mark.parametrize(
@@ -323,10 +321,10 @@ def test_map_to_nuts3_weighted_almost_entirely_inside_does_not_raise():
     assert nuts3_agg["AT111"] == pytest.approx(42.0, rel=0.01)
 
 
-def test_process_potential_file_aggregates_multiple_municipalities_into_nuts3_and_at10(
+def test_process_potential_file_aggregates_multiple_municipalities_into_nuts3(
     tmp_path,
 ):
-    """process_potential_file aggregates multiple municipalities into NUTS3 and AT10, summing multiple municipalities within the same NUTS3 region."""
+    """process_potential_file sums multiple municipalities within the same NUTS3 region."""
     nuts3_shapes = _make_nuts3_shapes(
         level2=["AT11", "AT12"],
         level3=["AT111", "AT121"],
@@ -346,14 +344,11 @@ def test_process_potential_file_aggregates_multiple_municipalities_into_nuts3_an
     potential_path = tmp_path / "muni.geojson"
     muni_gdf.to_file(potential_path, driver="GeoJSON")
 
-    nuts3_df, at10_df = process_potential_file(str(potential_path), nuts3_shapes)
+    nuts3_df = process_potential_file(str(potential_path), nuts3_shapes)
 
     assert nuts3_df.index.name == "nuts3"
-    assert at10_df.index.name == "at10"
     assert nuts3_df.loc["AT111", "C_energy"] == pytest.approx(100.0, rel=0.01)
     assert nuts3_df.loc["AT121", "C_energy"] == pytest.approx(500.0, rel=0.01)
-    assert at10_df.loc["AT11", "C_energy"] == pytest.approx(100.0, rel=0.01)
-    assert at10_df.loc["AT12", "C_energy"] == pytest.approx(500.0, rel=0.01)
 
 
 def test_map_to_nuts3_weighted_non_at_fragment_redirected():
@@ -381,14 +376,11 @@ def test_map_to_nuts3_weighted_non_at_fragment_redirected():
 
     result = map_to_nuts3_weighted(muni_gdf, nuts3_shapes)
     nuts3_agg = result.groupby("nuts3")["C_energy"].sum()
-    at10_agg = result.groupby("at10")["C_energy"].sum()
 
     # The non-AT fragment must have been redirected; DE123 must not appear.
     assert "DE123" not in nuts3_agg.index
     # All capacity (both the native AT fragment and the redirected DE fragment) ends up in AT111.
     assert nuts3_agg["AT111"] == pytest.approx(200.0, rel=0.01)
-    # AT10 aggregation must also reflect full capacity conservation.
-    assert at10_agg["AT11"] == pytest.approx(200.0, rel=0.01)
 
 
 def test_map_to_nuts3_weighted_non_at_fragment_redirected_to_nearest():

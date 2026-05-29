@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
 """
-Snakemake script: aggregate KLIEN potentials from municipality GeoJSONs to NUTS3 and AT10 regions.
+Snakemake script: aggregate KLIEN potentials from municipality GeoJSONs to NUTS3 regions.
 
 For each of three PV input files (buildings, ground-mounted sealed, ground-mounted unsealed)
 and one wind input file:
@@ -15,11 +15,15 @@ and one wind input file:
 4. Redirects overlay fragments that fall outside Austria (non-AT NUTS3 codes) to the
    nearest AT NUTS3 region via centroid-based nearest-neighbour lookup.
 5. Validates that per-municipality area weights sum to at least 0.99 (raises ``ValueError`` if not).
-6. Groups by NUTS3 code and by AT10 prefix and sums weighted capacities.
-7. Writes two CSVs (NUTS3-level and AT10-level) per input file.
+6. Groups by NUTS3 code and sums weighted capacities.
+7. Writes one NUTS3-level CSV per input file.
+
+Aggregation to coarser clustering resolutions (e.g. AT10) happens downstream in
+``mods.network.potentials.apply_klien_potential_limits`` via
+``mods.clustering.utils.combine_regions_by_clustering``.
 
 Additionally, the element-wise sum of the sealed and unsealed ground-mounted PV potentials is
-written to combined outputs (``nuts3_ground`` and ``at10_ground``).
+written to a combined output (``nuts3_ground``).
 """
 
 import logging
@@ -58,21 +62,26 @@ def map_to_nuts3_weighted(
     intersection fragments that fall in non-AT NUTS3 regions (e.g. from border
     municipalities whose polygons slightly extend into neighbouring countries) are
     redirected to the nearest AT NUTS3 region before aggregation.  The result
-    is grouped and summed at NUTS3 (``nuts3``) and AT10 (``at10``) level.
+    is labelled with its NUTS3 (``nuts3``) code.
 
-    Args:
-        muni_gdf: Municipality GeoDataFrame with polygon geometry and one or more
-            ``C_``-prefixed capacity columns.
-        nuts3_shapes: NUTS3 shapes GeoDataFrame with ``level2`` (NUTS2) and
-            ``level3`` (NUTS3) columns.
+    Parameters
+    ----------
+    muni_gdf
+        Municipality GeoDataFrame with polygon geometry and one or more
+        ``C_``-prefixed capacity columns.
+    nuts3_shapes
+        NUTS3 shapes GeoDataFrame with ``level2`` (NUTS2) and ``level3`` (NUTS3)
+        columns.
 
-    Returns:
-        DataFrame with columns ``nuts3``, ``at10``, and all weighted, summed
-        capacity columns.
+    Returns
+    -------
+    DataFrame with a ``nuts3`` column and all weighted capacity columns.
 
-    Raises:
-        ValueError: If any municipality polygon's intersection weights sum to
-            less than ``_MIN_WEIGHT_SUM``, naming the offending original index.
+    Raises
+    ------
+    ValueError
+        If any municipality polygon's intersection weights sum to less than
+        ``_MIN_WEIGHT_SUM``, naming the offending original index.
     """
     # Reproject both inputs to the equal-area CRS for correct area computation.
     input_proj = muni_gdf.to_crs(_AREA_CRS).copy()
@@ -130,34 +139,73 @@ def map_to_nuts3_weighted(
     for col in capacity_cols:
         overlay[col] = overlay[col] * overlay["weight"]
 
-    # AT10 corresponds directly to the NUTS2 level2 code (e.g. "AT11", "AT12").
-    overlay["at10"] = overlay["level2"]
     overlay["nuts3"] = overlay["level3"]
 
-    return overlay[["nuts3", "at10"] + capacity_cols]
+    return overlay[["nuts3"] + capacity_cols]
+
+
+def fix_gdf(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Fix data error from original KLIEN dataset.
+
+    The original KLIEN dataset has a column shift error. This function identifies and fixes the shift.
+
+    Parameters
+    ----------
+    gdf
+        Read GeoDataFrame to process.
+
+    Returns
+    -------
+    GeoDataFrame with the shift fix.
+    """
+    broken_columns = gdf.columns[((gdf == 0) | gdf.isna()).all()]
+
+    # Fail-safe to prevent legitimate all-zero columns to be shifted
+    expected = {"C_2030_low_wocc"}
+    if unexpected := set(broken_columns) - expected:
+        raise ValueError(f"Unexpected broken columns detected: {unexpected}")
+
+    result = gdf.copy()
+    for col in broken_columns:
+        i_col_broken = result.columns.get_loc(col)
+        i_col_last = result.columns.get_loc("geometry")
+        to_shift = result.columns[i_col_broken:i_col_last]
+        # preserve last columns values. They are lost during shifting
+        last_values = result[to_shift[-1]].values.copy()
+        result.loc[:, to_shift] = result.loc[:, to_shift].shift(periods=-1, axis=1)
+        result[to_shift[-1]] = last_values
+
+    return result
 
 
 def process_potential_file(
     potential_path: str,
     nuts3_shapes: gpd.GeoDataFrame,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> pd.DataFrame:
     """
     Load one KLIEN GeoJSON, apply area-weighted NUTS3 mapping, and aggregate.
 
-    Args:
-        potential_path: Path to the municipality-level KLIEN GeoJSON file.
-        nuts3_shapes: NUTS3 shapes GeoDataFrame (with ``level2`` and ``level3`` columns).
+    Parameters
+    ----------
+    potential_path
+        Path to the municipality-level KLIEN GeoJSON file.
+    nuts3_shapes
+        NUTS3 shapes GeoDataFrame (with ``level2`` and ``level3`` columns).
 
-    Returns:
-        Tuple of ``(nuts3_agg, at10_agg)`` DataFrames with aggregated potentials,
-        indexed by ``nuts3`` and ``at10`` respectively.
+    Returns
+    -------
+    DataFrame with aggregated potentials, indexed by ``nuts3``.
 
-    Raises:
-        ValueError: If no ``C_``-prefixed capacity columns are found in the GeoJSON,
-            or if municipality-to-NUTS3 area-weight validation fails.
+    Raises
+    ------
+    ValueError
+        If no ``C_``-prefixed capacity columns are found in the GeoJSON, or if
+        municipality-to-NUTS3 area-weight validation fails.
     """
     gdf = gpd.read_file(potential_path)
-    gdf.columns = gdf.columns.str.strip()
+    gdf.columns = gdf.columns.str.strip(" ,")
+    gdf = fix_gdf(gdf)
 
     capacity_cols = [c for c in gdf.columns if c.startswith("C_")]
     if not capacity_cols:
@@ -168,9 +216,8 @@ def process_potential_file(
     mapped = map_to_nuts3_weighted(gdf, nuts3_shapes)
 
     nuts3_agg = mapped.groupby("nuts3")[capacity_cols].sum()
-    at10_agg = mapped.groupby("at10")[capacity_cols].sum()
 
-    return nuts3_agg, at10_agg
+    return nuts3_agg
 
 
 def main(snakemake: Snakemake) -> None:
@@ -178,7 +225,7 @@ def main(snakemake: Snakemake) -> None:
     Orchestrate KLIEN potentials aggregation for a Snakemake run.
 
     Processes PV buildings, ground-mounted (sealed + unsealed combined), and wind
-    GeoJSON files into NUTS3- and AT10-level capacity potential CSVs.
+    GeoJSON files into NUTS3-level capacity potential CSVs.
 
     Parameters
     ----------
@@ -190,17 +237,14 @@ def main(snakemake: Snakemake) -> None:
     nuts3_shapes = gpd.read_file(snakemake.input.nuts3_shapes).set_index("index")
 
     # ── PV buildings ─────────────────────────────────────────────────────────
-    nuts3_buildings, at10_buildings = process_potential_file(
-        snakemake.input.pv_buildings, nuts3_shapes
-    )
+    nuts3_buildings = process_potential_file(snakemake.input.pv_buildings, nuts3_shapes)
     nuts3_buildings.to_csv(snakemake.output.nuts3_buildings)
-    at10_buildings.to_csv(snakemake.output.at10_buildings)
 
     # ── PV ground-mounted (sealed + unsealed, summed) ─────────────────────────
-    nuts3_sealed, at10_sealed = process_potential_file(
+    nuts3_sealed = process_potential_file(
         snakemake.input.pv_ground_sealed, nuts3_shapes
     )
-    nuts3_unsealed, at10_unsealed = process_potential_file(
+    nuts3_unsealed = process_potential_file(
         snakemake.input.pv_ground_unsealed, nuts3_shapes
     )
 
@@ -209,15 +253,9 @@ def main(snakemake: Snakemake) -> None:
     nuts3_ground.index.name = "nuts3"
     nuts3_ground.to_csv(snakemake.output.nuts3_ground)
 
-    at10_ground = at10_sealed.add(at10_unsealed, fill_value=0)
-    # .add() resets .index.name when operands have different names; restore explicitly.
-    at10_ground.index.name = "at10"
-    at10_ground.to_csv(snakemake.output.at10_ground)
-
     # ── Wind ──────────────────────────────────────────────────────────────────
-    nuts3_wind, at10_wind = process_potential_file(snakemake.input.wind, nuts3_shapes)
+    nuts3_wind = process_potential_file(snakemake.input.wind, nuts3_shapes)
     nuts3_wind.to_csv(snakemake.output.nuts3_wind)
-    at10_wind.to_csv(snakemake.output.at10_wind)
 
 
 if __name__ == "__main__":

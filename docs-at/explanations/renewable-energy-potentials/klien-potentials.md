@@ -166,8 +166,8 @@ The data version and acquisition mode are configured separately:
 ```yaml
 data:
   klien_potentials:
-    source: build    # build | archive
-    version: 2026-v1
+    source: archive  # build | archive
+    version: 2026-v2
 ```
 
 **Default setting**: All four carriers are limited. The default scenario column is `C_2040_medium_mocc` —

@@ -1,14 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Austrian Gas Grid Management AG
 #
 # SPDX-License-Identifier: MIT
-"""Unit tests for TYNDP-specific helpers vendored into scripts/_helpers.py."""
+"""Unit tests for TYNDP-specific helpers vendored into scripts/_tyndp_helpers.py."""
 
 import textwrap
 
 import pandas as pd
 import pytest
 
-from scripts._helpers import (
+from scripts._tyndp_helpers import (
     align_demand_to_snapshots,
     check_cyear,
     convert_units,

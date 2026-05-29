@@ -182,32 +182,6 @@ rule modify_district_heat_share:
 
 rule modify_prenetwork:
     input:
-        **(
-            {
-                "tyndp_trajectories": resources("tyndp_trajectories.csv"),
-            }
-            if config_provider("mods", "PEMMDB_trajectories", "enable")
-            else {}
-        ),
-        **(
-            {
-                "tyndp_transmission_trajectories": resources(
-                    "tyndp_transmission_trajectories.csv"
-                ),
-            }
-            if config_provider("mods", "tyndp_line_lower_bounds", "enable")
-            else {}
-        ),
-        nuts3_buildings=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_buildings.csv",
-        nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
-        nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
-        at10_buildings=f"{KLIEN_POTENTIALS['folder']}/at10_pv_buildings.csv",
-        at10_ground=f"{KLIEN_POTENTIALS['folder']}/at10_pv_ground.csv",
-        at10_wind=f"{KLIEN_POTENTIALS['folder']}/at10_wind.csv",
-        ukrainian_gas_transit_stop="data/pypsa-at/ukrainian_gas_transit_stop.json",
-        gas_input_nodes_simplified=resources(
-            "gas_input_locations_s_{clusters}_simplified.csv"
-        ),
         network=resources(
             "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_brownfield.nc"
         ),
@@ -250,22 +224,6 @@ rule modify_prenetwork:
     resources:
         mem_mb=4000,
     params:
-        klien_potential_limits_technologies=config_provider(
-            "mods", "klien_potential_limits", "technologies"
-        ),
-        klien_potential_limits_use_technical_potentials=config_provider(
-            "mods", "klien_potential_limits", "use_technical_potentials"
-        ),
-        klien_potential_limits_climate_scenario=config_provider(
-            "mods", "klien_potential_limits", "climate_scenario"
-        ),
-        klien_potential_limits_year=config_provider(
-            "mods", "klien_potential_limits", "year"
-        ),
-        klien_potential_limits_ambition=config_provider(
-            "mods", "klien_potential_limits", "ambition"
-        ),
-        ukrainian_gas_transit_stop=config_provider("mods", "ukrainian_gas_transit_stop"),
         efuel_export_ban=config_provider("solving", "constraints", "efuel_export_ban"),
         enable_kernnetz=config_provider("wasserstoff_kernnetz", "enable"),
         technology_occurrence=config_provider("first_technology_occurrence"),

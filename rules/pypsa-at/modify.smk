@@ -107,6 +107,59 @@ rule validate_pypsa_at:
         'pixi run -e test pytest -m "AT" --html {params.rdir}/test_report.html --result-path={params.rdir}'
 
 
+# modify_prenetwork: keep the upstream pypsa-de rule pristine and shadow it here
+# to inject the AT-specific inputs (KLIEN potentials, TYNDP trajectories, Ukrainian
+# gas transit) and params. The `**rules.modify_prenetwork.input/params` splats pull
+# in all upstream directives; only the AT additions are listed.
+use rule modify_prenetwork as modify_prenetwork_at with:
+    input:
+        **rules.modify_prenetwork.input,
+        **(
+            {
+                "tyndp_trajectories": resources("tyndp_trajectories.csv"),
+            }
+            if config_provider("mods", "PEMMDB_trajectories", "enable")
+            else {}
+        ),
+        **(
+            {
+                "tyndp_transmission_trajectories": resources(
+                    "tyndp_transmission_trajectories.csv"
+                ),
+            }
+            if config_provider("mods", "tyndp_line_lower_bounds", "enable")
+            else {}
+        ),
+        nuts3_buildings=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_buildings.csv",
+        nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
+        nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
+        ukrainian_gas_transit_stop="data/pypsa-at/ukrainian_gas_transit_stop.json",
+        gas_input_nodes_simplified=resources(
+            "gas_input_locations_s_{clusters}_simplified.csv"
+        ),
+    params:
+        **rules.modify_prenetwork.params,
+        klien_potential_limits_technologies=config_provider(
+            "mods", "klien_potential_limits", "technologies"
+        ),
+        klien_potential_limits_use_technical_potentials=config_provider(
+            "mods", "klien_potential_limits", "use_technical_potentials"
+        ),
+        klien_potential_limits_climate_scenario=config_provider(
+            "mods", "klien_potential_limits", "climate_scenario"
+        ),
+        klien_potential_limits_year=config_provider(
+            "mods", "klien_potential_limits", "year"
+        ),
+        klien_potential_limits_ambition=config_provider(
+            "mods", "klien_potential_limits", "ambition"
+        ),
+        ukrainian_gas_transit_stop=config_provider("mods", "ukrainian_gas_transit_stop"),
+
+
+ruleorder: modify_prenetwork_at > modify_prenetwork  # AT wins for the final .nc
+
+
 rule modify_brownfield_gas_network_AT:
     input:
         clustered_gas_network_raw=resources("gas_network_base_s_{clusters}_raw.csv"),
@@ -152,7 +205,7 @@ ruleorder: modify_nuts3_shapes > build_shapes  # AT wins for the final nuts3_sha
 # modify_brownfield_gas_network_AT can merge in the AGGM brownfield network.
 use rule cluster_gas_network as cluster_gas_network_at with:
     output:
-        clustered_gas_network_raw=resources("gas_network_base_s_{clusters}_raw.csv"),
+        clustered_gas_network=resources("gas_network_base_s_{clusters}_raw.csv"),
 
 
 ruleorder: modify_brownfield_gas_network_AT > cluster_gas_network  # AT wins for the final .csv
