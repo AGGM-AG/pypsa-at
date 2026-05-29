@@ -120,3 +120,39 @@ rule modify_brownfield_gas_network_AT:
         mem_mb=4000,
     script:
         scripts("pypsa-at/modify_brownfield_gas_network_AT.py")
+
+
+# --- Upstream rule overrides -------------------------------------------------
+# Upstream rules are kept pristine (identical to pypsa-de). Instead of editing
+# them, we shadow them here so AT can intercept their outputs:
+#   use rule X as X_at with:   inherit X's directives, change only what AT needs
+#   ruleorder: X_at > X        when both rules could produce the same file, AT wins
+# The reverted upstream rule still exists but is fully shadowed and never runs.
+#
+# Pattern used below: rename an upstream rule's output to a "*-raw"/"*_raw"
+# file, then let a dedicated modify_* rule (defined above) transform raw -> final.
+
+
+# build_shapes: redirect nuts3_shapes to a "-raw" file so modify_nuts3_shapes
+# can post-process it into the final nuts3_shapes.geojson. The dict-literal merge
+# overrides just that one output path; the other shape outputs are inherited.
+use rule build_shapes as build_shapes_at with:
+    output:
+        **{
+            **rules.build_shapes.output,
+            "nuts3_shapes": resources("nuts3_shapes-raw.geojson"),
+        },
+
+
+ruleorder: build_shapes_at > build_shapes  # AT wins for the shared shape outputs
+ruleorder: modify_nuts3_shapes > build_shapes  # AT wins for the final nuts3_shapes.geojson
+
+
+# cluster_gas_network: redirect the clustered gas network to a "_raw" file so
+# modify_brownfield_gas_network_AT can merge in the AGGM brownfield network.
+use rule cluster_gas_network as cluster_gas_network_at with:
+    output:
+        clustered_gas_network_raw=resources("gas_network_base_s_{clusters}_raw.csv"),
+
+
+ruleorder: modify_brownfield_gas_network_AT > cluster_gas_network  # AT wins for the final .csv

@@ -133,7 +133,7 @@ rule cluster_gas_network:
         regions_onshore=resources("regions_onshore_base_s_{clusters}.geojson"),
         regions_offshore=resources("regions_offshore_base_s_{clusters}.geojson"),
     output:
-        clustered_gas_network_raw=resources("gas_network_base_s_{clusters}_raw.csv"),
+        clustered_gas_network=resources("gas_network_base_s_{clusters}.csv"),
     log:
         logs("cluster_gas_network_{clusters}.log"),
     benchmark:
@@ -1584,7 +1584,7 @@ rule prepare_sector_network:
     input:
         unpack(input_profile_offwind),
         unpack(input_heat_source_power),
-        #**rules.cluster_gas_network.output,
+        **rules.cluster_gas_network.output,
         **rules.build_gas_input_locations.output,
         snapshot_weightings=resources(
             "snapshot_weightings_base_s_{clusters}_elec_{opts}_{sector_opts}.csv"

@@ -29,15 +29,13 @@ INDEX_COLS = {
     "weighted_prices": 1,
     "market_values": 1,
     "metrics": 1,
-    "nodal_supply": 4,
-    "nodal_withdrawal": 4,
 }
 
 if __name__ == "__main__":
     if "snakemake" not in globals():
         from scripts._helpers import mock_snakemake
 
-        snakemake = mock_snakemake("make_global_summary", run="KN2045_Mix")
+        snakemake = mock_snakemake("make_global_summary")
 
     configure_logging(snakemake)
     set_scenario_config(snakemake)

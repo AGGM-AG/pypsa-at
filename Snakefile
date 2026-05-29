@@ -112,8 +112,7 @@ if config["foresight"] == "perfect":
 
 include: "rules/pypsa-at/retrieve.smk"  # PyPSA-AT specific data retrieval
 include: "rules/pypsa-at/build.smk"  # PyPSA-AT specific data build rules
-include: "rules/pypsa-at/modify.smk"  # PyPSA-AT specific modifications (must precede build_sector.smk — rules.modify_brownfield_gas_network_AT is referenced there)
-include: "rules/pypsa-at/build-sector.smk"  # PyPSA-AT specific build sector rule extensions
+include: "rules/pypsa-at/modify.smk"  # PyPSA-AT specific modifications and upstream rule overrides (must follow build_electricity.smk / build_sector.smk — it overrides rules defined there)
 include: "rules/pypsa-at/solve.smk"  # PyPSA-AT specific solve rule extensions
 include: "rules/pypsa-at/collect.smk"  # PyPSA-AT specific collect rules
 
