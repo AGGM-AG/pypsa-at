@@ -103,14 +103,14 @@ modifications currently not supported.
 
 1. Configure your model by adjusting the base scenario in `config/config.at.yaml`
 2. Include scenario settings that differ from the base scenario in `config/scenarios.manual.yaml`
-3. Run the model using the default rule `all`:
+3. Run the model’s Snakemake workflow:
    ```bash
-   pixi run snakemake all --cores 'all'
+   pixi run workflow
    ```
 
    or activate the virtual environment and call the same workflow using a shorthand
    ```bash
-   pixi shell && snakemake -call all
+   pixi shell && snakemake -call at_all
    ```
 
 ## 📖 Documentation

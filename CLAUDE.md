@@ -108,7 +108,7 @@ git fetch --all && git pull
 pixi run snakemake -n -c1 -p
 
 # Full run
-pixi run snakemake --cores "all"  # or just -call
+pixi run workflow
 
 # Run specific rules (possible for rules without wildcards)
 pixi run snakemake <rule> -call
