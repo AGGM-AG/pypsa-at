@@ -38,7 +38,7 @@ generate-config = "python -c 'from scripts.lib.validation.config import generate
 
 evals = "PYTHONPATH='./' python evals/cli.py run-eval"
 
-workflow = "snakemake -call"
+workflow = "snakemake all_at -call"
 
 [dependencies]
 # Add additional packages only to pypsa-at specific section
@@ -147,11 +147,11 @@ mkdocs-plotly-plugin = ">=0.1.3, <0.2"
 
 integration-tests = """
 	echo "Run PyPSA-AT config..." &&
-	snakemake -call all --configfile=config/test/config.at10.yaml &&
+	snakemake -c4 all_at --configfile=config/test/config.at10.yaml &&
 	echo "All tests completed successfully."
 """
 clean-tests = """
-    snakemake -call all --configfile=config/test/config.at10.yaml --delete-all-output ;
+    snakemake -call all_at --configfile=config/test/config.at10.yaml --delete-all-output ;
 	echo "All test outputs have been cleaned up."
 """
 unit-tests = "pytest test -m 'not AT'"

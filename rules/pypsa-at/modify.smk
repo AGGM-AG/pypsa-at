@@ -1,3 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Austrian Gas Grid Management AG
+#
+# SPDX-License-Identifier: MIT
+# For license information, see the LICENSE.txt file in the project root.
+"""
+PyPSA-AT model layer modification rules.
+"""
+
 if OSM_DATASET["source"] == "build":
 
     rule build_osm_network_at:
