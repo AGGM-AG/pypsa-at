@@ -40,6 +40,10 @@ evals = "PYTHONPATH='./' python evals/cli.py run-eval"
 
 workflow = "snakemake all_at -call"
 
+sync-locks = """
+    echo "Skipping task because PyPSA-AT does not support conda."
+"""
+
 [dependencies]
 # Add additional packages only to pypsa-at specific section
 # All other packages should be identical to pypsa-eur and pypsa-de

@@ -147,25 +147,39 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
     """
     cfg = snakemake.config
 
-    resolution_time = cfg["clustering"]["temporal"]["resolution_sector"]
+    investment_year = int(snakemake.wildcards.planning_horizons)
+    resolution = int(cfg["clustering"]["temporal"]["resolution_sector"].rstrip("H"))
     clustering = cfg["mods"]["modify_nuts3_shapes"]
 
-    # Edge case: electricity for heat is larger than base load in AT126
-    if resolution_time.startswith("365") and clustering.startswith("AT35"):
-        negatives = n.loads_t["p_set"]["AT126"].lt(0)
+    def _clip_static(carrier: str):
+        idx = n.loads.index[n.loads["carrier"] == carrier]
+        negatives = idx[n.loads.loc[idx, "p_set"] < 0]
+        if negatives.empty:
+            raise RuntimeError(f"Expected negative '{carrier}' Loads.")
+        n.loads.loc[negatives, "p_set"] = 0
+
+    def _clip_electricity(location: str):
+        negatives = n.loads_t["p_set"][location].lt(0)
         if not any(negatives):
-            raise RuntimeError("Expected negative electricity Load for AT126.")
-        n.loads_t["p_set"].loc[negatives, "AT126"] = 0
+            raise RuntimeError(f"Expected negative electricity Load for {location}.")
+        n.loads_t["p_set"].loc[negatives, location] = 0
 
     # Edge case (CI test config only): in the reduced at10 test network a few
     # "H2 for industry" demands are net-negative (industry produces surplus H2),
     # so the Load injects energy and trips test_no_load_supply. Clip to zero in
     # the test run only; full-resolution production runs are left untouched.
     if cfg["run"]["prefix"] == "test-sector-myopic-at10":
-        h2_industry = n.loads.index[n.loads["carrier"] == "H2 for industry"]
-        negatives = h2_industry[n.loads.loc[h2_industry, "p_set"] < 0]
-        if negatives.empty:
-            raise RuntimeError(
-                "Expected negative 'H2 for industry' Loads in test config."
-            )
-        n.loads.loc[negatives, "p_set"] = 0
+        _clip_static("H2 for industry")
+        return  # skip any other clipping
+
+    # Edge case: electricity for heat is larger than base load in AT126
+    if resolution == 365 and clustering.startswith("AT35"):
+        _clip_electricity("AT126")
+
+    # For 120H runs IT1 always has negative electricity Loads
+    if resolution == 120:
+        _clip_electricity("IT1")
+
+    # Edge case: low resolution runs contain negative H2 for industry Loads until including 2030
+    if resolution >= 120 and investment_year <= 2030:
+        _clip_static("H2 for industry")

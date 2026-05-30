@@ -71,6 +71,7 @@ jobs:
             - 'pixi.toml'
             - 'pixi.lock'
             - '.github/workflows/test.yaml'
+            - 'mods/**'
 
     - name: Free up disk space
       run: |
