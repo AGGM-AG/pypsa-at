@@ -180,6 +180,6 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
     if resolution == 120:
         _clip_electricity("IT1")
 
-    # Edge case: low resolution runs contain negative H2 for industry Loads until including 2030
-    if resolution >= 120 and investment_year <= 2030:
+    # Edge case: runs contain negative H2 for industry Loads until including 2030
+    if investment_year <= 2030:
         _clip_static("H2 for industry")
