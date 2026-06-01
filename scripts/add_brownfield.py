@@ -299,6 +299,11 @@ def update_heat_pump_efficiency(n: pypsa.Network, n_p: pypsa.Network, year: int)
     previous_iteration_columns = heat_pump_idx_previous_iteration.intersection(
         n_p.links_t["efficiency2"].columns
     )
+
+    # hotfix due to change in datatype for empty columns in PyPSA 1.2.2: Index([]) -> RangeIndex(0)
+    if previous_iteration_columns.empty:
+        return
+
     corresponding_columns_this_iteration = previous_iteration_columns.str[:-4] + str(
         year
     )

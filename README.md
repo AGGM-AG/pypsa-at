@@ -4,7 +4,7 @@
 [![CodeQL](https://github.com/AGGM-AG/pypsa-at/actions/workflows/codeql.yaml/badge.svg?branch=main&event=push)](https://github.com/AGGM-AG/pypsa-at/actions/workflows/codeql.yaml)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/AGGM-AG/pypsa-at/main.svg)](https://results.pre-commit.ci/latest/github/AGGM-AG/pypsa-at/main)
 [![Pixi Badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/prefix-dev/pixi/main/assets/badge/v0.json)](https://pixi.sh)
-![pixi](https://img.shields.io/badge/pixi-≥0.23-brightgreen)
+![pixi](https://img.shields.io/badge/pixi-≥0.68.0-brightgreen)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Snakemake](https://img.shields.io/badge/snakemake-≥9-brightgreen.svg?style=flat)](https://snakemake.readthedocs.io)
 ![Python](https://img.shields.io/badge/python-≥3.12-blue)
