@@ -25,7 +25,8 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "build_tyndp_h2_imports",
-            planning_horizons=2030,
+            planning_horizons="2030",
+            run="AT_KN2040",
         )
 
     configure_logging(snakemake)
@@ -37,10 +38,11 @@ if __name__ == "__main__":
 
     # Load prepped import potentials and filter
     fn = snakemake.input.import_potentials_prepped
+    countries = snakemake.params.countries
     import_potentials = pd.read_csv(fn, index_col=0)
     import_potentials_filtered = import_potentials.query(
-        "(Scenario == 'All' or Scenario == @scenario) and Year == @year"
+        "(Scenario == 'All' or Scenario == @scenario) and Year == @year and bus1 in @countries"
     )
 
     # Save filtered H2 import potentials
-    import_potentials_filtered.to_csv(snakemake.output.import_potentials_filtered)
+    import_potentials_filtered.to_csv(snakemake.output.h2_import_potentials)

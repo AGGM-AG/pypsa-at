@@ -61,6 +61,8 @@ sector:
   biosng: true
   biosng_cc: true
   bioH2: true
+  h2_topology_tyndp: true
+  h2_zones_tyndp: false
   municipal_solid_waste: true
   cluster_heat_buses: true
   hydrogen_turbines: false  # PyPSA-AT uses the PyPSA-DE implementation in electricity.H2_plants instead
@@ -90,7 +92,9 @@ sector:
     years_of_storage: 25
   co2_network: true
   imports:  # this is for renewable gas/H2/methanol/oil imports
-    enable: false
+    enable: true
+    carriers_tyndp:
+    - H2
   transmission_efficiency:
     # all link carriers must be enabled and given an efficiency here
     # this ensures that bidirectional links (p_min_pu=-1) are split into two monodirectional pairs
@@ -231,6 +235,9 @@ mods:
     utilization_share: 0.0  # fraction of carbon black sold to market (0.0–1.0)
                             # Note that sold carbon black eventually re-emits CO2
                             # outside model boundary (Systemgrenze).
+
+  tyndp_h2_import_scenario: "DE" # One of DE (Distributed Energy), NT (National Trends), GA (Global Ambition).
+                           # Only used when H2 imports is enabled
 
   PEMMDB_trajectories:
     enable: true

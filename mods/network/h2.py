@@ -53,16 +53,6 @@ def add_h2_for_industry_bus(n: pypsa.Network, nodes: pd.Index) -> None:
     loads_to_rewire = h2_industry[h2_industry.isin(n.loads.index)]
     n.loads.loc[loads_to_rewire, "bus"] = loads_to_rewire
 
-    # Nodal disaggregation can yield negative demands (non-negative country ratio ×
-    # negative nodal production). Clip to zero to avoid infeasibility.
-    negative = n.loads.loc[loads_to_rewire, "p_set"] < 0
-    if negative.any():
-        logger.warning(
-            f"Clipping negative H2 for industry p_set to zero at: "
-            f"{loads_to_rewire[negative].tolist()}"
-        )
-        n.loads.loc[loads_to_rewire[negative], "p_set"] = 0.0
-
     n.add(
         "Link",
         h2_industry,
@@ -195,3 +185,57 @@ def add_methane_pyrolysis_plasma(
     )
 
     logger.info(f"Added {len(nodes)} methane pyrolysis plasma Links.")
+
+
+def add_h2_imports(n: pypsa.Network, snakemake: Snakemake) -> None:
+    """
+    Add hydrogen import options.
+
+    Parameters
+    ----------
+    n
+        Pre-network to modify in place.
+    snakemake
+        The workflow snakemake object.
+
+    """
+    options = snakemake.params.sector
+    import_config = options["imports"]
+    if (
+        import_config["enable"]
+        and "H2" in import_config["carriers_tyndp"]
+        and options["h2_topology_tyndp"]
+    ):
+        logger.info("Adding TYNDP H2 import.")
+        import_potentials_h2 = pd.read_csv(
+            snakemake.input.h2_imports_tyndp, index_col=0
+        )
+
+        # change coordinates of import buses with existing H2 buses (e.g. NO)
+        h2_coords = (
+            n.buses.query("carrier.str.contains('H2')")
+            .groupby("country")
+            .first()[["x", "y"]]
+            .rename(columns={"x": "bus0_x", "y": "bus0_y"})
+        )
+        temp_df = import_potentials_h2.set_index("bus0")
+        temp_df.update(h2_coords)
+        import_potentials_h2[["bus0_x", "bus0_y"]] = temp_df[
+            ["bus0_x", "bus0_y"]
+        ].values
+
+        # Note: h2_zones_tyndp is experimental and untested
+        suffix = "H2 Z2" if options["h2_zones_tyndp"] else "H2"
+        n.add(
+            "Generator",
+            import_potentials_h2.Corridor,
+            suffix=" H2 import",
+            bus=import_potentials_h2.bus1.values + f" {suffix}",
+            carrier="import H2",
+            p_nom_extendable=False,
+            p_nom=import_potentials_h2.p_nom.values,
+            marginal_cost=import_potentials_h2.marginal_cost.values,
+            e_sum_max=import_potentials_h2.e_sum_max.values,
+        )
+
+        logger.info(f"Added {len(import_potentials_h2)} h2 import Generators.")

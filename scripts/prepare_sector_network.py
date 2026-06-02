@@ -21,7 +21,7 @@ from networkx.algorithms.connectivity.edge_augmentation import k_edge_augmentati
 from pypsa.geo import haversine_pts
 from scipy.stats import beta
 
-from mods import add_methane_pyrolysis_plasma
+from mods import prepare_sector_network
 from scripts._helpers import (
     configure_logging,
     get,
@@ -6919,7 +6919,7 @@ if __name__ == "__main__":
         )
 
     # PyPSA-AT: add AT-specific sector technologies
-    add_methane_pyrolysis_plasma(n, snakemake, costs, pop_layout.index, spatial)
+    prepare_sector_network(n, snakemake, pop_layout.index, costs, spatial)
 
     n.meta = dict(snakemake.config, **dict(wildcards=dict(snakemake.wildcards)))
 

@@ -33,6 +33,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - New `H2 for industry` bus to support industrial on-site conversion technologies; models `Methane Pyrolysis - Plasma` as on-site H2 production pathway ([#102](https://github.com/AGGM-AG/pypsa-at/pull/102))
 - EAG §4(2) net-zero country level electricity balance constraint ([#104](https://github.com/AGGM-AG/pypsa-at/pull/104))
 - Limit cross-country electricity flows by NTCs (TYNDP) ([#112](https://github.com/AGGM-AG/pypsa-at/pull/112))
+- Added H2 imports from countries that are not in the model based on tyndp data ([#126](https://github.com/AGGM-AG/pypsa-at/pull/126)) 
 
 ### Changed
 - Blocked methane imports via Ukrainian border entry points (PL, SK, HU, RO) ([#72](https://github.com/AGGM-AG/pypsa-at/pull/72))

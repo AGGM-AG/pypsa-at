@@ -15,13 +15,11 @@ from mods.constraints.tyndp import (
 from mods.network.common import (
     attach_resources_to_network_meta,
     modify_prenetwork,
+    prepare_sector_network,
 )
-from mods.network.h2 import add_h2_for_industry_bus, add_methane_pyrolysis_plasma
 
 __all__ = [
     "TYNDP_TO_PYPSA_LOCATION_TRANSMISSION",
-    "add_h2_for_industry_bus",
-    "add_methane_pyrolysis_plasma",
     "apply_custom_clustering",
     "attach_resources_to_network_meta",
     "constraint_combined_solar_trajectories",
@@ -29,4 +27,5 @@ __all__ = [
     "constraint_net_zero_electricity",
     "constraint_ntc_flow_limits",
     "modify_prenetwork",
+    "prepare_sector_network",
 ]

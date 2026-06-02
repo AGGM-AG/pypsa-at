@@ -20,6 +20,25 @@ data store archive so that PEMMDB and the reference grids are available.
 # Snakefile scope (rules/common.smk is included before this file).
 # `copy2`, `unpack_archive`, `rmtree` are imported in rules/retrieve.smk.
 
+
+# Versioning not implemented as the dataset is used only for plotting
+# License - MIT - Copyright (c) 2021 Gavin Rehkemper
+# Website: https://github.com/gavinr/world-countries-centroids
+rule retrieve_countries_centroids:
+    output:
+        "data/countries_centroids.geojson",
+    log:
+        "logs/retrieve_countries_centroids.log",
+    run:
+        from scripts._helpers import progress_retrieve
+
+        progress_retrieve(
+            "https://cdn.jsdelivr.net/gh/gavinr/world-countries-centroids@v1.0.0/dist/countries.geojson",
+            output[0],
+            disable=True,
+        )
+
+
 if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
     "primary",
     "archive",

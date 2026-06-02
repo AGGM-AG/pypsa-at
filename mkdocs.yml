@@ -55,6 +55,7 @@ nav:
 - Explanations:
   - explanations/index.md
   - National CO2 Balance: explanations/co2-balancing.md
+  - TYNDP H2 Import Infrastructure: explanations/h2-imports.md
   - Electricity Grid:
     - explanations/electricity-grid/index.md
     - NUTS3 Clustering: explanations/electricity-grid/nuts3-osm-data.md

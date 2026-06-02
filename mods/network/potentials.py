@@ -243,7 +243,9 @@ def apply_trajectories(
         if is_myopic_year:  # want to keep p_nom_min for base years
             n.components[c].static.loc[idx, "p_nom_min"] = p_nom_min
 
-        logger.info(f"Setting p_nom_min/max for {c} {idx} to {p_nom_min} - {p_nom_max}")
+        logger.info(
+            f"Setting p_nom_min/max for {c} {idx} to {p_nom_min:.2f} - {p_nom_max:.2f}"
+        )
 
 
 def overwrite_pemmdb_capacities(n: pypsa.Network, snakemake: Snakemake) -> None:

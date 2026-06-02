@@ -98,6 +98,10 @@ Rule functions from `rules/common.smk`:
 
 - `config_provider()` - to access configuration in Snakemake rules
 
+Additional relevant Snakemake rule functions:
+
+- `branch(condition, then, otherwise)` - choose different input files based on a given conditional
+
 ## Common Commands
 
 ```bash

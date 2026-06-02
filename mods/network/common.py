@@ -17,12 +17,43 @@ from mods.network.gas import (
     unravel_gas_import_and_production,
     update_network_to_stop_ukrainian_gas_transit,
 )
+from mods.network.h2 import (
+    add_h2_for_industry_bus,
+    add_h2_imports,
+    add_methane_pyrolysis_plasma,
+)
 from mods.network.potentials import (
     apply_klien_potential_limits,
     overwrite_pemmdb_capacities,
 )
 
 logger = getLogger(__name__)
+
+
+def prepare_sector_network(n, snakemake, nodes, costs, spatial):
+    """
+    Apply all PyPSA-AT specific modifications during ``prepare_sector_network``.
+
+    Parameters
+    ----------
+    n
+        The pre-network to be modified in place.
+    snakemake
+        The Snakemake workflow object providing inputs, params, and config.
+    costs
+        Processed cost DataFrame for the current planning horizon.
+    nodes
+        Clustered node index (``pop_layout.index``).
+    spatial
+        Spatial namespace produced by ``define_spatial``.
+
+    Returns
+    -------
+    :
+        Modifies the network in place.
+    """
+    add_h2_for_industry_bus(n, nodes)
+    add_methane_pyrolysis_plasma(n, snakemake, costs, nodes, spatial)
 
 
 def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
@@ -60,6 +91,7 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     apply_klien_potential_limits(n, snakemake)
     clip_negative_loads_for_edge_cases(n, snakemake)
     apply_tyndp_transmission_lower_bounds(n, snakemake)
+    add_h2_imports(n, snakemake)
 
 
 def attach_resources_to_network_meta(

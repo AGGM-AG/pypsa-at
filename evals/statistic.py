@@ -109,13 +109,13 @@ def collect_myopic_statistics(
                 f"Available statistics are: "
                 f"'{[m[0] for m in getmembers(n.statistics)]}'."
             )
-
+        func_args = kwargs.copy()
         if allow_missing and year in allow_missing and "bus_carrier" in kwargs:
-            kwargs["bus_carrier"] = [
+            func_args["bus_carrier"] = [
                 bc for bc in kwargs["bus_carrier"] if bc not in allow_missing[year]
             ]
 
-        year_statistic = func(**kwargs)
+        year_statistic = func(**func_args)
         year_statistic = insert_index_level(year_statistic, year, DataModel.YEAR)
         if not year_statistic.empty:
             year_statistics.append(year_statistic)

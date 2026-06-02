@@ -137,6 +137,11 @@ use rule modify_prenetwork as modify_prenetwork_at with:
         gas_input_nodes_simplified=resources(
             "gas_input_locations_s_{clusters}_simplified.csv"
         ),
+        h2_imports_tyndp=branch(
+            config_provider("sector", "h2_topology_tyndp"),
+            resources("h2_import_potentials_{planning_horizons}.csv"),
+            [],
+        ),
     params:
         **rules.modify_prenetwork.params,
         klien_potential_limits_technologies=config_provider(
@@ -155,6 +160,7 @@ use rule modify_prenetwork as modify_prenetwork_at with:
             "mods", "klien_potential_limits", "ambition"
         ),
         ukrainian_gas_transit_stop=config_provider("mods", "ukrainian_gas_transit_stop"),
+        sector=config_provider("sector"),
 
 
 ruleorder: modify_prenetwork_at > modify_prenetwork  # AT wins for the final .nc

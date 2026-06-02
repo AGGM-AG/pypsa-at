@@ -261,14 +261,10 @@ if config.get("sector", {}).get("h2_topology_tyndp", False):
         script:
             scripts("open-tyndp/clean_tyndp_h2_storages.py")
 
-    # NOTE: clean_tyndp_h2_imports requires a retrieve_countries_centroids rule
-    # or equivalent that does not yet exist in pypsa-at. Add when enabling
-    # h2_topology_tyndp. The upstream open-tyndp rule uses:
-    #   countries_centroids=rules.retrieve_countries_centroids.output,
-    # For now, the input is omitted as a placeholder until the retrieve rule is added.
     rule clean_tyndp_h2_imports:
         input:
             import_potentials_raw=rules.retrieve_open_tyndp.output.h2_imports,
+            countries_centroids="data/countries_centroids.geojson",
         output:
             import_potentials_prepped=resources("h2_import_potentials_prepped.csv"),
         log:
@@ -297,6 +293,9 @@ if config.get("sector", {}).get("h2_topology_tyndp", False):
         threads: 1
         resources:
             mem_mb=2000,
+        params:
+            scenario=config_provider("mods", "tyndp_h2_import_scenario"),
+            countries=config_provider("countries"),
         message:
             "Building TYNDP H2 import capacities for {wildcards.planning_horizons}"
         script:
