@@ -128,7 +128,7 @@ def update_network_to_stop_ukrainian_gas_transit(
         Updates the pypsa.Network in place.
 
     """
-    if not snakemake.params.get("ukrainian_gas_transit_stop", False):
+    if not snakemake.params["ukrainian_gas_transit_stop"]:
         logger.info(
             "Skip updating network to stop ukrainian gas transit because "
             "ukrainian_gas_transit_stop is off in config.at.yaml ."

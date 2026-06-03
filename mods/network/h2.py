@@ -199,7 +199,7 @@ def add_h2_imports(n: pypsa.Network, snakemake: Snakemake) -> None:
         The workflow snakemake object.
 
     """
-    options = snakemake.params.sector
+    options = snakemake.params["sector"]
     import_config = options["imports"]
     if (
         import_config["enable"]

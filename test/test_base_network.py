@@ -7,13 +7,10 @@ Tests the functionalities of scripts/base_network.py.
 """
 
 import pathlib
-import sys
 
 import numpy as np
 import pandas as pd
 import pytest
-
-sys.path.append("./scripts")
 
 from scripts.base_network import (
     _get_country,

@@ -1,5 +1,5 @@
 # test/test_mods/conftest.py
-"""Shared fixtures for mods unit tests."""
+"""Shared fixtures for ``./mods`` tests."""
 
 import pathlib
 

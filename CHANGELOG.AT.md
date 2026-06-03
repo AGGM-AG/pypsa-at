@@ -26,14 +26,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - NUTS2 and NUTS3 administrative clustering with 1H/3H temporal resolution in the myopic workflow ([#55](https://github.com/AGGM-AG/pypsa-at/pull/55))
 - National CO₂ budget constraints for Austria following KSG targets; net-zero by 2040
 - Methane pyrolysis (plasma) as configurable H₂ production pathway; CH₄ split into H₂ and solid carbon black with no CO₂ emissions ([#73](https://github.com/AGGM-AG/pypsa-at/pull/73))
-- enforced Open-TYNDP capacity trajectories as `p_nom_min` / `p_nom_max` bounds for EU countries (onwind, solar, solar-hsat, battery, home battery, H2 electrolysis) ([#89](https://github.com/AGGM-AG/pypsa-at/pull/89))
+- enforced Open-TYNDP capacity trajectories as `p_nom_min` / `p_nom_max` bounds for EU countries (onwind, solar, solar-hsat, battery, home battery, H2 electrolysis, nuclear) ([#89](https://github.com/AGGM-AG/pypsa-at/pull/89), [#128](https://github.com/AGGM-AG/pypsa-at/pull/128))
 - added solar capacity constraints based on KLIEN study ([#95](https://github.com/AGGM-AG/pypsa-at/pull/95))
 - added wind capacity constraints based on KLIEN study ([#98](https://github.com/AGGM-AG/pypsa-at/pull/98))
 - New statistics for `remaining_capacity` and `technical_potentials` ([#100](https://github.com/AGGM-AG/pypsa-at/pull/100))
 - New `H2 for industry` bus to support industrial on-site conversion technologies; models `Methane Pyrolysis - Plasma` as on-site H2 production pathway ([#102](https://github.com/AGGM-AG/pypsa-at/pull/102))
 - EAG §4(2) net-zero country level electricity balance constraint ([#104](https://github.com/AGGM-AG/pypsa-at/pull/104))
 - Limit cross-country electricity flows by NTCs (TYNDP) ([#112](https://github.com/AGGM-AG/pypsa-at/pull/112))
-- Added H2 imports from countries that are not in the model based on tyndp data ([#126](https://github.com/AGGM-AG/pypsa-at/pull/126)) 
+- Added H2 imports from countries that are not in the model based on tyndp data ([#126](https://github.com/AGGM-AG/pypsa-at/pull/126))
 
 ### Changed
 - Blocked methane imports via Ukrainian border entry points (PL, SK, HU, RO) ([#72](https://github.com/AGGM-AG/pypsa-at/pull/72))

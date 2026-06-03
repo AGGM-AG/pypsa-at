@@ -7,14 +7,10 @@ Tests the functionalities of scripts/build_shapes.py.
 """
 
 import pathlib
-import sys
 
 import geopandas as gpd
 import numpy as np
 import pytest
-
-sys.path.append("./scripts")
-
 from build_shapes import _simplify_polys
 
 path_cwd = pathlib.Path.cwd()

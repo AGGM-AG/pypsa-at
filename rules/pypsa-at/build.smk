@@ -18,6 +18,8 @@ rule build_tyndp_trajectories:
     benchmark:
         benchmarks("build_tyndp_trajectories")
     threads: 1
+    params:
+        tyndp_scenario=config_provider("mods", "PEMMDB_trajectories", "tyndp_scenario"),
     message:
         "Building TYNDP capacity trajectories (p_nom_min/p_nom_max)"
     script:

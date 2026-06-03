@@ -5,21 +5,22 @@
 """Unit tests for mods/network/potentials.py — PEMMDB trajectory aggregation and KLIEN regional mapping."""
 
 import re
-import sys
 
+import geopandas as gpd
 import pandas as pd
+import pypsa
 import pytest
-
-from mods.network.potentials import aggregate_by_cluster_and_country
-
-sys.path.insert(0, "./scripts/pypsa-at")
-
-import geopandas as gpd  # noqa: E402
-from build_klien_potentials import (  # noqa: E402
+from build_klien_potentials import (
     map_to_nuts3_weighted,
     process_potential_file,
 )
-from shapely.geometry import box  # noqa: E402
+from shapely.geometry import box
+
+from mods.network.potentials import (
+    aggregate_by_cluster_and_country,
+    apply_trajectories,
+    register_extendable_nuclear,
+)
 
 # ---------------------------------------------------------------------------
 # PEMMDB trajectory aggregation
@@ -176,6 +177,247 @@ def test_result_index_names():
     )
     result = aggregate_by_cluster_and_country(df)
     assert result.index.names == ["location", "pypsa_eur_carrier"]
+
+
+# ---------------------------------------------------------------------------
+# apply_trajectories — port-consistent brownfield deduction (regression guard)
+# ---------------------------------------------------------------------------
+
+
+def test_apply_trajectories_brownfield_is_port_consistent():
+    """
+    For at_port=1 carriers the brownfield must be deducted in bus1 (output) units.
+
+    Regression guard: the trajectory p_nom_max is in bus1 MW, so the existing
+    brownfield must also be measured in bus1 units (``p_nom * efficiency``) before
+    subtraction. Using bus0 units leaves a ~(1-eff) error per MW of brownfield.
+    """
+    eff = 0.9
+    brownfield_p_nom = 1000.0  # bus0 (input) MW
+    traj_max = 5000.0
+
+    n = pypsa.Network()
+    n.add("Carrier", ["AC", "battery", "battery discharger"])
+    n.add("Bus", "CZ0 0", carrier="AC", location="CZ0")
+    n.add("Bus", "CZ0 battery", carrier="battery", location="CZ0")
+    # existing non-extendable vintage providing the brownfield
+    n.add(
+        "Link",
+        "CZ0 battery discharger-2025",
+        bus0="CZ0 battery",
+        bus1="CZ0 0",
+        carrier="battery discharger",
+        efficiency=eff,
+        p_nom=brownfield_p_nom,
+        p_nom_extendable=False,
+    )
+    # the extendable component the bounds are written onto
+    n.add(
+        "Link",
+        "CZ0 battery discharger-2030",
+        bus0="CZ0 battery",
+        bus1="CZ0 0",
+        carrier="battery discharger",
+        efficiency=eff,
+        p_nom_extendable=True,
+    )
+    traj = pd.DataFrame(
+        {"p_nom_min": [0.0], "p_nom_max": [traj_max]},
+        index=pd.MultiIndex.from_tuples(
+            [("CZ0", "battery discharger")], names=["location", "pypsa_eur_carrier"]
+        ),
+    )
+
+    apply_trajectories(
+        n, "Link", traj, "battery discharger", [], is_myopic_year=True, at_port=1
+    )
+
+    # brownfield in bus1 units = p_nom * efficiency
+    brownfield_el = brownfield_p_nom * eff
+    expected = (traj_max - brownfield_el) / eff
+    assert n.links.at["CZ0 battery discharger-2030", "p_nom_max"] == pytest.approx(
+        expected
+    )
+
+
+# ---------------------------------------------------------------------------
+# register_extendable_nuclear (+ apply_trajectories) — conventional nuclear path
+# ---------------------------------------------------------------------------
+
+_NUCLEAR_EFF = 0.326
+_NUCLEAR_CC = 245733.65
+
+
+def _nuclear_network(vintages: dict[str, list[float]]) -> pypsa.Network:
+    """
+    Network with non-extendable nuclear vintage Links per location.
+
+    *vintages* maps a location code to a list of vintage ``p_nom`` values
+    (MW_th, bus0/uranium reference). All vintages share ``bus0="EU uranium"``,
+    ``bus2="co2 atmosphere"`` and ``efficiency=0.326``, mirroring the real model.
+    """
+    n = pypsa.Network()
+    n.add("Carrier", ["AC", "uranium", "co2", "nuclear"])
+    n.add("Bus", "EU uranium", carrier="uranium", location="EU")
+    n.add("Bus", "co2 atmosphere", carrier="co2", location="EU")
+    for loc, caps in vintages.items():
+        n.add("Bus", loc, carrier="AC", location=loc)
+        for i, p_nom in enumerate(caps):
+            n.add(
+                "Link",
+                f"{loc} nuclear-{1980 + i}",
+                bus0="EU uranium",
+                bus1=loc,
+                bus2="co2 atmosphere",
+                carrier="nuclear",
+                efficiency=_NUCLEAR_EFF,
+                efficiency2=0.0,
+                capital_cost=_NUCLEAR_CC,
+                p_nom=p_nom,
+                p_nom_extendable=False,
+                build_year=1980 + i,
+                lifetime=60,
+            )
+    return n
+
+
+def _nuclear_traj(p_nom_min: float, p_nom_max: float, loc: str = "CZ") -> pd.DataFrame:
+    return pd.DataFrame(
+        {"p_nom_min": [p_nom_min], "p_nom_max": [p_nom_max]},
+        index=pd.MultiIndex.from_tuples(
+            [(loc, "nuclear")], names=["location", "pypsa_eur_carrier"]
+        ),
+    )
+
+
+def _extendable_nuclear(n: pypsa.Network) -> pd.DataFrame:
+    return n.links.query("carrier == 'nuclear' & p_nom_extendable")
+
+
+def _bound_nuclear(n, traj, skip_countries, is_myopic_year, pyear):
+    """Run the production nuclear path: register the Link, then bound it."""
+    register_extendable_nuclear(n, traj, skip_countries, pyear)
+    apply_trajectories(
+        n, "Link", traj, "nuclear", skip_countries, is_myopic_year, at_port=1
+    )
+
+
+# --- register_extendable_nuclear (component creation) -----------------------
+
+
+def test_registers_single_extendable_link_per_location():
+    """One extendable nuclear Link is created; vintages stay non-extendable."""
+    n = _nuclear_network({"CZ": [1000.0]})
+    traj = _nuclear_traj(3500.0, 9000.0)
+
+    register_extendable_nuclear(n, traj, [], pyear=2030)
+
+    assert len(_extendable_nuclear(n)) == 1
+    assert not n.links.at["CZ nuclear-1980", "p_nom_extendable"]
+
+
+def test_registered_link_copies_vintage_attributes():
+    """The new Link inherits carrier/buses/efficiency and a non-zero capital cost."""
+    n = _nuclear_network({"CZ": [1000.0]})
+    traj = _nuclear_traj(3500.0, 9000.0)
+
+    register_extendable_nuclear(n, traj, [], pyear=2030)
+
+    link = _extendable_nuclear(n).iloc[0]
+    assert link["carrier"] == "nuclear"
+    assert link["bus0"] == "EU uranium"
+    assert link["bus1"] == "CZ"
+    assert link["bus2"] == "co2 atmosphere"
+    assert link["efficiency"] == pytest.approx(_NUCLEAR_EFF)
+    assert link["capital_cost"] == pytest.approx(_NUCLEAR_CC)
+
+
+def test_skip_countries_get_no_registered_link():
+    """Locations in skip_countries are not given an extendable nuclear Link."""
+    n = _nuclear_network({"AT1": [1000.0]})
+    traj = _nuclear_traj(3500.0, 9000.0, loc="AT1")
+
+    register_extendable_nuclear(n, traj, ["AT"], pyear=2030)
+
+    assert _extendable_nuclear(n).empty
+
+
+def test_missing_trajectory_raises():
+    """
+    A nuclear vintage location without a trajectory must fail fast.
+
+    Otherwise the extendable Link would have no p_nom_min/max bound and the solver
+    could build unlimited nuclear.
+    """
+    n = _nuclear_network({"CZ": [1000.0]})
+    traj = _nuclear_traj(3500.0, 9000.0, loc="FR")  # trajectory for FR, not CZ
+
+    with pytest.raises(ValueError, match="do not contain trajectories"):
+        register_extendable_nuclear(n, traj, [], pyear=2030)
+
+
+def test_registered_name_collision_raises():
+    """A vintage occupying the build-year name is an unexpected state and must raise."""
+    n = _nuclear_network({"CZ": [1000.0]})
+    # rename the vintage so it occupies the name the new extendable Link would take
+    n.links = n.links.rename(index={"CZ nuclear-1980": "CZ nuclear-2030"})
+    traj = _nuclear_traj(3500.0, 9000.0)
+
+    with pytest.raises(ValueError, match="already exist"):
+        register_extendable_nuclear(n, traj, [], pyear=2030)
+
+
+def test_no_nuclear_links_raises():
+    """A network without nuclear vintage Links is a broken assumption and must raise."""
+    n = pypsa.Network()
+    n.add("Carrier", ["AC"])
+    n.add("Bus", "CZ", carrier="AC", location="CZ")
+    traj = _nuclear_traj(3500.0, 9000.0)
+
+    with pytest.raises(ValueError, match="found none"):
+        register_extendable_nuclear(n, traj, [], pyear=2030)
+
+
+# --- end-to-end bounds (register + apply_trajectories) ----------------------
+
+
+def test_nuclear_myopic_year_sets_floor_from_trajectory():
+    """Myopic year: p_nom_min = (traj_min - brownfield) / eff."""
+    n = _nuclear_network({"CZ": [1000.0]})
+    traj = _nuclear_traj(3500.0, 9000.0)
+
+    _bound_nuclear(n, traj, [], is_myopic_year=True, pyear=2040)
+
+    link = _extendable_nuclear(n).iloc[0]
+    bf_el = 1000.0 * _NUCLEAR_EFF
+    assert link["p_nom_min"] == pytest.approx((3500.0 - bf_el) / _NUCLEAR_EFF)
+    assert link["p_nom_max"] == pytest.approx((9000.0 - bf_el) / _NUCLEAR_EFF)
+
+
+def test_nuclear_multiple_vintages_sum_brownfield_electrically():
+    """Multi-vintage location (the FR/FI case) sums all vintages; no `.item()` crash."""
+    caps = [9570.55, 9576.69, 5061.35]
+    n = _nuclear_network({"FR": caps})
+    traj = _nuclear_traj(0.0, 30000.0, loc="FR")
+
+    _bound_nuclear(n, traj, [], is_myopic_year=True, pyear=2040)
+
+    added = _extendable_nuclear(n)
+    assert len(added) == 1
+    bf_el = sum(caps) * _NUCLEAR_EFF
+    assert added.iloc[0]["p_nom_max"] == pytest.approx((30000.0 - bf_el) / _NUCLEAR_EFF)
+
+
+def test_nuclear_brownfield_exceeding_trajectory_clamps_to_zero():
+    """When brownfield exceeds the trajectory, bounds clamp to 0 (never negative)."""
+    n = _nuclear_network({"CZ": [12000.0]})  # bf_el = 3912 > traj_min 3500
+    traj = _nuclear_traj(3500.0, 3000.0)  # also traj_max < bf_el
+
+    _bound_nuclear(n, traj, [], is_myopic_year=True, pyear=2040)
+
+    link = _extendable_nuclear(n).iloc[0]
+    assert link["p_nom_min"] == 0.0
+    assert link["p_nom_max"] == 0.0
 
 
 # ---------------------------------------------------------------------------

@@ -4,10 +4,6 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Integration test for scripts/pypsa-at/build_tyndp_transmission_trajectories.py."""
 
-import sys
-
-sys.path.insert(0, "./scripts/pypsa-at")
-
 import pandas as pd
 from build_tyndp_transmission_trajectories import build_tyndp_transmission_trajectories
 

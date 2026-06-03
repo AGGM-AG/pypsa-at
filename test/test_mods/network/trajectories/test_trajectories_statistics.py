@@ -120,7 +120,7 @@ def test_tyndp_trajectory_ceilings(nc, project_root, is_testrun):
     meta = nc.networks["2030"].meta
     cfg = meta["mods"]["PEMMDB_trajectories"]
 
-    carrier_port_1 = ["battery discharger", "home battery discharger"]
+    carrier_port_1 = ["battery discharger", "home battery discharger", "nuclear"]
     carrier_port_0 = ["H2 Electrolysis", "onwind", "solar rooftop"]
     skip_countries = tuple(cfg["skip_countries"])
 
@@ -220,6 +220,29 @@ def test_tyndp_trajectory_ceilings(nc, project_root, is_testrun):
     installed = installed[installed.index.get_level_values("location") != "XK"]
     installed = installed.rename(index=str, level="year").sort_index()
     expect = expect.combine(installed.reindex(expect.index, fill_value=0), max)
+
+    # Nuclear is a conventional carrier: where it is NOT extendable (today only the
+    # base year) it carries no trajectory ceiling, so its expectation is the installed
+    # brownfield rather than the (backward-extrapolated) trajectory value that the
+    # max() above would otherwise pick when the synthetic base-year trajectory exceeds
+    # the brownfield (e.g. HU, SI). Keying on p_nom_extendable rather than the base
+    # year keeps this correct if the model ever makes nuclear extendable in the base
+    # year — those rows then fall back to the trajectory comparison automatically.
+    extendable_nuclear = {
+        (str(year), name.split(" ")[0])
+        for year, net in nc.networks.items()
+        for name in net.links.query("carrier == 'nuclear' and p_nom_extendable").index
+    }
+    nuclear_brownfield = pd.Series(
+        [
+            carrier == "nuclear" and (year, location) not in extendable_nuclear
+            for year, location, carrier in expect.index
+        ],
+        index=expect.index,
+    )
+    expect[nuclear_brownfield] = installed.reindex(expect.index, fill_value=0)[
+        nuclear_brownfield
+    ]
 
     if is_testrun:
         # In test runs not all (location, carrier) pairs from TYNDP are modelled.

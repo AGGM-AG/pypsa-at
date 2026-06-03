@@ -28,34 +28,10 @@ from mods.constants import PROXIES, TYNDP_TO_PYPSA_LOCATION
 
 logger = getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# PEMMDB trajectory overwrites
-# ---------------------------------------------------------------------------
-#
-# Applies p_nom_min / p_nom_max trajectory bands from the TYNDP investment
-# dataset to all carriers present in the trajectories CSV. Profiles and p_nom
-# values are out of scope — they are derived from atlite or optimised by the
-# solver.
-#
-# Bus mapping
-# -----------
-# TYNDP country nodes are translated to PyPSA-AT NUTS codes via the explicit
-# ``TYNDP_TO_PYPSA_LOCATION`` dictionary in ``mods.constants``. Key rules:
-#
-# - AT and DE are intentionally absent from the mapping and are never touched.
-# - Sub-national TYNDP zones follow the island-splitting in
-#   ``mods.clustering.apply_custom_clustering``: Italian Sicily → ``IT1``,
-#   Sardinia → ``IT2``; Danish Sjaelland → ``DK1``; Northern Ireland → ``GB1``;
-#   Balearic Islands → ``ES1`` (no TYNDP node in current dataset).
-# - When multiple TYNDP buses collapse to the same NUTS zone their p_nom_min
-#   and p_nom_max are summed and a warning is logged.
-# - When a NUTS zone has more than one PyPSA bus the trajectory cannot be
-#   disaggregated: a warning is logged and that zone is skipped.
-
 
 def aggregate_by_cluster_and_country(
     trajectories: pd.DataFrame,
-    skip_countries: list[str] | None = None,
+    skip_countries: tuple[str] | None = None,
 ) -> pd.DataFrame:
     """
     Aggregate TYNDP trajectory data to PyPSA-AT cluster regions and country codes.
@@ -119,9 +95,6 @@ def aggregate_by_cluster_and_country(
     # trajectories with both: clustered locations and country codes
     result = traj_location.combine_first(traj_countries).sort_index()
 
-    # # Need to drop some countries: They are not modeled in PyPSA-AT
-    # result = result.drop(index=["CY"], level="location")
-
     return result
 
 
@@ -135,8 +108,10 @@ def apply_trajectories(
     the function:
 
     1. Looks up the pre-aggregated trajectory bounds from *traj*.
-    2. Subtracts existing brownfield capacity (planning horizons > 2025 only) so
-       that the bounds represent *additional* capacity still available to the solver.
+    2. Subtracts existing brownfield capacity (myopic horizons only) so that the
+       bounds represent *additional* capacity still available to the solver.
+       The brownfield is measured at the same port as the trajectory: bus-1 units
+       (``p_nom × efficiency``) when ``at_port=1``, bus-0 units otherwise.
     3. Converts bus-1 output capacity bounds to bus-0 input bounds when
        ``at_port=1`` by dividing by component efficiency.
     4. Writes the final bounds directly to ``n.components[c].static``.
@@ -183,13 +158,16 @@ def apply_trajectories(
         if name[0][:2] not in skip_countries
     ]
 
-    # Sum up p_nom of all assets. End-of-life assets have been
-    # removed during add_brownfield(...)
+    # Sum up p_nom of all assets in the same port units as the trajectory.
+    # For at_port=1 carriers (battery discharger, home battery discharger) the
+    # trajectory p_nom_max is expressed in bus1 (output) MW, so the brownfield
+    # deduction must also be in bus1 units (p_nom * efficiency). End-of-life
+    # assets have been removed during add_brownfield(...)
     brownfield_capacities = n.statistics.installed_capacity(
         groupby=["location", "carrier"],
         components=c,
         carrier=carrier,
-        aggregate_across_components=True,
+        at_port=str(at_port),
         nice_names=False,
         drop_zero=False,
     )
@@ -207,11 +185,13 @@ def apply_trajectories(
         if loc == "GB1" and carrier == "H2 Electrolysis":
             # Effectively negates H2 Electrolysis on Northern Ireland
             p_nom_min, p_nom_max = 0, 0
-        else:
-            # Let's fail for KeyErrors to reveal broken assumptions
+        else:  # fail for KeyErrors to reveal broken assumptions
             p_nom_min, p_nom_max = traj.loc[PROXIES.get(loc, loc), carrier]
 
-        # reduce total boundaries by already built and still existing capacities
+        # reduce total boundaries by already built and still existing capacities.
+        # Only in myopic years: in the base year the existing capacity is the
+        # extendable component's own (non-zero) p_nom, which the optimiser already
+        # accounts for as its starting point, so deducting it would double-count.
         if is_myopic_year:
             p_nom_min = max(0, p_nom_min - existing_brownfield)
 
@@ -238,7 +218,7 @@ def apply_trajectories(
                 f"component {c} for {idx} to {p_nom_min} - {p_nom_max} "
             )
 
-        # directly set on network components --> avoids setting attributes on a copy
+        # directly set on network components to avoid setting attributes on a copy
         n.components[c].static.loc[idx, "p_nom_max"] = p_nom_max
         if is_myopic_year:  # want to keep p_nom_min for base years
             n.components[c].static.loc[idx, "p_nom_min"] = p_nom_min
@@ -246,6 +226,106 @@ def apply_trajectories(
         logger.info(
             f"Setting p_nom_min/max for {c} {idx} to {p_nom_min:.2f} - {p_nom_max:.2f}"
         )
+
+
+def register_extendable_nuclear(
+    n: pypsa.Network,
+    traj: pd.DataFrame,
+    skip_countries: tuple[str],
+    pyear: int,
+) -> None:
+    """
+    Add one extendable nuclear Link per location so :func:`apply_trajectories` can bound it.
+
+    Nuclear is a conventional carrier represented by one or more non-extendable
+    *vintage* Links per location (``bus0="EU uranium"``, ``bus1`` = electricity
+    bus, ``bus2="co2 atmosphere"``), all created by ``add_existing_baseyear``.
+    Because no extendable variant exists, the trajectory bounds would have nothing
+    to attach to.  This function creates that missing component — a single
+    extendable Link per location whose newest vintage supplies the *full*
+    attribute row (buses, efficiency, ``capital_cost``, ramp limits, ...), with
+    ``p_nom`` reset to zero and ``build_year`` set to *pyear*.  Copying every
+    attribute keeps new capacity consistent with the vintages and prevents future
+    attributes from silently regressing to defaults.  The vintages are left
+    untouched and carry the brownfield as a fixed floor; the actual ``p_nom_min``
+    / ``p_nom_max`` bounds are then written by :func:`apply_trajectories` via the
+    standard ``techs`` loop (``("Link", "nuclear", 1)``).
+
+    To guarantee every created Link is bounded — an unbounded extendable Link
+    would let the solver build unlimited nuclear — the function fails fast instead
+    of leaving a stray component: it raises if no nuclear vintages exist, if a
+    non-skipped nuclear location has no trajectory, or if the target name already
+    exists.  Locations in *skip_countries* are dropped before these checks.
+
+    Parameters
+    ----------
+    n:
+        The PyPSA network object to modify in-place.
+    traj:
+        Aggregated trajectory DataFrame as returned by
+        :func:`aggregate_by_cluster_and_country`, indexed by
+        ``(location, pypsa_eur_carrier)``.  Used to verify that every nuclear
+        location carries a trajectory.
+    skip_countries:
+        Two-letter ISO country codes (matched against the location prefix) whose
+        locations are not touched.
+    pyear:
+        Current planning horizon, used as the new Link's build year and name suffix.
+
+    Raises
+    ------
+    ValueError
+        If the network contains no nuclear vintage Links, if a non-skipped
+        nuclear location lacks trajectory data, or if the extendable Link's name
+        collides with an existing component.
+    """
+    carrier = "nuclear"
+    brownfield = n.statistics.installed_capacity(
+        groupby=["location", "build_year"],
+        # location and not country to prevent collapsing GB regions
+        components="Link",
+        carrier=carrier,
+        at_port="1",  # fetches electricity locations instead of EU uranium
+        nice_names=False,
+        drop_zero=False,
+    )
+    if brownfield.empty:
+        raise ValueError("Expected existing nuclear links but found none.")
+
+    # skip_countries are two-letter country codes; match sub-national locations
+    # (e.g. "AT1", "GB0") by prefix, mirroring apply_trajectories.
+    country = brownfield.index.get_level_values("location").str[:2]
+    brownfield = brownfield[~country.isin(skip_countries)]
+
+    nuclear_trajectories = traj[
+        traj.index.get_level_values("pypsa_eur_carrier") == carrier
+    ]
+    missing = brownfield.index.unique("location").difference(
+        nuclear_trajectories.index.unique("location")
+    )
+    if not missing.empty:
+        raise ValueError(
+            f"Some model locations do not contain trajectories data at locations {missing} for carrier {carrier}."
+        )
+
+    newest = brownfield.sort_index().groupby(level="location").tail(1)
+    for loc, year in newest.index:
+        # check for unexpected collisions. Since nuclear is a conventional non-extendable
+        # asset, no nuclear assets for pyear must exist. Let's check to be sure.
+        name = f"{loc} {carrier}-{pyear}"
+        if name in n.links.index:
+            raise ValueError(f"The asset {name} already exists.")
+
+        template = n.links.loc[f"{loc} {carrier}-{year}", :].copy()
+        template["p_nom"] = 0.0
+        template["p_nom_extendable"] = True
+        template["build_year"] = pyear
+        n.add("Link", name, **template)
+
+    logger.info(
+        f"Registered {len(newest)} extendable nuclear Links for "
+        f"locations: {', '.join(sorted(newest.index.unique('location')))}."
+    )
 
 
 def overwrite_pemmdb_capacities(n: pypsa.Network, snakemake: Snakemake) -> None:
@@ -282,14 +362,13 @@ def overwrite_pemmdb_capacities(n: pypsa.Network, snakemake: Snakemake) -> None:
         logger.info("PEMMDB trajectory overwrites disabled. Skipping.")
         return
 
-    skip_countries = cfg["skip_countries"]
+    skip_countries = tuple(cfg["skip_countries"])
     pyear = int(snakemake.wildcards.planning_horizons)
-    base_year = int(sorted(n.meta["scenario"]["planning_horizons"])[0])
+    base_year = min(n.meta["scenario"]["planning_horizons"])
     is_myopic_year = pyear != base_year
 
-    trajectories = pd.read_csv(snakemake.input.tyndp_trajectories).query(
-        "pyear == @pyear"
-    )
+    trajectories_fn = snakemake.input.tyndp_trajectories
+    trajectories = pd.read_csv(trajectories_fn).query("pyear == @pyear")
 
     if trajectories.empty:
         raise ValueError(f"No trajectory data for horizon {pyear}.")
@@ -304,6 +383,13 @@ def overwrite_pemmdb_capacities(n: pypsa.Network, snakemake: Snakemake) -> None:
         ("Link", "home battery discharger", 1),
     ]
 
+    # Nuclear stays non-extendable in the base year. The technology is a
+    # "conventional" technology in PyPSA-Eur, which means that no extendable
+    # assets are created for myopic years.
+    if is_myopic_year:
+        register_extendable_nuclear(n, traj_clustered, skip_countries, pyear)
+        techs.append(("Link", "nuclear", 1))
+
     # The Open-TYNDP carrier "solar-pv-utility" in the trajectories data frame
     # stands for combined "solar" and "solar-hsat" in PyPSA-AT. Their combined
     # trajectories are handled in a custom constraint in the pypsa-at mods constraints
@@ -312,6 +398,24 @@ def overwrite_pemmdb_capacities(n: pypsa.Network, snakemake: Snakemake) -> None:
         apply_trajectories(
             n, c, traj_clustered, carrier, skip_countries, is_myopic_year, at_port=port
         )
+        # fail-fast: no extendable trajectory asset among techs may be left unbounded.
+        # skip_country assets (e.g. AT, DE) are intentionally excluded — they receive
+        # their bounds from the PyPSA-AT/-DE calibrations, not from TYNDP.
+        unbounded = (
+            n.components[c]
+            .static.query(
+                "carrier == @carrier"
+                " & p_nom_extendable"
+                " & not name.str.startswith(@skip_countries)"
+                " & p_nom_max == inf"
+            )
+            .index
+        )
+        if not unbounded.empty:
+            raise ValueError(
+                f"Extendable {carrier} assets left without a finite p_nom_max: "
+                f"{list(unbounded)}"
+            )
 
     logger.info(f"PEMMDB trajectory bands applied for horizon {pyear}.")
 
