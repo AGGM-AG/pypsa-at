@@ -215,3 +215,36 @@ use rule cluster_gas_network as cluster_gas_network_at with:
 
 
 ruleorder: modify_brownfield_gas_network_AT > cluster_gas_network  # AT wins for the final .csv
+
+
+# Overwrite attributes in the power plants resource CSV file
+rule overwrite_powerplants_at:
+    input:
+        powerplants=resources("powerplants_s_{clusters}.csv"),
+    output:
+        powerplants=resources("powerplants_s_{clusters}-overwrite.csv"),
+    log:
+        logs("powerplants_s_{clusters}-overwrite.log"),
+    threads: 1
+    resources:
+        mem_mb=1000,
+    message:
+        "Overriding power plant attributes for {wildcards.clusters} clusters."
+    script:
+        scripts("pypsa-at/overwrite_powerplants.py")
+
+
+if config["foresight"] == "myopic":
+
+    # redirect powerplants input file to the patched file
+    use rule add_existing_baseyear as add_existing_baseyear_at with:
+        input:
+            **{
+                **rules.add_existing_baseyear.input,
+                "powerplants": resources("powerplants_s_{clusters}-overwrite.csv"),
+            },
+
+    ruleorder: add_existing_baseyear_at > add_existing_baseyear
+    # The new rule also needs to override `add_brownfield` instead of
+    # `add_existing_baseyear` for myopic years
+    ruleorder: add_existing_baseyear_at > add_brownfield

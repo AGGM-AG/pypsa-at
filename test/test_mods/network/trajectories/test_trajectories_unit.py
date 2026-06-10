@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
-"""Unit tests for mods/network/potentials.py — PEMMDB trajectory aggregation and KLIEN regional mapping."""
+"""Unit tests for mods/network/trajectories.py — PEMMDB trajectory aggregation and KLIEN regional mapping."""
 
 import re
 
@@ -16,7 +16,7 @@ from build_klien_potentials import (
 )
 from shapely.geometry import box
 
-from mods.network.potentials import (
+from mods.network.trajectories import (
     aggregate_by_cluster_and_country,
     apply_trajectories,
     register_extendable_nuclear,
@@ -79,8 +79,9 @@ def test_multiple_tyndp_buses_sum_to_location():
     assert result.loc[("NO", "onwind"), "p_nom_max"] == 360.0
 
 
-def test_sub_national_location_and_country_both_present():
-    # DK has DKW1 → DK0 and DKE1 → DK1; country-level DK should be their sum
+def test_sub_national_locations_kept_separate():
+    # DK has DKW1 → DK0 and DKE1 → DK1; the locations stay separate — no
+    # country-level ("DK") roll-up is produced.
     df = _make_trajectories(
         [
             {
@@ -100,9 +101,9 @@ def test_sub_national_location_and_country_both_present():
     result = aggregate_by_cluster_and_country(df)
     assert ("DK0", "onwind") in result.index
     assert ("DK1", "onwind") in result.index
-    assert ("DK", "onwind") in result.index
-    assert result.loc[("DK", "onwind"), "p_nom_min"] == 60.0
-    assert result.loc[("DK", "onwind"), "p_nom_max"] == 120.0
+    assert ("DK", "onwind") not in result.index
+    assert result.loc[("DK0", "onwind"), "p_nom_min"] == 40.0
+    assert result.loc[("DK1", "onwind"), "p_nom_min"] == 20.0
 
 
 def test_skip_countries_filters_locations():
@@ -245,7 +246,20 @@ def test_apply_trajectories_brownfield_is_port_consistent():
 # ---------------------------------------------------------------------------
 
 _NUCLEAR_EFF = 0.326
-_NUCLEAR_CC = 245733.65
+_NUCLEAR_CC = 245733.65  # vintage capital_cost; left untouched on the vintages
+
+# Processed costs CSV slice consumed by register_extendable_nuclear. The new
+# extendable Link draws its cost attributes from here, not from the vintage.
+_COSTS = pd.DataFrame(
+    {
+        "efficiency": [_NUCLEAR_EFF, float("nan")],
+        "capital_cost": [_NUCLEAR_CC, float("nan")],
+        "VOM": [0.0, float("nan")],
+        "lifetime": [60.0, float("nan")],
+        "CO2 intensity": [0.0, 0.0],
+    },
+    index=["nuclear", "uranium"],
+)
 
 
 def _nuclear_network(vintages: dict[str, list[float]]) -> pypsa.Network:
@@ -296,7 +310,7 @@ def _extendable_nuclear(n: pypsa.Network) -> pd.DataFrame:
 
 def _bound_nuclear(n, traj, skip_countries, is_myopic_year, pyear):
     """Run the production nuclear path: register the Link, then bound it."""
-    register_extendable_nuclear(n, traj, skip_countries, pyear)
+    register_extendable_nuclear(n, traj, pyear, _COSTS)
     apply_trajectories(
         n, "Link", traj, "nuclear", skip_countries, is_myopic_year, at_port=1
     )
@@ -310,72 +324,65 @@ def test_registers_single_extendable_link_per_location():
     n = _nuclear_network({"CZ": [1000.0]})
     traj = _nuclear_traj(3500.0, 9000.0)
 
-    register_extendable_nuclear(n, traj, [], pyear=2030)
+    register_extendable_nuclear(n, traj, 2030, _COSTS)
 
     assert len(_extendable_nuclear(n)) == 1
     assert not n.links.at["CZ nuclear-1980", "p_nom_extendable"]
 
 
-def test_registered_link_copies_vintage_attributes():
-    """The new Link inherits carrier/buses/efficiency and a non-zero capital cost."""
+def test_registered_link_copies_buses_and_takes_costs_from_csv():
+    """The new Link inherits carrier/buses from the vintage; costs come from the CSV."""
     n = _nuclear_network({"CZ": [1000.0]})
     traj = _nuclear_traj(3500.0, 9000.0)
 
-    register_extendable_nuclear(n, traj, [], pyear=2030)
+    register_extendable_nuclear(n, traj, 2030, _COSTS)
 
     link = _extendable_nuclear(n).iloc[0]
     assert link["carrier"] == "nuclear"
     assert link["bus0"] == "EU uranium"
     assert link["bus1"] == "CZ"
     assert link["bus2"] == "co2 atmosphere"
+    # cost attributes are taken from the costs CSV, not copied from the vintage
     assert link["efficiency"] == pytest.approx(_NUCLEAR_EFF)
-    assert link["capital_cost"] == pytest.approx(_NUCLEAR_CC)
+    assert link["capital_cost"] == pytest.approx(_NUCLEAR_EFF * _NUCLEAR_CC)
 
 
-def test_skip_countries_get_no_registered_link():
-    """Locations in skip_countries are not given an extendable nuclear Link."""
-    n = _nuclear_network({"AT1": [1000.0]})
-    traj = _nuclear_traj(3500.0, 9000.0, loc="AT1")
-
-    register_extendable_nuclear(n, traj, ["AT"], pyear=2030)
-
-    assert _extendable_nuclear(n).empty
-
-
-def test_missing_trajectory_raises():
+def test_existing_zero_pnom_link_on_target_name_raises():
     """
-    A nuclear vintage location without a trajectory must fail fast.
+    A pre-existing pyear-named nuclear Link with zero p_nom is an unexpected state.
 
-    Otherwise the extendable Link would have no p_nom_min/max bound and the solver
-    could build unlimited nuclear.
+    register_extendable_nuclear would otherwise create a duplicate, so it fails fast.
     """
     n = _nuclear_network({"CZ": [1000.0]})
-    traj = _nuclear_traj(3500.0, 9000.0, loc="FR")  # trajectory for FR, not CZ
+    # an empty (p_nom == 0) Link already occupies the name the new extendable Link
+    # would take for pyear 2030
+    n.add(
+        "Link",
+        "CZ nuclear-2030",
+        bus0="EU uranium",
+        bus1="CZ",
+        bus2="co2 atmosphere",
+        carrier="nuclear",
+        p_nom=0.0,
+    )
+    traj = _nuclear_traj(3500.0, 9000.0)
 
-    with pytest.raises(ValueError, match="do not contain trajectories"):
-        register_extendable_nuclear(n, traj, [], pyear=2030)
+    with pytest.raises(ValueError, match="Unexpected empty vintage"):
+        register_extendable_nuclear(n, traj, 2030, _COSTS)
 
 
-def test_registered_name_collision_raises():
-    """A vintage occupying the build-year name is an unexpected state and must raise."""
+def test_existing_brownfield_link_on_target_name_is_left_untouched():
+    """A pyear-named vintage with p_nom > 0 is brownfield: no duplicate is added."""
     n = _nuclear_network({"CZ": [1000.0]})
     # rename the vintage so it occupies the name the new extendable Link would take
     n.links = n.links.rename(index={"CZ nuclear-1980": "CZ nuclear-2030"})
     traj = _nuclear_traj(3500.0, 9000.0)
 
-    with pytest.raises(ValueError, match="already exist"):
-        register_extendable_nuclear(n, traj, [], pyear=2030)
+    register_extendable_nuclear(n, traj, 2030, _COSTS)
 
-
-def test_no_nuclear_links_raises():
-    """A network without nuclear vintage Links is a broken assumption and must raise."""
-    n = pypsa.Network()
-    n.add("Carrier", ["AC"])
-    n.add("Bus", "CZ", carrier="AC", location="CZ")
-    traj = _nuclear_traj(3500.0, 9000.0)
-
-    with pytest.raises(ValueError, match="found none"):
-        register_extendable_nuclear(n, traj, [], pyear=2030)
+    # the brownfield vintage stays the only nuclear Link; none added
+    assert _extendable_nuclear(n).empty
+    assert (n.links.carrier == "nuclear").sum() == 1
 
 
 # --- end-to-end bounds (register + apply_trajectories) ----------------------

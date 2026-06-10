@@ -1475,7 +1475,7 @@ if __name__ == "__main__":
         from scripts._helpers import mock_snakemake
 
         snakemake = mock_snakemake(
-            "solve_sector_network_myopic",
+            "solve_sector_network_myopic_at",
             opts="",
             clusters="adm",
             # configfiles="config/test/config.at10.yaml",

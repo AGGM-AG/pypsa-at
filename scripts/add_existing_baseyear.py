@@ -858,7 +858,7 @@ def add_chp_plants(
                 key = "central solid biomass CHP"
                 n.add(
                     "Link",
-                    p_nom.index,
+                    bus,
                     suffix=f" urban {key}-{grouping_year}",
                     bus0=spatial.biomass.df.loc[bus1]["nodes"],
                     bus1=bus1,

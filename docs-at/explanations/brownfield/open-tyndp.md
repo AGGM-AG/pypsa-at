@@ -68,7 +68,7 @@ by one or more *non-extendable* vintage Links per location (`bus0="EU uranium"`,
 bus, `bus2="co2 atmosphere"`), all created by `add_existing_baseyear`. Because no extendable variant
 exists, the trajectory bounds would have nothing to attach to.
 
-`register_extendable_nuclear` (in `mods/network/potentials.py`) closes this gap. For each location it
+`register_extendable_nuclear` (in `mods/network/trajectories.py`) closes this gap. For each location it
 synthesizes the missing component — a single extendable Link whose **newest vintage supplies the full
 attribute row** (buses, `efficiency`, `capital_cost`, ramp limits, …), with `p_nom` reset to zero and
 `build_year` set to the current horizon. `apply_trajectories` then writes the `p_nom_min` / `p_nom_max`

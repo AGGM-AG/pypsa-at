@@ -117,11 +117,11 @@ def test_tyndp_trajectory_ceilings(nc, project_root, is_testrun):
     all cancel algebraically, so no per-case correction is needed here.
     Skips gracefully when year/location/carrier is absent from the network or trajectory data.
     """
-    meta = nc.networks["2030"].meta
-    cfg = meta["mods"]["PEMMDB_trajectories"]
+    cfg = require_config(nc, "mods", "PEMMDB_trajectories", enable=False)
 
-    carrier_port_1 = ["battery discharger", "home battery discharger", "nuclear"]
+    planning_horizons = nc["2030"].meta["scenario"]["planning_horizons"]
     carrier_port_0 = ["H2 Electrolysis", "onwind", "solar rooftop"]
+    carrier_port_1 = ["battery discharger", "home battery discharger", "nuclear"]
     skip_countries = tuple(cfg["skip_countries"])
 
     raw = pd.read_csv(project_root / "resources" / "tyndp_trajectories.csv")
@@ -166,11 +166,8 @@ def test_tyndp_trajectory_ceilings(nc, project_root, is_testrun):
     expect = expect.groupby(level=["year", "location", "carrier"]).sum()
 
     # trajectories contain all inter- and extrapolated years
-    expect = expect[
-        expect.index.get_level_values("year").isin(
-            meta["scenario"]["planning_horizons"]
-        )
-    ]
+    expect = expect[expect.index.get_level_values("year").isin(planning_horizons)]
+
     # must cast to string for comparison
     expect = expect.rename(index=str, level="year")
 
@@ -243,6 +240,15 @@ def test_tyndp_trajectory_ceilings(nc, project_root, is_testrun):
     expect[nuclear_brownfield] = installed.reindex(expect.index, fill_value=0)[
         nuclear_brownfield
     ]
+
+    # The trajectory file lists nuclear (mostly p_nom_max=0) for every country, but
+    # nuclear is conventional and non-extendable, so the network only builds a nuclear
+    # link where brownfield capacity is nonzero. Drop the zero-valued nuclear rows so
+    # expect matches the locations actually present in the network.
+    nuclear_zero = (expect.index.get_level_values("carrier") == "nuclear") & (
+        expect == 0
+    )
+    expect = expect[~nuclear_zero]
 
     if is_testrun:
         # In test runs not all (location, carrier) pairs from TYNDP are modelled.

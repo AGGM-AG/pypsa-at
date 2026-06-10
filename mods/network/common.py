@@ -22,10 +22,8 @@ from mods.network.h2 import (
     add_h2_imports,
     add_methane_pyrolysis_plasma,
 )
-from mods.network.potentials import (
-    apply_klien_potential_limits,
-    overwrite_pemmdb_capacities,
-)
+from mods.network.potentials import apply_klien_potential_limits
+from mods.network.trajectories import apply_pemmdb_trajectories
 
 logger = getLogger(__name__)
 
@@ -86,7 +84,7 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     update_network_to_stop_ukrainian_gas_transit(n, snakemake)
     make_gas_pipelines_unextendable(n, snakemake)
 
-    overwrite_pemmdb_capacities(n, snakemake)
+    apply_pemmdb_trajectories(n, snakemake, costs)
     override_gas_storage_capacities(n, snakemake)
     apply_klien_potential_limits(n, snakemake)
     clip_negative_loads_for_edge_cases(n, snakemake)
