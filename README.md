@@ -59,7 +59,7 @@ modifications that are currently not supported.
 
    or activate the virtual environment and call the same workflow using a shorthand
    ```bash
-   pixi shell && snakemake -call at_all
+   pixi shell && snakemake -call all_at
    ```
 
 ## 📖 Documentation
