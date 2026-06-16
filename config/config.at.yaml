@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: update-hydro-phs
+  prefix: feat-prevent-russian-gas-imports
   name:
   - AT_KN2040
   scenarios:
@@ -222,9 +222,18 @@ mods:
   # until threshold year, no extension of the gas grid is possible
   threshold_year_for_gas_grid_expansion: 2040
 
-  # stop transit of gas into Europe via Ukrainian import
-  # locations on the borders with PL, SK, HU, RO
-  ukrainian_gas_transit_stop: true
+  # Block Russian gas imports post 2025 with two optional routes:
+  # via Eastern Europe (eastern_border_block) or via TurkStream (turkstream_block)
+  # start_year defaults to 2025/2030 for the two blocks
+  # end_year defaults to infinity
+  block_russian_gas_imports:
+    enable: true
+    eastern_border_block:
+      start_year: 2025
+      countries: [FI, EE, LV, LT, PL, SK, RO]
+    turkstream_block:
+      start_year: 2030
+      countries: [BG]
 
   # split gas generators by type and multiply generator
   # marginal costs by the following factors
@@ -267,8 +276,10 @@ mods:
   tyndp_cross_border_flow_limits:
     enable: true
 
+  # enforce TYNDP NTC capacities as expansion lower bounds
   tyndp_lower_bounds:
-    years: # enforce TYNDP NTC capacities as expansion lower bounds
+    enable: true
+    years:
     - 2030
     - 2040
 

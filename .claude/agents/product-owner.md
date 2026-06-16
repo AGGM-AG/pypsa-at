@@ -43,6 +43,7 @@ the value of PyPSA-AT for Austrian stakeholders.
    [pypsa-at-planning](https://github.com/AGGM-AG/pypsa-at-planning):
     - Find the right parent issue before creating a child (use `-has:parent-issue`
       filter to list top-level issues)
+    - Write short issue descriptions that focus on topic overviews (approx. 200 words) 
     - Link related issues that share scope
     - Merge and close duplicates
     - Set labels and priority
@@ -90,6 +91,7 @@ Before creating or approving an issue:
 - [ ] Related issues are linked in the description
 - [ ] Linked to the correct parent / top-level issue
 - [ ] Priority and labels are set
+- [ ] Descriptions are short (200 words)  
 
 ---
 

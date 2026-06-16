@@ -16,6 +16,12 @@ from mods.clustering.utils import combine_regions_by_clustering
 
 logger = getLogger(__name__)
 
+# Trans-Anatolia-Gas-Pipeline (TANAP), Azerbaijani gas pipeline to Bulgaria via Turkey
+# Capacity is independent of Russian TurkStream and remains available after blocking Russian gas imports
+# Value: 702.2 GWh/d converted to MWh/h
+# Source: https://view.officeapps.live.com/op/view.aspx?src=https%3A%2F%2Fwww.entsog.eu%2Fsites%2Fdefault%2Ffiles%2F2026-03%2FSystem%2520Capacity%2520Map%25202026%2520-%2520Capacities.xlsx&wdOrigin=BROWSELINK
+_TANAP_PIPELINE_CAPACITY = 702.2 * 1000 / 24
+
 
 def unravel_gas_import_and_production(
     n: pypsa.Network, snakemake: Snakemake, costs: pd.DataFrame
@@ -99,83 +105,79 @@ def unravel_gas_import_and_production(
     )
 
 
-def update_network_to_stop_ukrainian_gas_transit(
-    n: pypsa.Network, snakemake: Snakemake
-) -> None:
+def block_russian_gas_imports(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
-    Stop Ukrainian gas transit by disabling gas imports in affected locations.
-    Selection of relevant cross border points between EU countries and Ukraine
-    by AGGM AG experts.
+    Block Russian gas imports via Ukrainian land borders and TurkStream.
+    Two optional route blocks from config mods.block_russian_gas_imports:
 
-    Locations are identified in data/pypsa-at/ukrainian_gas_transit_stop.json.
-    Matched with n.generators using their country_bus.
-    Imported capacities via Ukraine are subtracted from summed capacity.
-    The relevant countries are only connected to EU countries and Ukraine,
-    leaving their import capacity == 0 .
+    - eastern_border_block: countries receiving Russian gas via Ukraine
+      (FI, EE, LV, LT, PL, SK, RO). Applied from start_year onward.
+    - ``turkstream_block``: Bulgaria receiving Russian gas via TurkStream (BG).
+      Residual capacity is set to _TANAP_PIPELINE_CAPACITY, still allowing
+      gas imports via Bulgaria from Azerbaijan.
+      Applied from ``start_year`` onward.
 
-    The network n is updated in place.
+    For each active block, the pipeline import generator capacity for each
+    listed country is zeroed out and made non-extendable.
+    Each block can have an individual start_year and end_year.
 
     Parameters
     ----------
     n
         The network before optimisation.
     snakemake
-        The snakemake workflow object.
+        The Snakemake workflow object.
 
     Returns
     -------
     :
-        Updates the pypsa.Network in place.
-
+        Updates network in place.
     """
-    if not snakemake.params["ukrainian_gas_transit_stop"]:
-        logger.info(
-            "Skip updating network to stop ukrainian gas transit because "
-            "ukrainian_gas_transit_stop is off in config.at.yaml ."
-        )
+    corridors = snakemake.params["block_russian_gas_imports"]
+    if not corridors["enable"]:
+        logger.info("Skipping Russian gas import blockade (disabled in config).")
         return
 
     pyear = int(snakemake.wildcards.planning_horizons)
-    if pyear <= 2025:
-        logger.info(
-            "Skip updating network to stop ukrainian gas transit for years after 2025."
-        )
-        return
+    blocks = {
+        "eastern_border_block": corridors["eastern_border_block"],
+        "turkstream_block": corridors["turkstream_block"],
+    }
 
-    country_bus = "properties.bus"
-    capacity = "properties.capacity"
+    for block_name, block_config in blocks.items():
+        start_year = block_config["start_year"]
+        end_year = block_config.get("end_year", float("inf"))
+        outside_block_time = pyear < start_year or pyear > end_year
+        if outside_block_time:
+            logger.info(
+                f"Skipping {block_name} for {pyear} "
+                f"(active only {start_year}–{'∞' if end_year == float('inf') else end_year})."
+            )
+            continue
 
-    ukrainian_import_locations = pd.read_json(
-        snakemake.input.ukrainian_gas_transit_stop
-    )
-    to_drop = pd.json_normalize(ukrainian_import_locations.features).astype(
-        {capacity: "float"}
-    )
+        countries = block_config["countries"]
+        active_countries = [c for c in countries if c in snakemake.config["countries"]]
 
-    # drop 'None' country with import node in Moldavia
-    to_drop = to_drop.dropna(subset=[country_bus])
+        for cc in active_countries:
+            generator_name = f"{cc} gas pipeline import"
+            if generator_name not in n.generators.index:
+                # allowing missing countries to make this work in CI integration test
+                if snakemake.config["run"]["prefix"] == "test-sector-myopic-at10":
+                    logger.warning(f"Generator '{generator_name}' not found, skipping.")
+                    continue
+                raise ValueError(
+                    f"Gas pipeline import location '{generator_name}' not found in modeled countries."
+                )
 
-    # filter for countries in config - or CI pipeline will fail
-    to_drop = to_drop[to_drop[country_bus].isin(snakemake.config["countries"])]
+            residual_capacity = _TANAP_PIPELINE_CAPACITY if cc == "BG" else 0
+            n.generators.loc[generator_name, "p_nom"] = residual_capacity
+            n.generators.loc[generator_name, "p_nom_extendable"] = False
+            logger.info(
+                f"Blocked Russian gas import at '{generator_name}' ({block_name}), "
+                f"residual capacity set to {residual_capacity:.1f} MW."
+            )
 
-    capacity_sum = to_drop[[country_bus, capacity]].groupby(country_bus).sum()
-    for cc in capacity_sum.index:
-        old_capacity = n.generators.loc[f"{cc} gas pipeline import", "p_nom"]
-        capacity_ukrainian_import = capacity_sum.loc[cc]
-
-        capacity_difference = old_capacity - capacity_ukrainian_import
-
-        if (
-            abs(capacity_difference.item()) > 0.001
-            and snakemake.config["run"]["prefix"] != "test-sector-myopic-at10"
-        ):
-            raise Exception("Detected capacity difference without ukrainian imports.")
-        n.generators.loc[f"{cc} gas pipeline import", "p_nom"] = 0
-
-        # disable optimization of Ukrainian gas imports
-        n.generators.loc[f"{cc} gas pipeline import", "p_nom_extendable"] = False
-
-    logger.info("Updated network to stop ukrainian gas transit.")
+    logger.info("Completed blockade of Russian gas imports.")
 
 
 def make_gas_pipelines_unextendable(n: pypsa.Network, snakemake: Snakemake) -> None:

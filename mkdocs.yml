@@ -63,6 +63,9 @@ nav:
     - OSM-AT Base Network: explanations/electricity-grid/osm-lines-at.md
     - Transmission Limits: explanations/electricity-grid/electricity-transmission.md
     - TYNDP Transmission Trajectories: explanations/electricity-grid/tyndp-transmission-trajectories.md
+  - Gas Grid:
+    - Gas Pipeline Capacities: explanations/gas-grid/modify-brownfield-gas-network-AT.md
+    - Blocking Russian Gas Imports: explanations/gas-grid/prevent-russian-gas-imports.md
   - Brownfield:
     - Open-TYNDP Trajectories: explanations/brownfield/open-tyndp.md
     - Gas Storage Capacities: explanations/brownfield/gas-storage-capacities.md

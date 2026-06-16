@@ -12,10 +12,10 @@ from snakemake.script import Snakemake
 
 from mods.network.electricity import apply_tyndp_transmission_lower_bounds
 from mods.network.gas import (
+    block_russian_gas_imports,
     make_gas_pipelines_unextendable,
     override_gas_storage_capacities,
     unravel_gas_import_and_production,
-    update_network_to_stop_ukrainian_gas_transit,
 )
 from mods.network.h2 import (
     add_h2_for_industry_bus,
@@ -83,7 +83,7 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     costs = load_costs(snakemake.input.costs)
 
     unravel_gas_import_and_production(n, snakemake, costs)
-    update_network_to_stop_ukrainian_gas_transit(n, snakemake)
+    block_russian_gas_imports(n, snakemake)
     make_gas_pipelines_unextendable(n, snakemake)
 
     apply_pemmdb_trajectories(n, snakemake, costs)

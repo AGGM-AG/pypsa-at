@@ -114,26 +114,19 @@ rule validate_pypsa_at:
 use rule modify_prenetwork as modify_prenetwork_at with:
     input:
         **rules.modify_prenetwork.input,
-        **(
-            {
-                "tyndp_trajectories": resources("tyndp_trajectories.csv"),
-            }
-            if config_provider("mods", "PEMMDB_trajectories", "enable")
-            else {}
+        tyndp_trajectories=branch(
+            config_provider("mods", "PEMMDB_trajectories", "enable"),
+            resources("tyndp_trajectories.csv"),
+            [],
         ),
-        **(
-            {
-                "tyndp_transmission_trajectories": resources(
-                    "tyndp_transmission_trajectories.csv"
-                ),
-            }
-            if config_provider("mods", "tyndp_line_lower_bounds", "enable")
-            else {}
+        tyndp_transmission_trajectories=branch(
+            config_provider("mods", "tyndp_lower_bounds", "enable"),
+            resources("tyndp_transmission_trajectories.csv"),
+            [],
         ),
         nuts3_buildings=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_buildings.csv",
         nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
         nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
-        ukrainian_gas_transit_stop="data/pypsa-at/ukrainian_gas_transit_stop.json",
         gas_input_nodes_simplified=resources(
             "gas_input_locations_s_{clusters}_simplified.csv"
         ),
@@ -159,7 +152,7 @@ use rule modify_prenetwork as modify_prenetwork_at with:
         klien_potential_limits_ambition=config_provider(
             "mods", "klien_potential_limits", "ambition"
         ),
-        ukrainian_gas_transit_stop=config_provider("mods", "ukrainian_gas_transit_stop"),
+        block_russian_gas_imports=config_provider("mods", "block_russian_gas_imports"),
         sector=config_provider("sector"),
 
 
