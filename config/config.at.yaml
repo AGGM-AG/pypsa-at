@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: update-gas-storage
+  prefix: update-hydro-phs
   name:
   - AT_KN2040
   scenarios:
@@ -162,6 +162,10 @@ data:
   klien_potentials:
     source: archive
     version: 2026-v2
+
+pypsa_eur:
+  StorageUnit:
+  - hydro
 
 solving:
   options:

@@ -6556,7 +6556,7 @@ if __name__ == "__main__":
         from scripts._helpers import mock_snakemake
 
         snakemake = mock_snakemake(
-            "prepare_sector_network",
+            "prepare_sector_network_at",
             simpl="",
             clusters="adm",
             opts="",

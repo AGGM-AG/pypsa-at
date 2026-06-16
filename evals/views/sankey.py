@@ -159,7 +159,7 @@ def get_supply(
             rename_aggregate,
             {
                 "hydro": "hydro supply",
-                "PHS": "PHS supply",
+                "PHS discharger": "PHS supply",
                 "H2 Store": "H2 Store supply",
                 "gas": "gas Store supply",
             },
@@ -223,7 +223,7 @@ def get_demand(
             rename_aggregate,
             {
                 "hydro": "hydro demand",
-                "PHS": "PHS demand",
+                "PHS charger": "PHS demand",
                 "H2 Store": "H2 Store demand",
                 "gas": "gas Store demand",
             },

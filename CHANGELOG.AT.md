@@ -39,7 +39,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Blocked methane imports via Ukrainian border entry points (PL, SK, HU, RO) ([#72](https://github.com/AGGM-AG/pypsa-at/pull/72))
 - modified Austrian brownfield gas grid with AGGM expert data; disabled expansion of pipelines until 2040; disabled building of new methane pipelines in the model ([#91](https://github.com/AGGM-AG/pypsa-at/pull/91))
 - Updated gas storage capacities from AGSI and AT-specific data sources ([#111](https://github.com/AGGM-AG/pypsa-at/pull/111))
-- Updated README features section and restructured CHANGELOG to Keep a Changelog format
+- Updated README features section and restructured CHANGELOG to Keep a Changelog format ([#124](https://github.com/AGGM-AG/pypsa-at/pull/124))
+- Updated PHS modeling by exchanging StorageUnits with 2x Links + Bus + Store + Generator ([#131](https://github.com/AGGM-AG/pypsa-at/pull/131))
 
 ### Fixed
 - Fixed double subtraction of brownfield capacities in `modify_prenetwork` and `solve_network` and added a new test for this case. ([#101](https://github.com/AGGM-AG/pypsa-at/pull/101))

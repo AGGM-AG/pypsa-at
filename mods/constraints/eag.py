@@ -208,8 +208,7 @@ def _add_net_zero_electricity_production_constraint(n: pypsa.Network, country: s
     if not idx_gen.empty:
         lhs.append(n.model["Generator-p"].loc[:, idx_gen].mul(weightings).sum())
 
-    # LHS (+) part 2: StorageUnits (hydro reservoir and PHS dispatch)
-    # RHS (+) PHS p_store: charging is consumption; captures roundtrip loss
+    # LHS (+) part 2: StorageUnits (hydro reservoir)
     if not n.storage_units.empty:  # StorageUnits are excluded in CI tests
         storage_units = n.storage_units.query("name.str.startswith(@country) & active")
         idx_hydro = storage_units.query(
@@ -222,11 +221,6 @@ def _add_net_zero_electricity_production_constraint(n: pypsa.Network, country: s
                 .mul(weightings)
                 .sum()
             )
-            idx_phs = storage_units.loc[idx_hydro].query("carrier == 'PHS'").index
-            if not idx_phs.empty:
-                rhs.append(
-                    n.model["StorageUnit-p_store"].loc[:, idx_phs].mul(weightings).sum()
-                )
 
     # LHS (+) part 3: power production from green fuel-to-power links
     # adds any electricity produced where bus0 is among green fuels
@@ -252,11 +246,11 @@ def _add_net_zero_electricity_production_constraint(n: pypsa.Network, country: s
             .sum()
         )
 
-    # LHS (+) part 4: battery dischargers
+    # LHS (+) part 4: battery, PHS dischargers
     # They only have bus1 outputs
     idx_battery_output = links.query(
         "bus1 in @electricity_buses "
-        "& carrier in ['battery discharger', 'home battery discharger', 'V2G']"
+        "& carrier in ['battery discharger', 'home battery discharger', 'V2G', 'PHS discharger']"
     ).index
     if not idx_battery_output.empty:
         logger.info(
@@ -272,7 +266,7 @@ def _add_net_zero_electricity_production_constraint(n: pypsa.Network, country: s
         )
 
     # RHS (+) part 5: Power2X Link power consumption
-    # Catches battery/home-battery chargers, H2 Electrolysis, etc.
+    # Catches battery/home-battery chargers, H2 Electrolysis, PHS, etc.
     has_electricity_output = pd.Series(False, index=links.index)
     for port in output_ports:
         has_electricity_output |= links[f"bus{port}"].isin(electricity_buses)

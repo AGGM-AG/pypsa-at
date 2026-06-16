@@ -399,6 +399,7 @@ COLOUR_SCHEME: dict = {
     "Run-of-River": COLOUR.blue_persian,
     "Reservoir": COLOUR.blue_cerulean,
     "Pumped Hydro Storage": COLOUR.red_chestnut,
+    "Pumped Hydro Storage Inflow": COLOUR.blue_cerulean,
     "Inflow Hydro Storage": COLOUR.blue_cerulean,
     # blue - heat
     "Resistive Heater": COLOUR.blue_persian,
