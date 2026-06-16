@@ -20,13 +20,14 @@ def test_h2_import_configuration_matches_csv(nc, project_root):
     for year, n in nc.networks.items():
         prefix = n.meta["run"]["prefix"]
         run_name = n.meta["run"]["name"][0]
+        clusters = n.meta["wildcards"]["clusters"]
         # load the same CSV that prepare_sector_network.py consumed for this horizon
         csv_path = (
             project_root
             / "resources"
             / prefix
             / run_name
-            / f"h2_import_potentials_{year}.csv"
+            / f"h2_import_potentials_{clusters}_{year}.csv"
         )
         # index_col=0 mirrors the identical call in prepare_sector_network.py;
         # the first column is the link name set by clean_tyndp_h2_imports.py

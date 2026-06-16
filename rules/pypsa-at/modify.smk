@@ -139,7 +139,7 @@ use rule modify_prenetwork as modify_prenetwork_at with:
         ),
         h2_imports_tyndp=branch(
             config_provider("sector", "h2_topology_tyndp"),
-            resources("h2_import_potentials_{planning_horizons}.csv"),
+            resources("h2_import_potentials_{clusters}_{planning_horizons}.csv"),
             [],
         ),
     params:

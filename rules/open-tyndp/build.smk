@@ -282,14 +282,15 @@ if config.get("sector", {}).get("h2_topology_tyndp", False):
     rule build_tyndp_h2_imports:
         input:
             import_potentials_prepped=rules.clean_tyndp_h2_imports.output.import_potentials_prepped,
+            busmap=resources("busmap_base_s_{clusters}.csv"),
         output:
             h2_import_potentials=resources(
-                "h2_import_potentials_{planning_horizons}.csv"
+                "h2_import_potentials_{clusters}_{planning_horizons}.csv"
             ),
         log:
-            logs("build_tyndp_h2_imports_{planning_horizons}.log"),
+            logs("build_tyndp_h2_imports_{clusters}_{planning_horizons}.log"),
         benchmark:
-            benchmarks("build_tyndp_h2_imports/{planning_horizons}")
+            benchmarks("build_tyndp_h2_imports/{clusters}_{planning_horizons}")
         threads: 1
         resources:
             mem_mb=2000,
