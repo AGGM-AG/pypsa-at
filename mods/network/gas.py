@@ -144,6 +144,9 @@ def block_russian_gas_imports(n: pypsa.Network, snakemake: Snakemake) -> None:
         "turkstream_block": corridors["turkstream_block"],
     }
 
+    generators = n.generators.query("carrier == 'pipeline gas'")
+    countries_with_pipeline_import = generators.index.str[:2]
+
     for block_name, block_config in blocks.items():
         start_year = block_config["start_year"]
         end_year = block_config.get("end_year", float("inf"))
@@ -155,16 +158,13 @@ def block_russian_gas_imports(n: pypsa.Network, snakemake: Snakemake) -> None:
             )
             continue
 
-        countries = block_config["countries"]
-        active_countries = [c for c in countries if c in snakemake.config["countries"]]
+        active_countries = [
+            c for c in block_config["countries"] if c in countries_with_pipeline_import
+        ]
 
         for cc in active_countries:
             generator_name = f"{cc} gas pipeline import"
             if generator_name not in n.generators.index:
-                # allowing missing countries to make this work in CI integration test
-                if snakemake.config["run"]["prefix"] == "test-sector-myopic-at10":
-                    logger.warning(f"Generator '{generator_name}' not found, skipping.")
-                    continue
                 raise ValueError(
                     f"Gas pipeline import location '{generator_name}' not found in modeled countries."
                 )
