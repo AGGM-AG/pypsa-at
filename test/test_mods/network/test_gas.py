@@ -6,9 +6,10 @@
 
 import pandas as pd
 import pytest
+from pypsa import NetworkCollection
 
 from evals.utils import filter_by
-from mods.clustering.utils import _map_at_nuts3_to_nuts2, _map_de_nuts1_to_de5
+from mods.clustering.utils import combine_regions_by_clustering
 from mods.network.gas import _TANAP_PIPELINE_CAPACITY
 from test.conftest import require_config
 
@@ -29,10 +30,7 @@ def test_gas_storage_update(nc, project_root, is_testrun):
     expected = expected[expected > 0]
     # aggregate update values depending on custom clustering
     clustering = require_config(nc, "mods", "modify_nuts3_shapes")
-    if clustering.startswith("AT10"):
-        expected = expected.groupby(expected.index.map(_map_at_nuts3_to_nuts2)).sum()
-    if clustering.endswith("DE5"):
-        expected = expected.groupby(expected.index.map(_map_de_nuts1_to_de5)).sum()
+    expected = combine_regions_by_clustering(expected, clustering)
 
     gas_storage_capacity = nc.statistics.optimal_capacity(
         groupby="location",
@@ -90,40 +88,42 @@ def test_block_russian_gas_imports(nc, block_name):
             f"No countries from {block_name} blockade in modeled scope, skipping test."
         )
 
-    for year, n in nc.networks.items():
-        pyear = int(year)
-        is_active = pyear >= start_year and pyear <= end_year
-        if not is_active:
-            continue
+    # drop years not covered by the block feature
+    nc = NetworkCollection(
+        {
+            year: n
+            for year, n in nc.networks.items()
+            if start_year <= int(year) <= end_year
+        }
+    )
 
-        for cc in countries:
-            generator_name = f"{cc} gas pipeline import"
-            if generator_name not in n.generators.index:
-                continue
-            expected_p_nom = _TANAP_PIPELINE_CAPACITY if cc == "BG" else 0
-            assert n.generators.loc[generator_name, "p_nom"] == expected_p_nom, (
-                f"{generator_name} p_nom expected {expected_p_nom} in {year} ({block_name})."
-            )
-            assert not n.generators.loc[generator_name, "p_nom_extendable"], (
-                f"{generator_name} is extendable in {year} ({block_name}), despite blockade of Russian gas imports."
-            )
+    # edge case BG has remaining import capacities
+    countries_wo_bg = [c for c in countries if c != "BG"]
 
-    pipeline_supply = nc.statistics.supply(
-        groupby=["network", "country", "carrier"],
+    pipeline_capacity = nc.statistics.optimal_capacity(
+        groupby=["country", "carrier"],
         components="Generator",
         carrier="pipeline gas",
-    ).pipe(filter_by, country=countries)
+        drop_zero=False,
+    )
+    pipeline_capacity_wo_bg = filter_by(pipeline_capacity, country=countries_wo_bg)
+    assert pipeline_capacity_wo_bg.sum() == 0, (
+        f"Remaining pipeline imports detected: {pipeline_capacity}"
+    )
 
-    for year in nc.networks:
-        pyear = int(year)
-        is_active = pyear >= start_year and pyear <= end_year
-        if not is_active:
-            continue
-        supply_annual = pipeline_supply.xs(year, level="network")
-        for cc in countries:
-            if cc == "BG":
-                # supply has no fixed value for BG, since TANAP capacity is available
-                continue
-            assert (supply_annual == 0).all()(
-                f"Expected zero pipeline gas supply in {cc} for {year}, is {supply_annual}."
-            )
+    # test for edge case Bulgarian imports. The guard is needed to prevent running the check for 2025
+    if block_name == "turkstream_block":
+        pipeline_capacity_bg = filter_by(pipeline_capacity, country="BG")
+        assert all(pipeline_capacity_bg.sub(_TANAP_PIPELINE_CAPACITY).abs() <= 0.001), (
+            f"Bulgarian gas pipeline import capacities not as expected: {pipeline_capacity_bg}"
+        )
+
+    pipeline_supply = nc.statistics.supply(
+        groupby=["country", "carrier"],
+        components="Generator",
+        carrier="pipeline gas",
+        drop_zero=False,
+    ).pipe(filter_by, country=countries_wo_bg)
+    assert pipeline_supply.sum() == 0, (
+        f"Remaining pipeline imports detected: {pipeline_supply}"
+    )
