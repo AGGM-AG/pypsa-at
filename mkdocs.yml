@@ -76,6 +76,7 @@ nav:
   - Regulatory Requirements:
     - explanations/regulatory-requirements/index.md
     - EAG Net-Zero Electricity: explanations/regulatory-requirements/eag-net-zero-electricity.md
+  - Biogas-to-gas and Biogas-to-power: explanations/biogas.md
 
 theme:
   name: "material"
