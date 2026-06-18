@@ -90,11 +90,13 @@ def test_block_russian_gas_imports(nc, block_name):
 
     # drop years not covered by the block feature
     nc = NetworkCollection(
-        {
-            year: n
-            for year, n in nc.networks.items()
-            if start_year <= int(year) <= end_year
-        }
+        pd.Series(
+            {
+                year: n
+                for year, n in nc.networks.items()
+                if start_year <= int(year) <= end_year
+            }
+        )
     )
 
     # edge case BG has remaining import capacities
