@@ -14,7 +14,7 @@ The profiles per region are created in **`scripts/pypsa-at/build_inflow_profile.
 ### PEMMDB Normalization
 
 Raw ERA5 runoff is normalized using hydroelectric inflow statistics from PEMMDB, also using **2013** as the reference year. This ensures that the inflow patterns reflect actual observed generation behavior in each country.
-The PEMMDB total per region are extracted in  **`scripts/pypsa-at/build_inflow_totals_per_region.py`** and then combined
+The PEMMDB totals per region are extracted in  **`scripts/pypsa-at/build_inflow_totals_per_region.py`** and then combined
 with the profiles in  **`scripts/pypsa-at/build_inflows_per_region.py`**
 
 ## Network Patch
