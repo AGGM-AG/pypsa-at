@@ -30,9 +30,12 @@ For more comprehensive documentation on the underlying PyPSA-Eur/DE framework, m
 details, please refer to the [PyPSA-Eur documentation](https://pypsa-eur.readthedocs.io/)
 and [PyPSA-DE documentation](https://ariadneprojekt.de/modell-dokumentation-pypsa/), respectively.
 
+> [!WARNING]
+> This repository is the official source of PyPSA-AT. Third party forks are independent projects and we do not vouch for their accuracy, methodology, or claims. 
+
 ---
 
-## 🚀 Quickstart 
+## 🚀 Installation 
 Running PyPSA-AT is very simple. Just clone the repository
 ```sh
 git clone https://github.com/AGGM-AG/pypsa-at.git && cd pypsa-at
@@ -41,15 +44,14 @@ And start the workflow (low time resolution and NUTS3 spatial resolution for Aus
 ```sh
 pixi run workflow
 ```
-
-## ⌨️ Usage
 Please note that PyPSA-AT is only supported on **Linux** platforms. Installations on Windows or macOS require
-modifications that are currently not supported.
+modifications that are currently currently out of scope.
 
 ### Prerequisites
 [Git](https://git-scm.com/install) and [pixi](https://pixi.prefix.dev/latest/#installation) must be installed.
 
-### Installation
+## ⌨️ Usage
+
 1. Configure your model by adjusting the base scenario in `config/config.at.yaml`
 2. Include scenario settings that differ from the base scenario in `config/scenarios.manual.yaml`
 3. Run the model’s Snakemake workflow:
@@ -62,6 +64,8 @@ modifications that are currently not supported.
    pixi shell && snakemake -call all_at
    ```
 
+![Rulegraph Rule All PyPSA-AT](docs-at/assets/all_at-rulegraph.png)
+
 ## 📖 Documentation
 
 More detailed documentation of PyPSA-AT is hosted on [pypsa-at.readthedocs.io](https://pypsa-at.readthedocs.io).
@@ -73,59 +77,6 @@ PyPSA-AT extends PyPSA-Eur and PyPSA-DE with Austria-specific network data, regu
 system pathways. The full change history is in
 [CHANGELOG.AT.md](https://github.com/AGGM-AG/pypsa-at/blob/main/CHANGELOG.AT.md); implementation details are in the
 [documentation](https://pypsa-at.readthedocs.io/en/latest/).
-
-### 🧭 Scenarios (🔨 Under active development)
-
-### 🧮 Carbon Accounting (🔨 Under active development)
-- National CO2 budgets for exogenous decarbonization paths
-
-### 🏭 Existing Powerplants (🔨 Under active development)
-
-### 🚜 Synthetic Fuels (🔨 Under active development)
-
-### 🎇 Methane Pyrolysis (🔨 Under active development)
-- `H2 for industry` bus supporting industrial on-site conversion technologies
-- Methane pyrolysis (plasma) as an H₂ production pathway
-
-### 🎬 Postprocessing (🔨 Under active development)
-- Statistics for `remaining_capacity` and `technical_potentials`
-- `evals` subpackage for most important views  
-
-### 💧 Hydrogen Grid (🔨 Under active development)
-
-### ⚡ Electricity Grid (🔨 Under active development)
-- Cross-border electricity flow limits via NTCs (TYNDP corridors)
-
-### 🌞 Renewable Energy Potentials (🔨 Under active development)
-- Solar and wind capacity limits based on the KLIEN study
-
-### 🔌 Electricity Demand (🔨 Under active development)
-
-### 💸 Technology Costs (🔨 Under active development)
-
-### 🪐 Gas Grid (🔨 Under active development)
-- Austrian brownfield gas grid calibrated with AGGM expert data; pipeline expansion locked until 2040
-- Gas storage capacities updated from AGSI and AT-specific data sources
-
-### 🏬 Industry Demand (🔨 Under active development)
-
-### 🔭 Open-TYNDP (🔨 Under active development)
-- Capacity trajectories enforced as `p_nom_min`/`p_nom_max` bounds for onwind, solar, solar-hsat, battery, home battery, and H₂ electrolysis across EU countries
-
-### 🔥 Heat Sector (🔨 Under active development)
-
-### 🌳 Biomass Usage (🔨 Under active development)
-
-### 💍 Model Coupling (🔨 Under active development)
-
-### 🌊 Hydropower (🔨 Under active development)
-
-### 🛻 Transport Demand (🔨 Under active development)
-
-### 💂‍♂️ Regulatory Constraints (🔨 Under active development)
-- EAG §4(2) net-zero annual electricity balance for Austria
-
-### 🛢️ Oil Bus (🔨 Under active development)
 
 
 ## 🤝 Contributing
