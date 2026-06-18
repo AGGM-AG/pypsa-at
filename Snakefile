@@ -29,6 +29,7 @@ configfile: "config/config.default.yaml"
 configfile: "config/plotting.default.yaml"
 configfile: "config/config.de.yaml"
 configfile: "config/config.at.yaml"  # AT10 default configuration
+configfile: "config/plotting.at.yaml"  # AT-specific tech_colors overlay (last word on plotting)
 
 
 validate_config(config)
