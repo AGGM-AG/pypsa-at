@@ -11,6 +11,18 @@ use rule prepare_sector_network as prepare_sector_network_at with:
     input:
         **rules.prepare_sector_network.input,
         powerplants=resources("powerplants_s_{clusters}.csv"),
+        inflow=resources("inflow_per_region.nc"),
+        code_files=[
+            "mods/network/common.py",
+            "mods/network/electricity.py",
+            "mods/network/gas.py",
+            "mods/network/h2.py",
+            "mods/network/hydro.py",
+            "mods/network/potentials.py",
+            "mods/network/trajectories.py",
+            "mods/constants.py",
+            "mods/utils.py",
+        ],
     params:
         **rules.prepare_sector_network.params,
         consider_efficiency_classes=config_provider(

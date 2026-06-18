@@ -22,7 +22,7 @@ from mods.network.h2 import (
     add_h2_imports,
     add_methane_pyrolysis_plasma,
 )
-from mods.network.hydro import add_phs
+from mods.network.hydro import add_phs, patch_inflows
 from mods.network.potentials import apply_klien_potential_limits
 from mods.network.trajectories import apply_pemmdb_trajectories
 
@@ -54,6 +54,7 @@ def prepare_sector_network(n, snakemake, nodes, costs, spatial):
     add_h2_for_industry_bus(n, nodes)
     add_methane_pyrolysis_plasma(n, snakemake, costs, nodes, spatial)
     add_phs(n, snakemake, costs)
+    patch_inflows(n, snakemake)
 
 
 def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
