@@ -6,9 +6,40 @@
 
 import logging
 
+import pandas as pd
+
 from scripts._helpers import configure_logging
 
 logger = logging.getLogger(__name__)
+
+
+def assign_nuts3_to_postal_at(ppl):
+    postal_to_nuts_at = (
+        pd.read_csv(
+            "AT-Postal-to-NUTS.csv",
+            sep=";",
+            dtype=str,
+            names=["nuts3", "plz"],
+            header=0,
+        )
+        .assign(
+            plz=lambda x: x["plz"].str.strip("'"),
+            nuts3=lambda x: x["nuts3"].str.strip("'"),
+        )
+        .set_index("plz")["nuts3"]
+    )
+
+    ppl = ppl.dropna(subset=["Plz"])
+    ppl["Plz"] = ppl["Plz"].astype("Int64").astype(str).str.zfill(4)
+
+    ppl["nuts3"] = ppl["Plz"].map(postal_to_nuts_at)
+
+    cols = ["ID", "Plz", "nuts3"] + [
+        c for c in ppl.columns if c not in {"ID", "Plz", "nuts3"}
+    ]
+    ppl = ppl[cols]
+
+    return ppl
 
 
 def modify_brownfield_biogas_AT():
