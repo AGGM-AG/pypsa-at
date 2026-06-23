@@ -147,7 +147,7 @@ def overwrite_biogas_plants_AT(
 
     logger.info(
         f"Added {len(new_ppls)} Austrian biogas plants with "
-        f"({new_ppls['Capacity'].sum():.1f} MW from Anlagenregister."
+        f"{new_ppls['Capacity'].sum():.1f} MW from Anlagenregister."
     )
     return pd.concat([ppl, new_ppls], ignore_index=True)
 
