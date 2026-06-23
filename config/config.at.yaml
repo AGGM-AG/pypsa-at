@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: feat-prevent-russian-gas-imports
+  prefix: feat-biogas-brownfield-austria
   name:
   - AT_KN2040
   scenarios:
