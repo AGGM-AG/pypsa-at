@@ -1,4 +1,5 @@
 from logging import getLogger
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -38,9 +39,10 @@ def add_phs(n: Network, snakemake: Snakemake, costs: pd.DataFrame):
     )
     phs = ppl.query('carrier == "PHS"')
     p = snakemake.params.renewable["hydro"].copy()
+    renewable_carriers = set(snakemake.params.electricity["renewable_carriers"])
     carriers = p.pop("carriers", [])
 
-    if "PHS" in carriers and not phs.empty:
+    if "hydro" in renewable_carriers and "PHS" in carriers and not phs.empty:
         # fill missing max hours to params value and
         # assume no natural inflow due to lack of data
         max_hours = p.get("PHS_max_hours", 6)
@@ -147,7 +149,7 @@ def _modify_inflow_snapshots(n: Network, inflow: xr.DataArray) -> xr.DataArray:
 
 
 def _redistribute_peaks(
-    df: pd.DataFrame, upper: float = 1, lower: float = 0, eps: float = 0.1
+    df: pd.DataFrame, upper: float = 1, lower: float = 0, eps: float = 0.01
 ) -> pd.DataFrame:
     """
     Redistribute peak values (column-wise) in a dataframe
@@ -197,7 +199,7 @@ def patch_inflows(n: Network, snakemake: Snakemake) -> None:
         Modifies the network in place.
     """
     # Load inflow (time, name, carrier)
-    inflow = xr.open_dataarray(snakemake.input.inflow)
+    inflow = xr.open_dataarray(Path(snakemake.input.inflow))
     inflow = _modify_inflow_snapshots(n, inflow)
 
     # Patch hydro inflow

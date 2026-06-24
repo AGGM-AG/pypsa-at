@@ -1230,7 +1230,13 @@ if __name__ == "__main__":
     if "snakemake" not in globals():
         from scripts._helpers import mock_snakemake
 
-        snakemake = mock_snakemake("add_electricity", clusters=60)
+        snakemake = mock_snakemake(
+            "add_electricity",
+            opts="",
+            clusters="adm",
+            # configfiles="config/test/config.at10.yaml",
+            run="AT_KN2040",
+        )
     configure_logging(snakemake)  # pylint: disable=E0606
     set_scenario_config(snakemake)
 
