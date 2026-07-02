@@ -401,6 +401,7 @@ COLOUR_SCHEME: dict = {
     "Pumped Hydro Storage": COLOUR.red_chestnut,
     "Pumped Hydro Storage Inflow": COLOUR.blue_cerulean,
     "Inflow Hydro Storage": COLOUR.blue_cerulean,
+    "Reservoir Inflow": COLOUR.blue_cerulean,
     # blue - heat
     "Resistive Heater": COLOUR.blue_persian,
     "Heat Pump": COLOUR.blue_celestial,

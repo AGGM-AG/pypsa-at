@@ -15,6 +15,10 @@ if config["foresight"] == "overnight":
             tyndp_transmission_trajectories=resources(
                 "tyndp_transmission_trajectories.csv"
             ),
+            trajectories=resources("trajectories.csv"),
+        params:
+            **rules.solve_sector_network.params,
+            apply_trajectories=config_provider("scenario", "apply_trajectories"),
 
     ruleorder: solve_sector_network_at > solve_sector_network
 
@@ -28,6 +32,13 @@ if config["foresight"] == "myopic":
             tyndp_transmission_trajectories=resources(
                 "tyndp_transmission_trajectories.csv"
             ),
+            trajectories=resources("trajectories.csv"),
+        params:
+            **rules.solve_sector_network_myopic.params,
+            apply_trajectories=config_provider(
+                "scenario", "trajectories", "apply_trajectories"
+            ),
+            trajectories_eps=config_provider("scenario", "trajectories", "eps"),
 
     ruleorder: solve_sector_network_myopic_at > solve_sector_network_myopic
 
@@ -41,5 +52,9 @@ if config["foresight"] == "perfect":
             tyndp_transmission_trajectories=resources(
                 "tyndp_transmission_trajectories.csv"
             ),
+            trajectories=resources("trajectories.csv"),
+        params:
+            **rules.solve_sector_network_perfect.params,
+            apply_trajectories=config_provider("scenario", "apply_trajectories"),
 
     ruleorder: solve_sector_network_perfect_at > solve_sector_network_perfect

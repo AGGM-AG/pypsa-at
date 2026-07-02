@@ -57,7 +57,7 @@ if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
     rule build_inflow_totals_per_region:
         input:
             powerplants=resources("powerplants_s_{clusters}.csv"),
-            hydro_inflows=directory(f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows"),
+            hydro_inflows=f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows",
             costs=lambda w: resources(
                 f"costs_{config_provider('costs', 'year')(w)}_processed.csv"
             ),
@@ -100,3 +100,26 @@ rule build_inflows_per_region:
         "Building hydropower inflows per region"
     script:
         scripts("pypsa-at/build_inflows_per_region.py")
+
+
+rule build_capacity_trajectories:
+    input:
+        hydro_inflows=f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows",
+        code_files=[
+            "mods/constants.py",
+            "scripts/_helpers.py",
+        ],
+    output:
+        trajectories=resources("trajectories.csv"),
+    log:
+        logs("trajectories.log"),
+    benchmark:
+        benchmarks("trajectories")
+    resources:
+        mem_mb=5000,
+    params:
+        planning_horizons=config_provider("scenario", "planning_horizons"),
+    message:
+        "Building capacity trajectories"
+    script:
+        scripts("pypsa-at/build_capacity_trajectories.py")

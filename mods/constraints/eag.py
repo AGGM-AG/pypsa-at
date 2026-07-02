@@ -208,21 +208,7 @@ def _add_net_zero_electricity_production_constraint(n: pypsa.Network, country: s
     if not idx_gen.empty:
         lhs.append(n.model["Generator-p"].loc[:, idx_gen].mul(weightings).sum())
 
-    # LHS (+) part 2: StorageUnits (hydro reservoir)
-    if not n.storage_units.empty:  # StorageUnits are excluded in CI tests
-        storage_units = n.storage_units.query("name.str.startswith(@country) & active")
-        idx_hydro = storage_units.query(
-            "bus in @electricity_buses & carrier in @carrier_hydro"
-        ).index
-        if not idx_hydro.empty:
-            lhs.append(
-                n.model["StorageUnit-p_dispatch"]
-                .loc[:, idx_hydro]
-                .mul(weightings)
-                .sum()
-            )
-
-    # LHS (+) part 3: power production from green fuel-to-power links
+    # LHS (+) part 2: power production from green fuel-to-power links
     # adds any electricity produced where bus0 is among green fuels
     idx_fuel_buses = buses.query("carrier in @green_fuels").index  # noqa
     for port in output_ports:
@@ -246,11 +232,11 @@ def _add_net_zero_electricity_production_constraint(n: pypsa.Network, country: s
             .sum()
         )
 
-    # LHS (+) part 4: battery, PHS dischargers
+    # LHS (+) part 3: battery, PHS dischargers, hydro dischargers
     # They only have bus1 outputs
     idx_battery_output = links.query(
         "bus1 in @electricity_buses "
-        "& carrier in ['battery discharger', 'home battery discharger', 'V2G', 'PHS discharger']"
+        "& carrier in ['battery discharger', 'home battery discharger', 'V2G', 'PHS discharger', 'hydro discharger']"
     ).index
     if not idx_battery_output.empty:
         logger.info(
@@ -265,7 +251,7 @@ def _add_net_zero_electricity_production_constraint(n: pypsa.Network, country: s
             .sum()
         )
 
-    # RHS (+) part 5: Power2X Link power consumption
+    # RHS (+) part 4: Power2X Link power consumption
     # Catches battery/home-battery chargers, H2 Electrolysis, PHS, etc.
     has_electricity_output = pd.Series(False, index=links.index)
     for port in output_ports:
@@ -280,7 +266,7 @@ def _add_net_zero_electricity_production_constraint(n: pypsa.Network, country: s
         )
         rhs.append(n.model["Link-p"].loc[:, idx_p2x].mul(weightings).sum())
 
-    # RHS (+) part 6: auxiliary electricity at negative-efficiency ports
+    # RHS (+) part 5: auxiliary electricity at negative-efficiency ports
     # e.g. methanolisation has bus2=AC with efficiency2<0 (electricity input)
     # Demand = Link-p × |eff|; negating eff<0 gives the positive consumed power.
     for port in output_ports:
@@ -302,7 +288,7 @@ def _add_net_zero_electricity_production_constraint(n: pypsa.Network, country: s
             .sum()
         )
 
-    # RHS (+) part 7: reverse-flow links (heat pumps)
+    # RHS (+) part 6: reverse-flow links (heat pumps)
     # PyPSA-Eur models heat pumps with bus0=heat, bus1=elec, eff1=1/COP and
     # ``p_max_pu <= 0`` (reverse-only): the link supplies heat at bus0 and
     # withdraws electricity at bus1.
@@ -330,7 +316,7 @@ def _add_net_zero_electricity_production_constraint(n: pypsa.Network, country: s
             .sum()
         )
 
-    # RHS (+) part 8: electricity distribution grid losses
+    # RHS (+) part 7: electricity distribution grid losses
     # The distribution grid link (bus0=AC, bus1=low voltage, efficiency<1) is
     # excluded from idx_p2x because bus1 is in electricity_buses. LV loads are
     # already on the RHS scalar, so only the dissipated fraction is added here:
@@ -349,7 +335,7 @@ def _add_net_zero_electricity_production_constraint(n: pypsa.Network, country: s
             .sum()
         )
 
-    # RHS (+) part 9: Domestic AC transmission line losses
+    # RHS (+) part 8: Domestic AC transmission line losses
     # n.model["Line-loss"] is the piecewise-linear loss variable created by PyPSA
     # when transmission_losses > 0. It Lines are modeld with losses.
     expression = "bus0.str.startswith(@country) & bus1.str.startswith(@country)"
