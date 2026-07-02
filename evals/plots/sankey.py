@@ -72,8 +72,6 @@ GROUPS = {
         "lignite",
         "municipal solid waste",
         "non-sequestered HVC",
-        "solid biomass",
-        "solid biomass for industry",
     ],
     "Liquids": [
         "NH3",
@@ -87,14 +85,15 @@ GROUPS = {
         "naphtha for industry",
     ],
     "Uranium": ["uranium"],
-    "Biogas": [
+    "Biomass": [
         "biogas",
+        "solid biomass",
+        "solid biomass for industry",
     ],
     "Hydrogen": ["H2"],
 }
 
-# default positions are relative order for the plotly node alignment
-# algorithm. In the case of loops, the node positions become adjusted.
+# default positions are relative order for plotly node alignment
 GROUP_Y = {name: i / 20 for i, name in enumerate(GROUPS, start=1)}
 GROUP_X = {
     ("PRIMARY", "IN"): 0.25,
@@ -113,7 +112,7 @@ NODE_DATA = [  # id, label, colour, x, y
     ["HEAT", "Ambient Heat", COLOUR.black, 0.01, 0.25],
     ["SOLIDS", "Solids", COLOUR.black, 0.01, 0.3],
     ["LIQUIDS", "Liquids", COLOUR.black, 0.01, 0.35],
-    ["BIOGAS", "Biogas", COLOUR.black, 0.01, 0.4],
+    ["BIOMASS", "Biomass", COLOUR.black, 0.01, 0.4],
     [
         "TRANS_IN",
         "Transformation<br>& Storage",
@@ -128,8 +127,14 @@ NODE_DATA = [  # id, label, colour, x, y
     ["TRANSPORT", "Transport", COLOUR.black, 0.99, 0.2],
     ["AGRICULTURE", "Agriculture", COLOUR.black, 0.99, 0.25],
     # Losses are stacked to the very bottom of the plot
-    ["UNUSED", "Ressource Losses", COLOUR.grey_deep, 0.35, _BOTTOM],
-    ["TRANS_LOSS", "Transformation Losses", COLOUR.grey_deep, 0.65, _BOTTOM],
+    ["UNUSED", "Ressource Losses", COLOUR.grey_deep, 0.4, max(GROUP_Y.values()) + 0.1],
+    [
+        "TRANS_LOSS",
+        "Transformation Losses",
+        COLOUR.grey_deep,
+        0.7,
+        max(GROUP_Y.values()) + 0.1,
+    ],
     ["DIST_LOSS", "Distribution Losses", COLOUR.grey_deep, 0.8, 0.0001],
 ]
 for group, section, side in product(
@@ -230,7 +235,7 @@ class SankeyChart:
         self.connect_solids()
         self.connect_liquids()
         self.connect_uranium()
-        self.connect_biogas()
+        self.connect_biomass()
         self.connect_hydrogen()
         self.forward_transformation()
         self.connect_transformation_losses()
@@ -241,9 +246,6 @@ class SankeyChart:
         )
         self.nodes = self.nodes.query("name in @flows_used")
         self.nodes["id"] = [*range(len(self.nodes))]
-
-        if self.has_loop:
-            self.fix_node_y_positions()
 
         self.fig = make_subplots(
             rows=4,
@@ -261,7 +263,11 @@ class SankeyChart:
         )
         sankey = Sankey(
             name="Energy Carrier",
-            arrangement="fixed" if self.has_loop else "snap",
+            # "snap" lets Plotly resolve node spacing into equal gaps. Loops
+            # are carried by the explicit TRANS_OUT->TRANS_IN link, so they no
+            # longer need "fixed" (which skips that spacing and left ragged,
+            # unevenly gapped columns); the default GROUP_Y order is preserved.
+            arrangement="snap",
             valuesuffix=self.unit,
             textfont_family="Montserrat, monospaced",
             textfont_weight="bold",
@@ -396,18 +402,20 @@ class SankeyChart:
                 "import H2",
             ],
         )
-        h2_for_industry = filter_by(
-            self._df, bus_carrier=bus_carrier, carrier="H2 for industry"
-        )
-        if h2_for_industry.sum().item() > 0:
-            # industry produces hydrogen in 2020 in some regions.
-            # those amounts are assigned to import
-            import_ = pd.concat([import_, h2_for_industry])
-            self._df.drop(h2_for_industry.index, inplace=True)
+        # h2_for_industry = filter_by(
+        #     self._df, bus_carrier=bus_carrier, carrier="H2 for industry"
+        # )
+        # FixMe: remove the block below. Negative Loads are being tested
+        #  and dropped from the network.
+        # if h2_for_industry.sum().item() > 0:
+        #     # industry produces hydrogen in 2020 in some regions.
+        #     # those amounts are assigned to import
+        #     import_ = pd.concat([import_, h2_for_industry])
+        #     self._df.drop(h2_for_industry.index, inplace=True)
         self._flow_import(import_, name)
         self._flow_primary(import_, name)
 
-        regex = "Foreign|Domestic|h2 for industry|decentral|rural"
+        regex = "Foreign|Domestic| for industry|decentral|rural"
         transform = filter_by(
             self._df, bus_carrier=bus_carrier, component=["Link", "Store"]
         ).pipe(drop_from_multtindex_by_regex, regex)
@@ -478,31 +486,36 @@ class SankeyChart:
 
         self._check_remainder(bus_carrier)
 
-    def connect_biogas(self) -> None:
+    def connect_biomass(self) -> None:
         """
-        Connect biogas flows from generation to transformation.
+        Connect biomass flows from generation to transformation.
 
-        Processes biogas generation and direct forwarding to transformation
+        Processes biomass generation and direct forwarding to transformation
         processes, typically for conversion to electricity or upgraded gas.
         """
-        bus_carrier = "biogas"
-        name = "BIOGAS"
+        bus_carrier = ["biogas", "solid biomass"]
+        name = "BIOMASS"
         color = self.nodes.loc[f"{name}_PRIMARY_IN", "color"]
-        generation = filter_by(
+        import_ = filter_by(
             self._df,
             bus_carrier=bus_carrier,
-            component="Generator",
+            carrier=[
+                "Import Foreign",
+                "Import Domestic",
+                "Global Import",
+            ],
         )
+        self._flow_import(import_, name)
+
         label = name
+        generation = filter_by(self._df, bus_carrier=bus_carrier, component="Generator")
         self._flow_generation(generation, name, label, color)
-        self._flow_primary(generation, name)
+
+        primary = pd.concat([import_, generation])
+        self._flow_primary(primary, name)
 
         processing = filter_by(self._df, bus_carrier=bus_carrier, component="Link")
-        self._connect(
-            processing,
-            f"{name}_PRIMARY_OUT",
-            "TRANS_IN",
-        )
+        self._connect(processing, f"{name}_PRIMARY_OUT", "TRANS_IN")
 
         self._check_remainder(bus_carrier)
 
@@ -517,7 +530,6 @@ class SankeyChart:
         bus_carrier = [
             "coal",
             "lignite",
-            "solid biomass",
             "municipal solid waste",
             "non-sequestered HVC",
         ]
@@ -538,8 +550,7 @@ class SankeyChart:
         )
         self._flow_generation(generation, name, name, color)
 
-        # HVC to air is an unused resource. Some countries do not have
-        # techs that use waste e.g., waste CHPs
+        # HVC to air is an unused resource. Some countries do not utilize it
         primary_losses = filter_by(
             self._df, bus_carrier=bus_carrier, carrier="HVC to air"
         )
@@ -591,18 +602,14 @@ class SankeyChart:
         industry, shipping, aviation, and agriculture sectors.
         """
         name = "LIQUIDS"
+        color = self._get_color(f"{name}_PRIMARY_IN")
         bus_carrier = [
             "oil",
+            # "oil refining",
             "methanol",
             "NH3",
             "electrobiofuels",
         ]
-        # WARNING - /IdeaProjects/pypsa-at/evals/plots/sankey.py - Warning[Balearic Islands 2030]: ELECTRICITY_PRIMARY_OUT has a discrepancy of 12.64 TWh
-        # WARNING - /IdeaProjects/pypsa-at/evals/plots/sankey.py - Warning[Balearic Islands 2030]: ELECTRICITY_SECONDARY_IN has a discrepancy of -12.64 TWh
-        # WARNING - /IdeaProjects/pypsa-at/evals/plots/sankey.py - Warning[Balearic Islands 2030]: LIQUIDS_PRIMARY_OUT has a discrepancy of 55.85 TWh
-        # WARNING - /IdeaProjects/pypsa-at/evals/plots/sankey.py - Warning[Balearic Islands 2030]: LIQUIDS_SECONDARY_IN has a discrepancy of -55.85 TWh
-        # WARNING - /IdeaProjects/pypsa-at/evals/plots/sankey.py - Warning[Italy 2050]: LIQUIDS_PRIMARY_OUT has a discrepancy of 19.48 TWh
-        # WARNING - /IdeaProjects/pypsa-at/evals/plots/sankey.py - Warning[Italy 2050]: LIQUIDS_SECONDARY_IN has a discrepancy of -19.48 TWh
         import_ = filter_by(
             self._df,
             bus_carrier=bus_carrier,
@@ -613,10 +620,19 @@ class SankeyChart:
                 "import NH3",
                 "import oil",
                 "import methanol",
+                # "oil refining",
             ],
         )
         self._flow_import(import_, name)
         self._flow_primary(import_, name)
+
+        # primary_losses = filter_by(
+        #     self._df, bus_carrier="oil", carrier="oil refining"
+        # )
+        # self._connect(
+        #     primary_losses, f"{name}_PRIMARY_OUT", "UNUSED", color=COLOUR.grey_neutral
+        # )
+
         transformation = filter_by(
             self._df,
             bus_carrier=bus_carrier,
@@ -641,12 +657,13 @@ class SankeyChart:
         self._flow_sector(final, "transport|shipping|aviation", name, "TRANSPORT")
         self._flow_sector(final, "agriculture", name, "AGRICULTURE")
 
+        # synthetic fuel producers (Fischer-Tropsch, methanolisation) convert
+        # more liquids than they import, so part of the transformation supply
+        # feeds back into transformation demand. Without this the surplus shows
+        # up as a dropped negative bypass and unbalances PRIMARY_OUT/SECONDARY_IN.
+        self._flow_loop(transformation_supply, final, name, color)
+
         if self.location == "Europe":
-            # # assign EU Ammonia Loads to agriculture sector
-            # nh3_load = filter_by(
-            #     self._df, bus_carrier="NH3", carrier="NH3", component="Load"
-            # )
-            # self._flow_sector(nh3_load, r"NH3", name, "AGRICULTURE")
             # drop oil refining process
             oil_refining = filter_by(
                 self._df, bus_carrier="oil", carrier="oil refining", component="Link"
@@ -765,9 +782,29 @@ class SankeyChart:
             color=COLOUR.grey_neutral,
         )
 
+        # District heating networks lose a share of the delivered heat. These
+        # losses are not final energy demand, so the metered urban central heat
+        # load is split into final energy demand and distribution loss using the
+        # configured district heating loss factor (see _get_sectoral_fed in
+        # views/demand.py, which reduces central heat loads by 1 / (1 + factor)).
+        factor = self.cfg.heat_loss_factor
+        central_heat_load = filter_by(final, carrier="urban central heat").sum().item()
+        distribution_loss = central_heat_load * factor / (1 + factor)
+        dist_loss = (f"{name}_SECONDARY_OUT", "DIST_LOSS")
+        if dist_loss in self.flows.index:
+            self.flows.at[dist_loss, "value"] += distribution_loss
+        else:
+            self._forward(*dist_loss, distribution_loss, color=COLOUR.grey_neutral)
+
         industry = final.filter(regex="industry|DAC", axis=0)
         agriculture = final.filter(regex="agriculture", axis=0)
-        hh_services = secondary - industry.sum() - vents.sum() - agriculture.sum()
+        hh_services = (
+            secondary
+            - industry.sum()
+            - vents.sum()
+            - agriculture.sum()
+            - distribution_loss
+        )
         self._forward(f"{name}_SECONDARY_OUT", "HH_SERVICES", hh_services.item())
 
         # if hh_services <= 0:
@@ -839,6 +876,7 @@ class SankeyChart:
             .pipe(rename_aggregate, to_groups)
             .pipe(rename_aggregate, "losses", level="bus_carrier")
         )
+
         self._connect(
             losses,
             "TRANS_OUT",
@@ -858,9 +896,13 @@ class SankeyChart:
             "SECONDARY",
             "TRANS_",
         )
+        # terminal loss sinks only ever receive flow, so they are never
+        # balanced. They match "TRANS_" via substring (TRANS_LOSS) and must
+        # be skipped alongside the left and right border nodes.
+        terminal_sinks = ("TRANS_LOSS", "DIST_LOSS", "UNUSED")
         for node in self.nodes.index:
             # skip left and right border nodes because they are never balanced
-            if not any([s in node for s in checks]):
+            if not any([s in node for s in checks]) or node in terminal_sinks:
                 continue
 
             node_in = filter_by(self.flows, source=node)
@@ -871,71 +913,6 @@ class SankeyChart:
                     f"Warning[{self.location} {self.year}]: {node} has a "
                     f"discrepancy of {diff:.2f} {self.unit}"
                 )
-
-    def fix_node_y_positions(self) -> None:
-        """
-        Adjust vertical node positions when transformation loops are detected.
-
-        Recalculates node positions proportional to flow magnitudes to prevent
-        visual overlap when the transformation block contains loops. Maintains
-        proper spacing and ensures positions stay within plot bounds.
-        """
-        # Calculate maximum flow for normalization
-        maximum = 0
-        for x, nodes in self.nodes.groupby("x"):
-            idx = nodes.index.tolist()
-            src_total = filter_by(self.flows, source=idx)["value"].sum()
-            dst_total = filter_by(self.flows, target=idx)["value"].sum()
-            maximum = max(maximum, src_total, dst_total)
-
-        # Add padding for visual spacing
-        maximum *= 1.05
-
-        for x, nodes in self.nodes.groupby("x"):
-            idx = nodes.index.tolist()
-
-            # Skip loss nodes - position them at bottom
-            loss_nodes = [i for i in idx if i in ("TRANS_LOSS", "DIST_LOSS", "UNUSED")]
-            if loss_nodes:
-                # for i, node in enumerate(loss_nodes):
-                #     self.nodes.at[node, "y"] = 0.95 + (i * 0.02)
-                continue
-
-            # Get flow data for this column
-            src_flows = filter_by(self.flows, source=idx)
-            dst_flows = filter_by(self.flows, target=idx)
-
-            # Use the side with the larger total flow for positioning
-            if src_flows["value"].sum() >= dst_flows["value"].sum():
-                flows = src_flows.groupby("source")["value"].sum()
-            else:
-                flows = dst_flows.groupby("target")["value"].sum()
-
-            # Sort nodes by their original y position to maintain order
-            node_order = nodes.sort_values("y").index.tolist()
-
-            # Calculate cumulative positions
-            cumulative_pos = 0
-            spacing = 0.02  # Small gap between nodes
-
-            for node_name in node_order:
-                if node_name in flows.index:
-                    node_size = flows[node_name] / maximum
-                else:
-                    node_size = 0.01  # Minimum size for nodes with no flow
-
-                # Position node at current cumulative position
-                self.nodes.at[node_name, "y"] = cumulative_pos + (node_size / 2)
-
-                # Update cumulative position
-                cumulative_pos += node_size + spacing
-
-            # Normalize positions to ensure they stay within [0, 0.9] range
-            max_y = self.nodes.loc[node_order, "y"].max()
-            if max_y > 0.9:
-                scale_factor = 0.9 / max_y
-                for node_name in node_order:
-                    self.nodes.at[node_name, "y"] *= scale_factor
 
     def _connect(
         self, df: pd.DataFrame, source: str, target: str, color: str | None = None

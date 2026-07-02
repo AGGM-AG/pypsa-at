@@ -28,6 +28,7 @@ from evals.statistic import collect_myopic_statistics
 from evals.utils import (
     drop_from_multtindex_by_regex,
     filter_by,
+    get_heat_loss_factor,
     insert_index_level,
     regionalize_statistics,
     rename_aggregate,
@@ -453,6 +454,11 @@ def view_sankey(
         + link_losses,
         view_config=config["view"],
     )
+
+    # the district heating loss factor lives in the network meta and is needed
+    # by the Sankey chart to split central heat demand into final energy demand
+    # and distribution losses (the chart only sees aggregated statistics).
+    exporter.defaults.heat_loss_factor = get_heat_loss_factor(nc)
 
     exporter.defaults.xaxis_title = ""
     exporter.defaults.plotby = [DM.YEAR, DM.LOCATION]

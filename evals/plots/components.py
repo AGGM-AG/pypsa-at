@@ -12,7 +12,9 @@ components they need rather than inheriting from a shared base.
 """
 
 import json
+import logging
 import pathlib
+import re
 import typing
 
 import pandas as pd
@@ -23,6 +25,50 @@ from plotly.offline.offline import get_plotlyjs
 
 from evals.constants import ALIAS_LOCATION_REV, RUN_META_DATA
 from evals.utils import prettify_number
+
+logger = logging.getLogger(__name__)
+
+# Two surgical fixes to Plotly's circular-Sankey layout in the minified bundle,
+# both needed so a Sankey *with* a transformation loop looks like one without.
+# Each pattern is unique in the bundle (asserted by the tests).
+#
+# 1. Loop depth: a "bottom" loop is routed to
+#    ``Math.max(<plot height>, source.y1, target.y1) + 25 + buffer`` -- pinning
+#    it to the diagram bottom regardless of node positions. Dropping the
+#    plot-height term makes the loop hug its source/target nodes instead, so the
+#    recirculation stays a compact curve while nodes keep their top-alignment.
+_CIRCULAR_LOOP_PATTERN = re.compile(
+    r"Math\.max\(\w+,(\w+)\.source\.y1,\1\.target\.y1\)"
+)
+_CIRCULAR_LOOP_REPL = r"Math.max(\1.source.y1,\1.target.y1)"
+
+# 2. Fill height: Plotly scales the nodes to fill the height (function ``Ht``)
+#    only ``if(<no top loop> || <no bottom loop>)`` -- so a chart with loops on
+#    both sides skips it and leaves white space below the content. Forcing the
+#    guard true makes looped charts fill the height like loopless ones.
+_FILL_GUARD_PATTERN = re.compile(
+    r"\w+==!1\|\|\w+==!1(\)\{var \w+=\w+\.min\(\w+,function\(\w+\)\{return \w+\.y0\})"
+)
+_FILL_GUARD_REPL = r"!0\1"
+
+
+def patch_sankey_circular_layout(plotly_js: str) -> str:
+    """Make looped Sankeys render like loopless ones (see comments above)."""
+    for name, pattern, repl in (
+        ("loop depth", _CIRCULAR_LOOP_PATTERN, _CIRCULAR_LOOP_REPL),
+        ("fill height", _FILL_GUARD_PATTERN, _FILL_GUARD_REPL),
+    ):
+        plotly_js, n = pattern.subn(repl, plotly_js)
+        if n != 1:
+            logger.warning(
+                "Could not apply Plotly Sankey '%s' patch (%d matches); looped "
+                "diagrams may render poorly. The minified bundle likely changed "
+                "-- revisit patch_sankey_circular_layout().",
+                name,
+                n,
+            )
+    return plotly_js
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -133,7 +179,9 @@ class FileExporter:
 
         bundle_path = file_path.parent / "plotly.min.js"
         if not bundle_path.exists():
-            bundle_path.write_text(get_plotlyjs(), encoding="utf-8")
+            bundle_path.write_text(
+                patch_sankey_circular_layout(get_plotlyjs()), encoding="utf-8"
+            )
 
         return file_path
 
