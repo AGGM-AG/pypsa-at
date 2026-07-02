@@ -48,7 +48,11 @@ clustering:
     resolution_sector: 365H
 
 costs:
+  use_list: true
   custom_cost_fn: data/custom_costs.csv
+  custom_cost_fn_list:
+    - data/custom_costs.csv
+    - data/pypsa-de/custom_costs_nep_2023.csv
 
 sector:
   v2g: false
