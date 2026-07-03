@@ -330,7 +330,7 @@ class SankeyChart:
         primary = pd.concat([import_, wind, solar, hydro])
         self._flow_primary(primary, name)
 
-        regex = "Foreign|Domestic|hydro|decentral|rural|pipeline"
+        regex = "Foreign|Domestic|decentral|rural|pipeline"
         transformation = filter_by(
             self._df,
             bus_carrier=bus_carrier,

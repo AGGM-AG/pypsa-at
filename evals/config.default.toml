@@ -208,6 +208,7 @@ legend_order = [
     "Hydrogen Compressors",
     "Methane Compressors",
     "Battery Storage",
+    "Pumped Hydro Storage"
 ]
 checks = []
 exports = []
@@ -236,6 +237,7 @@ database_specifier = "demand"
 "H2 pipeline retrofitted" = "Hydrogen Compressors"
 "battery charger" = "Battery Storage"
 "home battery charger" = "Battery Storage"
+"PHS charger" = "Pumped Hydro Storage"
 
 [view_capacity_electricity_storage]
 name = "Power Storage Volumes"
@@ -1203,7 +1205,7 @@ name = "Electricity Production and Demand"
 unit = "MWh_el"
 file_name = "timeseries_electricity_{location}_{year}"
 bus_carrier = ["AC", "low voltage", "EV battery", "home battery", "PHS", "hydro"]
-storage_links = ["BEV charger", "V2G", "battery charger", "battery discharger", "home battery charger", "home battery discharger", "PHS charger", "PHS discharger", "hydro discharger"]
+storage_links = ["BEV charger", "V2G", "battery charger", "battery discharger", "home battery charger", "home battery discharger", "PHS charger", "PHS discharger", "hydro discharger", "PHS inflow", "hydro inflow"]
 chart = "ESMTimeSeriesChart"
 cutoff = 1  # MWh
 legend_order = [
