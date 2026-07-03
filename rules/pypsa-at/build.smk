@@ -6,6 +6,11 @@
 Build rules for AT-specific datasets.
 """
 rule build_custom_cost_fn:
+    input:
+        custom_cost_files = branch(
+            config_provider("costs", "use_list"),
+            config_provider("costs", "custom_cost_fn_list"),
+            lambda w: [config_provider("costs", "custom_cost_fn")(w)])
     output:
         custom_cost_fn = resources("custom_cost_fn.csv"),
     log:
