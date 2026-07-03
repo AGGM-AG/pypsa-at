@@ -255,7 +255,7 @@ if __name__ == "__main__":
         from _helpers import mock_snakemake
 
         snakemake = mock_snakemake(
-            "process_cost_data", planning_horizons=2030, run="AT_KN2040"
+            "process_cost_data_at", planning_horizons=2030, run="AT_KN2040"
         )
 
     cost_params = snakemake.params["costs"]
