@@ -20,25 +20,15 @@ def _(pypsa):
 
 @app.cell
 def _(n2025):
-    n2025
-    return
-
-
-@app.cell
-def _(n2025):
     n2025.links[n2025.links["carrier"] == "biogas"]
     return
 
 
 @app.cell
 def _(n2025):
-    n2025.generators.carrier.unique()
-    return
-
-
-@app.cell
-def _(n2025):
-    n2025.generators[n2025.generators.carrier == "biogas"].p_nom
+    n2025.statistics.installed_capacity(
+        groupby=["location", "carrier"], carrier="biogas", drop_zero=False
+    )
     return
 
 
@@ -83,6 +73,12 @@ def _(pypsa):
 @app.cell
 def _(base2025):
     base2025.links[base2025.links["carrier"] == "biogas"]
+    return
+
+
+@app.cell
+def _(base2025):
+    base2025.generators[base2025.generators["carrier"] == "unsustainable biogas"]
     return
 
 
