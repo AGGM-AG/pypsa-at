@@ -35,6 +35,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Limit cross-country electricity flows by NTCs (TYNDP) ([#112](https://github.com/AGGM-AG/pypsa-at/pull/112))
 - Added H2 imports from countries that are not in the model based on tyndp data ([#126](https://github.com/AGGM-AG/pypsa-at/pull/126))
 - Added Know-How document for hydro power ([#135](https://github.com/AGGM-AG/pypsa-at/pull/135))
+- Added trajectories for hydro power components ([#147](https://github.com/AGGM-AG/pypsa-at/pull/147))
 
 ### Changed
 - Blocked imports of Russian methane via Ukraine and TurkStream ([#129](https://github.com/AGGM-AG/pypsa-at/pull/129))
