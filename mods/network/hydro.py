@@ -376,7 +376,8 @@ def patch_inflows(n: Network, snakemake: Snakemake, ppl: pd.DataFrame) -> None:
 
     p = snakemake.params.renewable["hydro"].copy()
     hydro = ppl.query('carrier == "hydro"')
-    if not p.get("flatten_dispatch", False):
+    renewable_carriers = set(snakemake.params.electricity["renewable_carriers"])
+    if not p.get("flatten_dispatch", False) and "hydro" in renewable_carriers:
         buffer = p.get("flatten_dispatch_buffer", 0.2)
         hydro_p_nom = hydro["p_nom"]
         link_idx = hydro_p_nom.index + " discharger"
