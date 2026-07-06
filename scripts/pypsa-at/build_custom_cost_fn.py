@@ -71,9 +71,7 @@ def main(snakemake: Snakemake) -> None:
     # The keep="first" parameter also handles duplicates within individual files.
     combined = combined[~combined.index.duplicated(keep="first")]
 
-    logger.info(
-        f"Writing custom cost file to {snakemake.output.custom_cost_fn}."
-    )
+    logger.info(f"Writing custom cost file to {snakemake.output.custom_cost_fn}.")
 
     combined.to_csv(snakemake.output.custom_cost_fn)
 
