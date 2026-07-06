@@ -9,7 +9,7 @@ See docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#scenar
 Wildcard docs in https://pypsa-eur.readthedocs.io/en/latest/wildcards.html
 """
 
-from typing import Literal, Any
+from typing import Any, Literal
 
 from pydantic import Field
 
