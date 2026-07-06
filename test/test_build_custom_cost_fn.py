@@ -9,9 +9,9 @@ from importlib import import_module
 import pandas as pd
 import pytest
 
-main = import_module("scripts.pypsa-at.build_custom_cost_fn").main
 from scripts._helpers import mock_snakemake
 
+main = import_module("scripts.pypsa-at.build_custom_cost_fn").main
 
 def test_combine_two_files_with_overlapping_entries_keeps_first(tmp_path):
     """
