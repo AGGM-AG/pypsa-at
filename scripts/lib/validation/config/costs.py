@@ -77,6 +77,17 @@ class CostsConfig(BaseModel):
         "data/custom_costs.csv",
         description="Path to the custom costs file. None if it should not be used. Default `data/custom_costs.csv` contains minor adjustments for stabilising the optimisation results.",
     )
+    use_list: bool | None = Field(
+        True,
+        description="Whether to use the custom_costs_fn_list config for the creation of custom costs",
+    )
+    custom_cost_fn_list: list[str] | None = Field(
+        default=[
+            "data/custom_costs.csv",
+            "data/pypsa-de/custom_costs_nep_2023.csv"
+        ],
+        description="Path to the custom costs files. Default files contain minor adjustments for stabilising the optimisation results.",
+    )
     overwrites: dict[str, dict[str, float]] = Field(
         default_factory=dict,
         description="For the given parameters and technologies, assumptions about their parameter are overwritten the corresponding value of the technology.",
