@@ -30,9 +30,9 @@ For more comprehensive documentation on the underlying PyPSA-Eur/DE framework, m
 details, please refer to the [PyPSA-Eur documentation](https://pypsa-eur.readthedocs.io/)
 and [PyPSA-DE documentation](https://ariadneprojekt.de/modell-dokumentation-pypsa/), respectively.
 
-> [!WARNING]
-> This repository is the official source of PyPSA-AT. Third party forks are independent projects and we do not vouch for their accuracy, methodology, or claims. 
-
+> [!CAUTION]
+> - This repository is the official source of PyPSA-AT. Third party forks are independent projects and we do not vouch for their accuracy, methodology, or claims. 
+> - The model results are indicative and **do not replace detailed hydraulic assessments or power-flow/load-flow calculations**, which may be required for further technical evaluation, validation, or planning purposes
 ---
 
 ## 🚀 Installation 
@@ -45,7 +45,7 @@ And start the workflow (low time resolution and NUTS3 spatial resolution for Aus
 pixi run workflow
 ```
 Please note that PyPSA-AT is only supported on **Linux** platforms. Installations on Windows or macOS require
-modifications that are currently currently out of scope.
+modifications that are currently out of scope.
 
 ### Prerequisites
 [Git](https://git-scm.com/install) and [pixi](https://pixi.prefix.dev/latest/#installation) must be installed.
