@@ -39,7 +39,11 @@ def test_inflows_match_pemmdb_totals(nc, project_root):
         inflow = xr.open_dataarray(Path(inflows))
         tol = 0.01 * n.snapshot_weightings.max()[0]
 
-        for (model_carrier, resource_carrier) in [("hydro inflow", "hydro"), ("PHS inflow", "PHS"), ("ror", "ror")]:
+        for model_carrier, resource_carrier in [
+            ("hydro inflow", "hydro"),
+            ("PHS inflow", "PHS"),
+            ("ror", "ror"),
+        ]:
             columns = n.generators.query(f'carrier == "{model_carrier}"').index
             actual = (
                 n.generators_t.p_max_pu.reindex(columns=columns, fill_value=0.0)
@@ -54,14 +58,8 @@ def test_inflows_match_pemmdb_totals(nc, project_root):
             expected.index += f" {model_carrier}"
             expected /= n.generators.loc[columns, "p_nom"].fillna(0)
             expected = expected.fillna(0)
-            actual = actual.reindex(
-                expected.index, fill_value=0.0
-            )
+            actual = actual.reindex(expected.index, fill_value=0.0)
             actual.name = "inflow"
             pd.testing.assert_series_equal(
                 actual, expected, check_exact=False, atol=tol
             )
-
-
-
-
