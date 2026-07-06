@@ -4,15 +4,13 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Unit tests for the custom cost file builder script."""
 
-from unittest.mock import MagicMock
+from importlib import import_module
 
 import pandas as pd
 import pytest
-from importlib import import_module
 
 main = import_module("scripts.pypsa-at.build_custom_cost_fn").main
 from scripts._helpers import mock_snakemake
-
 
 
 def test_combine_two_files_with_overlapping_entries_keeps_first(tmp_path):
@@ -80,6 +78,7 @@ def test_combine_two_files_with_overlapping_entries_keeps_first(tmp_path):
     # (2040, wind, capital_cost) from file 2 (no overlap)
     assert result.loc[(2040, "wind", "capital_cost"), "value"] == 300.0
 
+
 def test_duplicate_within_single_file_keeps_first_occurrence(tmp_path):
     """
     Test that duplicates within a single file are handled correctly:
@@ -115,6 +114,7 @@ def test_duplicate_within_single_file_keeps_first_occurrence(tmp_path):
     assert len(result) == 2
     assert result.loc[(2030, "solar", "capital_cost"), "value"] == 100.0
     assert result.loc[(2030, "wind", "capital_cost"), "value"] == 300.0
+
 
 def test_multiple_cost_columns_preserved(tmp_path):
     """
@@ -152,6 +152,7 @@ def test_multiple_cost_columns_preserved(tmp_path):
     assert set(result.columns) == {"value", "unit", "source"}
     assert result.loc[(2030, "solar", "capital_cost"), "unit"] == "EUR/kW"
     assert result.loc[(2030, "solar", "capital_cost"), "source"] == "DEA 2024"
+
 
 def test_empty_file_list_raises_error(tmp_path):
     """
