@@ -96,10 +96,8 @@ if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
             for key in input.keys():
                 zip_output_key = f"{key}_zip"
                 copy2(input[key], output[zip_output_key])
-
                 output_folder = Path(output[zip_output_key]).parent
                 unpack_archive(output[zip_output_key], output_folder)
-
                 # Remove __MACOSX directory if present (macOS artifact in zips)
                 macosx_dir = output_folder / "__MACOSX"
                 rmtree(macosx_dir, ignore_errors=True)
