@@ -16,6 +16,11 @@
 > [!WARNING]
 > PyPSA-AT is under very active early development. Expect things to change rapidly.
 
+> [!CAUTION]
+> - **Official source:** This repository is the official source of PyPSA-AT. Third-party forks are independent projects, and we do not vouch for their accuracy, methodology, or claims.
+> - **Indicative results:** Model results are indicative and **do not replace the detailed hydraulic assessments or power-flow/load-flow calculations** that may be required for technical evaluation, validation, or planning purposes.
+> - **Inherited limitations:** PyPSA-AT inherits the [limitations of PyPSA-Eur](https://pypsa-eur.readthedocs.io/en/latest/limitations.html). Some have since been addressed, but many still apply — please read and understand them before drawing conclusions.
+
 **PyPSA-AT** is an Austrian adaptation of the open European energy system
 model [PyPSA-Eur](https://github.com/pypsa/pypsa-eur).
 It provides a detailed sector-coupled model of the Austrian energy system, including the majority of relevant energy
@@ -30,9 +35,6 @@ For more comprehensive documentation on the underlying PyPSA-Eur/DE framework, m
 details, please refer to the [PyPSA-Eur documentation](https://pypsa-eur.readthedocs.io/)
 and [PyPSA-DE documentation](https://ariadneprojekt.de/modell-dokumentation-pypsa/), respectively.
 
-> [!CAUTION]
-> - This repository is the official source of PyPSA-AT. Third party forks are independent projects and we do not vouch for their accuracy, methodology, or claims. 
-> - The model results are indicative and **do not replace detailed hydraulic assessments or power-flow/load-flow calculations**, which may be required for further technical evaluation, validation, or planning purposes
 ---
 
 ## 🚀 Installation 
