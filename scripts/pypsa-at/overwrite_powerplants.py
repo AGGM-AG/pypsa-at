@@ -114,7 +114,7 @@ def overwrite_biogas_plants_AT(
     if not at_small_bioenergy_ppl.empty:
         raise ValueError(
             "Detected biogas powerplants in powerplantmatching data for Austria."
-            "Check if dataset has changed upstream."
+            "Go and check if dataset has changed upstream!"
         )
 
     postal_to_nuts = (
