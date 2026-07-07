@@ -77,7 +77,7 @@ def overwrite_nuclear_dateout(ppl: pd.DataFrame, dateout: dict) -> pd.DataFrame:
     return ppl
 
 
-def overwrite_biogas_plants_AT(
+def overwrite_biogas_to_power_plants_AT(
     ppl: pd.DataFrame,
     anlagenregister_file: str,
     postal_to_nuts_file: str,
@@ -117,6 +117,14 @@ def overwrite_biogas_plants_AT(
             "Go and check if dataset has changed upstream!"
         )
 
+    threshold_capacity = snakemake.params.threshold_capacity
+    if threshold_capacity > 5:
+        raise ValueError(
+            f"threshold_capacity for adding existing capacities per node is {threshold_capacity} MW,"
+            "but must be <= 5 MW to keep small Austrian biogas plants."
+            "Change config.at.yaml setting accordingly."
+        )
+
     postal_to_nuts = (
         pd.read_csv(
             postal_to_nuts_file, sep=";", dtype=str, names=["nuts3", "plz"], header=0
@@ -140,6 +148,7 @@ def overwrite_biogas_plants_AT(
             "Technology": "Combustion Engine",
             "Set": "PP",
             "Country": "AT",
+            "DateIn": 2010,  # assumed build year at the height of Förderung in AT
             "Capacity": anlreg["Engpassleistung (kW <sub>el</sub>)"] / 1000,
             "bus": anlreg["nuts"].values,
         }
@@ -161,7 +170,7 @@ def overwrite_powerplants():
             "Skipping Austrian biogas plant addition. config option add_biogas_plants_AT is false."
         )
         return ppl_overwrite
-    ppl_overwrite = overwrite_biogas_plants_AT(
+    ppl_overwrite = overwrite_biogas_to_power_plants_AT(
         ppl_overwrite,
         anlagenregister_file=snakemake.input.anlagenregister,
         postal_to_nuts_file=snakemake.input.postal_to_nuts,

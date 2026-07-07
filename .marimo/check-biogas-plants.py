@@ -26,40 +26,21 @@ def _(n2025):
 
 @app.cell
 def _(n2025):
+    n2025.generators[n2025.generators["carrier"] == "biogas"]
+    return
+
+
+@app.cell
+def _(n2025):
+    n2025.generators[n2025.generators["carrier"] == "unsustainable biogas"]
+    return
+
+
+@app.cell
+def _(n2025):
     n2025.statistics.installed_capacity(
-        groupby=["location", "carrier"], carrier="biogas", drop_zero=False
+        groupby=["location", "carrier"], carrier="unsustainable biogas", drop_zero=False
     )
-    return
-
-
-@app.cell
-def _():
-    import pandas as pd
-
-    ppl = pd.read_csv(
-        "resources/feat-biogas-brownfield-austria/AT_KN2040/powerplants_s_adm-overwrite.csv"
-    )
-    ppl
-    return (ppl,)
-
-
-@app.cell
-def _(ppl):
-    bio_e = ppl[ppl.Fueltype == "Bioenergy"]
-    bio_e_at = bio_e[bio_e.Country == "AT"]
-    return (bio_e_at,)
-
-
-@app.cell
-def _(bio_e_at):
-    bio_e_at
-    return
-
-
-@app.cell
-def _(bio_e_at):
-    bus_cap = bio_e_at.groupby("bus")["Capacity"].sum()
-    bus_cap[bus_cap > 0]  # .sum()
     return
 
 
