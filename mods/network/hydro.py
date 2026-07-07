@@ -45,7 +45,7 @@ def add_phs(n: Network, snakemake: Snakemake, costs: pd.DataFrame):
     if "hydro" in renewable_carriers and "PHS" in carriers and not phs.empty:
         # fill missing max hours to params value and
         # assume no natural inflow due to lack of data
-        max_hours = p.get("PHS_max_hours", 6)
+        max_hours = p["PHS_max_hours"]
         phs = phs.replace({"max_hours": {0: max_hours, np.nan: max_hours}})
         add_missing_carriers(
             n, ["PHS charger", "PHS discharger", "PHS store", "PHS inflow"]
