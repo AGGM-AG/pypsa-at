@@ -30,8 +30,10 @@ logs, resources, benchmarks, results, and .snakemake directories except \
 
 update-dags = """
 	dot -c && \
-	snakemake results/networks/base_s_128_elec_.nc -F --dag | sed -n "/digraph/,/}/p" | dot -Tpng -o doc/img/intro-workflow.png && \
-	snakemake --rulegraph -F | sed -n "/digraph/,/}/p" | dot -Tpng -o doc/img/workflow.png
+	pixi run bash -c 'snakemake all_at --rulegraph \
+	| sed -n "/digraph/,/}/p" \
+	| sed "s/digraph snakemake_dag {/digraph snakemake_dag {rankdir=LR;/" \
+	| dot -Tpng -Gdpi=200 -o all_at-rulegraph.png'   
 """
 
 generate-config = "python -c 'from scripts.lib.validation.config import generate_config_defaults, generate_config_schema; generate_config_defaults(); generate_config_schema()'"
