@@ -36,19 +36,21 @@ logger = logging.getLogger(__name__)
 
 
 def extract_inflow_totals_tyndp(
-    hydro_inflows_dir: str,
+    hydro_inflows_dir: str, year: int
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Extract hydropower inflow totals from Excel files.
 
     Reads all Excel files in hydro_inflows_dir/2030/.
     For each file and each year-dependent sheet, sums all rows matching
-    "Energy Inflow [GWh/day]" or "Energy Inflow [GWh/week]" for column 2013.
+    "Energy Inflow [GWh/day]" or "Energy Inflow [GWh/week]" for column year.
 
     Parameters
     ----------
-    hydro_inflows_dir
+    hydro_inflows_dir:
         Directory for the hydro inflows data
+    year:
+        Year to extract from data
 
     Returns
     -------
@@ -90,10 +92,9 @@ def extract_inflow_totals_tyndp(
                     ["Energy Inflow [GWh/day]", "Energy Inflow [GWh/week]"]
                 )
             ]
-            # Extract values from 2013 column for matching rows
-            total = inflow[2013].sum()
+            # Extract values from year column for matching rows
+            total = inflow[year].sum()
             inflow_data[country_code][sheet_name] = total
-            logger.info(f"  {sheet_name}: {total:.2f}")
         # Extract MarketNodeInfo
         df_market = pd.read_excel(
             excel_file, sheet_name="MarketNodeInfo", header=5, index_col=0

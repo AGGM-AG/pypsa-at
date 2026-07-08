@@ -9,11 +9,11 @@ Hydroelectric inflow time-series represent the natural water availability for hy
 ### ERA5 Runoff Data
 
 Hourly runoff data from the ERA5 climate reanalysis dataset is extracted from atlite cutouts at model-region level using country boundary shapes. The default reference year is **2013**.
-The profiles per region are created in **`scripts/pypsa-at/build_inflow_profile.py`**
+The profiles per region are created in **`scripts/pypsa-at/build_inflow_profile.py`**.
 
 ### PEMMDB Normalization
 
-Raw ERA5 runoff is normalized using hydroelectric inflow statistics from PEMMDB, also using **2013** as the reference year. This ensures that the inflow patterns reflect actual observed generation behavior in each country.
+Raw ERA5 runoff is normalized using hydroelectric inflow statistics from PEMMDB, also using the same reference year. This ensures that the inflow patterns reflect actual observed generation behavior in each country.
 The PEMMDB totals per region are extracted in  **`scripts/pypsa-at/build_inflow_totals_per_region.py`** and then combined
 with the profiles in  **`scripts/pypsa-at/build_inflows_per_region.py`**
 
