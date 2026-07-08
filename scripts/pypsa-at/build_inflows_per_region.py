@@ -50,8 +50,10 @@ if __name__ == "__main__":
 
     logger.info("Extracting hydropower inflow totals per region...")
 
+    # Loads normalized hydroelectric inflow profile time-series for each model region.
     profile = xr.open_dataarray(snakemake.input.profile)
 
+    # Loads total annual hydroelectric inflows volumes (in MWh) for each model region based on PEMMDB.
     totals_df = pd.read_csv(snakemake.input.totals)
 
     totals_pivot = totals_df.pivot_table(
