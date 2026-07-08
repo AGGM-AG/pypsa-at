@@ -46,27 +46,16 @@ if __name__ == "__main__":
 
     cutout = load_cutout(snakemake.input.cutout)
 
-    years_in_time = pd.DatetimeIndex(time).year.unique()
+    year = pd.DatetimeIndex(time).year.unique().item()
     cutout_time = pd.DatetimeIndex(cutout.coords["time"].values)
 
-    full_years_available = all(
-        pd.Timestamp(f"{year}-01-01") in cutout_time
-        and pd.Timestamp(f"{year}-12-31") in cutout_time
-        for year in years_in_time
-    )
-
-    if full_years_available:
-        mask = [pd.Timestamp(t).year in years_in_time for t in cutout_time]
-        cutout = cutout.sel(time=cutout_time[mask])
-    else:
-        cutout = cutout.sel(time=time)
+    mask = [pd.Timestamp(t).year == year for t in cutout_time]
+    cutout = cutout.sel(time=cutout_time[mask])
 
     regions = gpd.read_file(snakemake.input.regions).set_index("name")["geometry"]
     regions.index.name = "countries"
 
-    normalize_df = pd.DataFrame(
-        {year: 1 for year in years_in_time}, index=regions.index
-    ).T
+    normalize_df = pd.DataFrame({year: [1]}, index=regions.index).T
 
     inflow = cutout.runoff(
         shapes=regions,
@@ -75,7 +64,6 @@ if __name__ == "__main__":
         normalize_using_yearly=normalize_df,
     )
 
-    if full_years_available:
-        inflow = inflow.sel(time=time)
+    inflow = inflow.sel(time=time)
 
     inflow.to_netcdf(snakemake.output.profile)
