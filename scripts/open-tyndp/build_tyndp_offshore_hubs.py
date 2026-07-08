@@ -11,7 +11,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-from scripts._helpers import SCENARIO_DICT, configure_logging, set_scenario_config
+from scripts._helpers import configure_logging, set_scenario_config
+from scripts._tyndp_helpers import SCENARIO_DICT
 
 logger = logging.getLogger(__name__)
 
@@ -475,8 +476,9 @@ def load_offshore_generators(
             .replace({"scenario": SCENARIO_DICT})
             .query("pyear in @planning_horizons and scenario == @scenario")
             .assign(
-                carrier=lambda x: "offwind-"
-                + x.carrier.str.lower().replace("_", "-", regex=True)
+                carrier=lambda x: (
+                    "offwind-" + x.carrier.str.lower().replace("_", "-", regex=True)
+                )
             )
             .drop(columns=column_del, errors="ignore")
         )

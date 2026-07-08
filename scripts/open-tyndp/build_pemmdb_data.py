@@ -35,11 +35,13 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 
 from scripts._helpers import (
     configure_logging,
-    convert_units,
     get_snapshots,
+    set_scenario_config,
+)
+from scripts._tyndp_helpers import (
+    convert_units,
     map_tyndp_carrier_names,
     safe_pyear,
-    set_scenario_config,
 )
 
 # for compatibility with future pandas downcasting behaviour
@@ -279,9 +281,9 @@ def _process_other_nonres_capacities(
     df = (
         df.set_axis(column_names)
         .T.assign(
-            pemmdb_carrier=lambda df: "Other Non-RES"
-            + " "
-            + df.pemmdb_type.str.split("/").str[1],
+            pemmdb_carrier=lambda df: (
+                "Other Non-RES" + " " + df.pemmdb_type.str.split("/").str[1]
+            ),
             bus=node,
             country=node[:2],
             unit="MW",

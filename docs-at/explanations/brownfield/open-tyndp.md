@@ -30,6 +30,7 @@ The following PyPSA carriers are constrained by TYNDP trajectories:
 | `battery discharger`      | Link (port 1) | `p_nom_min` / `p_nom_max` set directly |
 | `home battery discharger` | Link (port 1) | `p_nom_min` / `p_nom_max` set directly |
 | `H2 Electrolysis`         | Link (port 0) | `p_nom_min` / `p_nom_max` set directly |
+| `nuclear`                 | Link (port 1) | Extendable Link synthesized first, then bounded — myopic years only (see below) |
 
 !!! info "Utility scale Solar PV: flat-panel and single-axis tracking (hsat)"
     The TYNDP `solar-pv-utility` trajectory covers the **combined** deployment of `solar` (flat-panel)
@@ -60,6 +61,31 @@ so `existing_brownfield` reflects only assets that remain economically active.
 For the 2025 base year `p_nom_min` is set to zero for all non-nuclear carriers. The 2025 investment
 optimum should not be pre-determined by a floor constraint.
 
+### Nuclear: a conventional carrier
+
+Unlike wind, solar, and storage, nuclear is a **conventional** carrier in PyPSA-Eur. It is represented
+by one or more *non-extendable* vintage Links per location (`bus0="EU uranium"`, `bus1` = electricity
+bus, `bus2="co2 atmosphere"`), all created by `add_existing_baseyear`. Because no extendable variant
+exists, the trajectory bounds would have nothing to attach to.
+
+`register_extendable_nuclear` (in `mods/network/trajectories.py`) closes this gap. For each location it
+synthesizes the missing component — a single extendable Link whose **newest vintage supplies the full
+attribute row** (buses, `efficiency`, `capital_cost`, ramp limits, …), with `p_nom` reset to zero and
+`build_year` set to the current horizon. `apply_trajectories` then writes the `p_nom_min` / `p_nom_max`
+bounds onto it at port 1 (electricity output), exactly as for the other Link carriers. The vintages are
+left untouched and carry the brownfield as a fixed floor.
+
+!!! warning "Myopic years only"
+    Nuclear stays non-extendable in the 2025 base year, mirroring PyPSA-Eur's treatment of conventional
+    technologies. The extendable Link is synthesized and bounded **only in myopic horizons** (2030
+    onward); no extendable nuclear is created and no nuclear trajectory is applied for the base year.
+
+Because an *unbounded* extendable nuclear Link would let the solver build unlimited nuclear,
+`register_extendable_nuclear` fails fast rather than leaving a stray component. It raises if the network
+contains no nuclear vintages, if a non-skipped nuclear location lacks a trajectory, or if the synthesized
+name collides with an existing component — guaranteeing every created Link is bounded by the subsequent
+`apply_trajectories` call.
+
 ### Geographic aggregation
 
 TYNDP uses its own bus codes (e.g. `ITA0`, `ITN1`, `SE01`). PyPSA-AT maps these to PyPSA-AT location
@@ -83,11 +109,18 @@ extrapolated `p_nom_min` is clipped to zero and can never exceed `p_nom_max`.
 The default scenario is `All`, which is the only scenario in the current dataset that covers every
 technology. Selecting `DE`, `GA`, or `NT` will cause a runtime error due to missing technology entries.
 
+Nuclear is the exception: TYNDP provides it **per scenario** (`DE`/`GA`/`NT`) rather than under `All`.
+Since downstream readers do not filter by scenario, `collapse_nuclear_scenarios`
+(in `scripts/open-tyndp/build_tyndp_trajectories.py`) reduces nuclear to one row per `(bus, pyear)`:
+when `All` is selected it takes the **smallest `p_nom_min` and largest `p_nom_max`** across the three
+scenarios (the widest band); when a concrete scenario is selected it keeps that scenario's values.
+
 ## Example Data
 
-The table below shows raw TYNDP trajectory data for France (`FR00`). Nuclear appears only under the
-`DE`, `GA`, and `NT` scenarios — it has no `All` entry — which is why selecting those scenarios causes a
-runtime error (see [TYNDP scenario](#tyndp-scenario) above).
+The table below shows raw TYNDP trajectory data for France (`FR00`). Nuclear is absent here because it
+has no native `All` entry — TYNDP provides it only per scenario (`DE`/`GA`/`NT`), which PyPSA-AT
+reconciles into the `All` set via `collapse_nuclear_scenarios` (see
+[TYNDP scenario](#tyndp-scenario) above).
 
 | Technology           | Scenario | Year | p_nom_min (MW) | p_nom_max (MW)  |
 |----------------------|----------|------|---------------:|----------------:|

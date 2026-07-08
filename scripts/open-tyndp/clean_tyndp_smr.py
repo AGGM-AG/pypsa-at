@@ -10,12 +10,8 @@ import logging
 import numpy as np
 import pandas as pd
 
-from scripts._helpers import (
-    SCENARIO_DICT,
-    configure_logging,
-    safe_pyear,
-    set_scenario_config,
-)
+from scripts._helpers import configure_logging, set_scenario_config
+from scripts._tyndp_helpers import SCENARIO_DICT, safe_pyear
 
 logger = logging.getLogger(__name__)
 

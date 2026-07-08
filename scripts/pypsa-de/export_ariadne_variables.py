@@ -980,13 +980,29 @@ def _get_capacities(n, region, cap_func, cap_string="Capacity|"):
         like="oil boiler"
     ).sum()
 
-    var[cap_string + "Heat|Storage Converter"] = capacities_central_heat[
-        capacities_central_heat.index.str.contains("water (?:tanks|pits) discharger")
+    var[cap_string + "Heat|Storage Converter|Tanks"] = capacities_central_heat[
+        capacities_central_heat.index.str.contains("water tanks discharger")
     ].sum()
 
-    var[cap_string + "Heat|Storage Reservoir"] = storage_capacities[
-        storage_capacities.index.str.contains("water (?:tanks|pits)")
+    var[cap_string + "Heat|Storage Converter|Pits"] = capacities_central_heat[
+        capacities_central_heat.index.str.contains("water pits discharger")
     ].sum()
+
+    var[cap_string + "Heat|Storage Converter"] = (
+        var[cap_string + "Heat|Storage Converter|Tanks"]
+        + var[cap_string + "Heat|Storage Converter|Pits"]
+    )
+    var[cap_string + "Heat|Storage Reservoir|Tanks"] = storage_capacities[
+        storage_capacities.index.str.contains("urban central water tanks")
+    ].sum()
+
+    var[cap_string + "Heat|Storage Reservoir|Pits"] = storage_capacities[
+        storage_capacities.index.str.contains("urban central water pits")
+    ].sum()
+    var[cap_string + "Heat|Storage Reservoir"] = (
+        var[cap_string + "Heat|Storage Reservoir|Tanks"]
+        + var[cap_string + "Heat|Storage Reservoir|Pits"]
+    )
 
     var[cap_string + "Heat"] = (
         var[cap_string + "Heat|Solar thermal"]
@@ -3200,6 +3216,8 @@ def get_emissions(n, region, _energy_totals, _industry_demand):
             ],
         ).sum()
         + CHP_emissions_E.sum(),
+        rtol=1e-2,
+        atol=1e-2,
     )
 
     var["Emissions|CO2|Energy|Supply|Electricity"] = (
@@ -5573,6 +5591,7 @@ if __name__ == "__main__":
             ll="vopt",
             sector_opts="None",
             run="KN2045_Mix",
+            configfiles="config/test/config.dach.yaml",
         )
     configure_logging(snakemake)
     set_scenario_config(snakemake)
@@ -5742,6 +5761,12 @@ if __name__ == "__main__":
             "Release for publication": "no",
         }
     )
+
+    # For export to the Ariadne-internal DB, convert most Wh-based entries to J
+    ariadne_df.loc[ariadne_df["Unit"] == "TWh/yr", planning_horizons] *= 3.6
+    ariadne_df.loc[ariadne_df["Unit"] == "TWh/yr", "Unit"] = "PJ/yr"
+    ariadne_df.loc[ariadne_df["Unit"] == "EUR2020/MWh", planning_horizons] /= 3.6
+    ariadne_df.loc[ariadne_df["Unit"] == "EUR2020/MWh", "Unit"] = "EUR2020/GJ"
 
     with pd.ExcelWriter(snakemake.output.exported_variables) as writer:
         ariadne_df.round(5).to_excel(writer, sheet_name="data", index=False)

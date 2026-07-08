@@ -1,0 +1,47 @@
+Region,lng (MWh/h),pipeline (MWh/h),production (MWh/h),storage (GWh),storage update (GWh),storage update source,storage update url
+AT125,,,,4696.071261,0,AGGM,
+AT126,,,1785.956709,29422.4,26770.98,OMV (Schönkirchen + Tallesbrunn combined),https://ocb-st.omv.com/ocb/app/
+AT311,,,,9392.142521,35984,RAG (Aigelsbrunn+Haidach5; Haidach RAG); SEFE (Haidach SEFE),https://www.rag-austria.at/rag-energiewelt/energie-speichern/leistungskennzahlen-der-speicher
+AT312,,,,4696.071261,0,AGGM,
+AT314,,,,4696.071261,0,AGGM,
+AT315,,,,6202.56,37500,RAG (Puchkirchen; Nussdorf Zagling); UNIPER (7 Fields EGS),https://www.rag-austria.at/rag-energiewelt/energie-speichern/leistungskennzahlen-der-speicher
+AT323,,,,28176.42756,0,AGGM,
+BE,20780.2224,18782.82855,,545.28,7610,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+BG,,17204.76303,,5680,7004.4,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+CZ,,,,36712.94252,45303.4,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+DE1,,,,1851.68,1729.773004,SciGRID scaled to total AGSI,https://zenodo.org/records/4767098
+DE2,,,,33872.94252,31642.88729,SciGRID scaled to total AGSI,https://zenodo.org/records/4767098
+DE3,,,,3464.8,3236.691817,SciGRID scaled to total AGSI,https://zenodo.org/records/4767098
+DE4,,,,16360.21378,15283.12459,SciGRID scaled to total AGSI,https://zenodo.org/records/4767098
+DE5,,,,752.8835992,703.3168393,SciGRID scaled to total AGSI,https://zenodo.org/records/4767098
+DE7,,,,3490.514393,3260.71328,SciGRID scaled to total AGSI,https://zenodo.org/records/4767098
+DE8,9400.5768,,,21736.07126,20305.05772,SciGRID scaled to total AGSI,https://zenodo.org/records/4767098
+DE9,22742.79896,85088.52268,12873.42179,111798.4376,104438.0883,SciGRID scaled to total AGSI,https://zenodo.org/records/4767098
+DEA,,,,20144.06706,18817.86452,SciGRID scaled to total AGSI,https://zenodo.org/records/4767098
+DEB,,,,1249.6,1167.331475,SciGRID scaled to total AGSI,https://zenodo.org/records/4767098
+DEE,,,560.8615994,14792.5612,13818.67981,SciGRID scaled to total AGSI,https://zenodo.org/records/4767098
+DEF,15766.58144,,,817.92,764.071511,SciGRID scaled to total AGSI,https://zenodo.org/records/4767098
+DEG,,,,34163.91126,31914.69985,SciGRID scaled to total AGSI,https://zenodo.org/records/4767098
+DK0,,,7803.445705,3805.6,3077.700535,SciGRID scaled to total AGSI,https://zenodo.org/records/4767098
+DK1,,,,6816,5512.299465,SciGRID scaled to total AGSI,https://zenodo.org/records/4767098
+ES,61647.99312,28162.696,,41406.4363,35831.8,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+FI,7058.67872,,,,,,
+FR,33363.80152,21938.95957,,177710.685,123877.9,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+GB0,64814.5032,57699.46368,100332.8295,137804.0551,137804.0551,SciGRID,https://zenodo.org/records/4767098
+GB1,,,,4696.071261,4696.071261,SciGRID,https://zenodo.org/records/4767098
+GR,15073.90736,1870.584974,,4696.071261,4696.071261,SciGRID,https://zenodo.org/records/4767098
+HR,,,,10035.27126,4772.5,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+HU,,26811.71796,155.87,89268.69378,67990.9,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+IE,,,2143.872434,9392.142521,0,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+IT0,20813.20688,,16909.1264,150545.5491,203843.9,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+IT1,,61201.99933,2542.613214,,,,
+LT,4782.7496,4395.489795,,,,,
+LV,,,,24424,24865.3,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+NL,33941.02992,,56193.46422,456976.1425,143794.5,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+NO,164.9224,,419773.7301,,,,
+PL,10093.25088,5219.163014,11355.85262,101959.6276,36309.8,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+PT,9235.6544,,,4696.071261,3570,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+RO,,47422.79314,51170.5252,51843.69882,33863.6,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+RS,,,,4696.071261,0,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+SE,989.5344,,,3578.4,83,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
+SK,,94068.10034,,34081.81378,36735.8,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/

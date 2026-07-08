@@ -28,9 +28,9 @@ from tqdm import tqdm
 from scripts._helpers import (
     configure_logging,
     get_snapshots,
-    safe_pyear,
     set_scenario_config,
 )
+from scripts._tyndp_helpers import safe_pyear
 
 logger = logging.getLogger(__name__)
 
@@ -56,11 +56,13 @@ def read_hydro_inflows_file(
     inflow_tech = pd.read_excel(
         fn,
         skiprows=1,
-        usecols=lambda name: name == "Day"
-        or name == "Week"
-        or name == "ShortName"
-        or name == "Variable"
-        or name == int(cyear),
+        usecols=lambda name: (
+            name == "Day"
+            or name == "Week"
+            or name == "ShortName"
+            or name == "Variable"
+            or name == int(cyear)
+        ),
         sheet_name=f"{hydro_tech} - Year Dependent",
     )
 

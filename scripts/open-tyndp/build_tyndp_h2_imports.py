@@ -19,13 +19,21 @@ from scripts._helpers import (
 
 logger = logging.getLogger(__name__)
 
+bus_mappings = {
+    "DE": "DE5",  # German Hydrogen Imports can stem from Norway or by sea (ammonia). In both cases they go through North-Germany.
+    "IT": "IT1",  # Italian Hydrogen Imports are exclusively from Algeria and do therefore have to go through Sicily
+}
+
+
 if __name__ == "__main__":
     if "snakemake" not in globals():
         from scripts._helpers import mock_snakemake
 
         snakemake = mock_snakemake(
             "build_tyndp_h2_imports",
-            planning_horizons=2030,
+            clusters="adm",
+            planning_horizons="2030",
+            run="AT_KN2040",
         )
 
     configure_logging(snakemake)
@@ -37,10 +45,23 @@ if __name__ == "__main__":
 
     # Load prepped import potentials and filter
     fn = snakemake.input.import_potentials_prepped
+    countries = snakemake.params.countries
     import_potentials = pd.read_csv(fn, index_col=0)
     import_potentials_filtered = import_potentials.query(
-        "(Scenario == 'All' or Scenario == @scenario) and Year == @year"
+        "(Scenario == 'All' or Scenario == @scenario) and Year == @year and bus1 in @countries"
+    )
+    import_potentials_filtered["bus1"] = import_potentials_filtered["bus1"].replace(
+        bus_mappings
     )
 
+    # Validate bus1 values against known network buses
+    busmap = pd.read_csv(snakemake.input.busmap, index_col=0)
+    nodes = busmap.squeeze().unique()
+    unknown_buses = set(import_potentials_filtered["bus1"].unique()) - set(nodes)
+    if unknown_buses:
+        raise ValueError(
+            f"The following bus values are not present in the network: {sorted(unknown_buses)}"
+        )
+
     # Save filtered H2 import potentials
-    import_potentials_filtered.to_csv(snakemake.output.import_potentials_filtered)
+    import_potentials_filtered.to_csv(snakemake.output.h2_import_potentials)

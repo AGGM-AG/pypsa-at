@@ -122,8 +122,8 @@ database_specifier = "production"
 name = "Optimal Capacity Electricity Production"
 unit = "GW"
 file_name = "capacity_ac_production_{location}"
-bus_carrier = ["AC", "low voltage", "EV battery", "home battery"]
-storage_links = ["BEV charger", "V2G", "battery discharger", "home battery charger", "home battery discharger"]
+bus_carrier = ["AC", "low voltage", "EV battery", "home battery", "PHS"]
+storage_links = ["BEV charger", "V2G", "battery discharger", "home battery charger", "home battery discharger" , "PHS charger" , "PHS discharger"]
 chart = "ESMBarChart"
 cutoff = 0.1  # GW
 legend_order = [
@@ -191,8 +191,8 @@ database_specifier = "production"
 name = "Optimal Capacity Electricity Demand"
 unit = "GW"
 file_name = "capacity_ac_demand_{location}"
-bus_carrier = ["AC", "low voltage", "EV battery", "home battery"]
-storage_links = ["BEV charger", "V2G", "battery discharger", "home battery discharger", "electricity distribution grid"]
+bus_carrier = ["AC", "low voltage", "EV battery", "home battery", "PHS"]
+storage_links = ["BEV charger", "V2G", "battery discharger", "home battery discharger", "electricity distribution grid", "PHS charger" , "PHS discharger"]
 chart = "ESMBarChart"
 cutoff = 0.1  # GW
 legend_order = [
@@ -229,9 +229,11 @@ database_specifier = "demand"
 "urban decentral resistive heater" = "Resistive Heater"
 "urban central resistive heater" = "Resistive Heater"
 "gas pipeline" = "Methane Compressors"
+"gas pipeline new" = "Methane Compressors"
 "H2 Electrolysis" = "Electrolysis"
 "H2 pipeline" = "Hydrogen Compressors"
 "H2 pipeline (Kernnetz)" = "Hydrogen Compressors"
+"H2 pipeline retrofitted" = "Hydrogen Compressors"
 "battery charger" = "Battery Storage"
 "home battery charger" = "Battery Storage"
 
@@ -239,12 +241,12 @@ database_specifier = "demand"
 name = "Power Storage Volumes"
 unit = "TWh"
 file_name = "capacity_ac_storage_{location}"
-bus_carrier = ["AC", "low voltage", "EV battery", "home battery"]
+bus_carrier = ["AC", "low voltage", "EV battery", "home battery", "PHS"]
 chart = "ESMBarChart"
 cutoff = 0.1  # TWh
 legend_order = [
     "Pumped Hydro Storage",
-    "Run-of-River",
+    "Reservoir",
     "Car Battery",
     "Home Battery"
 ]
@@ -257,8 +259,8 @@ database_specifier = "storage"
 
 [view_capacity_electricity_storage.categories]
 "EV battery" = "Car Battery"
-"PHS" = "Pumped Hydro Storage"
-"hydro" = "Run-of-River"
+"PHS store" = "Pumped Hydro Storage"
+"hydro" = "Reservoir"
 "home battery" = "Home Battery"
 
 [view_capacity_gas_storage]
@@ -785,7 +787,7 @@ legend_order = [
     "Methane Pyrolysis",
     "Agriculture",
     "Direct Air Capture",
-    "Pumped Hydro Storage",
+    "Pumped Hydro Storage Inflow",
     "Transmission Losses",
     "Storage In",
     "Export Domestic",
@@ -835,6 +837,7 @@ database_specifier = ""
 "H2 turbine" = "Hydrogen"
 "H2 pipeline" = "Hydrogen Compressors"
 "H2 pipeline (Kernnetz)" = "Hydrogen Compressors"
+"H2 pipeline retrofitted" = "Hydrogen Compressors"
 "hydro" = "Hydro Power"
 "ror" = "Hydro Power"
 "Import Domestic" = "Import Domestic"
@@ -845,6 +848,7 @@ database_specifier = ""
 "urban central CHP" = "Methane"
 "urban central gas CHP" = "Methane"
 "gas pipeline" = "Methane Compressors"
+"gas pipeline new" = "Methane Compressors"
 "biogas" = "Biogas"
 "CCGT methanol" = "Methanol"
 "CCGT methanol CC" = "Methanol"
@@ -854,7 +858,9 @@ database_specifier = ""
 "methane pyrolysis plasma" = "Methane Pyrolysis"
 "nuclear" = "Nuclear Power"
 "urban central oil CHP" = "Oil"
-"PHS" = "Pumped Hydro Storage"
+"PHS inflow" = "Pumped Hydro Storage Inflow"
+"PHS charger" = "Storage In"
+"PHS discharger" = "Storage Out"
 "solid biomass" = "Solid Biomass"
 "urban central solid biomass CHP" = "Solid Biomass"
 "urban central solid biomass CHP CC" = "Solid Biomass"
@@ -1114,6 +1120,7 @@ database_specifier = "sectoral"
 [view_demand_fed_sectoral.categories]
 "EV battery" = "Electricity"
 "H2" = "Hydrogen"
+"H2 for industry" = "Hydrogen"
 "agriculture machinery oil" = "Liquids"
 "ambient heat" = "Ambient Heat"
 "coal for industry" = "Coal"
@@ -1165,6 +1172,7 @@ database_specifier = "total"
 [view_demand_fed_total.categories]
 "EV battery" = "Electricity"
 "H2" = "Hydrogen"
+"H2 for industry" = "Hydrogen"
 "agriculture machinery oil" = "Liquids"
 "ambient heat" = "Ambient Heat"
 "coal for industry" = "Coal"
@@ -1193,7 +1201,7 @@ name = "Electricity Production and Demand"
 unit = "MWh_el"
 file_name = "timeseries_electricity_{location}_{year}"
 bus_carrier = ["AC", "low voltage", "EV battery", "home battery"]
-storage_links = ["BEV charger", "V2G", "battery charger", "battery discharger", "home battery charger", "home battery discharger"]
+storage_links = ["BEV charger", "V2G", "battery charger", "battery discharger", "home battery charger", "home battery discharger", "PHS charger", "PHS discharger"]
 chart = "ESMTimeSeriesChart"
 cutoff = 1  # MWh
 legend_order = [
@@ -1249,6 +1257,7 @@ database_specifier = ""
 "H2 Fuel Cell" = "Fuel Cell"
 "H2 pipeline" = "Hydrogen Compressors"
 "H2 pipeline (Kernnetz)" = "Hydrogen Compressors"
+"H2 pipeline retrofitted" = "Hydrogen Compressors"
 "H2 turbine" = "Thermal Powerplant"
 "Haber-Bosch" = "Haber-Bosch"
 "Net Export" = "Net Export"
@@ -1268,6 +1277,7 @@ database_specifier = ""
 "electricity" = "Base Load"
 "electricity distribution grid" = "Transmission Losses"
 "gas pipeline" = "Methane Compressors"
+"gas pipeline new" = "Methane Compressors"
 #"home battery charger" = "Storage In"
 #"home battery discharger" = "Storage Out"
 "industry electricity" = "Industry"

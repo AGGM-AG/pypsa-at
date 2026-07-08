@@ -7,6 +7,7 @@
 import logging
 import re
 from itertools import product
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -203,6 +204,9 @@ def filter_by(
         The filtered data frame in the same format as the input
         dataframe.
     """
+    if df.empty:
+        return df  # to prevent key errors
+
     if was_series := isinstance(df, pd.Series):
         df = df.to_frame()
 
@@ -388,9 +392,15 @@ def scale(df: pd.DataFrame, to_unit: str) -> pd.DataFrame:
 def calculate_input_share(
     df: pd.DataFrame | pd.Series,
     bus_carrier: str | list,
+    apply_scaling: bool = True,
 ) -> pd.DataFrame | pd.Series:
     """
     Calculate the withdrawal necessary to supply energy for requested bus_carrier.
+
+    Each technology's demand rows are weighted by the output share that lands
+    on the requested ``bus_carrier``.  An optional input/output scaling step
+    converts those input-side magnitudes into the equivalent output-side
+    magnitudes; see *apply_scaling* below.
 
     Parameters
     ----------
@@ -398,22 +408,45 @@ def calculate_input_share(
         The input DataFrame or Series with a MultiIndex.
     bus_carrier
         Calculates the input energy for this bus_carrier.
+    apply_scaling
+        Whether to rescale each demand row by the technology's
+        ``total_output / total_input`` ratio (default ``True``, preserving
+        the legacy behaviour).
+
+        - ``True``: the result is expressed in *output* magnitudes. For a
+          fuel-to-power link this yields the electricity actually produced
+          from the fuel (``elec_output``).  Heat-pump-like links (where
+          output exceeds input) get a virtual ``ambient heat`` /
+          ``latent heat`` surplus row so that input + surplus matches
+          output.
+        - ``False``: the scaling factor is skipped and the result is
+          expressed in *input* magnitudes. For a fuel-to-power link this
+          yields the fuel input attributable to electricity output
+          (``fuel × electricity_fraction``).  The heat-pump surplus branch
+          is irrelevant in this mode and is therefore skipped.
 
     Returns
     -------
     :
-        The withdrawal amounts necessary to produce energy of `bus_carrier`.
+        The withdrawal amounts necessary to produce energy of `bus_carrier`,
+        either in output-side magnitudes (``apply_scaling=True``) or in
+        input-side magnitudes (``apply_scaling=False``).
     """
 
     def _input_share(_df):
         demand = _df[_df.lt(0)]
         supply = _df[_df.ge(0)]
         bus_carrier_supply = filter_by(supply, bus_carrier=bus_carrier).sum()
-        # scaling takes into account that Link inputs and outputs are not equally large
-        scaling = abs(supply.sum() / demand.sum())
         # share takes multiple outputs into account
         with np.errstate(divide="ignore", invalid="ignore"):  # silently divide by zero
             share = bus_carrier_supply / supply.sum()
+        if not apply_scaling:
+            # Input-side magnitudes: skip the input/output scaling so the
+            # result reflects ``demand × output_share`` (e.g. fuel input
+            # attributable to electricity output).
+            return demand * share
+        # scaling takes into account that Link inputs and outputs are not equally large
+        scaling = abs(supply.sum() / demand.sum())
         if scaling > 1.0:
             _carrier = _df.index.unique(DataModel.CARRIER).item()
             _bus_carrier = "ambient heat" if "heat pump" in _carrier else "latent heat"
@@ -448,16 +481,23 @@ def filter_for_carrier_connected_to(df: pd.DataFrame, bus_carrier: str | list):
     """
     carrier_connected_to_bus_carrier = []
     locations_connected_to_bus_carrier = []
-    for (loc, carrier), data in df.groupby([DataModel.LOCATION, DataModel.CARRIER]):
+
+    # hotfix to support country groupers
+    location_or_country = DataModel.LOCATION
+    if "country" in df.index.names:
+        location_or_country = "country"
+
+    for (loc, carrier), data in df.groupby([location_or_country, DataModel.CARRIER]):
         if filter_by(data, bus_carrier=bus_carrier).any():
             carrier_connected_to_bus_carrier.append(carrier)
             locations_connected_to_bus_carrier.append(loc)
 
-    return filter_by(
-        df,
-        carrier=carrier_connected_to_bus_carrier,
-        location=locations_connected_to_bus_carrier,
-    )
+    kwargs = {
+        "carrier": carrier_connected_to_bus_carrier,
+        location_or_country: locations_connected_to_bus_carrier,
+    }
+
+    return filter_by(df, **kwargs)
 
 
 def split_urban_central_heat_losses_and_consumption(
@@ -1133,3 +1173,22 @@ def build_plot_config(global_cfg: dict) -> SimpleNamespace:
         yaxes_showgrid=global_cfg["yaxes_showgrid"],
         yaxes_visible=global_cfg["yaxes_visible"],
     )
+
+
+def get_latest_results_folder() -> Path:
+    """Find the results folder with the latest file system timestamp."""
+    results_root = Path("results")
+    scenario_dirs = [
+        scenario
+        for prefix in results_root.iterdir()
+        if prefix.is_dir()
+        for scenario in prefix.iterdir()
+        if scenario.is_dir()
+    ]
+    if not scenario_dirs:
+        raise FileNotFoundError(
+            f"No scenario directories found under {results_root.resolve()}"
+        )
+
+    # return largest system timestamp folder
+    return max(scenario_dirs, key=lambda p: p.stat().st_mtime)

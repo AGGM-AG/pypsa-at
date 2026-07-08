@@ -46,6 +46,38 @@ solving:
 3. Scales aviation emissions by domestic-to-total ratio calculated from respective model values to exclude international aviation
 4. Creates a country-specific constraint: `Σ(emissions) ≤ country_budget`
 
+**Mathematical formulation**
+
+For each country $c$ and planning horizon $y$:
+
+$$
+E_c + \alpha_c \cdot E_c^{\text{avi}} \leq B_{c,y}
+$$
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;" markdown>
+<div markdown>
+
+**Left-hand side — emissions**
+
+| Symbol | Description | Unit |
+|---|---|---|
+| $E_c$ | Net sectoral CO₂ emissions in country $c$ — positive for emitters, negative for carbon removal (CCS, DAC, CCU) | tCO₂/yr |
+| $E_c^{\text{avi}}$ | Gross aviation emissions in country $c$ | tCO₂/yr |
+| $\alpha_c$ | Domestic aviation share $= E_{\text{avi},c}^{\text{dom}} / E_{\text{avi},c}^{\text{total}}$ | — |
+
+</div>
+<div markdown>
+
+**Right-hand side — budget**
+
+| Symbol | Description | Unit |
+|---|---|---|
+| $B_{c,y}$ | National CO₂ budget $= E_c^{1990} \cdot r_{c,y}$ | tCO₂/yr |
+| $r_{c,y}$ | Reduction target from config (e.g. 0.64 = 64 % of 1990 levels) | — |
+
+</div>
+</div>
+
 ✅ **Included**
 
 - All technology emissions in the country (combustion, industrial processes)

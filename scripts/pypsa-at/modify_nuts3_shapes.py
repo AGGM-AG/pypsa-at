@@ -19,7 +19,7 @@ import logging
 
 import geopandas as gpd
 
-from mods.clustering import apply_custom_clustering
+from mods import apply_custom_clustering
 from scripts._helpers import configure_logging
 
 logger = logging.getLogger(__name__)
@@ -41,21 +41,25 @@ if __name__ == "__main__":
     configure_logging(snakemake)
     config = snakemake.config
 
+    custom_clustering = config["mods"]["modify_nuts3_shapes"]
+    if custom_clustering not in ("AT10DE5", "AT35DE5", "AT10DE16", "AT35DE16"):
+        raise ValueError(f"Custom clustering {custom_clustering!r} is not supported.")
+
     if config["clustering"]["mode"] != "administrative":
         raise ValueError(
             f"Unexpected clustering mode: '{config['clustering']['mode']}'. "
             f"Only 'administrative' is supported by modify_nuts3_shapes."
         )
 
-    admin_levels = snakemake.params.get("admin_levels", {})
-    base_level = admin_levels.get("level")
+    admin_levels = snakemake.params["admin_levels"]
+    base_level = admin_levels["level"]
     if base_level != 0:
         raise ValueError(
             f"Base clustering level is {base_level!r}, but only 0 is supported."
         )
 
-    custom_clustering = config.get("mods", {}).get("modify_nuts3_shapes")
-    run_prefix = config.get("run", {}).get("prefix")
+    custom_clustering = config["mods"]["modify_nuts3_shapes"]
+    run_prefix = config["run"]["prefix"]
 
     nuts3_regions = gpd.read_file(snakemake.input.nuts3_shapes).set_index("index")
 

@@ -16,9 +16,20 @@ nav:
 - Function Reference:
   - Modifications:
     - reference/mods/index.md
-    - clustering.py: reference/mods/clustering.md
-    - constraints.py: reference/mods/constraints.md
-    - network_updates.py: reference/mods/network_updates.md
+    - clustering: reference/mods/clustering.md
+    - Constraints:
+      - reference/mods/constraints/index.md
+      - co2_budget.py: reference/mods/constraints/co2_budget.md
+      - eag.py: reference/mods/constraints/eag.md
+      - tyndp.py: reference/mods/constraints/tyndp.md
+    - Network:
+      - reference/mods/network/index.md
+      - common.py: reference/mods/network/common.md
+      - electricity.py: reference/mods/network/electricity.md
+      - gas.py: reference/mods/network/gas.md
+      - h2.py: reference/mods/network/h2.md
+      - trajectories.py: reference/mods/network/trajectories.md
+      - potentials.py: reference/mods/network/potentials.md
   - Evaluations:
     - reference/evals/index.md
     - cli.py: reference/evals/cli.md
@@ -45,13 +56,27 @@ nav:
 - Explanations:
   - explanations/index.md
   - National CO2 Balance: explanations/co2-balancing.md
+  - TYNDP H2 Import Infrastructure: explanations/h2-imports.md
   - Electricity Grid:
     - explanations/electricity-grid/index.md
     - NUTS3 Clustering: explanations/electricity-grid/nuts3-osm-data.md
     - OSM-AT Base Network: explanations/electricity-grid/osm-lines-at.md
     - Transmission Limits: explanations/electricity-grid/electricity-transmission.md
+    - TYNDP Transmission Trajectories: explanations/electricity-grid/tyndp-transmission-trajectories.md
+  - Gas Grid:
+    - Gas Pipeline Capacities: explanations/gas-grid/modify-brownfield-gas-network-AT.md
+    - Blocking Russian Gas Imports: explanations/gas-grid/prevent-russian-gas-imports.md
   - Brownfield:
     - Open-TYNDP Trajectories: explanations/brownfield/open-tyndp.md
+    - Gas Storage Capacities: explanations/brownfield/gas-storage-capacities.md
+  - Renewable Energy Potentials:
+    - KLIEN Potentials: explanations/renewable-energy-potentials/klien-potentials.md
+    - Photovoltaic Potentials: explanations/renewable-energy-potentials/pv-potentials.md
+    - Wind Power Potentials: explanations/renewable-energy-potentials/wind-potentials.md
+  - Regulatory Requirements:
+    - explanations/regulatory-requirements/index.md
+    - EAG Net-Zero Electricity: explanations/regulatory-requirements/eag-net-zero-electricity.md
+  - Biogas-to-gas and Biogas-to-power: explanations/biogas.md
 
 theme:
   name: "material"
@@ -134,6 +159,12 @@ markdown_extensions:
       class: mkdocs-plotly
       format: !!python/name:mkdocs_plotly_plugin.fences.fence_plotly
 - tables
+- md_in_html
+- pymdownx.arithmatex:
+    generic: true
+
+extra_javascript:
+- https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
 
 extra_css:
 - assets/css/custom.css

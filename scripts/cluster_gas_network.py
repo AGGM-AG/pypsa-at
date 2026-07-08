@@ -63,8 +63,10 @@ def build_clustered_gas_network(df, bus_regions, length_factor=1.25):
 
     # recalculate lengths as center to center * length factor
     df["length"] = df.apply(
-        lambda p: length_factor
-        * haversine_pts([p.point0.x, p.point0.y], [p.point1.x, p.point1.y]),
+        lambda p: (
+            length_factor
+            * haversine_pts([p.point0.x, p.point0.y], [p.point1.x, p.point1.y])
+        ),
         axis=1,
     )
 
@@ -108,9 +110,7 @@ if __name__ == "__main__":
     if "snakemake" not in globals():
         from scripts._helpers import mock_snakemake
 
-        snakemake = mock_snakemake(
-            "cluster_gas_network", clusters="adm", run="AT_KN2040"
-        )
+        snakemake = mock_snakemake("cluster_gas_network", clusters="37")
     configure_logging(snakemake)
     set_scenario_config(snakemake)
 
@@ -128,4 +128,4 @@ if __name__ == "__main__":
     reindex_pipes(gas_network)
     gas_network = aggregate_parallel_pipes(gas_network)
 
-    gas_network.to_csv(snakemake.output.clustered_gas_network_raw)
+    gas_network.to_csv(snakemake.output.clustered_gas_network)

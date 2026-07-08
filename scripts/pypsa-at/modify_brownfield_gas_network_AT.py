@@ -80,17 +80,17 @@ if __name__ == "__main__":
     configure_logging(snakemake)
     config = snakemake.config
 
-    custom_clustering = config.get("mods", {}).get("modify_nuts3_shapes")
+    mods = config["mods"]
+    custom_clustering = mods["modify_nuts3_shapes"]
 
     gas_network_raw = snakemake.input.clustered_gas_network_raw
     gas_network_raw_df = pd.read_csv(gas_network_raw)
 
-    if snakemake.config.get("mods").get("modify_brownfield_gas_network_AT"):
-        if custom_clustering == "AT10DE5":
+    if mods["modify_brownfield_gas_network_AT"]:
+        if custom_clustering.startswith("AT10"):
             gas_network_input = snakemake.input.brownfield_gas_network_AT10
-        elif custom_clustering == "AT35DE5":
+        elif custom_clustering.startswith("AT35"):
             gas_network_input = snakemake.input.brownfield_gas_network_AT35
-
         else:
             raise ValueError(
                 f"Unexpected clustering detected: {custom_clustering}. "
@@ -103,12 +103,10 @@ if __name__ == "__main__":
             gas_network_raw_df, gas_network_input_df
         )
 
-        # return new, better dataset
+        # return updated dataset
         new_gas_network_df.to_csv(snakemake.output.clustered_gas_network, index=False)
 
         logger.info("Modified Austrian gas network with AGGM input data.")
 
     else:
-        gas_network_input = gas_network_raw_df.to_csv(
-            snakemake.output.clustered_gas_network
-        )
+        gas_network_raw_df.to_csv(snakemake.output.clustered_gas_network)

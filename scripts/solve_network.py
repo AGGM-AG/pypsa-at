@@ -127,8 +127,10 @@ def add_land_use_constraint_perfect(n: pypsa.Network) -> None:
     # adjust name to fit syntax of nominal constraint per bus
     df = p_nom_max.reset_index()
     df["name"] = df.apply(
-        lambda row: f"nom_max_{row['carrier']}"
-        + (f"_{row['build_year']}" if row["build_year"] is not None else ""),
+        lambda row: (
+            f"nom_max_{row['carrier']}"
+            + (f"_{row['build_year']}" if row["build_year"] is not None else "")
+        ),
         axis=1,
     )
 
@@ -421,6 +423,62 @@ def add_retrofit_gas_boiler_constraint(
     n.model.add_constraints(lhs == rhs, name="gas_retrofit")
 
 
+def add_load_balance_components(n, config, sign=1):
+    """
+    Add load shedding or load sinks to the network with carrier 'load'.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        The PyPSA network to be modified.
+    config : dict
+        The load shedding or load sinks settings.
+    sign : float
+        Direction of the added generators. Positive for load shedding, negative for load sinks.
+
+    Returns
+    -------
+    None
+        Modifies PyPSA network in place.
+    """
+    if "load" not in n.carriers.index:
+        n.add("Carrier", "load")
+
+    carriers = config.get("carriers", {})
+    default_cost = config.get("default_cost")
+    balance_comp = "shedding" if sign > 0 else "sink"
+
+    logger.info(
+        f"Add load {balance_comp} for {'all carriers' if config.get('all_carriers') else ', '.join(carriers)}."
+    )
+
+    for bus_carrier, price in carriers.items():
+        buses_i = n.buses[n.buses.carrier == bus_carrier].index
+        n.add(
+            "Generator",
+            buses_i,
+            f" load {balance_comp}",
+            bus=buses_i,
+            carrier="load",
+            marginal_cost=price,
+            p_nom=np.inf,
+            sign=sign,
+        )
+
+    if config.get("all_carriers", False):
+        buses_rest_i = n.buses[~n.buses.carrier.isin(carriers)].index
+        n.add(
+            "Generator",
+            buses_rest_i,
+            f" load {balance_comp}",
+            bus=buses_rest_i,
+            carrier="load",
+            marginal_cost=default_cost,
+            p_nom=np.inf,
+            sign=sign,
+        )
+
+
 def prepare_network(
     n: pypsa.Network,
     solve_opts: dict,
@@ -461,23 +519,13 @@ def prepare_network(
         ):
             df.where(df.abs() > solve_opts["clip_p_max_pu"], other=0.0, inplace=True)
 
-    if load_shedding := solve_opts.get("load_shedding"):
+    if (load_shedding := solve_opts.get("load_shedding", {})).get("enable", False):
         # intersect between macroeconomic and surveybased willingness to pay
         # http://journal.frontiersin.org/article/10.3389/fenrg.2015.00055/full
-        n.add("Carrier", "load")
-        buses_i = n.buses.index
-        if isinstance(load_shedding, bool):
-            load_shedding = 1e5  # Eur/MWh
+        add_load_balance_components(n, load_shedding)
 
-        n.add(
-            "Generator",
-            buses_i,
-            " load",
-            bus=buses_i,
-            carrier="load",
-            marginal_cost=load_shedding,  # Eur/MWh
-            p_nom=np.inf,
-        )
+    if (load_sinks := solve_opts.get("load_sinks", {})).get("enable", False):
+        add_load_balance_components(n, load_sinks, sign=-1)
 
     if solve_opts.get("curtailment_mode"):
         n.add("Carrier", "curtailment", color="#fedfed", nice_name="Curtailment")
@@ -1368,6 +1416,7 @@ def collect_kwargs(
 
         if cf_solving["post_discretization"].get("enable", False):
             logger.info("Add post-discretization parameters.")
+            cf_solving["post_discretization"].pop("enable", None)
             all_kwargs.update(cf_solving["post_discretization"])
 
         return all_kwargs, {}
@@ -1426,12 +1475,12 @@ if __name__ == "__main__":
         from scripts._helpers import mock_snakemake
 
         snakemake = mock_snakemake(
-            "solve_sector_network_myopic",
+            "solve_sector_network_myopic_at",
             opts="",
             clusters="adm",
-            configfiles="config/test/config.at10.yaml",
+            # configfiles="config/test/config.at10.yaml",
             sector_opts="none",
-            planning_horizons="2025",
+            planning_horizons="2030",
             run="AT_KN2040",
         )
     configure_logging(snakemake)
@@ -1560,7 +1609,7 @@ if __name__ == "__main__":
     n.meta = dict(snakemake.config, **dict(wildcards=dict(snakemake.wildcards)))
 
     # PyPSA-AT: attach resource tables to network meta before export.
-    from mods.network_updates import attach_resources_to_network_meta
+    from mods import attach_resources_to_network_meta
 
     attach_resources_to_network_meta(n=n, snakemake=snakemake)
 

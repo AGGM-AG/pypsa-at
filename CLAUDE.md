@@ -98,6 +98,10 @@ Rule functions from `rules/common.smk`:
 
 - `config_provider()` - to access configuration in Snakemake rules
 
+Additional relevant Snakemake rule functions:
+
+- `branch(condition, then, otherwise)` - choose different input files based on a given conditional
+
 ## Common Commands
 
 ```bash
@@ -108,7 +112,7 @@ git fetch --all && git pull
 pixi run snakemake -n -c1 -p
 
 # Full run
-pixi run snakemake --cores "all"  # or just -call
+pixi run workflow
 
 # Run specific rules (possible for rules without wildcards)
 pixi run snakemake <rule> -call

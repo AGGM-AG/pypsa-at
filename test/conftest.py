@@ -168,7 +168,89 @@ def italy_shape(download_natural_earth, tmpdir):
     yield italy_shape_file_path
 
 
-# ── PyPSA-AT specific fixtures ────────────────────────────────────────────────
+_ABSENT = object()
+
+
+def _get_config(config, keys, default=_ABSENT):
+    """
+    Retrieve a nested value from a config dict using a sequence of keys.
+
+    Mirrors get_config() from rules/common.smk.
+    """
+    value = config
+    for key in keys:
+        if isinstance(value, list):
+            value = value[key]
+        else:
+            value = value.get(key, default)
+        if value == default:
+            return default
+    return value
+
+
+def require_config(nc, *keys, **condition):
+    """
+    Extract a config entry from all networks and xfail if it matches a condition.
+
+    Navigates n.meta using *keys for every network in nc, then checks the condition
+    sub-key against the provided value. Fails hard if the config entry is absent or
+    inconsistent across networks. Xfails if the condition key equals the condition value.
+
+    Parameters
+    ----------
+    nc
+        Collection of solved networks.
+    *keys
+        Key path into n.meta, e.g. "mods", "net_zero_electricity".
+    **condition
+        Single keyword argument specifying the xfail condition, e.g. enable=False.
+
+    Returns
+    -------
+    :
+        The config entry found at the key path, shared across all networks.
+    """
+    if condition == {}:
+        cond_key, cond_val = None, None
+    elif len(condition) == 1:
+        cond_key, cond_val = next(iter(condition.items()))
+    elif len(condition) != 1:
+        raise ValueError(
+            "require_config requires exactly one keyword condition, e.g. enable=False"
+        )
+
+    entries = {year: _get_config(n.meta, keys) for year, n in nc.networks.items()}
+
+    key_repr = ".".join(keys)
+
+    # fail if key was not found in any config
+    if all(v is _ABSENT for v in entries.values()):
+        pytest.fail(f"config '{key_repr}' absent in all networks")
+
+    # fail if key was found in one, but not all configs
+    absent = [k for k, v in entries.items() if v is _ABSENT]
+    if absent:
+        pytest.fail(
+            f"config '{key_repr}' absent in {absent} but present in other networks"
+        )
+
+    # fail if key is set differently across networks
+    present = list(entries.values())
+    if not all(v == present[0] for v in present[1:]):
+        pytest.fail(f"config '{key_repr}' differs across networks: {entries}")
+
+    # this is the desired config entry
+    cfg = present[0]
+
+    # make sure the condition key is in the config
+    if cond_key is not None and cond_key not in cfg:
+        raise ValueError(f"config '{key_repr}' does not contain key '{cond_key}'")
+
+    # expect fail (=xfail) if config is set to the condition value
+    if cond_key is not None and cfg[cond_key] == cond_val:
+        pytest.xfail(f"config '{'.'.join(keys)}.{cond_key}' == {cond_val!r}")
+
+    return cfg
 
 
 @pytest.fixture(scope="session")
@@ -207,3 +289,19 @@ def pytest_addoption(parser) -> None:
     parser.addoption(
         "--result-path", action="store", help="Path to the ESM results folder."
     )
+
+
+def pytest_configure(config):
+    """Register custom markers."""
+    config.addinivalue_line(
+        "markers",
+        "AT: integration test that loads solved networks via --result-path "
+        "(auto-applied to any test using the `nc` fixture)",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Auto-apply the AT mark to any test that (transitively) requests the `nc` fixture."""
+    for item in items:
+        if "nc" in getattr(item, "fixturenames", ()):
+            item.add_marker(pytest.mark.AT)

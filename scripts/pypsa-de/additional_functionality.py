@@ -4,12 +4,6 @@ import sys
 import pandas as pd
 from xarray import DataArray
 
-from mods.constraints import (
-    add_national_co2_budgets as modified_add_national_co2_budgets,
-)
-from mods.constraints import (
-    add_solar_utility_trajectory_constraints,
-)
 from scripts.prepare_sector_network import determine_emission_sectors
 
 logger = logging.getLogger(__name__)
@@ -889,18 +883,5 @@ def additional_functionality(n, snapshots, snakemake):
     # force_boiler_profiles_existing_per_load(n)
     force_boiler_profiles_existing_per_boiler(n)
 
-    if isinstance(constraints["co2_budget_national"], dict):
-        modified_add_national_co2_budgets(
-            n,
-            snakemake,
-            constraints["co2_budget_national"],
-            investment_year,
-        )
-    else:
-        logger.warning("No national CO2 budget specified!")
-
     if investment_year == 2020:
         adapt_nuclear_output(n)
-
-    if snakemake.config["mods"]["PEMMDB_trajectories"].get("enable"):
-        add_solar_utility_trajectory_constraints(n, snakemake, investment_year)

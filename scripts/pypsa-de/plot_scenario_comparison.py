@@ -1,0 +1,61 @@
+import os
+
+import matplotlib
+
+matplotlib.use("Agg")  # Use a non-interactive backend
+import matplotlib.pyplot as plt
+import pandas as pd
+
+from scripts._helpers import (
+    configure_logging,
+    mock_snakemake,
+    set_scenario_config,
+    update_config_from_wildcards,
+)
+
+
+def scenario_plot(df, var, output_dir):
+    unit = df._get_label_or_level_values("Unit")[0]
+    if var.startswith("Investment"):
+        unit = "billion EUR2020/yr"
+    df = df.droplevel("Unit")
+    ax = df.T.plot(xlabel="years", ylabel=str(unit), title=str(var))
+    var = var.replace("|", "-").replace("\\", "-").replace(" ", "-").replace("/", "-")
+    ax.figure.savefig(f"{output_dir}/{var}.png", bbox_inches="tight", dpi=100)
+    plt.close(ax.figure)
+
+
+if __name__ == "__main__":
+    if "snakemake" not in globals():
+        snakemake = mock_snakemake(
+            "plot_scenario_comparison",
+            # simpl="",
+            # clusters=22,
+            # opts="",
+            # ll="vopt",
+            # sector_opts="None",
+            # planning_horizons="2050",
+            # run="KN2045_Mix"
+        )
+
+    configure_logging(snakemake)
+    set_scenario_config(snakemake)
+    update_config_from_wildcards(snakemake.config, snakemake.wildcards)
+
+    dfs = []
+    for file in snakemake.input.exported_variables:
+        _df = pd.read_excel(
+            file, index_col=list(range(5)), sheet_name="data"
+        ).droplevel(["Model", "Region"])
+        dfs.append(_df)
+
+    df = pd.concat(dfs, axis=0)
+
+    prefix = snakemake.config["run"]["prefix"]
+
+    output_dir = f"results/{prefix}/scenario_comparison/"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    for var in df._get_label_or_level_values("Variable"):
+        scenario_plot(df.xs(var, level="Variable"), var, output_dir)

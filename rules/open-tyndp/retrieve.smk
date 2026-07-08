@@ -20,16 +20,31 @@ data store archive so that PEMMDB and the reference grids are available.
 # Snakefile scope (rules/common.smk is included before this file).
 # `copy2`, `unpack_archive`, `rmtree` are imported in rules/retrieve.smk.
 
+
+# Versioning not implemented as the dataset is used only for plotting
+# License - MIT - Copyright (c) 2021 Gavin Rehkemper
+# Website: https://github.com/gavinr/world-countries-centroids
+rule retrieve_countries_centroids:
+    output:
+        "data/countries_centroids.geojson",
+    log:
+        "logs/retrieve_countries_centroids.log",
+    run:
+        from scripts._helpers import progress_retrieve
+
+        progress_retrieve(
+            "https://cdn.jsdelivr.net/gh/gavinr/world-countries-centroids@v1.0.0/dist/countries.geojson",
+            output[0],
+            disable=True,
+        )
+
+
 if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
     "primary",
     "archive",
 ]:
 
     rule retrieve_open_tyndp:
-        message:
-            "Retrieving TYNDP 2024 data package from open-tyndp Google data store "
-            "(PEMMDB v2.4, reference grids, nodes, hydro inflows, demand profiles, "
-            "H2 data, investment datasets, offshore hubs)"
         input:
             pemmdb=storage(OPEN_TYNDP_DATASET["url"] + "/PEMMDB2.zip"),
             nodes=storage(OPEN_TYNDP_DATASET["url"] + "/Nodes.zip"),
@@ -73,6 +88,10 @@ if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
             offshore_generators=f"{OPEN_TYNDP_DATASET['folder']}/Offshore hubs/GENERATOR.xlsx",
         log:
             "logs/retrieve_open_tyndp.log",
+        message:
+            "Retrieving TYNDP 2024 data package from open-tyndp Google data store "
+            "(PEMMDB v2.4, reference grids, nodes, hydro inflows, demand profiles, "
+            "H2 data, investment datasets, offshore hubs)"
         run:
             for key in input.keys():
                 zip_output_key = f"{key}_zip"

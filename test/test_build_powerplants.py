@@ -7,14 +7,10 @@ Tests the functionalities of scripts/build_powerplants.py.
 """
 
 import pathlib
-import sys
 
 import numpy as np
 import pandas as pd
 import pytest
-
-sys.path.append("./scripts")
-
 from build_powerplants import (
     add_custom_powerplants,
     replace_natural_gas_fueltype,

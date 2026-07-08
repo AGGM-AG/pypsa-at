@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: fix-stop-ukrainian-methane-transit
+  prefix: feat-prevent-russian-gas-imports
   name:
   - AT_KN2040
   scenarios:
@@ -61,6 +61,8 @@ sector:
   biosng: true
   biosng_cc: true
   bioH2: true
+  h2_topology_tyndp: true
+  h2_zones_tyndp: false
   municipal_solid_waste: true
   cluster_heat_buses: true
   hydrogen_turbines: false  # PyPSA-AT uses the PyPSA-DE implementation in electricity.H2_plants instead
@@ -90,7 +92,31 @@ sector:
     years_of_storage: 25
   co2_network: true
   imports:  # this is for renewable gas/H2/methanol/oil imports
-    enable: false
+    enable: true
+    carriers_tyndp:
+    - H2
+  transmission_efficiency:
+    # all link carriers must be enabled and given an efficiency here
+    # this ensures that bidirectional links (p_min_pu=-1) are split into two monodirectional pairs
+    # and prevents negative shadow prices depending on direction of energy flows
+    enable:
+    # upstream defaults (config.default.yaml) — the enable list is replaced, not merged,
+    # so these must be repeated or DC/H2/gas links are no longer split into reverse pairs
+    - DC
+    - H2 pipeline
+    - gas pipeline
+    - electricity distribution grid
+    - H2 pipeline retrofitted
+    - gas pipeline new
+    - CO2 pipeline
+    H2 pipeline retrofitted:
+      efficiency_per_1000km: 1
+      compression_per_1000km: 0.018
+    gas pipeline new:
+      efficiency_per_1000km: 1
+      compression_per_1000km: 0.01
+    CO2 pipeline:
+      efficiency_per_1000km: 1
 
   # PyPSA-DE KN2045_Mix scenario settings
   aviation_demand_factor:
@@ -133,8 +159,17 @@ data:
   osm:
     source: archive
     version: 0.2-at
+  klien_potentials:
+    source: archive
+    version: 2026-v2
+
+pypsa_eur:
+  StorageUnit:
+  - hydro
 
 solving:
+  options:
+    custom_extra_functionality: "../scripts/pypsa-at/additional_functionality.py"
   # The default CO2 budget uses the KSG targets, and the non CO2 emissions from the REMIND model in the KN2045_Mix scenario
   constraints:
     co2_budget_national:
@@ -187,9 +222,18 @@ mods:
   # until threshold year, no extension of the gas grid is possible
   threshold_year_for_gas_grid_expansion: 2040
 
-  # stop transit of gas into Europe via Ukrainian import
-  # locations on the borders with PL, SK, HU, RO
-  ukrainian_gas_transit_stop: true
+  # Block Russian gas imports post 2025 with two optional routes:
+  # via Eastern Europe (eastern_border_block) or via TurkStream (turkstream_block)
+  # start_year defaults to 2025/2030 for the two blocks
+  # end_year defaults to infinity
+  block_russian_gas_imports:
+    enable: true
+    eastern_border_block:
+      start_year: 2025
+      countries: [FI, EE, LV, LT, PL, SK, RO]
+    turkstream_block:
+      start_year: 2030
+      countries: [BG]
 
   # split gas generators by type and multiply generator
   # marginal costs by the following factors
@@ -205,8 +249,43 @@ mods:
                             # Note that sold carbon black eventually re-emits CO2
                             # outside model boundary (Systemgrenze).
 
+  tyndp_h2_import_scenario: "DE" # One of DE (Distributed Energy), NT (National Trends), GA (Global Ambition).
+                           # Only used when H2 imports is enabled
+
   PEMMDB_trajectories:
     enable: true
     tyndp_scenario: All  # All — default TYNDP 2024 scenario with complete list of techs.
                          # Other options fail during runtime due to missing techs.
     skip_countries: ["AT", "DE"]  # use calibrations from PyPSA-DE/AT
+
+  override_gas_storage_capacities:
+    enable: true
+
+  klien_potential_limits:
+    technologies:            # carriers to cap; empty list disables all limits
+    - solar rooftop
+    - solar
+    - solar-hsat
+    - onwind
+    use_technical_potentials: false # if true, technical potentials are used.
+                                    # if true, climate_scenario, year and ambition are ignored.
+    climate_scenario: wocc   # wocc | mocc | stcc
+    year: 2040               # 2030 | 2040
+    ambition: medium         # low | medium | high
+
+  tyndp_cross_border_flow_limits:
+    enable: true
+
+  # enforce TYNDP NTC capacities as expansion lower bounds
+  tyndp_lower_bounds:
+    enable: true
+    years:
+    - 2030
+    - 2040
+
+  # force country level yearly netted electricity autarky
+  net_zero_electricity:
+    enable: true
+    fuels: ["gas", "H2", "solid biomass", "methanol"]  # green electricity production may be produced from these carriers
+    h2_sources: ["AC", "low voltage", "solid biomass"]  # green hydrogen may be produced from these carriers
+    AT: "2030"  # start year: constraints will be added from including this year onwards

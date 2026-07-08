@@ -32,8 +32,6 @@ OUTPUTS = [
     "nodal_capacities",
     "nodal_energy_balance",
     "nodal_capacity_factors",
-    "nodal_supply",
-    "nodal_withdrawal",
 ]
 
 
@@ -302,33 +300,17 @@ def calculate_market_values(n: pypsa.Network) -> pd.Series:
     )
 
 
-def calculate_nodal_supply(n: pypsa.Network) -> pd.Series:
-    """
-    Calculate the regional supply for each technology.
-    """
-    return n.statistics.supply(groupby=["carrier", "location", "bus_carrier"])
-
-
-def calculate_nodal_withdrawal(n: pypsa.Network) -> pd.Series:
-    """
-    Calculate the regional withdrawal for each technology.
-    """
-    return n.statistics.withdrawal(groupby=["carrier", "location", "bus_carrier"])
-
-
 if __name__ == "__main__":
     if "snakemake" not in globals():
         from scripts._helpers import mock_snakemake
 
         snakemake = mock_snakemake(
             "make_summary",
+            clusters="5",
             opts="",
-            clusters="adm",
-            ll="vopt",
-            sector_opts="none",
-            planning_horizons=2020,
-            run="KN2045_Mix",
-            configfiles="config/config.at.yaml",
+            sector_opts="",
+            planning_horizons="2030",
+            configfiles="config/test/config.overnight.yaml",
         )
 
     configure_logging(snakemake)

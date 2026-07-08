@@ -15,14 +15,69 @@ import logging
 
 import pandas as pd
 
-from scripts._helpers import (
-    SCENARIO_DICT,
-    configure_logging,
-    map_tyndp_carrier_names,
-    set_scenario_config,
-)
+from scripts._helpers import configure_logging, set_scenario_config
+from scripts._tyndp_helpers import SCENARIO_DICT, map_tyndp_carrier_names
 
 logger = logging.getLogger(__name__)
+
+
+def collapse_nuclear_scenarios(df: pd.DataFrame, tyndp_scenario: str) -> pd.DataFrame:
+    """
+    Reduce per-scenario nuclear trajectories to a single row per (bus, pyear).
+
+    Unlike the RES/storage carriers (which only carry the scenario-independent
+    ``"All"`` label), TYNDP provides nuclear trajectories per scenario
+    (``DE``/``GA``/``NT``).  Downstream readers do not filter by scenario, so
+    nuclear must be collapsed to one row per location and horizon:
+
+    - ``tyndp_scenario == "All"``: take the smallest ``p_nom_min`` and the
+      largest ``p_nom_max`` across all scenarios, labelled ``"All"``.
+    - any concrete scenario (e.g. ``"GA"``): keep that scenario's values
+      directly.
+
+    Non-nuclear rows are returned unchanged.
+
+    Parameters
+    ----------
+    df:
+        Long-format trajectory DataFrame with columns ``bus``, ``scenario``,
+        ``pyear``, ``p_nom_min``, ``p_nom_max``, ``index_carrier``, and the
+        remaining metadata columns.
+    tyndp_scenario:
+        Configured TYNDP scenario key (``mods.PEMMDB_trajectories.tyndp_scenario``).
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with the same columns where nuclear rows are reduced to one
+        row per ``(bus, pyear)``.
+    """
+    valid_scenarios = sorted(SCENARIO_DICT.values()) + ["All"]
+    if tyndp_scenario not in valid_scenarios:
+        raise ValueError(f"Scenario {tyndp_scenario} not recognized.")
+
+    is_nuclear = df["index_carrier"] == "nuclear"
+    nuclear, rest = df[is_nuclear], df[~is_nuclear]
+
+    if tyndp_scenario == "All":
+        group_keys = [
+            "carrier",
+            "index_carrier",
+            "bus",
+            "pyear",
+            "pypsa_eur_carrier",
+            "open_tyndp_type",
+        ]
+        nuclear = (
+            nuclear.groupby(group_keys, as_index=False)
+            .agg(p_nom_min=("p_nom_min", "min"), p_nom_max=("p_nom_max", "max"))
+            .assign(scenario="All")
+        )
+    else:
+        nuclear = nuclear[nuclear["scenario"] == tyndp_scenario]
+
+    return pd.concat([rest, nuclear[df.columns]], ignore_index=True)
+
 
 if __name__ == "__main__":
     if "snakemake" not in globals():
@@ -115,5 +170,9 @@ if __name__ == "__main__":
     # Don't want to shift the optimum for the historical base year
     _idx = df.query("index_carrier != 'nuclear' & pyear == 2025").index
     df.loc[_idx, "p_nom_min"] = 0
+
+    # Nuclear trajectories are provided per scenario (DE/GA/NT) — collapse them to
+    # one row per (bus, pyear) so the scenario-agnostic readers see a single value.
+    df = collapse_nuclear_scenarios(df, snakemake.params.tyndp_scenario)
 
     df.to_csv(snakemake.output.tyndp_trajectories, index=False)

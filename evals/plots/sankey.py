@@ -361,8 +361,10 @@ class SankeyChart:
                 "electricity distribution grid",
                 "Transmission Losses",
                 "gas pipeline",
+                "gas pipeline new",
                 "H2 pipeline",
                 "H2 pipeline (Kernnetz)",
+                "H2 pipeline retrofitted",
             ],
         )
         self._connect(

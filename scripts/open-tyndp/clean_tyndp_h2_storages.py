@@ -10,11 +10,8 @@ import logging
 import numpy as np
 import pandas as pd
 
-from scripts._helpers import (
-    SCENARIO_DICT,
-    configure_logging,
-    set_scenario_config,
-)
+from scripts._helpers import configure_logging, set_scenario_config
+from scripts._tyndp_helpers import SCENARIO_DICT
 
 logger = logging.getLogger(__name__)
 
@@ -76,10 +73,12 @@ def load_h2_storage_data(
             e_nom_max=lambda df: df.e_nom_max * 1e3,  # [MWh]
             efficiency_charge=lambda df: df.efficiency_charge / 100,  # [1]
             efficiency_discharge=lambda df: df.efficiency_discharge / 100,  # [1]
-            bus=lambda df: df.bus
-            + np.where(df.h2_zone == "H2 Z2", suffix, " H2 Z1")
-            + " "
-            + np.where(df.h2_zone == "H2 Z2", "cavern-storage", "tank-storage"),
+            bus=lambda df: (
+                df.bus
+                + np.where(df.h2_zone == "H2 Z2", suffix, " H2 Z1")
+                + " "
+                + np.where(df.h2_zone == "H2 Z2", "cavern-storage", "tank-storage")
+            ),
         )
     )
 

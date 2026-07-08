@@ -2,28 +2,37 @@
 #
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
-"""Collect statistics for evaluations."""
+"""Collect statistics for evaluations."""  # noqa: A005
 
 import logging
 import warnings
-from functools import partial
+from collections.abc import Callable, Sequence
 from inspect import getmembers
 from itertools import product
 
 import pandas as pd
 import pypsa
-from pypsa import NetworkCollection
+from pypsa import Network, NetworkCollection
+from pypsa.common import (
+    MethodHandlerWrapper,
+    deprecated_kwargs,
+    pass_empty_series_if_keyerror,
+)
+from pypsa.descriptors import nominal_attrs
 from pypsa.statistics import (
     StatisticsAccessor,
     get_transmission_carriers,
-    groupers,
+)
+from pypsa.statistics.expressions import (
+    StatisticHandler,
+    port_efficiency,
+    resolve_at_port,
 )
 
 from evals.constants import (
     BusCarrier,
     DataModel,
     Group,
-    Regex,
 )
 from evals.utils import (
     add_grid_lines,
@@ -37,103 +46,12 @@ from evals.utils import (
 
 logger = logging.getLogger(__file__)
 
-# Configure PyPSA statistics defaults once at import time.
-pypsa.options.params.statistics.nice_names = False
-pypsa.options.params.statistics.drop_zero = True
-
-
-def get_location(
-    n: pypsa.Network,
-    c: str,
-    port: str = "",
-    avoid_eu_locations: bool = True,
-) -> pd.Series:
-    """
-    Return the grouper series for the location of a component.
-
-    By default, the function avoids EU-locations by looking
-    into port 0 and port 1 and prefering locations, that are not 'EU'.
-
-    Note, that the bus_carrier will still be the bus_carrier
-    from the "port" argument, i.e. only the location is swapped.
-
-    Parameters
-    ----------
-    n
-        The network to evaluate.
-    c
-        The component name, e.g. 'Load', 'Generator', 'Link', etc.
-    port
-        Limit results to this branch port.
-    avoid_eu_locations
-        Look into the port 0 and port 1 location in branch components
-        and prefer locations that are not 'EU'. By default,
-        pypsa.statistics assigns the respective bus port location.
-
-    Returns
-    -------
-    :
-        A list of series to group statistics by.
-    """
-    comp = n.components[c].static
-    bus_locations = n.components.buses.static.location
-
-    if avoid_eu_locations and c in n.branch_components:
-        # avoid EU buses for branch components, e.g. oil CHP
-        bus0 = comp["bus0"].map(bus_locations).rename("loc0")
-        bus1 = comp["bus1"].map(bus_locations).rename("loc1")
-        buses = pd.concat([bus0, bus1], axis=1)
-
-        def location_selection_logic(row) -> str:
-            if row.loc0 != "EU" or pd.isna(row.loc1):
-                return row.loc0
-            return row.loc1
-
-        return buses.apply(location_selection_logic, axis=1).rename("location")
-
-    # default logic to return location groupers
-    return comp[f"bus{port}"].map(bus_locations).rename("location")
-
-
-def get_location_from_name_at_port(
-    n: pypsa.Network, c: str, location_port: str = ""
-) -> pd.Series:
-    """
-    Return the location from the component name.
-
-    Parameters
-    ----------
-    n
-        The network to evaluate.
-    c
-        The component name, e.g. 'Load', 'Generator', 'Link', etc.
-    location_port
-        Limit results to this branch port.
-
-    Returns
-    -------
-    :
-        The location prefix extracted from component names.
-    """
-    group = f"({Regex.region.pattern})"
-    return (
-        n.static(c)[f"bus{location_port}"]
-        .str.extract(group, expand=False)
-        .str.strip()  # some white space survives regex
-        .rename(f"bus{location_port}")
-    )
-
-
-# Register custom groupers once, after the grouper functions are defined.
-groupers.add_grouper("location", get_location)
-groupers.add_grouper("bus0", partial(get_location_from_name_at_port, location_port="0"))
-groupers.add_grouper("bus1", partial(get_location_from_name_at_port, location_port="1"))
-
 
 def collect_myopic_statistics(
     nc: NetworkCollection,
-    statistics_name: str,
+    statistic: str,
     aggregate_components: str | None = "sum",
+    drop_zeros: bool = True,
     drop_unit: bool = True,
     allow_missing: dict = None,
     **kwargs: object,
@@ -149,12 +67,13 @@ def collect_myopic_statistics(
     ----------
     nc
         The loaded networks as a NetworkCollection, with the year as index.
-    statistics_name
+    statistic
         The name of the metric to build.
     aggregate_components
-        The aggregation function to combine components by. Note, that pypsa's
-        agregate_across_components argument is deprectaded. The recommendedation
-        is exactly the approach taken in this function.
+        The aggregation function to combine components by.
+    drop_zeros
+        Whether to drop rows from the returned statistic that have
+        only zeros as values.
     drop_unit
         Whether to drop the unit index level from the returned statistic.
     allow_missing
@@ -178,25 +97,25 @@ def collect_myopic_statistics(
 
     pypsa_statistics = [m[0] for m in getmembers(pypsa.statistics.StatisticsAccessor)]
 
-    if statistics_name in pypsa_statistics:  # register a default to reduce verbosity
+    if statistic in pypsa_statistics:  # register a default to reduce verbosity
         kwargs.setdefault("groupby", ["location", "carrier", "bus_carrier", "unit"])
 
     year_statistics = []
     for year, n in nc.networks.items():
-        func = getattr(n.statistics, statistics_name)
+        func = getattr(n.statistics, statistic)
         if not func:
             raise AttributeError(
-                f"Statistic '{statistics_name}' not found. "
+                f"Statistic '{statistic}' not found. "
                 f"Available statistics are: "
                 f"'{[m[0] for m in getmembers(n.statistics)]}'."
             )
-
+        func_args = kwargs.copy()
         if allow_missing and year in allow_missing and "bus_carrier" in kwargs:
-            kwargs["bus_carrier"] = [
+            func_args["bus_carrier"] = [
                 bc for bc in kwargs["bus_carrier"] if bc not in allow_missing[year]
             ]
 
-        year_statistic = func(**kwargs)
+        year_statistic = func(**func_args)
         year_statistic = insert_index_level(year_statistic, year, DataModel.YEAR)
         if not year_statistic.empty:
             year_statistics.append(year_statistic)
@@ -214,11 +133,18 @@ def collect_myopic_statistics(
         _names = statistic.index.droplevel("component").names
         statistic = statistic.groupby(_names).agg(aggregate_components)
 
-    # FixMe: is this hotfix still needed?
     if kwargs.get("aggregate_time") is False:
         statistic.columns.name = DataModel.SNAPSHOTS
 
-    # assign the correct unit to the statistic if possible
+    if drop_zeros:
+        if isinstance(statistic, pd.Series):
+            statistic = statistic.loc[statistic != 0]
+        elif isinstance(statistic, pd.DataFrame):
+            statistic = statistic.loc[(statistic != 0).any(axis=1)]
+        else:
+            raise TypeError(f"Unknown statistic type '{type(statistic)}'")
+
+    # assign the correct unit the statistic if possible
     if "unit" in statistic.index.names and drop_unit:
         if not statistic.empty:
             try:
@@ -727,3 +653,215 @@ class ESMStatistics(StatisticsAccessor):
             result = add_grid_lines(n.static("Bus"), result)
 
         return result.sort_index()
+
+    @MethodHandlerWrapper(handler_class=StatisticHandler, inject_attrs={"n": "_n"})
+    @deprecated_kwargs(
+        deprecated_in="1.0",
+        removed_in="2.0",
+        comps="components",
+        aggregate_groups="groupby_method",
+        aggregate_time="groupby_time",
+    )
+    def remaining_capacity(  # noqa: D417
+        self,
+        components: str | Sequence[str] | None = None,
+        groupby_method: Callable | str = "sum",
+        aggregate_across_components: bool = False,
+        groupby: str | Sequence[str] | Callable = "carrier",
+        at_port: str | None = None,
+        carrier: str | Sequence[str] | None = None,
+        bus_carrier: str | Sequence[str] | None = None,
+        nice_names: bool | None = None,
+        drop_zero: bool | None = None,
+        round: int | None = None,
+        storage: bool = False,
+    ) -> pd.DataFrame:
+        """
+        Calculate the **remaining buildable capacity** in MW.
+
+        Returns ``p_nom_max - p_nom`` for extendable components in the current investment
+        period, and zero for non-extendable (already-built) components. This
+        represents how much additional capacity could still be installed on top of
+        the current ``installed_capacity``.
+
+        Note
+        ----
+        In brownfield myopic networks, ``p_nom`` for extendable components is
+        typically zero while ``p_nom_min`` holds a committed floor (from
+        brownfield carry-over, PEMMDB contracted additions, or other sources).
+        The formula ``p_nom_max - p_nom`` therefore intentionally includes this
+        committed capacity (``p_nom_min - p_nom``), ensuring that
+        ``technical_potential = installed_capacity + remaining_capacity``
+        algebraically reduces to ``p_nom_max`` (the raw trajectory ceiling).
+
+        Parameters
+        ----------
+        components : str | Sequence[str] | None, default=None
+            Components to include. If None, includes all one-port and branch
+            components.
+        groupby_method : Callable | str, default="sum"
+            Aggregation function for groups.
+        aggregate_across_components : bool, default=False
+            Whether to aggregate across components.
+        groupby : str | Sequence[str] | Callable, default="carrier"
+            How to group components.
+        at_port : str | None, default=None
+            Which ports to consider.
+        carrier : str | Sequence[str] | None, default=None
+            Filter by carrier.
+        bus_carrier : str | Sequence[str] | None, default=None
+            Filter by carrier of connected buses.
+        nice_names : bool | None, default=None
+            Whether to use carrier nice names.
+        drop_zero : bool | None, default=None
+            Whether to drop zero values from the result.
+        round : int | None, default=None
+            Number of decimal places to round to.
+
+        Other Parameters
+        ----------------
+        storage : bool, default=False
+            Whether to consider only storage capacities.
+
+        Returns
+        -------
+        pd.DataFrame
+            Remaining buildable capacity in MW.
+
+        See Also
+        --------
+        installed_capacity : Already installed capacity.
+        technical_potential : Total ceiling (installed + remaining).
+        """
+        if storage:
+            components = ("Store", "StorageUnit")
+        resolved_at_port = resolve_at_port(at_port, bus_carrier)
+
+        @pass_empty_series_if_keyerror
+        def func(n: Network, c: str, port: str) -> pd.Series:
+            efficiency = port_efficiency(n, c, port=port)
+            if n.c[c]._as_ports(resolved_at_port) == [0]:
+                efficiency = abs(efficiency)
+            static = n.c[c].static
+            col = (
+                (static[f"{nominal_attrs[c]}_max"] - static[nominal_attrs[c]])
+                .where(static[f"{nominal_attrs[c]}_extendable"], 0)
+                .mul(efficiency)
+            )
+            if storage and (c == "StorageUnit"):
+                col = col * static.max_hours
+            return col
+
+        df = self._aggregate_components(
+            func,
+            components=components,
+            agg=groupby_method,
+            aggregate_across_components=aggregate_across_components,
+            groupby=groupby,
+            at_port=at_port,
+            carrier=carrier,
+            bus_carrier=bus_carrier,
+            nice_names=nice_names,
+            drop_zero=drop_zero,
+            round=round,
+        )
+        df.attrs["name"] = "Remaining Capacity"
+        df.attrs["unit"] = "MW"
+        return df
+
+    @MethodHandlerWrapper(handler_class=StatisticHandler, inject_attrs={"n": "_n"})
+    @deprecated_kwargs(
+        deprecated_in="1.0",
+        removed_in="2.0",
+        comps="components",
+        aggregate_groups="groupby_method",
+        aggregate_time="groupby_time",
+    )
+    def technical_potential(  # noqa: D417
+        self,
+        components: str | Sequence[str] | None = None,
+        groupby_method: Callable | str = "sum",
+        aggregate_across_components: bool = False,
+        groupby: str | Sequence[str] | Callable = "carrier",
+        at_port: str | None = None,
+        carrier: str | Sequence[str] | None = None,
+        bus_carrier: str | Sequence[str] | None = None,
+        nice_names: bool | None = None,
+        drop_zero: bool | None = None,
+        round: int | None = None,
+        storage: bool = False,
+    ) -> pd.DataFrame:
+        """
+        Calculate the **technical potential** (total capacity ceiling) in MW.
+
+        Returns the absolute upper bound on how much capacity a region could
+        ever have installed: already-built capacity from all past investment
+        periods plus the maximum additionally buildable capacity in the current
+        period.
+
+        Computed as ``installed_capacity + remaining_capacity``.
+
+        Parameters
+        ----------
+        components : str | Sequence[str] | None, default=None
+            Components to include. If None, includes all one-port and branch
+            components.
+        groupby_method : Callable | str, default="sum"
+            Aggregation function for groups.
+        aggregate_across_components : bool, default=False
+            Whether to aggregate across components.
+        groupby : str | Sequence[str] | Callable, default="carrier"
+            How to group components.
+        at_port : str | None, default=None
+            Which ports to consider.
+        carrier : str | Sequence[str] | None, default=None
+            Filter by carrier.
+        bus_carrier : str | Sequence[str] | None, default=None
+            Filter by carrier of connected buses.
+        nice_names : bool | None, default=None
+            Whether to use carrier nice names.
+        drop_zero : bool | None, default=None
+            Whether to drop zero values from the result.
+        round : int | None, default=None
+            Number of decimal places to round to.
+
+        Other Parameters
+        ----------------
+        storage : bool, default=False
+            Whether to consider only storage capacities.
+
+        Returns
+        -------
+        pd.DataFrame
+            Technical potential in MW.
+
+        See Also
+        --------
+        installed_capacity : Already installed capacity.
+        remaining_capacity : Capacity still buildable in the current period.
+        """
+        shared = dict(
+            components=components,
+            groupby_method=groupby_method,
+            aggregate_across_components=aggregate_across_components,
+            groupby=groupby,
+            at_port=at_port,
+            carrier=carrier,
+            bus_carrier=bus_carrier,
+            nice_names=nice_names,
+            drop_zero=False,
+            round=None,
+            storage=storage,
+        )
+        installed = self.installed_capacity(**shared)
+        remaining = self.remaining_capacity(**shared)
+        df = installed.add(remaining, fill_value=0)
+        if drop_zero is None:
+            drop_zero = True
+        if drop_zero:
+            df = df[df != 0]
+        if round is not None:
+            df = df.round(round)
+        df.attrs["name"] = "Technical Potential"
+        df.attrs["unit"] = "MW"
+        return df

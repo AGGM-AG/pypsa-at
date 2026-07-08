@@ -1428,13 +1428,13 @@ def limit_cross_border_flows_ac(n, s_max_pu):
 if __name__ == "__main__":
     if "snakemake" not in globals():
         snakemake = mock_snakemake(
-            "modify_prenetwork",
+            "modify_prenetwork_at",
             simpl="",
             clusters="adm",
             opts="",
             ll="v1.25",
             sector_opts="none",
-            planning_horizons="2025",
+            planning_horizons="2030",
             run="AT_KN2040",
             # configfiles=["config/test/config.at10.yaml"],
         )
