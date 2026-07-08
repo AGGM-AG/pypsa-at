@@ -27,6 +27,7 @@ import pandas as pd
 from mods.constants import PROXIES, TYNDP_TO_PYPSA_LOCATION
 from scripts._helpers import (
     configure_logging,
+    get_snapshots,
     load_costs,
     set_scenario_config,
 )
@@ -168,7 +169,7 @@ def normalize_ror(
 
     Returns
     -------
-    tuple:
+    :
         (inflows, region_to_country_mapping)
             - inflows: Inflows as Series
             - region_to_country_mapping: Mapping of model regions to respective tyndp country codes
@@ -191,30 +192,25 @@ def normalize_ror(
     powerplant_sums = powerplants_df.groupby(["country", "carrier"])["p_nom"].sum()
 
     combined_df = inflow_df.to_frame().join(powerplant_sums, how="outer")
-
     combined_df["p_nom"] = combined_df["p_nom"].fillna(0)
 
-    combined_df["ror_capa_pemmdb"] = combined_df.index.get_level_values("country").map(
-        market_info_df["Run of River - MW"]
-    ) + combined_df.index.get_level_values("country").map(
-        market_info_df["Pondage - MW"]
+    combined_df["pure_ror_capa_pemmdb"] = combined_df.index.get_level_values(
+        "country"
+    ).map(market_info_df["Run of River - MW"])
+    combined_df["pondage_capa_pemmdb"] = combined_df.index.get_level_values(
+        "country"
+    ).map(market_info_df["Pondage - MW"])
+    combined_df["ror_capa_pemmdb"] = (
+        combined_df["pure_ror_capa_pemmdb"] + combined_df["pondage_capa_pemmdb"]
     )
 
-    combined_df.loc[
-        (combined_df.index.get_level_values("carrier") == "ror")
-        & (combined_df["ror_capa_pemmdb"] > 0),
-        "inflow",
-    ] /= combined_df.loc[
-        (combined_df.index.get_level_values("carrier") == "ror")
-        & (combined_df["ror_capa_pemmdb"] > 0),
-        "ror_capa_pemmdb",
+    ror_mask = combined_df.index.get_level_values("carrier") == "ror"
+    ror_nonzero_mask = ror_mask & (combined_df["ror_capa_pemmdb"] > 0)
+    combined_df.loc[ror_nonzero_mask, "inflow"] /= combined_df.loc[
+        ror_nonzero_mask, "ror_capa_pemmdb"
     ]
 
-    combined_df.loc[
-        (combined_df.index.get_level_values("carrier") == "ror"), "inflow"
-    ] *= combined_df.loc[
-        (combined_df.index.get_level_values("carrier") == "ror"), "p_nom"
-    ]
+    combined_df.loc[ror_mask, "inflow"] *= combined_df.loc[ror_mask, "p_nom"]
 
     return combined_df["inflow"], region_to_country_mapping
 
@@ -231,12 +227,19 @@ def distribute_inflow_to_powerplants(
             - For each hydro-related technology (ror, hydro, PHS):
             - For each powerplant region: inflow = country_inflow * (p_nom_region / p_nom_total_country)
 
-    Args:
-        inflow: Series with inflow regions and technologies (ror, hydro, PHS) as index.
-        powerplants_df: DataFrame with columns ['bus', 'carrier', 'p_nom'].
+    Parameters
+    ----------
+    inflow
+        Series with inflow regions and technologies (ror, hydro, PHS) as index.
+    powerplants_df
+        DataFrame with columns ['bus', 'carrier', 'p_nom'].
                        'bus' should be in format like "AT01 ror", "AT02 hydro", etc.
-        region_to_country_mapping: Mapping of model regions to respective tyndp country codes
-    Returns:
+    region_to_country_mapping
+        Mapping of model regions to respective tyndp country codes
+
+    Returns
+    -------
+    :
         DataFrame with containing distributed inflow values.
     """
     powerplants_df["country"] = powerplants_df["bus"].map(region_to_country_mapping)
@@ -273,6 +276,9 @@ if __name__ == "__main__":
 
     logger.info("Calculating distributed inflow totals totals per region...")
 
+    time = get_snapshots(snakemake.params.snapshots, snakemake.params.drop_leap_day)
+    year = pd.DatetimeIndex(time).year.unique().item()
+
     costs = load_costs(snakemake.input.costs)
     ppl = load_and_aggregate_powerplants(
         snakemake.input.powerplants,
@@ -285,7 +291,7 @@ if __name__ == "__main__":
     ppl = ppl[ppl["carrier"].isin(["PHS", "hydro", "ror"])]
 
     inflow_df, market_info_df = extract_inflow_totals_tyndp(
-        snakemake.input.hydro_inflows
+        snakemake.input.hydro_inflows, year
     )
 
     inflow_df, market_info_df = process_inflow_per_region(inflow_df, market_info_df)
