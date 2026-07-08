@@ -258,9 +258,9 @@ def attach_resources_to_network_meta(n: Network, snakemake: Snakemake) -> None:
         path = Path(file)
         suffix = path.suffix
         if name in filename_readers.keys():
-            attach_resource_to_network_meta(n, filename_readers[name](path))
+            attach_resource_to_network_meta(n, {name: filename_readers[name](path)})
         elif suffix in suffix_readers.keys():
-            attach_resource_to_network_meta(n, suffix_readers[suffix](path))
+            attach_resource_to_network_meta(n, {name: suffix_readers[suffix](path)})
         else:
             logger.warning(
                 f"Unknown file name {name} and extension {path.suffix}. Attaching file path"
