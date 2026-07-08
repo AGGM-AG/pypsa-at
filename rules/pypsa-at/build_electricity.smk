@@ -11,7 +11,7 @@ use rule process_cost_data as process_cost_data_at with:
     input:
         **{
             **rules.process_cost_data.input,
-            "custom_costs": resources("custom_cost_fn.csv"),
+            "custom_costs": resources("custom_cost_at.csv"),
         },
 
 

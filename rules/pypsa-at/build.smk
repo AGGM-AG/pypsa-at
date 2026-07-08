@@ -15,7 +15,7 @@ rule build_custom_cost_fn:
             lambda w: [config_provider("costs", "custom_cost_fn")(w)],
         ),
     output:
-        custom_cost_fn=resources("custom_cost_fn.csv"),
+        custom_cost_fn=resources("custom_cost_at.csv"),
     log:
         logs("build_custom_cost_fn.log"),
     benchmark:
