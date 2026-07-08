@@ -57,7 +57,7 @@ if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
     rule build_inflow_totals_per_region:
         input:
             powerplants=resources("powerplants_s_{clusters}.csv"),
-            hydro_inflows=directory(f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows"),
+            hydro_inflows=f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows",
             costs=lambda w: resources(
                 f"costs_{config_provider('costs', 'year')(w)}_processed.csv"
             ),
@@ -78,6 +78,8 @@ if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
             ),
             exclude_carriers=config_provider("clustering", "exclude_carriers"),
             hydro=config_provider("renewable", "hydro"),
+            snapshots=config_provider("snapshots"),
+            drop_leap_day=config_provider("enable", "drop_leap_day"),
         message:
             "Building hydropower inflow totals per region"
         script:
