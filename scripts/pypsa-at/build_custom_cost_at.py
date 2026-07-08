@@ -80,7 +80,7 @@ if __name__ == "__main__":
     if "snakemake" not in globals():
         from scripts._helpers import mock_snakemake
 
-        snakemake = mock_snakemake("build_custom_cost_fn")
+        snakemake = mock_snakemake("build_custom_cost_at")
 
     configure_logging(snakemake)
     set_scenario_config(snakemake)

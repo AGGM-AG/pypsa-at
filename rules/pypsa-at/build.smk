@@ -7,7 +7,7 @@ Build rules for AT-specific datasets.
 """
 
 
-rule build_custom_cost_fn:
+rule build_custom_cost_at:
     input:
         custom_cost_files=branch(
             config_provider("costs", "use_list"),
@@ -17,16 +17,16 @@ rule build_custom_cost_fn:
     output:
         custom_cost_fn=resources("custom_cost_at.csv"),
     log:
-        logs("build_custom_cost_fn.log"),
+        logs("build_custom_cost_at.log"),
     benchmark:
-        benchmarks("build_custom_cost_fn")
+        benchmarks("build_custom_cost_at")
     threads: 1
     resources:
         mem_mb=4000,
     params:
         costs=config_provider("costs"),
     script:
-        scripts("pypsa-at/build_custom_cost_fn.py")
+        scripts("pypsa-at/build_custom_cost_at.py")
 
 
 rule build_tyndp_trajectories:
