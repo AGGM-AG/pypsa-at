@@ -182,6 +182,68 @@ def _redistribute_peaks(
     return df
 
 
+def _patch_component_inflows(
+    n: Network,
+    inflow: xr.DataArray,
+    inflow_carrier: str,
+    model_carrier: str,
+    component_name: str,
+) -> None:
+    """
+    Patch inflow values for a given component and carrier.
+
+    Parameters
+    ----------
+    n
+        The pypsa network to patch
+    inflow
+        Timeseries of inflow values for all carriers
+    inflow_carrier
+        Name of the carrier in the inflow DataArray
+    model_carrier
+        Name of the carrier in the model
+    component_name
+        Pypsa component type (i.e. generator or storage_unit)
+
+    Returns
+    -------
+    :
+        Changes are applied inplace
+    """
+    idx = (
+        n.components[component_name].static.query(f'carrier == "{model_carrier}"').index
+    )
+    inflows = (
+        inflow.sel(carrier=inflow_carrier)
+        .to_dataframe(name="inflow")
+        .fillna(0)["inflow"]
+        .unstack()
+        .rename(columns=lambda x: f"{x} {model_carrier}")
+    )
+    match inflow_carrier:
+        case "hydro":
+            n.components[component_name].dynamic.inflow[idx] = inflows[idx]
+        case "PHS":
+            n.components[component_name].dynamic.p_max_pu[idx] = (
+                inflows[idx] / inflows[idx].max()
+            )
+            n.components[component_name].static.loc[idx, "p_nom"] = inflows[idx].max()
+        case "ror":
+            ror_p_max_pu = (
+                inflows[idx] / n.components[component_name].static.loc[idx, "p_nom"]
+            )
+            ror_p_max_pu = _redistribute_peaks(ror_p_max_pu)
+            n.components[component_name].dynamic.p_max_pu[idx] = ror_p_max_pu
+        case _:
+            raise ValueError(f"Unknown inflow carrier {inflow_carrier}")
+
+    missed_inflow_regions = list(set(inflows.columns) - set(idx))
+    if inflows[missed_inflow_regions].sum().sum() > 0:
+        logger.warning(
+            f"Left out non-zero {model_carrier} data due to missing network components for {missed_inflow_regions}"
+        )
+
+
 def patch_inflows(n: Network, snakemake: Snakemake) -> None:
     """
     Apply inflows to hydro components in the network.
@@ -202,56 +264,7 @@ def patch_inflows(n: Network, snakemake: Snakemake) -> None:
     inflow = xr.open_dataarray(Path(snakemake.input.inflow))
     inflow = _modify_inflow_snapshots(n, inflow)
 
-    # Patch hydro inflow
-    hydro_idx = n.storage_units.query('carrier == "hydro"').index
-    hydro_inflows = (
-        inflow.sel(carrier="hydro")
-        .to_dataframe(name="inflow")
-        .fillna(0)["inflow"]
-        .unstack()
-        .rename(columns=lambda x: f"{x} hydro")
-    )
-    n.storage_units_t.inflow[hydro_idx] = hydro_inflows[hydro_idx]
-
-    hydro_missed_inflow_regions = list(set(hydro_inflows.columns) - set(hydro_idx))
-    if hydro_inflows[hydro_missed_inflow_regions].sum().sum() > 0:
-        logger.warning(
-            f"Left out non-zero hydro inflow data due to missing network components for {hydro_missed_inflow_regions}"
-        )
-
-    # Patch PHS inflow
-    phs_idx = n.generators.query('carrier == "PHS inflow"').index
-    phs_inflows = (
-        inflow.sel(carrier="PHS")
-        .to_dataframe(name="PHS")
-        .fillna(0)["PHS"]
-        .unstack()
-        .rename(columns=lambda x: f"{x} PHS inflow")
-    )
-    n.generators_t.p_max_pu[phs_idx] = phs_inflows[phs_idx] / phs_inflows[phs_idx].max()
-    n.generators.loc[phs_idx, "p_nom"] = phs_inflows[phs_idx].max()
-
-    phs_missed_inflow_regions = list(set(phs_inflows.columns) - set(phs_idx))
-    if phs_inflows[phs_missed_inflow_regions].sum().sum() > 0:
-        logger.warning(
-            f"Left out non-zero phs inflow data due to missing network components for {phs_missed_inflow_regions}"
-        )
-
-    # Patch ROR generation
-    ror_idx = n.generators.query('carrier == "ror"').index
-    ror_inflows = (
-        inflow.sel(carrier="ror")
-        .to_dataframe(name="ror")
-        .fillna(0)["ror"]
-        .unstack()
-        .rename(columns=lambda x: f"{x} ror")
-    )
-    ror_p_max_pu = ror_inflows[ror_idx] / n.generators.loc[ror_idx, "p_nom"]
-    ror_p_max_pu = _redistribute_peaks(ror_p_max_pu)
-    n.generators_t.p_max_pu[ror_idx] = ror_p_max_pu
-
-    ror_missed_inflow_regions = list(set(ror_inflows.columns) - set(ror_idx))
-    if ror_inflows[ror_missed_inflow_regions].sum().sum() > 0:
-        logger.warning(
-            f"Left out non-zero ror inflow data due to missing network components for {ror_missed_inflow_regions}"
-        )
+    # Patch inflows
+    _patch_component_inflows(n, inflow, "hydro", "hydro", "storage_units")
+    _patch_component_inflows(n, inflow, "PHS", "PHS inflow", "generators")
+    _patch_component_inflows(n, inflow, "ror", "ror", "generators")
