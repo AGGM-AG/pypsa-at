@@ -81,6 +81,7 @@ def overwrite_biogas_to_power_plants_AT(
     ppl: pd.DataFrame,
     anlagenregister_file: str,
     postal_to_nuts_file: str,
+    threshold_capacity: float,
 ) -> pd.DataFrame:
     """
     Add Austrian biogas powerplants from the Anlagenregister (https://anlagenregister.at/).
@@ -95,6 +96,10 @@ def overwrite_biogas_to_power_plants_AT(
         input file of relevant powerplants published for Austria.
     postal_to_nuts_file
         file that maps all Austrian postal codes (PLZ) to NUTS3 region codes.
+    threshold_capacity
+        capacity threshold (MW) applied downstream when aggregating existing
+        plants per node. Must be <= 5 MW, otherwise the small Austrian biogas
+        plants added here would be filtered out again.
 
     Returns
     -------
@@ -105,6 +110,7 @@ def overwrite_biogas_to_power_plants_AT(
     ValueError
         If small biogas powerplants are found in the original powerplant file.
         This indicates a change in the upstream file that warrants investigation.
+        Also if ``threshold_capacity`` exceeds 5 MW.
     """
     at_small_bioenergy_ppl = ppl[
         (ppl["Country"] == "AT")
@@ -117,7 +123,6 @@ def overwrite_biogas_to_power_plants_AT(
             "Go and check if dataset has changed upstream!"
         )
 
-    threshold_capacity = snakemake.params.threshold_capacity
     if threshold_capacity > 5:
         raise ValueError(
             f"threshold_capacity for adding existing capacities per node is {threshold_capacity} MW,"
@@ -174,6 +179,7 @@ def overwrite_powerplants():
         ppl_overwrite,
         anlagenregister_file=snakemake.input.anlagenregister,
         postal_to_nuts_file=snakemake.input.postal_to_nuts,
+        threshold_capacity=snakemake.params.threshold_capacity,
     )
     return ppl_overwrite
 
