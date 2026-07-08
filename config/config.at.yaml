@@ -48,7 +48,7 @@ clustering:
     resolution_sector: 365H
 
 costs:
-  use_list: false       # Whether to use the file custom_cost_fn or combine files from custom_cost_fn_list
+  use_list: true       # Whether to use the file custom_cost_fn or combine files from custom_cost_fn_list
   custom_cost_fn: data/custom_costs.csv
   custom_cost_fn_list:  # List is combined into one cost file, keeping only the first occurrence of each entry.
   - data/custom_costs.csv
