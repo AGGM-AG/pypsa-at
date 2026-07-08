@@ -139,7 +139,7 @@ if __name__ == "__main__":
     bus_size = eb.groupby(level=["location", "carrier"]).sum()
 
     # Line and links widths according to net annual flow
-    flow = n.statistics.transmission(groupby=False, bus_carrier=carrier, at_port=[0])
+    flow = n.statistics.transmission(groupby=False, bus_carrier=carrier)
     if not flow.empty:
         flow_reversed_mask = flow.index.get_level_values(1).str.contains("reversed")
         flow_reversed = flow[flow_reversed_mask].rename(

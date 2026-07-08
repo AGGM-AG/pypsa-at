@@ -9,8 +9,6 @@ from math import isnan
 import pandas as pd
 import pypsa
 
-# todo: move to mods
-
 
 def combined_branch_capacity_by_corridor(
     p_opt_branch: pd.Series, links: pd.DataFrame, lines: pd.DataFrame
@@ -95,7 +93,7 @@ def collapse_items_to_corridors(items: list, p_opt_pair: dict) -> list:
 
 
 def calculate_additional_tooltip_statistics(
-    n: pypsa.Network, carrier: str, carriers_in_eb: pd.Index
+    n: pypsa.Network, carrier: str | list[str], carriers_in_eb: pd.Index
 ) -> dict:
     flow_peak = n.statistics.transmission(
         groupby=False, bus_carrier=carrier, at_port=[0], groupby_time="max"
@@ -281,7 +279,7 @@ def update_pydeck_layer_tooltip_for_circles(deck, stats: dict, flow_unit: str) -
 
 
 def build_legend_html(
-    carrier: str, region_unit: str, flow_unit: str, capacity_unit: str
+    carrier: str | list[str], region_unit: str, flow_unit: str, capacity_unit: str
 ) -> str:
     """
     Build an HTML legend overlay describing layers and semantics.
