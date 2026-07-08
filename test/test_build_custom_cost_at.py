@@ -51,7 +51,7 @@ def test_combine_two_files_with_overlapping_entries_keeps_first(tmp_path):
     output_path = tmp_path / "combined.csv"
 
     # Create mock Snakemake object
-    snakemake = mock_snakemake("build_custom_cost_fn")
+    snakemake = mock_snakemake("build_custom_cost_at")
     snakemake.input.custom_cost_files = [str(csv1_path), str(csv2_path)]
     snakemake.output.custom_cost_fn = str(output_path)
 
@@ -101,7 +101,7 @@ def test_duplicate_within_single_file_keeps_first_occurrence(tmp_path):
     output_path = tmp_path / "deduplicated.csv"
 
     # Create mock Snakemake object
-    snakemake = mock_snakemake("build_custom_cost_fn")
+    snakemake = mock_snakemake("build_custom_cost_at")
     snakemake.input.custom_cost_files = [str(csv_path)]
     snakemake.output.custom_cost_fn = str(output_path)
 
@@ -139,7 +139,7 @@ def test_multiple_cost_columns_preserved(tmp_path):
     output_path = tmp_path / "output.csv"
 
     # Create mock Snakemake object
-    snakemake = mock_snakemake("build_custom_cost_fn")
+    snakemake = mock_snakemake("build_custom_cost_at")
     snakemake.input.custom_cost_files = [str(csv_path)]
     snakemake.output.custom_cost_fn = str(output_path)
 
@@ -166,7 +166,7 @@ def test_empty_file_list_raises_error(tmp_path):
     output_path = tmp_path / "output.csv"
 
     # Create mock Snakemake object with empty input list
-    snakemake = mock_snakemake("build_custom_cost_fn")
+    snakemake = mock_snakemake("build_custom_cost_at")
     snakemake.input.custom_cost_files = []
     snakemake.output.custom_cost_fn = str(output_path)
 
