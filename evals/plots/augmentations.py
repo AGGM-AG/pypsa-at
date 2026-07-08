@@ -269,8 +269,7 @@ def remove_arrow_layers(deck) -> None:
     ]
 
 
-def update_pydeck_layer_tooltip_for_circles(deck, stats: dict, flow_unit: str) -> None:
-    # Only pie-chart PolygonLayers remain (arrow layers are removed beforehand).
+def update_pydeck_layer_tooltip_for_circles(deck) -> None:
     idx_circles_layers = [
         i for i, layer in enumerate(deck.layers) if layer.type == "PolygonLayer"
     ]
@@ -387,7 +386,9 @@ def augment_and_export_html(
 
     update_pydeck_layer_tooltip_for_paths(deck, stats, flow_unit, branch_width_max)
     remove_arrow_layers(deck)
-    update_pydeck_layer_tooltip_for_circles(deck, stats, flow_unit)
+
+    # Only pie-chart PolygonLayers remain (arrow layers are removed beforehand).
+    update_pydeck_layer_tooltip_for_circles(deck)
 
     html_output = deck.to_html(offline=False, as_string=True)
 
