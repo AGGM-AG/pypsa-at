@@ -165,9 +165,9 @@ def overwrite_powerplants():
     """Orchestrator function."""
     _ppl = pd.read_csv(snakemake.input.powerplants, index_col=0)
     ppl_overwrite = overwrite_nuclear_dateout(_ppl, CH_NUCLEAR_DATEOUT)
-    if not snakemake.params.add_biogas_plants_AT:
+    if not snakemake.params.add_biogas_to_power_plants_AT:
         logger.info(
-            "Skipping Austrian biogas plant addition. config option add_biogas_plants_AT is false."
+            "Skipping Austrian biogas plant addition. config option add_biogas_to_power_plants_AT is false."
         )
         return ppl_overwrite
     ppl_overwrite = overwrite_biogas_to_power_plants_AT(

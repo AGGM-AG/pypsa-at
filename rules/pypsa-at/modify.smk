@@ -224,8 +224,8 @@ rule overwrite_powerplants_at:
     resources:
         mem_mb=1000,
     params:
-        add_biogas_plants_AT=config_provider(
-            "mods", "existing_capacities", "add_biogas_plants_AT"
+        add_biogas_to_power_plants_AT=config_provider(
+            "mods", "existing_capacities", "add_biogas_to_power_plants_AT"
         ),
         threshold_capacity=config_provider("existing_capacities", "threshold_capacity"),
     message:
