@@ -24,6 +24,7 @@ def test_inflows_match_pemmdb_totals(nc, project_root):
 
     for year, n in nc.networks.items():
         inflow = xr.DataArray.from_dict(n.meta["resources"]["inflow_data"])
+        inflow = inflow.assign_coords(time=pd.to_datetime(inflow.time.values))
         tol = 0.01 * n.snapshot_weightings.max()[0]
 
         reservoirs_columns = n.storage_units.query('carrier == "hydro"').index
