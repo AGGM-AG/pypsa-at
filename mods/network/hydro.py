@@ -75,7 +75,7 @@ def add_phs_hydro(
         if "PHS" in carriers and not phs.empty:
             # fill missing max hours to params value and
             # assume no natural inflow due to lack of data
-            max_hours = p.get("PHS_max_hours", 6)
+            max_hours = p["PHS_max_hours"]
             phs = phs.replace({"max_hours": {0: max_hours, np.nan: max_hours}})
             add_missing_carriers(
                 n, ["PHS charger", "PHS discharger", "PHS store", "PHS inflow"]
@@ -338,6 +338,72 @@ def _redistribute_peaks(
     return df
 
 
+def _patch_component_inflows(
+    n: Network,
+    inflow: xr.DataArray,
+    inflow_carrier: str,
+    model_carrier: str,
+) -> tuple[pd.Index, pd.DataFrame]:
+    """
+    Patch inflow values for a given carrier.
+
+    Parameters
+    ----------
+    n
+        The pypsa network to patch
+    inflow
+        Timeseries of inflow values for all carriers
+    inflow_carrier
+        Name of the carrier in the inflow DataArray
+    model_carrier
+        Name of the carrier in the model
+
+    Returns
+    -------
+    :
+        (idx, inflows)
+            Changes are applied inplace to the network.
+            Returns index and inflows for carrier.
+    """
+    component_name = "generators"
+    idx = (
+        n.components[component_name].static.query(f'carrier == "{model_carrier}"').index
+    )
+    inflows = (
+        inflow.sel(carrier=inflow_carrier)
+        .to_dataframe(name="inflow")
+        .fillna(0)["inflow"]
+        .unstack()
+        .rename(columns=lambda x: f"{x} {model_carrier}")
+    )
+    match inflow_carrier:
+        case "hydro":
+            n.components[component_name].dynamic.p_max_pu[idx] = (
+                    inflows[idx] / inflows[idx].max()
+            )
+            n.components[component_name].static.loc[idx, "p_nom"] = inflows[idx].max()
+        case "PHS":
+            n.components[component_name].dynamic.p_max_pu[idx] = (
+                    inflows[idx] / inflows[idx].max()
+            )
+            n.components[component_name].static.loc[idx, "p_nom"] = inflows[idx].max()
+        case "ror":
+            ror_p_max_pu = (
+                inflows[idx] / n.components[component_name].static.loc[idx, "p_nom"]
+            )
+            ror_p_max_pu = _redistribute_peaks(ror_p_max_pu)
+            n.components[component_name].dynamic.p_max_pu[idx] = ror_p_max_pu
+        case _:
+            raise ValueError(f"Unknown inflow carrier {inflow_carrier}")
+
+    missed_inflow_regions = list(set(inflows.columns) - set(idx))
+    if inflows[missed_inflow_regions].sum().sum() > 0:
+        logger.warning(
+            f"Left out non-zero {model_carrier} data due to missing network components for {missed_inflow_regions}"
+        )
+    return (idx, inflows)
+
+
 def patch_inflows(n: Network, snakemake: Snakemake, ppl: pd.DataFrame) -> None:
     """
     Apply inflows to hydro components in the network.
@@ -360,20 +426,12 @@ def patch_inflows(n: Network, snakemake: Snakemake, ppl: pd.DataFrame) -> None:
     inflow = xr.open_dataarray(Path(snakemake.input.inflow))
     inflow = _modify_inflow_snapshots(n, inflow)
 
-    # Patch hydro inflow
-    hydro_idx = n.generators.query('carrier == "hydro inflow"').index
-    hydro_inflows = (
-        inflow.sel(carrier="hydro")
-        .to_dataframe(name="inflow")
-        .fillna(0)["inflow"]
-        .unstack()
-        .rename(columns=lambda x: f"{x} hydro inflow")
-    )
-    n.generators_t.p_max_pu[hydro_idx] = (
-        hydro_inflows[hydro_idx] / hydro_inflows[hydro_idx].max()
-    )
-    n.generators.loc[hydro_idx, "p_nom"] = hydro_inflows[hydro_idx].max()
+    # Patch inflows
+    hydro_idx, hydro_inflows = _patch_component_inflows(n, inflow, "hydro inflow", "hydro")
+    _patch_component_inflows(n, inflow, "PHS", "PHS inflow")
+    _patch_component_inflows(n, inflow, "ror", "ror")
 
+    # modify average capacity factor for hydro
     p = snakemake.params.renewable["hydro"].copy()
     hydro = ppl.query('carrier == "hydro"')
     renewable_carriers = set(snakemake.params.electricity["renewable_carriers"])
@@ -387,55 +445,3 @@ def patch_inflows(n: Network, snakemake: Snakemake, ppl: pd.DataFrame) -> None:
         n.links.loc[link_idx, "p_max_pu"] = (average_capacity_factor + buffer).clip(
             upper=1
         )
-
-    hydro_missed_inflow_regions = list(set(hydro_inflows.columns) - set(hydro_idx))
-    if hydro_inflows[hydro_missed_inflow_regions].sum().sum() > 0:
-        logger.warning(
-            f"Left out non-zero hydro inflow data due to missing network components for {hydro_missed_inflow_regions}"
-        )
-
-    # Patch PHS inflow
-    phs_idx = n.generators.query('carrier == "PHS inflow"').index
-    phs_inflows = (
-        inflow.sel(carrier="PHS")
-        .to_dataframe(name="PHS")
-        .fillna(0)["PHS"]
-        .unstack()
-        .rename(columns=lambda x: f"{x} PHS inflow")
-    )
-    n.generators_t.p_max_pu[phs_idx] = phs_inflows[phs_idx] / phs_inflows[phs_idx].max()
-    n.generators.loc[phs_idx, "p_nom"] = phs_inflows[phs_idx].max()
-
-    phs_missed_inflow_regions = list(set(phs_inflows.columns) - set(phs_idx))
-    if phs_inflows[phs_missed_inflow_regions].sum().sum() > 0:
-        logger.warning(
-            f"Left out non-zero phs inflow data due to missing network components for {phs_missed_inflow_regions}"
-        )
-
-    # Patch ROR generation
-    ror_idx = n.generators.query('carrier == "ror"').index
-    ror_inflows = (
-        inflow.sel(carrier="ror")
-        .to_dataframe(name="ror")
-        .fillna(0)["ror"]
-        .unstack()
-        .rename(columns=lambda x: f"{x} ror")
-    )
-    ror_p_max_pu = ror_inflows[ror_idx] / n.generators.loc[ror_idx, "p_nom"]
-    ror_p_max_pu = _redistribute_peaks(ror_p_max_pu)
-    n.generators_t.p_max_pu[ror_idx] = ror_p_max_pu
-
-    ror_missed_inflow_regions = list(set(ror_inflows.columns) - set(ror_idx))
-    if ror_inflows[ror_missed_inflow_regions].sum().sum() > 0:
-        logger.warning(
-            f"Left out non-zero ror inflow data due to missing network components for {ror_missed_inflow_regions}"
-        )
-    """
-    Recalculate p_max_pu for hydro dispatch
-    if p.get("flatten_dispatch", False):
-        buffer = p.get("flatten_dispatch_buffer", 0.2)
-        average_capacity_factor = inflow_t[hydro.index].mean() / hydro["p_nom"]
-        p_max_pu = (average_capacity_factor + buffer).clip(upper=1)
-    else:
-        p_max_pu = 1
-    """

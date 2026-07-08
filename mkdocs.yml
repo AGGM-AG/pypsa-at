@@ -29,6 +29,7 @@ nav:
       - electricity.py: reference/mods/network/electricity.md
       - gas.py: reference/mods/network/gas.md
       - h2.py: reference/mods/network/h2.md
+      - hydro.py: reference/mods/network/hydro.md
       - trajectories.py: reference/mods/network/trajectories.md
       - potentials.py: reference/mods/network/potentials.md
   - Evaluations:

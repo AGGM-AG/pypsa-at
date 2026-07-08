@@ -4,8 +4,6 @@
 
 """Test hydro inflow patching."""
 
-from pathlib import Path
-
 import pandas as pd
 import pytest
 import xarray as xr
@@ -25,18 +23,8 @@ def test_inflows_match_pemmdb_totals(nc, project_root):
         pytest.skip("No hydro components in network, skipping")
 
     for year, n in nc.networks.items():
-        prefix = n.meta["run"]["prefix"]
-        run_name = n.meta["run"]["name"][0]
-        clusters = n.meta["wildcards"]["clusters"]
-        inflows = (
-            project_root
-            / "resources"
-            / prefix
-            / run_name
-            / f"inflow_per_region_{clusters}.nc"
-        )
-
-        inflow = xr.open_dataarray(Path(inflows))
+        inflow = xr.DataArray.from_dict(n.meta["resources"]["inflow_data"])
+        inflow = inflow.assign_coords(time=pd.to_datetime(inflow.time.values))
         tol = 0.01 * n.snapshot_weightings.max()[0]
 
         for model_carrier, resource_carrier in [

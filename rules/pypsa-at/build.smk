@@ -78,6 +78,8 @@ if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
             ),
             exclude_carriers=config_provider("clustering", "exclude_carriers"),
             hydro=config_provider("renewable", "hydro"),
+            snapshots=config_provider("snapshots"),
+            drop_leap_day=config_provider("enable", "drop_leap_day"),
         message:
             "Building hydropower inflow totals per region"
         script:
