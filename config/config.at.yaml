@@ -254,8 +254,8 @@ mods:
                             # outside model boundary (Systemgrenze).
 
   existing_capacities:
-    add_biogas_plants_AT: true # add Austrian biogas plants from Anlagenregister
-                               # in addition to powerplantmatching
+    add_biogas_to_power_plants_AT: true # add Austrian biogas-to-power plants from Anlagenregister
+                                        # in addition to powerplantmatching
 
   tyndp_h2_import_scenario: "DE" # One of DE (Distributed Energy), NT (National Trends), GA (Global Ambition).
                            # Only used when H2 imports is enabled
