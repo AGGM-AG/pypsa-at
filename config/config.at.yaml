@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: biogas-global-threshold-2MW
+  prefix: feat-biogas-brownfield-austria
   name:
   - AT_KN2040
   scenarios:
@@ -52,7 +52,7 @@ costs:
 
 existing_capacities:
   threshold_capacity: 2 # reduce threshold capacity for all carriers to better support
-                          # finer spatial resolution of PyPSA-AT
+                        # finer spatial resolution of PyPSA-AT
 
 sector:
   v2g: false

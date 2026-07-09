@@ -3,17 +3,23 @@
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
 """
-Unit test for scripts/pypsa-at/overwrite_powerplants.py function overwrite_biogas_to_power_plants_AT
+Tests for scripts/pypsa-at/overwrite_powerplants.py function overwrite_biogas_to_power_plants_AT
 """
 
+import pathlib
+import re
 import textwrap
 
 import pandas as pd
+import pypsa
 import pytest
 from overwrite_powerplants import overwrite_biogas_to_power_plants_AT
 
-# Column header of the capacity field in the real Anlagenregister CSV.
+# Column header of the capacity in Anlagenregister csv
 CAPACITY_COL = "Engpassleistung (kW <sub>el</sub>)"
+_DATA = pathlib.Path.cwd() / "data" / "pypsa-at"
+ANLAGENREGISTER = _DATA / "Anlagenregister_electricity_from_renewable_gas_AT.csv"
+POSTAL_TO_NUTS = _DATA / "AT-Postal-to-NUTS.csv"
 
 
 @pytest.fixture
@@ -75,6 +81,21 @@ def result(ppl, anlagenregister_file, postal_to_nuts_file):
     )
 
 
+@pytest.fixture
+def source(anlagenregister_file):
+    """Anlagenregister rows with a usable Plz (the ones that must be added)."""
+    return pd.read_csv(anlagenregister_file).dropna(subset=["Plz"])
+
+
+@pytest.fixture
+def nuts3_codes(postal_to_nuts_file):
+    """NUTS3 codes in the postal->NUTS mapping."""
+    postal = pd.read_csv(
+        postal_to_nuts_file, sep=";", dtype=str, names=["nuts3", "plz"], header=0
+    )
+    return set(postal["nuts3"].str.strip("'"))
+
+
 def _biogas(df):
     """Rows are added by the function are called "Biogas AT"."""
     return df[df["Name"].str.startswith("Biogas AT")]
@@ -85,6 +106,13 @@ def test_all_valid_rows_added(result, ppl):
     added = _biogas(result)
     assert len(added) == 3  # ID 999 dropped (empty Plz)
     assert len(result) == len(ppl) + 3
+
+
+def test_capacity_kw_to_mw(result):
+    cap = _biogas(result).set_index("Name")["Capacity"]
+    assert cap["Biogas AT 6"] == pytest.approx(0.5)
+    assert cap["Biogas AT 4"] == pytest.approx(0.25)
+    assert cap["Biogas AT 204"] == pytest.approx(140.0)
 
 
 def test_ids_map_to_names(result):
@@ -135,3 +163,74 @@ def test_guard_raises_on_high_threshold(ppl, anlagenregister_file, postal_to_nut
         overwrite_biogas_to_power_plants_AT(
             ppl, anlagenregister_file, postal_to_nuts_file, threshold_capacity=6
         )
+
+
+def test_every_source_plant_is_added(result, source):
+    """Check if there are the same amount of powerplants as there are valid ones in Anlagenregister"""
+    assert len(_biogas(result)) == len(source)
+
+
+def test_capacity_sum_matches_source(result, source):
+    """Total added capacity == converted kW Engpassleistung"""
+    assert _biogas(result)["Capacity"].sum() == pytest.approx(
+        source[CAPACITY_COL].sum() / 1000
+    )
+
+
+# --- AT integration: check that biogas plants become biogas Links ---
+
+
+def _expected_at_biogas_per_node(threshold):
+    """
+    Sum of biogas capacity per node region.
+    2 MW threshold mirrors add_existing_baseyear.py split into
+    solid biomass and biogas carriers.
+    """
+    postal = (
+        pd.read_csv(
+            POSTAL_TO_NUTS, sep=";", dtype=str, names=["nuts3", "plz"], header=0
+        )
+        .assign(
+            plz=lambda x: x["plz"].str.strip("'"),
+            nuts3=lambda x: x["nuts3"].str.strip("'"),
+        )
+        .set_index("plz")["nuts3"]
+    )
+    reg = pd.read_csv(ANLAGENREGISTER).dropna(subset=["Plz"])
+    reg["bus"] = reg["Plz"].astype("Int64").astype(str).str.zfill(4).map(postal)
+    reg["MW"] = reg[CAPACITY_COL] / 1000
+    per_node = reg[reg["MW"] < 2].groupby("bus")["MW"].sum()
+    return per_node[per_node > threshold]
+
+
+@pytest.fixture(scope="session")
+def brownfield_baseyear_network(result_path, project_root):
+    """From resources/{prefix}/{scenario}/networks/base_s_adm__none_{year}_brownfield.nc"""
+    prefix, scenario = result_path.parts[-2], result_path.parts[-1]
+    net_dir = project_root / "resources" / prefix / scenario / "networks"
+    files = list(net_dir.glob("base_s_*_brownfield.nc"))
+    assert files, f"no brownfield networks under {net_dir}"
+    baseyear_file = min(
+        files, key=lambda p: int(re.search(r"_(\d{4})_brownfield", p.name).group(1))
+    )
+    return pypsa.Network(str(baseyear_file))
+
+
+@pytest.mark.AT
+def test_at_biogas_capacity_matches_source_per_node(brownfield_baseyear_network):
+    """
+    Compare expected biogas capacities in each node with
+    biogas capacity of links in brownfield network
+    """
+    n = brownfield_baseyear_network
+
+    threshold = n.meta["existing_capacities"]["threshold_capacity"]
+    expected = _expected_at_biogas_per_node(threshold)
+
+    at = n.links.query("carrier == 'biogas'")
+    at = at[at["bus1"].isin(expected.index)]
+    recovered = (at["p_nom"] * at["efficiency"]).groupby(at["bus1"]).sum()
+
+    assert set(recovered.index) == set(expected.index)
+    for node, mw in expected.items():
+        assert recovered[node] == pytest.approx(mw, rel=1e-6)
