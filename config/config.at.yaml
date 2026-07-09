@@ -22,6 +22,8 @@ run:
     - industry_sector_ratios
     - build_industry_sector_ratios   # This is necessary to save build_industry_sector_ratios_data.log in the correct folder
     - modify_existing_heating
+    - build_custom_cost_at
+    - custom_cost_at.csv
     - trajectories.csv
     - trajectories
 
@@ -62,7 +64,11 @@ clustering:
     resolution_sector: 365H
 
 costs:
+  use_list: true       # Whether to use the file custom_cost_fn or combine files from custom_cost_fn_list
   custom_cost_fn: data/custom_costs.csv
+  custom_cost_fn_list:  # List is combined into one cost file, keeping only the first occurrence of each entry.
+  - data/custom_costs.csv
+  - data/pypsa-de/custom_costs_nep_2023.csv
 
 sector:
   v2g: false

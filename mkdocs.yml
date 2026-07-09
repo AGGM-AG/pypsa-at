@@ -77,6 +77,8 @@ nav:
     - Wind Power Potentials: explanations/renewable-energy-potentials/wind-potentials.md
   - Hydroelectric Resources:
     - Inflow Calculation and Application: explanations/hydro-inflow.md
+  - Hydroelectric Resources:
+    - Inflow Calculation and Application: explanations/hydro-inflow.md
     - Generic Capacity Trajectories: explanations/hydro-capacity-trajectories.md
   - Regulatory Requirements:
     - explanations/regulatory-requirements/index.md
