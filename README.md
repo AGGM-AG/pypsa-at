@@ -20,6 +20,9 @@
 > - **Official source:** This repository is the official source of PyPSA-AT. Third-party forks are independent projects, and we do not vouch for their accuracy, methodology, or claims.
 > - **Indicative results:** Model results are indicative and **do not replace the detailed hydraulic assessments or power-flow/load-flow calculations** that may be required for technical evaluation, validation, or planning purposes.
 > - **Inherited limitations:** PyPSA-AT inherits the [limitations of PyPSA-Eur](https://pypsa-eur.readthedocs.io/en/latest/limitations.html). Some have since been addressed, but many still apply — please read and understand them before drawing conclusions.
+> - **Reproducibility & disclosure:** Results produced with PyPSA-AT depend on the code used and the underlying input data. AGGM places the highest priority on ensuring that both the code and the input data published in      
+  PyPSA-AT are valid. When publishing results calculated with PyPSA-AT, users are required to clearly state which code version was used (and whether the code was modified independently) and to disclose the input data used — or 
+  state that input data is not published (private data).
 
 **PyPSA-AT** is an Austrian adaptation of the open European energy system
 model [PyPSA-Eur](https://github.com/pypsa/pypsa-eur).
