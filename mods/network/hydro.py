@@ -378,19 +378,22 @@ def _patch_component_inflows(
     )
     match inflow_carrier:
         case "hydro":
-            n.components[component_name].dynamic.p_max_pu[idx] = (
-                inflows[idx] / inflows[idx].max()
-            )
+            n.components[component_name].dynamic.p_max_pu[idx] = np.where(
+                    inflows[idx].max()>0,
+                    inflows[idx] / inflows[idx].max(),
+                    0)
             n.components[component_name].static.loc[idx, "p_nom"] = inflows[idx].max()
         case "PHS":
-            n.components[component_name].dynamic.p_max_pu[idx] = (
-                inflows[idx] / inflows[idx].max()
-            )
+            n.components[component_name].dynamic.p_max_pu[idx] = np.where(
+                inflows[idx].max()>0,
+                inflows[idx] / inflows[idx].max(),
+                0)
             n.components[component_name].static.loc[idx, "p_nom"] = inflows[idx].max()
         case "ror":
-            ror_p_max_pu = (
-                inflows[idx] / n.components[component_name].static.loc[idx, "p_nom"]
-            )
+            ror_p_max_pu = np.where(
+                n.components[component_name].static.loc[idx, "p_nom"]>0,
+                inflows[idx] / n.components[component_name].static.loc[idx, "p_nom"],
+                0)
             ror_p_max_pu = _redistribute_peaks(ror_p_max_pu)
             n.components[component_name].dynamic.p_max_pu[idx] = ror_p_max_pu
         case _:

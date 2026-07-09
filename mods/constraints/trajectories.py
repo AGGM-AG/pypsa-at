@@ -111,7 +111,7 @@ def calculate_limit(
         :The series of limits per constraint
         :A DataFrame mapping constraint indices to PyPSA component names
     """
-    component, property = variable.split("-")
+    component, property = variable.split("-", 1)
 
     if component not in [c.name for c in n.components]:
         raise ValueError(
@@ -197,7 +197,7 @@ def build_model_expression(
     ]
     if len(missing_idx) > 0:
         raise ValueError(
-            f"Missing variables for components {missing_trajectories['names']}."
+            f"Missing variables for components {missing_trajectories['name']}."
         )
     expr = model_vars.sel(name=list(trajectories_filtered.name))
     grouper = xr.DataArray(

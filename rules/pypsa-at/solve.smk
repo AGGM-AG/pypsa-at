@@ -30,7 +30,9 @@ if config["foresight"] == "overnight":
             ],
         params:
             **rules.solve_sector_network.params,
-            apply_trajectories=config_provider("scenario", "apply_trajectories"),
+            apply_trajectories=config_provider(
+                "scenario", "trajectories", "apply_trajectories"
+            ),
             trajectories_eps=config_provider("scenario", "trajectories", "eps"),
             resource_meta=lambda wildcards, input: {
                 key: value
@@ -86,7 +88,9 @@ if config["foresight"] == "perfect":
             ],
         params:
             **rules.solve_sector_network_perfect.params,
-            apply_trajectories=config_provider("scenario", "apply_trajectories"),
+            apply_trajectories=config_provider(
+                "scenario", "trajectories", "apply_trajectories"
+            ),
             trajectories_eps=config_provider("scenario", "trajectories", "eps"),
             resource_meta=lambda wildcards, input: {
                 key: value
