@@ -160,12 +160,8 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
         _clip_electricity("IT1")
 
     if resolution == 3:
-        [
+        for loc in ("AL", "AT111", "AT112", "AT126", "IT1", "IT2"):
             _clip_electricity(loc)
-            for loc in ("AL", "AT111", "AT112", "AT126", "IT1", "IT2")
-        ]
-        # for loc in ("AL", "AT111", "AT112", "AT126", "IT1", "IT2"):
-        #     _clip_electricity(loc)
 
     # Edge case: runs contain negative H2 for industry Loads until including 2030
     if investment_year <= 2030:
