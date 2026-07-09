@@ -17,9 +17,7 @@ PyPSA-AT adds all known biogas-to-power plants explicitly from the Austrian
 ## Data flow
 
 1. **`overwrite_powerplants_at`** rule → `overwrite_biogas_to_power_plants_AT`
-   (`scripts/pypsa-at/overwrite_powerplants.py`): each Anlagenregister plant is mapped
-   PLZ → NUTS3 and added to the powerplants table as
-   with the build year 2010. This year is an assumption based on the historic peak of Austrian governmental grants for
+   (`scripts/pypsa-at/overwrite_powerplants.py`): each Anlagenregister plant is mapped from PLZ to NUTS3 and added to the powerplants table with the build year 2010. This year is an assumption based on the historic peak of Austrian governmental grants for
     biogas-to-power plants.
     The result is written to `powerplants_s_{clusters}-overwrite.csv`.
 2. **`add_existing_baseyear`** (upstream) turns these `powerplantmatching` .csv into network components:
