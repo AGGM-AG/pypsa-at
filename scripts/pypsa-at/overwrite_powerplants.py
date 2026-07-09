@@ -17,6 +17,7 @@ import logging
 
 import pandas as pd
 
+from mods.clustering.utils import _map_at_nuts3_to_nuts2
 from scripts._helpers import configure_logging
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,7 @@ def overwrite_biogas_to_power_plants_AT(
     anlagenregister_file: str,
     postal_to_nuts_file: str,
     threshold_capacity: float,
+    clustering: str,
 ) -> pd.DataFrame:
     """
     Add Austrian biogas powerplants from the Anlagenregister (https://anlagenregister.at/).
@@ -100,6 +102,9 @@ def overwrite_biogas_to_power_plants_AT(
         capacity threshold (MW) applied downstream when aggregating existing
         plants per node. Must be <= 5 MW, otherwise the small Austrian biogas
         plants added here would be filtered out again.
+    clustering
+        clustering identifier, either AT10 (NUTS2) or AT35 (NUTS3). Needed for
+        AT10, maps powerplants accordingly using _map_at_nuts3_to_nuts2.
 
     Returns
     -------
@@ -146,6 +151,10 @@ def overwrite_biogas_to_power_plants_AT(
     anlreg["Plz"] = anlreg["Plz"].astype("Int64").astype(str).str.zfill(4)
     anlreg["nuts"] = anlreg["Plz"].map(postal_to_nuts)
 
+    # Relabel NUTS3 codes to NUTS2 if run has lower resolution
+    if clustering.startswith("AT10"):
+        anlreg["nuts"] = anlreg["nuts"].map(_map_at_nuts3_to_nuts2)
+
     new_ppls = pd.DataFrame(
         {
             "Name": "Biogas AT " + anlreg["ID"].astype(int).astype(str),
@@ -180,6 +189,7 @@ def overwrite_powerplants():
         anlagenregister_file=snakemake.input.anlagenregister,
         postal_to_nuts_file=snakemake.input.postal_to_nuts,
         threshold_capacity=snakemake.params.threshold_capacity,
+        clustering=snakemake.config["mods"]["modify_nuts3_shapes"],
     )
     return ppl_overwrite
 
