@@ -20,7 +20,7 @@ def test_constraint_generic_trajectories(
     eps = require_config(nc, "scenario", "trajectories", "eps")
 
     for year, n in nc.networks.items():
-        trajectories = n.meta["resources"]["trajectories"]
+        trajectories = pd.DataFrame.from_dict(n.meta["resources"]["trajectories"])
         trajectories = trajectories[trajectories["year"] == int(year)]
         trajectories = trajectories.rename(columns={"region": "traj_region"})
         mapping = _get_region_mapping(

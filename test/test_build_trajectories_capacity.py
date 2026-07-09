@@ -18,7 +18,7 @@ def _reverse_dict(d: dict[Any, Any]) -> dict[Any, list[Any]]:
 def test_build_trajectories_capacity(nc: NetworkCollection) -> None:
     PYPSA_TO_TYNDP_LOCATIONS = _reverse_dict(TYNDP_TO_PYPSA_LOCATION)
     for year, n in nc.networks.items():
-        trajectories = n.meta["resources"]["trajectories"]
+        trajectories = pd.DataFrame.from_dict(n.meta["resources"]["trajectories"])
         trajectories = trajectories[trajectories["year"] == int(year)]
 
         input_path = Path(n.meta["resources"]["otyndp_hydro"]) / year
