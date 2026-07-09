@@ -15,6 +15,8 @@ import pypsa
 import pytest
 from overwrite_powerplants import overwrite_biogas_to_power_plants_AT
 
+from mods.clustering.utils import _map_at_nuts3_to_nuts2
+
 # Column header of the capacity in Anlagenregister csv
 CAPACITY_COL = "Engpassleistung (kW <sub>el</sub>)"
 _DATA = pathlib.Path.cwd() / "data" / "pypsa-at"
@@ -77,7 +79,11 @@ def ppl():
 @pytest.fixture
 def result(ppl, anlagenregister_file, postal_to_nuts_file):
     return overwrite_biogas_to_power_plants_AT(
-        ppl, anlagenregister_file, postal_to_nuts_file, threshold_capacity=2
+        ppl,
+        anlagenregister_file,
+        postal_to_nuts_file,
+        threshold_capacity=2,
+        clustering="AT35DE5",
     )
 
 
@@ -137,6 +143,21 @@ def test_mapped_all_plz_to_nuts3(result):
     assert by_name["Biogas AT 204"] == "AT321"
 
 
+def test_maps_nuts3_to_nuts2_for_at10(ppl, anlagenregister_file, postal_to_nuts_file):
+    """AT10 clustering collapses the NUTS3 plant buses to NUTS2 node names."""
+    result = overwrite_biogas_to_power_plants_AT(
+        ppl,
+        anlagenregister_file,
+        postal_to_nuts_file,
+        threshold_capacity=2,
+        clustering="AT10DE5",
+    )
+    by_name = _biogas(result).set_index("Name")["bus"]
+    assert by_name["Biogas AT 6"] == "AT22"  # AT226 -> AT22
+    assert by_name["Biogas AT 4"] == "AT11"  # AT113 -> AT11
+    assert by_name["Biogas AT 204"] == "AT32"  # AT321 -> AT32
+
+
 def test_preserves_existing_rows(result):
     assert {"Existing DE", "AT Hydro"} <= set(result["Name"])
 
@@ -153,7 +174,11 @@ def test_guard_raises_on_small_at_bioenergy(anlagenregister_file, postal_to_nuts
     )
     with pytest.raises(ValueError, match="powerplantmatching"):
         overwrite_biogas_to_power_plants_AT(
-            ppl, anlagenregister_file, postal_to_nuts_file, threshold_capacity=2
+            ppl,
+            anlagenregister_file,
+            postal_to_nuts_file,
+            threshold_capacity=2,
+            clustering="AT35DE5",
         )
 
 
@@ -161,7 +186,11 @@ def test_guard_raises_on_high_threshold(ppl, anlagenregister_file, postal_to_nut
     """threshold_capacity > 5 MW would filter out small biogas plants -> ValueError."""
     with pytest.raises(ValueError, match="threshold_capacity"):
         overwrite_biogas_to_power_plants_AT(
-            ppl, anlagenregister_file, postal_to_nuts_file, threshold_capacity=6
+            ppl,
+            anlagenregister_file,
+            postal_to_nuts_file,
+            threshold_capacity=6,
+            clustering="AT35DE5",
         )
 
 
@@ -180,11 +209,12 @@ def test_capacity_sum_matches_source(result, source):
 # --- AT integration: check that biogas plants become biogas Links ---
 
 
-def _expected_at_biogas_per_node(threshold):
+def _expected_at_biogas_per_node(threshold, clustering):
     """
     Sum of biogas capacity per node region.
     2 MW threshold mirrors add_existing_baseyear.py split into
-    solid biomass and biogas carriers.
+    solid biomass and biogas carriers. Buses are relabelled to the
+    clustering's node resolution (AT10 collapses NUTS3 to NUTS2).
     """
     postal = (
         pd.read_csv(
@@ -198,6 +228,8 @@ def _expected_at_biogas_per_node(threshold):
     )
     reg = pd.read_csv(ANLAGENREGISTER).dropna(subset=["Plz"])
     reg["bus"] = reg["Plz"].astype("Int64").astype(str).str.zfill(4).map(postal)
+    if clustering.startswith("AT10"):
+        reg["bus"] = reg["bus"].map(_map_at_nuts3_to_nuts2)
     reg["MW"] = reg[CAPACITY_COL] / 1000
     per_node = reg[reg["MW"] < 2].groupby("bus")["MW"].sum()
     return per_node[per_node > threshold]
@@ -225,7 +257,8 @@ def test_at_biogas_capacity_matches_source_per_node(brownfield_baseyear_network)
     n = brownfield_baseyear_network
 
     threshold = n.meta["existing_capacities"]["threshold_capacity"]
-    expected = _expected_at_biogas_per_node(threshold)
+    clustering = n.meta["mods"]["modify_nuts3_shapes"]
+    expected = _expected_at_biogas_per_node(threshold, clustering)
 
     at = n.links.query("carrier == 'biogas'")
     at = at[at["bus1"].isin(expected.index)]

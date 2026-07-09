@@ -189,7 +189,7 @@ def overwrite_powerplants():
         anlagenregister_file=snakemake.input.anlagenregister,
         postal_to_nuts_file=snakemake.input.postal_to_nuts,
         threshold_capacity=snakemake.params.threshold_capacity,
-        clustering=snakemake.config["mods"]["modify_nuts3_shapes"],
+        clustering=snakemake.params.clustering,
     )
     return ppl_overwrite
 

@@ -228,6 +228,7 @@ rule overwrite_powerplants_at:
             "mods", "existing_capacities", "add_biogas_to_power_plants_AT"
         ),
         threshold_capacity=config_provider("existing_capacities", "threshold_capacity"),
+        clustering=config_provider("mods", "modify_nuts3_shapes"),
     message:
         "Overriding power plant attributes for {wildcards.clusters} clusters."
     script:
