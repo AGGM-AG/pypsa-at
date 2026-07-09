@@ -12,10 +12,7 @@ RESOURCE_META = {
     "co2_totals": resources("co2_totals.csv"),
     "otyndp_hydro": f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows",
 }
-INPUT_META = [
-    "energy_totals",
-    "trajectories"
-]
+INPUT_META = ["energy_totals", "trajectories"]
 
 if config["foresight"] == "overnight":
 

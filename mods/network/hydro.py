@@ -379,12 +379,12 @@ def _patch_component_inflows(
     match inflow_carrier:
         case "hydro":
             n.components[component_name].dynamic.p_max_pu[idx] = (
-                    inflows[idx] / inflows[idx].max()
+                inflows[idx] / inflows[idx].max()
             )
             n.components[component_name].static.loc[idx, "p_nom"] = inflows[idx].max()
         case "PHS":
             n.components[component_name].dynamic.p_max_pu[idx] = (
-                    inflows[idx] / inflows[idx].max()
+                inflows[idx] / inflows[idx].max()
             )
             n.components[component_name].static.loc[idx, "p_nom"] = inflows[idx].max()
         case "ror":
@@ -427,7 +427,9 @@ def patch_inflows(n: Network, snakemake: Snakemake, ppl: pd.DataFrame) -> None:
     inflow = _modify_inflow_snapshots(n, inflow)
 
     # Patch inflows
-    hydro_idx, hydro_inflows = _patch_component_inflows(n, inflow, "hydro", "hydro inflow")
+    hydro_idx, hydro_inflows = _patch_component_inflows(
+        n, inflow, "hydro", "hydro inflow"
+    )
     _patch_component_inflows(n, inflow, "PHS", "PHS inflow")
     _patch_component_inflows(n, inflow, "ror", "ror")
 
