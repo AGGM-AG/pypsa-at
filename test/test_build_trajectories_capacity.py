@@ -15,26 +15,13 @@ def _reverse_dict(d: dict[Any, Any]) -> dict[Any, list[Any]]:
     return dict(rev)
 
 
-def test_build_trajectories_capacity(nc: NetworkCollection, project_root: Path) -> None:
+def test_build_trajectories_capacity(nc: NetworkCollection) -> None:
     PYPSA_TO_TYNDP_LOCATIONS = _reverse_dict(TYNDP_TO_PYPSA_LOCATION)
     for year, n in nc.networks.items():
-        prefix = n.meta["run"]["prefix"]
-        run_name = n.meta["run"]["name"][0]
-        trajectories_path = (
-            project_root / "resources" / prefix / run_name / "trajectories.csv"
-        )
-        trajectories = pd.read_csv(trajectories_path)
+        trajectories = n.meta["resources"]["trajectories"]
         trajectories = trajectories[trajectories["year"] == int(year)]
 
-        input_path = (
-            project_root
-            / "data"
-            / "tyndp"
-            / n.meta["data"]["tyndp"]["source"]
-            / "2024"
-            / "Hydro Inflows"
-            / year
-        )
+        input_path = Path(n.meta["resources"]["otyndp_hydro"]) / year
         for (region,), actual in trajectories.groupby(["region"]):
             if (actual["value"] == 0).all():
                 continue

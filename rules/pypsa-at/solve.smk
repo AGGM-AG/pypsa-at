@@ -6,12 +6,15 @@
 Solve rule extensions for AT-specific datasets.
 """
 
+OPEN_TYNDP_DATASET = dataset_version("tyndp")
 RESOURCE_META = {
     "inflow_data": resources("inflow_per_region_{clusters}.nc"),
     "co2_totals": resources("co2_totals.csv"),
+    "otyndp_hydro": f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows",
 }
 INPUT_META = [
     "energy_totals",
+    "trajectories"
 ]
 
 if config["foresight"] == "overnight":

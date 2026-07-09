@@ -427,7 +427,7 @@ def patch_inflows(n: Network, snakemake: Snakemake, ppl: pd.DataFrame) -> None:
     inflow = _modify_inflow_snapshots(n, inflow)
 
     # Patch inflows
-    hydro_idx, hydro_inflows = _patch_component_inflows(n, inflow, "hydro inflow", "hydro")
+    hydro_idx, hydro_inflows = _patch_component_inflows(n, inflow, "hydro", "hydro inflow")
     _patch_component_inflows(n, inflow, "PHS", "PHS inflow")
     _patch_component_inflows(n, inflow, "ror", "ror")
 

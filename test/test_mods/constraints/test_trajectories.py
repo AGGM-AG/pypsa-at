@@ -10,25 +10,8 @@ from test.conftest import require_config
 
 
 def test_constraint_generic_trajectories(
-    nc: NetworkCollection, project_root: Path
+    nc: NetworkCollection,
 ) -> None:
-    """
-    Apply generic constraints from trajectories.csv resource file.
-
-    Parameters
-    ----------
-    n
-        The pypsa network to add the constraints to.
-    snakemake
-        The snakemake workflow object.
-    investment_year
-        The current workflow planning horizon.
-
-    Returns
-    -------
-    None
-        Changes are applied to the network inplace
-    """
     apply_trajectories = require_config(
         nc, "scenario", "trajectories", "apply_trajectories"
     )
@@ -37,12 +20,7 @@ def test_constraint_generic_trajectories(
     eps = require_config(nc, "scenario", "trajectories", "eps")
 
     for year, n in nc.networks.items():
-        prefix = n.meta["run"]["prefix"]
-        run_name = n.meta["run"]["name"][0]
-        trajectories_path = (
-            project_root / "resources" / prefix / run_name / "trajectories.csv"
-        )
-        trajectories = pd.read_csv(trajectories_path)
+        trajectories = n.meta["resources"]["trajectories"]
         trajectories = trajectories[trajectories["year"] == int(year)]
         trajectories = trajectories.rename(columns={"region": "traj_region"})
         mapping = _get_region_mapping(

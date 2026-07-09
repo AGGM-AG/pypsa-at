@@ -9,7 +9,7 @@ See docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#scenar
 Wildcard docs in https://pypsa-eur.readthedocs.io/en/latest/wildcards.html
 """
 
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import Field
 
@@ -34,11 +34,4 @@ class ScenarioConfig(ConfigModel):
     planning_horizons: list[int] = Field(
         default_factory=lambda: [2050],
         description="List of ``{planning_horizon}`` wildcards to run.",
-    )
-    trajectories: dict[str, Any] = Field(
-        default_factory=lambda: {
-            "apply_trajectories": True,
-            "eps": 0.1,
-        },
-        description="Configuration for trajectories constraints.",
     )
