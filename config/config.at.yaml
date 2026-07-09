@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: feat-prevent-russian-gas-imports
+  prefix: update-inflow
   name:
   - AT_KN2040
   scenarios:

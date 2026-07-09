@@ -5,9 +5,15 @@
 """Shared utilities used by both `mods.constraints` and `mods.network` subpackages."""
 
 import logging
+from pathlib import Path
+from typing import Any, Literal
 
+import geopandas as gpd
 import pandas as pd
 import pypsa
+import xarray as xr
+from pypsa import Network
+from snakemake.script import Snakemake
 
 logger = logging.getLogger(__name__)
 
@@ -163,3 +169,106 @@ def sanity_check_links_and_lines(relevant_links, relevant_lines, tyndp_transmiss
         logger.warning(
             f"The following borders are not part of the model: {tyndp_not_in_borders}"
         )
+
+
+def attach_resource_to_network_meta(
+    n, dct: dict[str, Any], errors: Literal["raise", "warn", "ignore"] = "raise"
+) -> None:
+    """
+    Adds the given dictionary to the network resource metadata for postprocessing.
+
+    Parameters
+    ----------
+    n
+        The network to modify metadata for
+    dct
+        The dictionary to add to the network metadata
+    errors
+        Whether key conflict errors should be raised, warned or ignores
+
+    Returns
+    -------
+    :
+        Network is modified inplace
+    """
+    if not hasattr(n, "meta"):
+        raise AttributeError("Network is missing meta attribute!")
+
+    if "resources" not in n.meta.keys():
+        n.meta["resources"] = {}
+
+    existing_keys = set(n.meta["resources"].keys())
+    new_keys = set(dct.keys())
+    key_overlap = existing_keys.intersection(new_keys)
+    if len(key_overlap) > 0:
+        match errors:
+            case "raise":
+                raise AttributeError(
+                    f"Trying to overwrite existing resource keys in n.meta: {key_overlap}."
+                )
+            case "warn":
+                logger.warning(
+                    f"Overwriting existing resource keys in n.meta: {key_overlap}."
+                )
+
+    n.meta["resources"] |= dct
+    logger.info(f"Attached {dct.keys()} to network meta.")
+
+
+def attach_resources_to_network_meta(n: Network, snakemake: Snakemake) -> None:
+    """
+    Attaches given resources to the mets object of the network.
+
+    This function adds a dictionary under n.meta["resources"] containing relevant resource data for testing and
+    post-processing.
+
+    Parameters
+    ----------
+    n
+        The pypsa network
+    snakemake
+        The Snakemake workflow object providing inputs, params, and config.
+
+    Returns
+    -------
+    :
+        Modifies network inplace.
+    """
+    resources = snakemake.params.resource_meta
+    energy_year = snakemake.params["energy_year"]
+    investment_year = snakemake.wildcards.planning_horizons
+
+    filename_readers = {
+        "energy_totals": lambda path: (
+            pd.read_csv(path, index_col=[0, 1])
+            .xs(energy_year, level="year")
+            .to_dict(orient="tight")
+        ),
+        "co2_totals": lambda path: pd.read_csv(path, index_col=0).to_dict(
+            orient="tight"
+        ),
+        "inflow_data": lambda path: (
+            xr.open_dataarray(path)
+            .assign_coords(time=lambda ds: pd.to_datetime(ds.time.values).astype(str))
+            .to_dict()
+        ),
+    }
+    suffix_readers = {
+        ".nc": lambda path: xr.open_dataarray(path).to_dict(),
+        ".csv": lambda path: pd.read_csv(path).to_dict(),
+        ".geopandas": lambda path: gpd.read_file(path).to_dict(),
+    }
+
+    for name, file in resources.items():
+        path = Path(file)
+        suffix = path.suffix
+        if name in filename_readers.keys():
+            attach_resource_to_network_meta(n, {name: filename_readers[name](path)})
+        elif suffix in suffix_readers.keys():
+            attach_resource_to_network_meta(n, {name: suffix_readers[suffix](path)})
+        else:
+            logger.warning(
+                f"Unknown file name {name} and extension {path.suffix}. Attaching file path"
+            )
+            attach_resource_to_network_meta(n, {name: file})
+    n.name = f"PyPSA-AT Network {investment_year}"
