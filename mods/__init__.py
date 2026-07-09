@@ -13,7 +13,6 @@ from mods.constraints.tyndp import (
     constraint_ntc_flow_limits,
 )
 from mods.network.common import (
-    attach_resources_to_network_meta,
     modify_prenetwork,
     prepare_sector_network,
 )
@@ -21,7 +20,6 @@ from mods.network.common import (
 __all__ = [
     "TYNDP_TO_PYPSA_LOCATION_TRANSMISSION",
     "apply_custom_clustering",
-    "attach_resources_to_network_meta",
     "constraint_combined_solar_trajectories",
     "constraint_national_co2_budgets",
     "constraint_net_zero_electricity",

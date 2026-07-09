@@ -28,10 +28,19 @@ logs, resources, benchmarks, results, and .snakemake directories except \
     esac'
 """
 
+# maintained by PyPSA-AT
 update-dags = """
 	dot -c && \
-	snakemake results/networks/base_s_128_elec_.nc -F --dag | sed -n "/digraph/,/}/p" | dot -Tpng -o doc/img/intro-workflow.png && \
-	snakemake --rulegraph -F | sed -n "/digraph/,/}/p" | dot -Tpng -o doc/img/workflow.png
+	bash -c 'snakemake all_at --rulegraph \
+	| sed -n "/digraph/,/^}/p" \
+	| sed "s/digraph snakemake_dag {/digraph snakemake_dag {rankdir=LR;/" \
+	| dot -Tpng -Gdpi=200 -o all_at-rulegraph.png' && \
+	echo "Generated the rulegraph for all_at rule at ./all_at-rulegraph.png" && \
+	bash -c 'snakemake all_at --filegraph \
+	| sed -n "/digraph/,/^}/p" \
+	| sed "s/digraph snakemake_dag {/digraph snakemake_dag {rankdir=LR;/" \
+	| dot -Tpng -Gdpi=200 -o all_at-filegraph.png' && \
+	echo "Generated the filegraph for all_at rule at ./all_at-filegraph.png"
 """
 
 generate-config = "python -c 'from scripts.lib.validation.config import generate_config_defaults, generate_config_schema; generate_config_defaults(); generate_config_schema()'"
