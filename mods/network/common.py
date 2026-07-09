@@ -6,7 +6,6 @@
 
 from logging import getLogger
 
-import pandas as pd
 import pypsa
 from snakemake.script import Snakemake
 
@@ -22,7 +21,7 @@ from mods.network.h2 import (
     add_h2_imports,
     add_methane_pyrolysis_plasma,
 )
-from mods.network.hydro import add_phs
+from mods.network.hydro import add_phs, patch_inflows
 from mods.network.potentials import apply_klien_potential_limits
 from mods.network.trajectories import apply_pemmdb_trajectories
 
@@ -54,6 +53,7 @@ def prepare_sector_network(n, snakemake, nodes, costs, spatial):
     add_h2_for_industry_bus(n, nodes)
     add_methane_pyrolysis_plasma(n, snakemake, costs, nodes, spatial)
     add_phs(n, snakemake, costs)
+    patch_inflows(n, snakemake)
 
 
 def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
@@ -92,59 +92,6 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     clip_negative_loads_for_edge_cases(n, snakemake)
     apply_tyndp_transmission_lower_bounds(n, snakemake)
     add_h2_imports(n, snakemake)
-
-
-def attach_resources_to_network_meta(
-    n: pypsa.Network,
-    snakemake: Snakemake,
-) -> None:
-    """
-    Attach resource tables to the network meta before the netCDF export.
-
-    Embeds ``energy_totals`` and ``co2_totals`` CSV data directly into
-    ``n.meta["resources"]`` so that downstream evaluation rules can access
-    sectoral energy demand and CO₂ totals without relying on a separate
-    post-processing step or extra input files.
-
-    The network name is also updated to a human-readable string that
-    includes the planning horizon year.
-
-    Parameters
-    ----------
-    n
-        The solved network whose metadata will be updated in place.
-    snakemake
-        The Snakemake workflow object providing inputs, params, config,
-        and wildcards.
-
-    Raises
-    ------
-    MissingInputException
-        If the required inputs (``energy_totals`` and ``co2_totals_name``) are
-        not present on ``snakemake.input``.
-
-    Returns
-    -------
-    :
-        Updates ``n.meta`` and ``n.name`` in place.
-    """
-    energy_totals_year = snakemake.params["energy_year"]
-    investment_year = snakemake.wildcards.planning_horizons
-
-    energy_totals = pd.read_csv(snakemake.input.energy_totals, index_col=[0, 1]).xs(
-        energy_totals_year, level="year"
-    )
-    co2_totals = pd.read_csv(snakemake.input.co2_totals_name, index_col=0)
-
-    n.meta["resources"] = {
-        "energy_totals": energy_totals.to_dict(orient="tight"),
-        "co2_totals": co2_totals.to_dict(orient="tight"),
-    }
-    n.name = f"PyPSA-AT Network {investment_year}"
-    logger.info(
-        f"Attached energy_totals (year={energy_totals_year}) and co2_totals "
-        f"to network meta for planning horizon {investment_year}."
-    )
 
 
 def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -> None:
