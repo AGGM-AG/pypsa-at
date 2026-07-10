@@ -65,8 +65,10 @@ def test_build_trajectories_capacity(nc: NetworkCollection) -> None:
                 .reset_index()
             )
             ppl_filtered = powerplants[
-                powerplants["bus"].str.startswith(region) &
-                powerplants["carrier"].isin(set(expected_df["carrier"].str.split(" ",n=1).str[0]))
+                powerplants["bus"].str.startswith(region)
+                & powerplants["carrier"].isin(
+                    set(expected_df["carrier"].str.split(" ", n=1).str[0])
+                )
             ]
             expected_df = expected_df[
                 expected_df["carrier"]

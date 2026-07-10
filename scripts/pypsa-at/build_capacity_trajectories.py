@@ -28,8 +28,8 @@ from snakemake.script import Snakemake
 from mods.constants import HYDRO_CARRIER_MAPPING, TYNDP_TO_PYPSA_LOCATION
 from scripts._helpers import (
     configure_logging,
-    set_scenario_config,
     load_costs,
+    set_scenario_config,
 )
 from scripts.add_electricity import load_and_aggregate_powerplants
 
@@ -213,7 +213,9 @@ def filter_market_data(snakemake: Snakemake, market_data: pd.DataFrame) -> pd.Da
     )
 
     market_data_country = market_data.index.get_level_values("region")
-    market_data_carrier = market_data.index.get_level_values("carrier").str.split().str[0]
+    market_data_carrier = (
+        market_data.index.get_level_values("carrier").str.split().str[0]
+    )
     market_data_keys = pd.MultiIndex.from_arrays(
         [market_data_country, market_data_carrier],
         names=["region_key", "carrier_key"],
@@ -225,10 +227,12 @@ def filter_market_data(snakemake: Snakemake, market_data: pd.DataFrame) -> pd.Da
         & (ppl["country"] != "XK")
         & ppl["carrier"].isin(set(market_data_carrier))
     ]
-    ppl_keys = pd.MultiIndex.from_frame(ppl.assign(
-        region_key=ppl["bus"],
-        carrier_key=ppl["carrier"],
-    )[["region_key", "carrier_key"]])
+    ppl_keys = pd.MultiIndex.from_frame(
+        ppl.assign(
+            region_key=ppl["bus"],
+            carrier_key=ppl["carrier"],
+        )[["region_key", "carrier_key"]]
+    )
 
     market_keys = list(market_data_keys.unique())
     ppl_keys_unique = list(ppl_keys.unique())
@@ -246,7 +250,9 @@ def filter_market_data(snakemake: Snakemake, market_data: pd.DataFrame) -> pd.Da
     ]
 
     if len(missing):
-        raise ValueError(f"Entries from Missing trajectories for countries: {list(missing)}")
+        raise ValueError(
+            f"Entries from Missing trajectories for countries: {list(missing)}"
+        )
 
     return market_data[
         [
@@ -264,7 +270,7 @@ if __name__ == "__main__":
             "build_capacity_trajectories",
             run="AT_KN2040",
             clusters="adm",
-            #configfiles="config/test/config.at10.yaml",
+            # configfiles="config/test/config.at10.yaml",
         )
 
     configure_logging(snakemake)
