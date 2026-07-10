@@ -107,8 +107,8 @@ def add_phs_hydro(
                 p_nom_min=phs_pump["p_nom"] if is_base_year else 0,
                 p_nom_extendable=True,
                 lifetime=100,
-                capital_cost=costs.at["PHS", "capital_cost"],
-                onight_cost=costs.at["PHS", "investment"],
+                capital_cost=costs.at["PHS", "capital_cost"]/2,
+                onight_cost=costs.at["PHS", "investment"]/2,
                 efficiency=np.sqrt(costs.at["PHS", "efficiency"]),
             )
 
@@ -126,9 +126,9 @@ def add_phs_hydro(
                 p_nom_extendable=True,
                 lifetime=100,
                 capital_cost=costs.at["PHS", "capital_cost"]
-                * np.sqrt(costs.at["PHS", "efficiency"]),
+                * np.sqrt(costs.at["PHS", "efficiency"])/2,
                 onight_cost=costs.at["PHS", "investment"]
-                * np.sqrt(costs.at["PHS", "efficiency"]),
+                * np.sqrt(costs.at["PHS", "efficiency"])/2,
                 efficiency=np.sqrt(costs.at["PHS", "efficiency"]),
             )
 
@@ -142,7 +142,7 @@ def add_phs_hydro(
                 else 0,
                 e_nom_extendable=True,
                 lifetime=100,
-                capital_cost=costs.at["PHS", "capital_cost"],
+                capital_cost=costs.at["Pumped-Storage-Hydro-store", "capital_cost"],
                 e_cyclic=True,
             )
 
@@ -234,8 +234,8 @@ def add_phs_hydro(
                 p_nom_min=hydro_turbine["p_nom"] if is_base_year else 0,
                 p_nom_extendable=True,
                 lifetime=100,
-                capital_cost=costs.at["hydro", "capital_cost"],
-                onight_cost=costs.at["hydro", "investment"],
+                capital_cost=costs.at["PHS", "capital_cost"]/2,
+                onight_cost=costs.at["PHS", "investment"]/2,
                 marginal_cost=costs.at["hydro", "marginal_cost"],
                 efficiency=costs.at["hydro", "efficiency"],
             )
@@ -250,8 +250,8 @@ def add_phs_hydro(
                 else 0,
                 e_nom_extendable=True,
                 lifetime=100,
-                capital_cost=costs.at["hydro", "capital_cost"],
-                onight_cost=costs.at["hydro", "investment"],
+                capital_cost=costs.at["Pumped-Storage-Hydro-store", "capital_cost"],
+                onight_cost=costs.at["Pumped-Storage-Hydro-store", "investment"],
                 e_cyclic=True,
             )
 
@@ -388,11 +388,8 @@ def _patch_component_inflows(
             )
             n.components[component_name].static.loc[idx, "p_nom"] = inflows[idx].max()
         case "ror":
-            ror_p_max_pu = np.where(
-                n.components[component_name].static.loc[idx, "p_nom"] > 0,
-                inflows[idx] / n.components[component_name].static.loc[idx, "p_nom"],
-                0,
-            )
+            p_nom = n.components[component_name].static.loc[idx, "p_nom"]
+            ror_p_max_pu = inflows[idx].div(p_nom).where(p_nom > 0, 0.0)
             ror_p_max_pu = _redistribute_peaks(ror_p_max_pu)
             n.components[component_name].dynamic.p_max_pu[idx] = ror_p_max_pu
         case _:
@@ -439,7 +436,7 @@ def patch_inflows(n: Network, snakemake: Snakemake, ppl: pd.DataFrame) -> None:
     p = snakemake.params.renewable["hydro"].copy()
     hydro = ppl.query('carrier == "hydro"')
     renewable_carriers = set(snakemake.params.electricity["renewable_carriers"])
-    if not p.get("flatten_dispatch", False) and "hydro" in renewable_carriers:
+    if p.get("flatten_dispatch", False) and "hydro" in renewable_carriers:
         buffer = p.get("flatten_dispatch_buffer", 0.2)
         hydro_p_nom = hydro["p_nom"]
         link_idx = hydro_p_nom.index + " discharger"
