@@ -19,8 +19,8 @@ def test_build_trajectories_capacity(nc: NetworkCollection) -> None:
     PYPSA_TO_TYNDP_LOCATIONS = _reverse_dict(TYNDP_TO_PYPSA_LOCATION)
     for year, n in nc.networks.items():
         trajectories = pd.DataFrame.from_dict(n.meta["resources"]["trajectories"])
+        powerplants = pd.DataFrame.from_dict(n.meta["resources"]["powerplants"])
         trajectories = trajectories[trajectories["year"] == int(year)]
-
         input_path = Path(n.meta["resources"]["otyndp_hydro"]) / year
         for (region,), actual in trajectories.groupby(["region"]):
             if (actual["value"] == 0).all():
@@ -64,4 +64,14 @@ def test_build_trajectories_capacity(nc: NetworkCollection) -> None:
                 .abs()
                 .reset_index()
             )
+            ppl_filtered = powerplants[
+                powerplants["bus"].str.startswith(region) &
+                powerplants["carrier"].isin(set(expected_df["carrier"].str.split(" ",n=1).str[0]))
+            ]
+            expected_df = expected_df[
+                expected_df["carrier"]
+                .str.split(" ", n=1)
+                .str[0]
+                .isin(ppl_filtered["carrier"])
+            ].reset_index(drop=True)
             pd.testing.assert_frame_equal(expected_df, actual, check_dtype=False)

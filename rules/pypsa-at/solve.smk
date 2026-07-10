@@ -11,6 +11,7 @@ RESOURCE_META = {
     "inflow_data": resources("inflow_per_region_{clusters}.nc"),
     "co2_totals": resources("co2_totals.csv"),
     "otyndp_hydro": f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows",
+    "powerplants": resources("powerplants_s_{clusters}.csv"),
 }
 INPUT_META = ["energy_totals", "trajectories"]
 
@@ -24,7 +25,10 @@ if config["foresight"] == "overnight":
             tyndp_transmission_trajectories=resources(
                 "tyndp_transmission_trajectories.csv"
             ),
-            trajectories=resources("trajectories.csv"),
+            trajectories=resources("trajectories_{clusters}.csv"),
+            costs=lambda w: resources(
+                f"costs_{config_provider('costs', 'year')(w)}_processed.csv"
+            ),
             code_files=[
                 "mods/utils.py",
             ],
@@ -39,6 +43,11 @@ if config["foresight"] == "overnight":
                 for key, value in input.items()
                 if (key in RESOURCE_META or key in INPUT_META)
             },
+            consider_efficiency_classes=config_provider(
+                "clustering", "consider_efficiency_classes"
+            ),
+            aggregation_strategies=config_provider("clustering", "aggregation_strategies"),
+            exclude_carriers=config_provider("clustering", "exclude_carriers"),
 
     ruleorder: solve_sector_network_at > solve_sector_network
 
@@ -53,7 +62,10 @@ if config["foresight"] == "myopic":
             tyndp_transmission_trajectories=resources(
                 "tyndp_transmission_trajectories.csv"
             ),
-            trajectories=resources("trajectories.csv"),
+            trajectories=resources("trajectories_{clusters}.csv"),
+            costs=lambda w: resources(
+                f"costs_{config_provider('costs', 'year')(w)}_processed.csv"
+            ),
             code_files=[
                 "mods/utils.py",
             ],
@@ -68,6 +80,11 @@ if config["foresight"] == "myopic":
                 for key, value in input.items()
                 if (key in RESOURCE_META or key in INPUT_META)
             },
+            consider_efficiency_classes=config_provider(
+                "clustering", "consider_efficiency_classes"
+            ),
+            aggregation_strategies=config_provider("clustering", "aggregation_strategies"),
+            exclude_carriers=config_provider("clustering", "exclude_carriers"),
 
     ruleorder: solve_sector_network_myopic_at > solve_sector_network_myopic
 
@@ -82,7 +99,10 @@ if config["foresight"] == "perfect":
             tyndp_transmission_trajectories=resources(
                 "tyndp_transmission_trajectories.csv"
             ),
-            trajectories=resources("trajectories.csv"),
+            trajectories=resources("trajectories_{clusters}.csv"),
+            costs=lambda w: resources(
+                f"costs_{config_provider('costs', 'year')(w)}_processed.csv"
+            ),
             code_files=[
                 "mods/utils.py",
             ],
@@ -97,5 +117,10 @@ if config["foresight"] == "perfect":
                 for key, value in input.items()
                 if (key in RESOURCE_META or key in INPUT_META)
             },
+            consider_efficiency_classes=config_provider(
+                "clustering", "consider_efficiency_classes"
+            ),
+            aggregation_strategies=config_provider("clustering", "aggregation_strategies"),
+            exclude_carriers=config_provider("clustering", "exclude_carriers"),
 
     ruleorder: solve_sector_network_perfect_at > solve_sector_network_perfect

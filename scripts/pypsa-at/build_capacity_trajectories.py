@@ -29,7 +29,9 @@ from mods.constants import HYDRO_CARRIER_MAPPING, TYNDP_TO_PYPSA_LOCATION
 from scripts._helpers import (
     configure_logging,
     set_scenario_config,
+    load_costs,
 )
+from scripts.add_electricity import load_and_aggregate_powerplants
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +176,7 @@ def add_missing_regions(s: pd.Series) -> pd.Series:
     """
     data = s.copy()
     regions_pemmdb = set(data.index.get_level_values("region"))
-    all_regions = set(TYNDP_TO_PYPSA_LOCATION.values())
+    all_regions = {r for r in TYNDP_TO_PYPSA_LOCATION.values() if r is not None}
     missing_regions = [region for region in all_regions if region not in regions_pemmdb]
     for region in sorted(missing_regions):
         df_region = data.loc[data.index.get_level_values("region") == "AT"].copy()
@@ -184,6 +186,76 @@ def add_missing_regions(s: pd.Series) -> pd.Series:
     return data
 
 
+def filter_market_data(snakemake: Snakemake, market_data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Reduce market data to entries for actually existing powerplants in the model
+
+    Parameters
+    ----------
+    snakemake
+        The Snakemake workflow object.
+    market_data
+        The extraced market data
+
+    Returns
+    -------
+    :
+        The filtered DataFrame
+    """
+    costs = load_costs(snakemake.input.costs)
+    country_list = snakemake.params.countries
+    ppl = load_and_aggregate_powerplants(
+        snakemake.input.powerplants,
+        costs,
+        snakemake.params.consider_efficiency_classes,
+        snakemake.params.aggregation_strategies,
+        snakemake.params.exclude_carriers,
+    )
+
+    market_data_country = market_data.index.get_level_values("region")
+    market_data_carrier = market_data.index.get_level_values("carrier").str.split().str[0]
+    market_data_keys = pd.MultiIndex.from_arrays(
+        [market_data_country, market_data_carrier],
+        names=["region_key", "carrier_key"],
+    )
+
+    ppl["country"] = ppl["bus"].str[:2]
+    ppl = ppl[
+        ppl["country"].isin(country_list)
+        & (ppl["country"] != "XK")
+        & ppl["carrier"].isin(set(market_data_carrier))
+    ]
+    ppl_keys = pd.MultiIndex.from_frame(ppl.assign(
+        region_key=ppl["bus"],
+        carrier_key=ppl["carrier"],
+    )[["region_key", "carrier_key"]])
+
+    market_keys = list(market_data_keys.unique())
+    ppl_keys_unique = list(ppl_keys.unique())
+
+    def is_match(market_key, ppl_key):
+        market_region, market_carrier = market_key
+        ppl_region, ppl_carrier = ppl_key
+
+        return market_carrier == ppl_carrier and ppl_region.startswith(market_region)
+
+    missing = [
+        ppl_key
+        for ppl_key in ppl_keys_unique
+        if not any(is_match(market_key, ppl_key) for market_key in market_keys)
+    ]
+
+    if len(missing):
+        raise ValueError(f"Entries from Missing trajectories for countries: {list(missing)}")
+
+    return market_data[
+        [
+            any(is_match(market_key, ppl_key) for ppl_key in ppl_keys_unique)
+            for market_key in market_data_keys
+        ]
+    ]
+
+
 if __name__ == "__main__":
     if "snakemake" not in globals():
         from scripts._helpers import mock_snakemake
@@ -191,7 +263,8 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "build_capacity_trajectories",
             run="AT_KN2040",
-            # configfiles="config/test/config.at10.yaml",
+            clusters="adm",
+            #configfiles="config/test/config.at10.yaml",
         )
 
     configure_logging(snakemake)
@@ -207,8 +280,9 @@ if __name__ == "__main__":
     )
     market_info = market_info[market_info.index.isin(market_info.index.dropna())]
     market_info = market_info.groupby(level=market_info.index.names).sum().abs()
-    market_info = add_missing_years(market_info, snakemake)
     market_info = add_missing_regions(market_info)
+    market_info = filter_market_data(snakemake, market_info)
+    market_info = add_missing_years(market_info, snakemake)
     market_info = market_info.sort_index()
 
     trajectories = market_info.copy()
