@@ -39,6 +39,8 @@ def gas_network(rows: list[tuple[str, str, float, str]]) -> pd.DataFrame:
     for column in GAS_NETWORK_COLUMNS:
         if column not in df:
             df[column] = 0
+    # corridor identifiers are the index, as in the clustered gas network files
+    df.index = "gas pipeline " + df["bus0"] + " -> " + df["bus1"]
     return df[GAS_NETWORK_COLUMNS]
 
 
@@ -199,15 +201,15 @@ class TestModifyBrownfieldGasNetworkAT:
 
         result = update_gas_transport_data(raw, input_data)
 
-        out = result[result["name"].isin(foreign)].reset_index(drop=True)
-        expected = raw[raw["name"].isin(foreign)].reset_index(drop=True)
+        out = result[result["name"].isin(foreign)]
+        expected = raw[raw["name"].isin(foreign)]
         assert out.compare(expected).empty
 
     def test_input_at_corridors_are_added(self, raw, input_data):
         """Check that all AGGM provided transport corridors are added"""
         result = update_gas_transport_data(raw, input_data)
 
-        out = result[result["name"].str.startswith("AGGM_")].reset_index(drop=True)
+        out = result[result["name"].str.startswith("AGGM_")]
         assert out.compare(input_data).empty
 
 
