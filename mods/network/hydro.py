@@ -107,8 +107,8 @@ def add_phs_hydro(
                 p_nom_min=phs_pump["p_nom"] if is_base_year else 0,
                 p_nom_extendable=True,
                 lifetime=100,
-                capital_cost=costs.at["PHS", "capital_cost"]/2,
-                onight_cost=costs.at["PHS", "investment"]/2,
+                capital_cost=costs.at["PHS", "capital_cost"] / 2,
+                onight_cost=costs.at["PHS", "investment"] / 2,
                 efficiency=np.sqrt(costs.at["PHS", "efficiency"]),
             )
 
@@ -126,9 +126,11 @@ def add_phs_hydro(
                 p_nom_extendable=True,
                 lifetime=100,
                 capital_cost=costs.at["PHS", "capital_cost"]
-                * np.sqrt(costs.at["PHS", "efficiency"])/2,
+                * np.sqrt(costs.at["PHS", "efficiency"])
+                / 2,
                 onight_cost=costs.at["PHS", "investment"]
-                * np.sqrt(costs.at["PHS", "efficiency"])/2,
+                * np.sqrt(costs.at["PHS", "efficiency"])
+                / 2,
                 efficiency=np.sqrt(costs.at["PHS", "efficiency"]),
             )
 
@@ -234,8 +236,8 @@ def add_phs_hydro(
                 p_nom_min=hydro_turbine["p_nom"] if is_base_year else 0,
                 p_nom_extendable=True,
                 lifetime=100,
-                capital_cost=costs.at["PHS", "capital_cost"]/2,
-                onight_cost=costs.at["PHS", "investment"]/2,
+                capital_cost=costs.at["PHS", "capital_cost"] / 2,
+                onight_cost=costs.at["PHS", "investment"] / 2,
                 marginal_cost=costs.at["hydro", "marginal_cost"],
                 efficiency=costs.at["hydro", "efficiency"],
             )
