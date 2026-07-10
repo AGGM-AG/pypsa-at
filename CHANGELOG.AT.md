@@ -49,3 +49,4 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Fixed double subtraction of brownfield capacities in `modify_prenetwork` and `solve_network` and added a new test for this case. ([#101](https://github.com/AGGM-AG/pypsa-at/pull/101))
 - Fixed bidirectional links of gaseous energy carriers via config.at.yaml. Will be in an upstream merge to PyPSA-Eur to fix there. ([#105](https://github.com/AGGM-AG/pypsa-at/pull/105))
 - Fixed issues with wrong bus matching for h2 imports ([#134](https://github.com/AGGM-AG/pypsa-at/pull/134))
+- Fixed tests for integration of brownfield gas pipeline data ([#159](https://github.com/AGGM-AG/pypsa-at/pull/159))
