@@ -4,9 +4,11 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Integration tests for mods/network/gas.py — gas storage capacity overrides."""
 
+import pathlib
 from importlib import import_module
 
 import pandas as pd
+import pypsa
 import pytest
 from pypsa import NetworkCollection
 
@@ -252,7 +254,7 @@ class TestAGGMGasNetworkCapacityData:
         assert p_nom.notna().all()
         assert (p_nom >= 0).all()
 
-    def test_capacities_are_added(self, raw, aggm_data):
+    def test_capacities_are_added_to_csv(self, raw, aggm_data):
         """All AGGM capacities are actually added to the clustered gas network csv."""
         result = update_gas_transport_data(raw, aggm_data)
 
@@ -270,3 +272,51 @@ class TestAGGMGasNetworkCapacityData:
         result = update_gas_transport_data(raw, aggm_data)
 
         assert len(result) == foreign_corridors + len(aggm_data)
+
+
+@pytest.mark.AT
+class TestBrownfieldGasNetworkLinks:
+    """Verify the AGGM transport corridor capacities reach the brownfield"""
+
+    @pytest.fixture(scope="class")
+    def brownfield_network(self, result_path) -> pypsa.Network:
+        resources_path = pathlib.Path("resources", *result_path.parts[-2:])
+        network_path = (
+            resources_path / "networks" / "base_s_adm__none_2025_brownfield.nc"
+        )
+        return pypsa.Network(network_path)
+
+    @pytest.fixture(scope="class")
+    def aggm_data(self, brownfield_network, project_root) -> pd.DataFrame:
+        """AGGM data of the custom clustering the brownfield network was built with."""
+        mods = brownfield_network.meta["mods"]
+        clustering = mods["modify_nuts3_shapes"][:4]
+        file_name = f"AGGM_gas_network_base_{clustering}.csv"
+        return pd.read_csv(project_root / "data" / "pypsa-at" / file_name, index_col=0)
+
+    @pytest.fixture(scope="class")
+    def gas_pipelines(self, brownfield_network) -> pd.DataFrame:
+        """Gas pipeline Links of the brownfield network."""
+        links = brownfield_network.links
+        gas_pipes = links[links["carrier"] == "gas pipeline"]
+        return gas_pipes[~gas_pipes.index.str.endswith("-reversed")]
+
+    def test_every_corridor_is_built(self, gas_pipelines, aggm_data):
+        """Every AGGM transport corridor exists as a Link in the brownfield network."""
+        missing = set(aggm_data.index) - set(gas_pipelines.index)
+        assert not missing, f"AGGM corridors missing from brownfield network: {missing}"
+
+    def test_corridors_connect_the_expected_buses(self, gas_pipelines, aggm_data):
+        """Each AGGM corridor connects the gas buses of its AGGM bus pair."""
+        built = gas_pipelines.loc[aggm_data.index]
+
+        assert (built["bus0"] == aggm_data["bus0"] + " gas").all()
+        assert (built["bus1"] == aggm_data["bus1"] + " gas").all()
+
+    def test_capacities_are_built(self, gas_pipelines, aggm_data):
+        """Every AGGM transport capacity is present as Link capacity in brownfield network."""
+        built = gas_pipelines.loc[aggm_data.index, "p_nom"]
+
+        pd.testing.assert_series_equal(
+            built, aggm_data["p_nom"], check_names=False, check_dtype=False
+        )
