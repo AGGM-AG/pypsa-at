@@ -255,15 +255,13 @@ def attach_resources_to_network_meta(n: Network, snakemake: Snakemake) -> None:
             .assign_coords(time=lambda ds: pd.to_datetime(ds.time.values).astype(str))
             .to_dict()
         ),
-        "powerplants": lambda path: (
-            load_and_aggregate_powerplants(
-                path,
-                load_costs(snakemake.input.costs),
-                snakemake.params.consider_efficiency_classes,
-                snakemake.params.aggregation_strategies,
-                snakemake.params.exclude_carriers,
-            ).to_dict()
-        )
+        "powerplants": lambda path: load_and_aggregate_powerplants(
+            path,
+            load_costs(snakemake.input.costs),
+            snakemake.params.consider_efficiency_classes,
+            snakemake.params.aggregation_strategies,
+            snakemake.params.exclude_carriers,
+        ).to_dict(),
     }
     suffix_readers = {
         ".nc": lambda path: xr.open_dataarray(path).to_dict(),

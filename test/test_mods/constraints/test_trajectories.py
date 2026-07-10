@@ -63,10 +63,16 @@ def test_constraint_generic_trajectories(
             df_variable = df_variable.reset_index()
 
             trajectories_var = group.merge(
-                df_variable, how="left", on=["carrier", "variable", "model_region"], indicator=True
+                df_variable,
+                how="left",
+                on=["carrier", "variable", "model_region"],
+                indicator=True,
             )
-            assert ((trajectories_var["_merge"]=="both") | (trajectories_var["value"]==0)).all(), "Not all trajectory variables are present in the model"
-            trajectories_var = trajectories_var[trajectories_var["_merge"]=="both"]
+            assert (
+                (trajectories_var["_merge"] == "both")
+                | (trajectories_var["value"] == 0)
+            ).all(), "Not all trajectory variables are present in the model"
+            trajectories_var = trajectories_var[trajectories_var["_merge"] == "both"]
             trajectories_var = trajectories_var.groupby("index").agg(
                 {
                     "value": "mean",

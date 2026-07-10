@@ -135,8 +135,8 @@ rule build_capacity_trajectories:
         ],
         powerplants=resources("powerplants_s_{clusters}.csv"),
         costs=lambda w: resources(
-                f"costs_{config_provider('costs', 'year')(w)}_processed.csv"
-            ),
+            f"costs_{config_provider('costs', 'year')(w)}_processed.csv"
+        ),
     output:
         trajectories=resources("trajectories_{clusters}.csv"),
     log:

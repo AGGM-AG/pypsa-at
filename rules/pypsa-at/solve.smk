@@ -46,7 +46,9 @@ if config["foresight"] == "overnight":
             consider_efficiency_classes=config_provider(
                 "clustering", "consider_efficiency_classes"
             ),
-            aggregation_strategies=config_provider("clustering", "aggregation_strategies"),
+            aggregation_strategies=config_provider(
+                "clustering", "aggregation_strategies"
+            ),
             exclude_carriers=config_provider("clustering", "exclude_carriers"),
 
     ruleorder: solve_sector_network_at > solve_sector_network
@@ -83,7 +85,9 @@ if config["foresight"] == "myopic":
             consider_efficiency_classes=config_provider(
                 "clustering", "consider_efficiency_classes"
             ),
-            aggregation_strategies=config_provider("clustering", "aggregation_strategies"),
+            aggregation_strategies=config_provider(
+                "clustering", "aggregation_strategies"
+            ),
             exclude_carriers=config_provider("clustering", "exclude_carriers"),
 
     ruleorder: solve_sector_network_myopic_at > solve_sector_network_myopic
@@ -120,7 +124,9 @@ if config["foresight"] == "perfect":
             consider_efficiency_classes=config_provider(
                 "clustering", "consider_efficiency_classes"
             ),
-            aggregation_strategies=config_provider("clustering", "aggregation_strategies"),
+            aggregation_strategies=config_provider(
+                "clustering", "aggregation_strategies"
+            ),
             exclude_carriers=config_provider("clustering", "exclude_carriers"),
 
     ruleorder: solve_sector_network_perfect_at > solve_sector_network_perfect
