@@ -301,22 +301,40 @@ class TestBrownfieldGasNetworkLinks:
         gas_pipes = links[links["carrier"] == "gas pipeline"]
         return gas_pipes[~gas_pipes.index.str.endswith("-reversed")]
 
-    def test_every_corridor_is_built(self, gas_pipelines, aggm_data):
-        """Every AGGM transport corridor exists as a Link in the brownfield network."""
-        missing = set(aggm_data.index) - set(gas_pipelines.index)
+    @pytest.fixture(scope="class")
+    def expected_corridors(self, brownfield_network, aggm_data) -> pd.DataFrame:
+        """
+        To conform to reduced country scope (eg. in CI test runs), drop busses
+        that are outside the modeled regions from expected corridors.
+        """
+        gas_buses = set(
+            brownfield_network.buses.index[brownfield_network.buses["carrier"] == "gas"]
+        )
+        in_scope = aggm_data.apply(
+            lambda c: {f"{c.bus0} gas", f"{c.bus1} gas"} <= gas_buses, axis=1
+        )
+        expected = aggm_data[in_scope]
+        assert not expected.empty, "No AGGM corridors within the modeled scope."
+        return expected
+
+    def test_every_corridor_is_built(self, gas_pipelines, expected_corridors):
+        """Every in-scope AGGM corridor exists as a Link in the brownfield network."""
+        missing = set(expected_corridors.index) - set(gas_pipelines.index)
         assert not missing, f"AGGM corridors missing from brownfield network: {missing}"
 
-    def test_corridors_connect_the_expected_buses(self, gas_pipelines, aggm_data):
+    def test_corridors_connect_the_expected_buses(
+        self, gas_pipelines, expected_corridors
+    ):
         """Each AGGM corridor connects the gas buses of its AGGM bus pair."""
-        built = gas_pipelines.loc[aggm_data.index]
+        built = gas_pipelines.loc[expected_corridors.index]
 
-        assert (built["bus0"] == aggm_data["bus0"] + " gas").all()
-        assert (built["bus1"] == aggm_data["bus1"] + " gas").all()
+        assert (built["bus0"] == expected_corridors["bus0"] + " gas").all()
+        assert (built["bus1"] == expected_corridors["bus1"] + " gas").all()
 
-    def test_capacities_are_built(self, gas_pipelines, aggm_data):
+    def test_capacities_are_built(self, gas_pipelines, expected_corridors):
         """Every AGGM transport capacity is present as Link capacity in brownfield network."""
-        built = gas_pipelines.loc[aggm_data.index, "p_nom"]
+        built = gas_pipelines.loc[expected_corridors.index, "p_nom"]
 
         pd.testing.assert_series_equal(
-            built, aggm_data["p_nom"], check_names=False, check_dtype=False
+            built, expected_corridors["p_nom"], check_names=False, check_dtype=False
         )
