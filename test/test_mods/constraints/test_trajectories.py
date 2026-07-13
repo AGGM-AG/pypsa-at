@@ -68,10 +68,6 @@ def test_constraint_generic_trajectories(
                 on=["carrier", "variable", "model_region"],
                 indicator=True,
             )
-            assert (
-                (trajectories_var["_merge"] == "both")
-                | (trajectories_var["value"] == 0)
-            ).all(), "Not all trajectory variables are present in the model"
             trajectories_var = trajectories_var[trajectories_var["_merge"] == "both"]
             trajectories_var = trajectories_var.groupby("index").agg(
                 {
@@ -79,8 +75,14 @@ def test_constraint_generic_trajectories(
                     f"{property}_opt": "sum",
                     "var_upper_bound": "sum",
                     "var_lower_bound": "sum",
+                    "_merge": lambda x:  "both" if x.eq("both").any() else "left_only",
                 }
             )
+
+            assert (
+                (trajectories_var["_merge"] == "both")
+                | (trajectories_var["value"] == 0)
+            ).all(), "Not all trajectory variables are present in the model"
 
             match sense:
                 case "max":
