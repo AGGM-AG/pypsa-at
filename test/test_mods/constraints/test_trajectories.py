@@ -75,7 +75,7 @@ def test_constraint_generic_trajectories(
                     f"{property}_opt": "sum",
                     "var_upper_bound": "sum",
                     "var_lower_bound": "sum",
-                    "_merge": lambda x:  "both" if x.eq("both").any() else "left_only",
+                    "_merge": lambda x: "both" if x.eq("both").any() else "left_only",
                 }
             )
 
