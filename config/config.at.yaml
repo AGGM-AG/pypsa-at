@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: update-inflow
+  prefix: 00_pypsa-at-vanilla
   name:
   - AT_KN2040
   scenarios:

@@ -247,6 +247,7 @@ def attach_resources_to_network_meta(n: Network, snakemake: Snakemake) -> None:
         "co2_totals": lambda path: pd.read_csv(path, index_col=0).to_dict(
             orient="tight"
         ),
+        "aggm_gas_pipeline_data": lambda path: pd.read_csv(path, index_col=0).to_dict(),
         "inflow_data": lambda path: (
             xr.open_dataarray(path)
             .assign_coords(time=lambda ds: pd.to_datetime(ds.time.values).astype(str))

@@ -60,7 +60,7 @@ def update_gas_transport_data(
         )
     ]
 
-    return pd.concat([raw, input_data], ignore_index=True)
+    return pd.concat([raw, input_data])
 
 
 if __name__ == "__main__":
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     custom_clustering = mods["modify_nuts3_shapes"]
 
     gas_network_raw = snakemake.input.clustered_gas_network_raw
-    gas_network_raw_df = pd.read_csv(gas_network_raw)
+    gas_network_raw_df = pd.read_csv(gas_network_raw, index_col=0)
 
     if mods["modify_brownfield_gas_network_AT"]:
         if custom_clustering.startswith("AT10"):
@@ -96,7 +96,7 @@ if __name__ == "__main__":
                 f"Unexpected clustering detected: {custom_clustering}. "
                 f"Chose from {('AT10DE5', 'AT35DE5')}."
             )
-        gas_network_input_df = pd.read_csv(gas_network_input)
+        gas_network_input_df = pd.read_csv(gas_network_input, index_col=0)
 
         # update data in raw where AGGM data is supplied
         new_gas_network_df = update_gas_transport_data(
@@ -104,7 +104,7 @@ if __name__ == "__main__":
         )
 
         # return updated dataset
-        new_gas_network_df.to_csv(snakemake.output.clustered_gas_network, index=False)
+        new_gas_network_df.to_csv(snakemake.output.clustered_gas_network)
 
         logger.info("Modified Austrian gas network with AGGM input data.")
 
