@@ -9,6 +9,7 @@ Solve rule extensions for AT-specific datasets.
 RESOURCE_META = {
     "inflow_data": resources("inflow_per_region_{clusters}.nc"),
     "co2_totals": resources("co2_totals.csv"),
+    "aggm_gas_pipeline_data": resources("gas_network_base_s_{clusters}.csv"),
 }
 INPUT_META = [
     "energy_totals",

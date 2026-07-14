@@ -4,7 +4,6 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Integration tests for mods/network/gas.py — gas storage capacity overrides."""
 
-import pathlib
 from importlib import import_module
 
 import pandas as pd
@@ -190,29 +189,18 @@ class TestModifyBrownfieldGasNetworkAT:
             ]
         )
 
-    def test_at_removed_from_raw(self, raw, input_data):
-        """Raw corridors touching Austria are dropped, no matter the bus position."""
-        result = update_gas_transport_data(raw, input_data)
-
-        assert not result["name"].str.startswith("sci2grid_at").any()
-        assert "sci2grid_border_at" not in set(result["name"])
-
-    def test_foreign_corridors_are_preserved_in_raw(self, raw, input_data):
-        """Corridors without an AT bus pass through unchanged."""
+    @pytest.fixture
+    def expected_output(self, raw, input_data) -> pd.DataFrame:
+        """Foreign corridors unchanged, AT corridors dropped, AGGM corridors appended."""
         foreign = ["sci2grid_de_internal", "sci2grid_sk_hu"]
+        expected_foreign = raw[raw["name"].isin(foreign)]
+        return pd.concat([expected_foreign, input_data])
 
+    def test_update_gas_transport_data(self, raw, input_data, expected_output):
+        """AT corridors dropped from raw, foreign corridors preserved, AGGM corridors added."""
         result = update_gas_transport_data(raw, input_data)
 
-        out = result[result["name"].isin(foreign)]
-        expected = raw[raw["name"].isin(foreign)]
-        assert out.compare(expected).empty
-
-    def test_input_at_corridors_are_added(self, raw, input_data):
-        """Check that all AGGM provided transport corridors are added"""
-        result = update_gas_transport_data(raw, input_data)
-
-        out = result[result["name"].str.startswith("AGGM_")]
-        assert out.compare(input_data).empty
+        pd.testing.assert_frame_equal(result, expected_output)
 
 
 class TestAGGMGasNetworkCapacityData:
@@ -274,25 +262,21 @@ class TestAGGMGasNetworkCapacityData:
         assert len(result) == foreign_corridors + len(aggm_data)
 
 
-@pytest.mark.AT
 class TestBrownfieldGasNetworkLinks:
     """Verify the AGGM transport corridor capacities reach the brownfield"""
 
     @pytest.fixture(scope="class")
-    def brownfield_network(self, result_path) -> pypsa.Network:
-        resources_path = pathlib.Path("resources", *result_path.parts[-2:])
-        network_path = (
-            resources_path / "networks" / "base_s_adm__none_2025_brownfield.nc"
-        )
-        return pypsa.Network(network_path)
+    def brownfield_network(self, nc) -> pypsa.Network:
+        """Solved 2025 network — topology (Links, buses) matches the pre-solve brownfield build."""
+        return nc.networks["2025"]
 
     @pytest.fixture(scope="class")
-    def aggm_data(self, brownfield_network, project_root) -> pd.DataFrame:
-        """AGGM data of the custom clustering the brownfield network was built with."""
-        mods = brownfield_network.meta["mods"]
-        clustering = mods["modify_nuts3_shapes"][:4]
-        file_name = f"AGGM_gas_network_base_{clustering}.csv"
-        return pd.read_csv(project_root / "data" / "pypsa-at" / file_name, index_col=0)
+    def aggm_data(self, brownfield_network) -> pd.DataFrame:
+        """AGGM corridors of the merged gas network resource attached to the solved network's meta."""
+        merged = pd.DataFrame.from_dict(
+            brownfield_network.meta["resources"]["aggm_gas_pipeline_data"]
+        )
+        return merged[merged["name"].str.startswith("AGGM_")]
 
     @pytest.fixture(scope="class")
     def gas_pipelines(self, brownfield_network) -> pd.DataFrame:
