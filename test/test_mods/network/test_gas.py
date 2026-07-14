@@ -272,11 +272,16 @@ class TestBrownfieldGasNetworkLinks:
 
     @pytest.fixture(scope="class")
     def aggm_data(self, brownfield_network) -> pd.DataFrame:
-        """AGGM corridors of the merged gas network resource attached to the solved network's meta."""
+        """
+        Raw corridors touching AT are all dropped by update_gas_transport_data.
+        Any AT corridor left in the merged resource originates from the AGGM input data.
+        """
         merged = pd.DataFrame.from_dict(
             brownfield_network.meta["resources"]["aggm_gas_pipeline_data"]
         )
-        return merged[merged["name"].str.startswith("AGGM_")]
+        at_bus0 = merged["bus0"].str.startswith("AT")
+        at_bus1 = merged["bus1"].str.startswith("AT")
+        return merged[at_bus0 | at_bus1]
 
     @pytest.fixture(scope="class")
     def gas_pipelines(self, brownfield_network) -> pd.DataFrame:
