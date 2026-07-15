@@ -22,7 +22,6 @@ from pypsa.descriptors import nominal_attrs
 from pypsa.statistics import (
     StatisticsAccessor,
     get_transmission_carriers,
-    groupers,
 )
 from pypsa.statistics.expressions import (
     StatisticHandler,
@@ -67,9 +66,20 @@ def _port_location(n: Network, c: str, port: str = "") -> pd.Series:
         Series with the location of the bus at this specific port.
     """
     bus = f"bus{port}"
-    return groupers._map_with_multiindex(
-        n.c[c].static[bus], n.c["Bus"].static["location"]
-    ).rename("location")
+    component_series = n.c[c].static[bus]
+    mapping_series = n.c["Bus"].static["location"]
+
+    if isinstance(component_series.index, pd.MultiIndex) and isinstance(
+        mapping_series.index, pd.MultiIndex
+    ):
+        # NetworkCollection case: drop scenario levels from the mapping series
+        # and remove duplicates before mapping.
+        n_levels_to_drop = mapping_series.index.nlevels - 1
+        if n_levels_to_drop > 0:
+            mapping_series = mapping_series.droplevel(list(range(n_levels_to_drop)))
+            mapping_series = mapping_series[~mapping_series.index.duplicated()]
+
+    return component_series.map(mapping_series).rename("location")
 
 
 def collect_myopic_statistics(

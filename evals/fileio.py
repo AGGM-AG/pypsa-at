@@ -376,7 +376,7 @@ class Exporter:
         resolution_space = run_config.get("mods", {}).get("modify_nuts3_shapes", "")
         resolution_time = run_config["clustering"]["temporal"]["resolution_sector"]
 
-        with Path("../pixi.toml").open("rb") as fh:
+        with Path("pixi.toml").open("rb") as fh:
             project_settings = tomllib.load(fh)
 
         run_data = {
