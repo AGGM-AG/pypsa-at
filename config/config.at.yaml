@@ -67,7 +67,7 @@ costs:
 
 existing_capacities:
   threshold_capacity: 2 # reduce threshold capacity for all carriers to better support
-                        # finer spatial resolution of PyPSA-AT
+                          # finer spatial resolution of PyPSA-AT
 
 sector:
   v2g: false
