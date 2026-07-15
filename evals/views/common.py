@@ -512,7 +512,7 @@ def simple_residual_load(
             collect_myopic_statistics(
                 nc,
                 statistic="withdrawal",
-                bus_carrier="AC",
+                bus_carrier=bus_carrier,
                 aggregate_time=True,
                 aggregate_components=None,
             )
@@ -529,7 +529,7 @@ def simple_residual_load(
         collect_myopic_statistics(
             nc,
             statistic="withdrawal",
-            bus_carrier="AC",
+            bus_carrier=bus_carrier,
             aggregate_time=False,
             aggregate_components=None,
         )
@@ -541,7 +541,7 @@ def simple_residual_load(
         collect_myopic_statistics(
             nc,
             statistic="withdrawal",
-            bus_carrier="AC",
+            bus_carrier=bus_carrier,
             aggregate_time=False,
             aggregate_components=None,
         )
@@ -553,7 +553,7 @@ def simple_residual_load(
         collect_myopic_statistics(
             nc,
             statistic="supply",
-            bus_carrier="AC",
+            bus_carrier=bus_carrier,
             aggregate_time=False,
             aggregate_components=None,
         )
