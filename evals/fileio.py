@@ -319,12 +319,15 @@ class Exporter:
         # apply per-view overrides from the view config
         title = view_config["name"] + TITLE_SUFFIX
         self.defaults.title = title
+        self.defaults.name = view_config["name"]
         self.defaults.file_name_template = view_config["file_name"]
         self.defaults.cutoff = view_config["cutoff"]
         self.defaults.category_orders = view_config["legend_order"]
         self.defaults.database_plot_type = view_config["database_plot_type"]
         self.defaults.database_bus_carrier = view_config["database_bus_carrier"]
         self.defaults.database_specifier = view_config["database_specifier"]
+        if "global_override" in view_config.keys():
+            vars(self.defaults).update(view_config["global_override"])
 
     @cached_property
     def df(self) -> pd.DataFrame:
