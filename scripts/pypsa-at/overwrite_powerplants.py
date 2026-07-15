@@ -155,7 +155,7 @@ def overwrite_biogas_to_power_plants_AT(
             "Technology": "Combustion Engine",
             "Set": "PP",
             "Country": "AT",
-            "DateIn": 2010,  # assumed build year at the height of Förderung in AT
+            "DateIn": 2003,  # assumed build year at the height of Förderung in AT, phase out before 2030
             "Capacity": anlreg["Engpassleistung (kW <sub>el</sub>)"] / 1000,
             "bus": anlreg["nuts"].values,
         }
