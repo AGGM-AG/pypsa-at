@@ -507,6 +507,10 @@ COLOR_SCHEME_FILL: dict = {
     "Residual Load": "none",
     "Residual Load Duration Curve": "none",
 }
+LINE_WIDTH: dict = {
+    "Residual Load": 2,
+    "Residual Load Duration Curve": 2,
+}
 ALIAS_REGION: frozendict = frozendict(
     {
         # Austrian is clustered on NUTS1 (AT10) or NUTS3 (AT35)
