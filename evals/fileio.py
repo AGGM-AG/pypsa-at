@@ -37,6 +37,7 @@ from evals.utils import (
     build_plot_config,
     combine_statistics,
     rename_aggregate,
+    to_duration_curve,
 )
 
 logger = logging.getLogger(__name__)
@@ -375,7 +376,7 @@ class Exporter:
         resolution_space = run_config.get("mods", {}).get("modify_nuts3_shapes", "")
         resolution_time = run_config["clustering"]["temporal"]["resolution_sector"]
 
-        with Path("pixi.toml").open("rb") as fh:
+        with Path("../pixi.toml").open("rb") as fh:
             project_settings = tomllib.load(fh)
 
         run_data = {
@@ -408,6 +409,9 @@ class Exporter:
         df_plot = df.pivot_table(
             index=cfg.pivot_index, columns=cfg.pivot_columns, aggfunc="sum"
         )
+
+        if hasattr(cfg, "is_duration_curve") and cfg.is_duration_curve:
+            df_plot = to_duration_curve(df_plot)
 
         # needed for upload API data bundle ingestion
         self.write_run_json(output_path, self.view_config["meta"])
@@ -473,13 +477,7 @@ class Exporter:
         if chart_class == plots.ESMGroupedBarChart:
             self.defaults.xaxis_title = ""
         elif chart_class == plots.ESMTimeSeriesChart:
-            self.defaults.xaxis_title = ""
             self.defaults.plotby = [DataModel.YEAR, DataModel.LOCATION]
-            self.defaults.pivot_index = [
-                DataModel.YEAR,
-                DataModel.LOCATION,
-                DataModel.CARRIER,
-            ]
         elif (
             chart_class == plots.ESMBarChart
             and self.defaults.plot_category == DataModel.CARRIER

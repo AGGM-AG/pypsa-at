@@ -1242,6 +1242,7 @@ database_specifier = ""
 
 [view_timeseries_electricity.global_override]
 xaxis_title=""
+pivot_index=["year", "location", "carrier"]
 
 [view_timeseries_electricity.exclude]
 "2020" = ["EV battery"]
@@ -1356,6 +1357,7 @@ database_specifier = ""
 
 [view_timeseries_hydrogen.global_override]
 xaxis_title=""
+pivot_index=["year", "location", "carrier"]
 
 [view_timeseries_hydrogen.categories]
 "ammonia cracker" = "Ammonia Cracker"
@@ -1425,6 +1427,7 @@ database_specifier = ""
 
 [view_timeseries_methane.global_override]
 xaxis_title=""
+pivot_index=["year", "location", "carrier"]
 
 [view_timeseries_methane.categories]
 "BioSNG" = "SynGas"
@@ -1498,6 +1501,7 @@ database_specifier = ""
 
 [view_timeseries_carbon.global_override]
 xaxis_title=""
+pivot_index=["year", "location", "carrier"]
 
 [view_timeseries_carbon.categories]
 "BioSNG" = "Biogas"
@@ -1623,6 +1627,7 @@ skip_checks = true
 
 [view_timeseries_residual_load.global_override]
 line_shape="linear"
+pivot_index=["year", "location"]
 
 [view_timeseries_residual_load.categories]
 
@@ -1650,5 +1655,6 @@ skip_checks = true
 line_shape="linear"
 xaxis_title="Duration (hours)"
 is_duration_curve = true
+pivot_index=["year", "location"]
 
 [view_residual_load_duration_curve.categories]
