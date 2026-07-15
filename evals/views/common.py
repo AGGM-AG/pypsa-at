@@ -470,6 +470,115 @@ def simple_storage_capacity(
     exporter.export(result_path, config["global"]["subdir"])
 
 
+def simple_residual_load(
+    nc: NetworkCollection,
+    config: dict,
+    result_path: str | Path,
+) -> None:
+    """
+    Calculate and export time series data for residual load.
+
+    This function collects hourly time series statistics for fluctuating renewable supply
+    and electrical load/withdrawal, along with transmission losses for AC bus carriers.
+    Unlike simple_bus_balance, this function preserves temporal resolution and does
+    not aggregate over time periods.
+
+    Parameters
+    ----------
+    nc
+        NetworkCollection containing PyPSA network objects, keyed by year.
+    config
+        Configuration dictionary containing view settings including bus_carrier, storage_links,
+        and export parameters.
+    result_path
+        Path where the evaluation results will be saved.
+
+    """
+    (
+        bus_carrier,
+        transmission_comps,
+        transmission_carrier,
+        storage_carrier,
+        storage_links,
+    ) = _parse_view_config_items(nc, config)
+    fluctuating_carriers = config["view"]["fluctuating_carriers"]
+    if not fluctuating_carriers:
+        raise ValueError("'fluctuating_carriers' must not be empty.")
+
+    loss_carriers = set(transmission_carrier + storage_links)
+    withdrawal_comps = set(transmission_comps) | {"Link"}
+    load_carriers = (
+        set(
+            collect_myopic_statistics(
+                nc,
+                statistic="withdrawal",
+                bus_carrier="AC",
+                aggregate_time=True,
+                aggregate_components=None,
+            )
+            .pipe(
+                filter_by,
+                component=list(withdrawal_comps),
+            )
+            .index.unique("carrier")
+        )
+        - loss_carriers
+    )
+
+    load = (
+        collect_myopic_statistics(
+            nc,
+            statistic="withdrawal",
+            bus_carrier="AC",
+            aggregate_time=False,
+            aggregate_components=None,
+        )
+        .pipe(filter_by, component=["Load"])
+        .droplevel([DM.COMPONENT])
+    )
+
+    link_withdrawal = (
+        collect_myopic_statistics(
+            nc,
+            statistic="withdrawal",
+            bus_carrier="AC",
+            aggregate_time=False,
+            aggregate_components=None,
+        )
+        .pipe(filter_by, component=list(withdrawal_comps), carrier=list(load_carriers))
+        .droplevel([DM.COMPONENT])
+    )
+
+    fluctuating_generation = (
+        collect_myopic_statistics(
+            nc,
+            statistic="supply",
+            bus_carrier="AC",
+            aggregate_time=False,
+            aggregate_components=None,
+        )
+        .pipe(filter_by, carrier=fluctuating_carriers)
+        .mul(-1)
+        .droplevel([DM.COMPONENT])
+    )
+
+    losses = (
+        collect_myopic_statistics(
+            nc, statistic="loss", bus_carrier="AC", aggregate_components=None
+        )
+        .pipe(
+            filter_by, component=list(transmission_comps), carrier=list(loss_carriers)
+        )
+        .droplevel([DM.COMPONENT])
+    )
+
+    exporter = Exporter(
+        statistics=[load, link_withdrawal, fluctuating_generation, losses],
+        view_config=config["view"],
+    )
+    exporter.export(result_path, config["global"]["subdir"])
+
+
 def _parse_view_config_items(nc: NetworkCollection, config: dict) -> tuple:
     """
     Parse and extract view configuration items for statistics collection.

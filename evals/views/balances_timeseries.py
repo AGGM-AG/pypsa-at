@@ -6,7 +6,10 @@ from pathlib import Path
 
 from pypsa import NetworkCollection
 
-from evals.views.common import simple_timeseries
+from evals.views.common import (
+    simple_residual_load,
+    simple_timeseries,
+)
 
 
 def view_timeseries_electricity(
@@ -146,3 +149,59 @@ def view_timeseries_carbon(
     emissions constraints.
     """
     simple_timeseries(nc, config, result_path)
+
+
+def view_timeseries_residual_load(
+    result_path: str | Path,
+    nc: NetworkCollection,
+    config: dict,
+) -> None:
+    """
+    Evaluate and export time series data for the residual load
+
+    This function generates hourly time series showing residual load calculated
+    as the load on the respective AC bus (i.e. all withdrawal except electricity
+    transmission and storage) + tranmission losses - electricity from fluctuating
+    renewable sources (e.g. wind, solar). The function delegates to
+    simple_residual_load for data collection and export.
+
+    Parameters
+    ----------
+    result_path
+        Path where the evaluation results will be saved.
+    nc
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    config
+        Configuration dictionary containing view settings including bus_carrier specification,
+        storage_links, chart type, and export parameters.
+
+    """
+    simple_residual_load(nc, config, result_path)
+
+
+def view_residual_load_duration_curve(
+    result_path: str | Path,
+    nc: NetworkCollection,
+    config: dict,
+) -> None:
+    """
+    Evaluate and export duration curve data for the residual load
+
+    This function generates a hourly duration curve showing residual load calculated
+    as the load on the respective AC bus (i.e. all withdrawal except electricity
+    transmission and storage) + tranmission losses - electricity from fluctuating
+    renewable sources (e.g. wind, solar). The function delegates to
+    simple_residual_load for data collection and export.
+
+    Parameters
+    ----------
+    result_path
+        Path where the evaluation results will be saved.
+    nc
+        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+    config
+        Configuration dictionary containing view settings including bus_carrier specification,
+        storage_links, chart type, and export parameters.
+
+    """
+    simple_residual_load(nc, config, result_path)
