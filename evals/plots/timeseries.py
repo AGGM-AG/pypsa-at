@@ -57,7 +57,11 @@ class ESMTimeSeriesChart:
         df = apply_cutoff(self._df, limit=self.cfg.cutoff, drop=self.cfg.cutoff_drop)
         df = custom_sort(df, by=self.cfg.plot_category, values=self.cfg.category_orders)
         df = self.fix_snapshots(df, int(self.year))
-        df = df.droplevel([DataModel.YEAR, DataModel.LOCATION])
+        if set(df.index.names) == {DataModel.YEAR, DataModel.LOCATION}:
+            df = df.reset_index(drop=True)
+            df.index = [self.cfg.name] * len(df)
+        else:
+            df = df.droplevel([DataModel.YEAR, DataModel.LOCATION])
         return df.T
 
     def plot(self) -> None:
