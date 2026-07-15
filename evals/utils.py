@@ -1194,3 +1194,46 @@ def get_latest_results_folder() -> Path:
 
     # return largest system timestamp folder
     return max(scenario_dirs, key=lambda p: p.stat().st_mtime)
+
+
+def to_duration_curve(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Convert a time series into a duration curve.
+
+    For each row, values are sorted in descending order and the
+    (datetime) columns are replaced by the cumulative number of hours
+    they represent, so that the result can be plotted as x=duration
+    (hours), y=sorted value. Snapshots are assumed to be equidistant;
+    the duration of the last snapshot is inferred by wrapping around to
+    one year after the first snapshot.
+
+    Parameters
+    ----------
+    df
+        DataFrame with equidistant datetime snapshots as columns.
+
+    Returns
+    -------
+    :
+        DataFrame with the same index as ``df``, values sorted in
+        descending order per row, and cumulative duration (in hours)
+        as columns.
+    """
+    columns = (
+        (
+            df.columns.append(
+                pd.Index([df.columns[0] + pd.DateOffset(years=1)])
+            ).diff()[1:]
+            / pd.Timedelta(hours=1)
+        )
+        .astype(int)
+        .values
+    ).cumsum()
+    plot_df_out = pd.DataFrame(
+        np.sort(df.to_numpy(), axis=1)[:, ::-1],
+        index=df.index,
+        columns=columns,
+    )
+    plot_df_out.name = "Duration (hours)"
+    plot_df_out.attrs = df.attrs
+    return plot_df_out

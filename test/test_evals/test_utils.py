@@ -25,6 +25,7 @@ from evals.utils import (
     rename_aggregate,
     scale,
     split_location_carrier,
+    to_duration_curve,
     trade_mask,
 )
 
@@ -561,6 +562,19 @@ def test_fix_snapshots(df, year, expected):
     """
     result = ESMTimeSeriesChart.fix_snapshots(df, year)
     pd.testing.assert_frame_equal(result, expected)
+
+
+def test_to_duration_curve():
+    """Values per row are sorted descending with cumulative hours as columns."""
+    df = pd.DataFrame(
+        {"row": range(12)},
+        index=pd.date_range("2020-01-01", periods=12, freq="MS"),
+    ).T
+
+    result = to_duration_curve(df)
+
+    assert result.columns[-1] == 8784  # hours in the (leap) year, exclusive
+    assert result.loc["row"].tolist() == list(range(11, -1, -1))
 
 
 @pytest.mark.parametrize(
