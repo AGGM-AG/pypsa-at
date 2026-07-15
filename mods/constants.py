@@ -90,6 +90,9 @@ TYNDP_TO_PYPSA_LOCATION: dict[str, str] = {
     "SI00": "SI",
     # Slovakia
     "SK00": "SK",
+    # United Kingdom
+    "UK00": "GB0",
+    "UKNI": "GB1",
 }
 
 TYNDP_TO_PYPSA_LOCATION_TRANSMISSION: dict[str, str | None] = (
