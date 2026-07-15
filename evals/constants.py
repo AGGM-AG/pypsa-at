@@ -503,7 +503,10 @@ COLOUR_SCHEME: dict = {
     "Methanol": COLOUR.salmon,
     "Bio H2": COLOUR.green_mint,
 }
-
+COLOR_SCHEME_FILL: dict = {
+    "Residual Load": "none",
+    "Residual Load Duration Curve": "none",
+}
 ALIAS_REGION: frozendict = frozendict(
     {
         # Austrian is clustered on NUTS1 (AT10) or NUTS3 (AT35)

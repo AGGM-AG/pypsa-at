@@ -23,6 +23,7 @@ from evals.constants import (
     ALIAS_REGION_AT35_CLUSTERING,
     ALIAS_REGION_DE5_CLUSTERING,
     ALIAS_REGION_DE16_CLUSTERING,
+    COLOR_SCHEME_FILL,
     COLOUR_SCHEME,
     UNITS,
     BusCarrier,
@@ -364,7 +365,7 @@ def scale(df: pd.DataFrame, to_unit: str) -> pd.DataFrame:
 
     if df.columns.name == DataModel.SNAPSHOTS:
         is_unit = df.attrs["unit"]
-        scaling_factor = is_unit / to_unit
+        scaling_factor = UNITS[is_unit] / UNITS[to_unit]
         result = df.mul(scaling_factor)
     else:
         scale_to = to_unit if isinstance(to_unit, float) else UNITS[to_unit]
@@ -1149,7 +1150,7 @@ def build_plot_config(global_cfg: dict) -> SimpleNamespace:
         facet_column=DataModel.BUS_CARRIER,
         # --- view-level overrides set per-view (empty by default) ---
         category_orders=(),
-        fill={},
+        fill=dict(COLOR_SCHEME_FILL),
         line_dash={},
         line_width={},
         # --- complex defaults from Python constants ---
