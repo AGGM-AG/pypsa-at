@@ -8,8 +8,14 @@
 # the final word on plotting values (see Snakefile).
 plotting:
   tech_colors:
-    # PHS is split into charger/discharger/store components in PyPSA-AT, so the
-    # upstream "PHS" rename key does not match. Colour them like PHS ('#51dbcc').
+    # PHS is split into charger/discharger/store/inflow components in PyPSA-AT, so
+    # the upstream "PHS" rename key does not match. Colour them like PHS ('#51dbcc').
     PHS charger: '#51dbcc'
     PHS discharger: '#51dbcc'
     PHS store: '#51dbcc'
+    PHS inflow: '#51dbcc'
+    # hydro reservoirs are likewise split into discharger/store/inflow components.
+    # Colour them like hydro ('#298c81').
+    hydro discharger: '#298c81'
+    hydro store: '#298c81'
+    hydro inflow: '#298c81'
