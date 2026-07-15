@@ -135,16 +135,9 @@ def overwrite_biogas_to_power_plants_AT(
             "Change config.at.yaml setting accordingly."
         )
 
-    postal_to_nuts = (
-        pd.read_csv(
-            postal_to_nuts_file, sep=";", dtype=str, names=["nuts3", "plz"], header=0
-        )
-        .assign(
-            plz=lambda x: x["plz"].str.strip("'"),
-            nuts3=lambda x: x["nuts3"].str.strip("'"),
-        )
-        .set_index("plz")["nuts3"]
-    )
+    postal_to_nuts = pd.read_csv(
+        postal_to_nuts_file, dtype=str, names=["nuts3", "plz"], header=0
+    ).set_index("plz")["nuts3"]
 
     anlreg = pd.read_csv(anlagenregister_file)
     anlreg = anlreg.dropna(subset=["Plz"])

@@ -31,10 +31,10 @@ def postal_to_nuts_file(tmp_path):
     path.write_text(
         textwrap.dedent(
             """\
-            NUTS3;CODE
-            'AT226';'8761'
-            'AT113';'2022'
-            'AT321';'8010'
+            NUTS3,CODE
+            AT226,8761
+            AT113,2022
+            AT321,8010
             """
         )
     )
@@ -216,16 +216,9 @@ def _expected_at_biogas_per_node(threshold, clustering):
     solid biomass and biogas carriers. Buses are relabelled to the
     clustering's node resolution (AT10 collapses NUTS3 to NUTS2).
     """
-    postal = (
-        pd.read_csv(
-            POSTAL_TO_NUTS, sep=";", dtype=str, names=["nuts3", "plz"], header=0
-        )
-        .assign(
-            plz=lambda x: x["plz"].str.strip("'"),
-            nuts3=lambda x: x["nuts3"].str.strip("'"),
-        )
-        .set_index("plz")["nuts3"]
-    )
+    postal = pd.read_csv(
+        POSTAL_TO_NUTS, dtype=str, names=["nuts3", "plz"], header=0
+    ).set_index("plz")["nuts3"]
     reg = pd.read_csv(ANLAGENREGISTER).dropna(subset=["Plz"])
     reg["bus"] = reg["Plz"].astype("Int64").astype(str).str.zfill(4).map(postal)
     if clustering.startswith("AT10"):
