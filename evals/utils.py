@@ -25,6 +25,7 @@ from evals.constants import (
     ALIAS_REGION_DE16_CLUSTERING,
     COLOR_SCHEME_FILL,
     COLOUR_SCHEME,
+    LINE_WIDTH,
     UNITS,
     BusCarrier,
     DataModel,
@@ -1152,7 +1153,7 @@ def build_plot_config(global_cfg: dict) -> SimpleNamespace:
         category_orders=(),
         fill=dict(COLOR_SCHEME_FILL),
         line_dash={},
-        line_width={},
+        line_width=dict(LINE_WIDTH),
         # --- complex defaults from Python constants ---
         colors=dict(COLOUR_SCHEME),
         pattern=dict.fromkeys(_pattern_keys, "/"),
