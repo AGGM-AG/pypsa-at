@@ -1234,6 +1234,5 @@ def to_duration_curve(df: pd.DataFrame) -> pd.DataFrame:
         index=df.index,
         columns=columns,
     )
-    plot_df_out.name = "Duration (hours)"
     plot_df_out.attrs = df.attrs
     return plot_df_out
