@@ -214,6 +214,8 @@ ruleorder: modify_brownfield_gas_network_AT > cluster_gas_network  # AT wins for
 rule overwrite_powerplants_at:
     input:
         powerplants=resources("powerplants_s_{clusters}.csv"),
+        anlagenregister="data/pypsa-at/Anlagenregister_electricity_from_renewable_gas_AT.csv",
+        postal_to_nuts="data/pypsa-at/AT-Postal-to-NUTS.csv",
     output:
         powerplants=resources("powerplants_s_{clusters}-overwrite.csv"),
     log:
@@ -221,6 +223,12 @@ rule overwrite_powerplants_at:
     threads: 1
     resources:
         mem_mb=1000,
+    params:
+        add_biogas_to_power_plants_AT=config_provider(
+            "mods", "existing_capacities", "add_biogas_to_power_plants_AT"
+        ),
+        threshold_capacity=config_provider("existing_capacities", "threshold_capacity"),
+        clustering=config_provider("mods", "modify_nuts3_shapes"),
     message:
         "Overriding power plant attributes for {wildcards.clusters} clusters."
     script:
