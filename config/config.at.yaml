@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: 00_pypsa-at-vanilla
+  prefix: feat-biogas-brownfield-austria
   name:
   - AT_KN2040
   scenarios:
@@ -64,6 +64,10 @@ costs:
   custom_cost_fn_list:  # List is combined into one cost file, keeping only the first occurrence of each entry.
   - data/custom_costs.csv
   - data/pypsa-de/custom_costs_nep_2023.csv
+
+existing_capacities:
+  threshold_capacity: 2 # reduce threshold capacity for all carriers to better support
+                        # finer spatial resolution of PyPSA-AT
 
 sector:
   v2g: false
@@ -263,6 +267,10 @@ mods:
     utilization_share: 0.0  # fraction of carbon black sold to market (0.0–1.0)
                             # Note that sold carbon black eventually re-emits CO2
                             # outside model boundary (Systemgrenze).
+
+  existing_capacities:
+    add_biogas_to_power_plants_AT: true # add Austrian biogas-to-power plants from Anlagenregister
+                                        # in addition to powerplantmatching
 
   tyndp_h2_import_scenario: "DE" # One of DE (Distributed Energy), NT (National Trends), GA (Global Ambition).
                            # Only used when H2 imports is enabled
