@@ -144,6 +144,13 @@ def overwrite_biogas_to_power_plants_AT(
     anlreg["Plz"] = anlreg["Plz"].astype("Int64").astype(str).str.zfill(4)
     anlreg["nuts"] = anlreg["Plz"].map(postal_to_nuts)
 
+    missing_plz = anlreg.loc[anlreg["nuts"].isna(), "Plz"].unique()
+    if len(missing_plz) > 0:
+        raise ValueError(
+            f"Postal codes {sorted(missing_plz)} from Anlagenregister not found in"
+            f"postal-to-nuts-file. Update mapping or check data."
+        )
+
     # Relabel NUTS3 codes to NUTS2 if run has lower resolution
     if clustering.startswith("AT10"):
         anlreg["nuts"] = anlreg["nuts"].map(_map_at_nuts3_to_nuts2)
