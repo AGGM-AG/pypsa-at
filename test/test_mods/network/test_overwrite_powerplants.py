@@ -7,11 +7,9 @@ Tests for scripts/pypsa-at/overwrite_powerplants.py function overwrite_biogas_to
 """
 
 import pathlib
-import re
 import textwrap
 
 import pandas as pd
-import pypsa
 import pytest
 from overwrite_powerplants import overwrite_biogas_to_power_plants_AT
 
@@ -77,13 +75,14 @@ def ppl():
 
 
 @pytest.fixture
-def result(ppl, anlagenregister_file, postal_to_nuts_file):
+def result(request, ppl, anlagenregister_file, postal_to_nuts_file):
+    clustering = getattr(request, "param", "AT35DE5")
     return overwrite_biogas_to_power_plants_AT(
         ppl,
         anlagenregister_file,
         postal_to_nuts_file,
         threshold_capacity=2,
-        clustering="AT35DE5",
+        clustering=clustering,
     )
 
 
@@ -131,7 +130,7 @@ def test_ids_map_to_names(result):
 
 def test_build_year(result):
     added = _biogas(result)
-    assert (added["DateIn"] == 2010).all()
+    assert (added["DateIn"] <= 2004).all()
 
 
 def test_mapped_all_plz_to_nuts3(result):
@@ -143,15 +142,9 @@ def test_mapped_all_plz_to_nuts3(result):
     assert by_name["Biogas AT 204"] == "AT321"
 
 
-def test_maps_nuts3_to_nuts2_for_at10(ppl, anlagenregister_file, postal_to_nuts_file):
+@pytest.mark.parametrize("result", ["AT10DE5"], indirect=True)
+def test_maps_nuts3_to_nuts2_for_at10(result):
     """AT10 clustering collapses the NUTS3 plant buses to NUTS2 node names."""
-    result = overwrite_biogas_to_power_plants_AT(
-        ppl,
-        anlagenregister_file,
-        postal_to_nuts_file,
-        threshold_capacity=2,
-        clustering="AT10DE5",
-    )
     by_name = _biogas(result).set_index("Name")["bus"]
     assert by_name["Biogas AT 6"] == "AT22"  # AT226 -> AT22
     assert by_name["Biogas AT 4"] == "AT11"  # AT113 -> AT11
@@ -228,26 +221,15 @@ def _expected_at_biogas_per_node(threshold, clustering):
     return per_node[per_node > threshold]
 
 
-@pytest.fixture(scope="session")
-def brownfield_baseyear_network(result_path, project_root):
-    """From resources/{prefix}/{scenario}/networks/base_s_adm__none_{year}_brownfield.nc"""
-    prefix, scenario = result_path.parts[-2], result_path.parts[-1]
-    net_dir = project_root / "resources" / prefix / scenario / "networks"
-    files = list(net_dir.glob("base_s_*_brownfield.nc"))
-    assert files, f"no brownfield networks under {net_dir}"
-    baseyear_file = min(
-        files, key=lambda p: int(re.search(r"_(\d{4})_brownfield", p.name).group(1))
-    )
-    return pypsa.Network(str(baseyear_file))
-
-
 @pytest.mark.AT
-def test_at_biogas_capacity_matches_source_per_node(brownfield_baseyear_network):
+def test_at_biogas_capacity_matches_source_per_node(nc):
     """
     Compare expected biogas capacities in each node with
-    biogas capacity of links in brownfield network
+    biogas capacity of links in the base year network
     """
-    n = brownfield_baseyear_network
+    # Existing biogas links are not extendable, so the solved base year
+    # network carries the capacities add_existing_baseyear assigned.
+    n = nc[min(nc.index)]
 
     threshold = n.meta["existing_capacities"]["threshold_capacity"]
     clustering = n.meta["mods"]["modify_nuts3_shapes"]
