@@ -192,6 +192,18 @@ def apply_trajectories(
         elif at_port != 0:
             raise NotImplementedError(f"Value for 'at_port' {at_port} not implemented.")
 
+        # Keep existing brownfield capacities as lower boundary for
+        # base years to prevent model infeasibility
+        if not is_myopic_year:
+            installed = comp.loc[idx, "p_nom_min"].item()
+            if p_nom_max < installed:
+                logger.warning(
+                    f"Trajectory p_nom_max {p_nom_max:.2f} for {c} {idx} is below the "
+                    f"installed capacity {installed:.2f}. Raising p_nom_max to the "
+                    f"installed capacity."
+                )
+                p_nom_max = installed
+
         # Sanity check for calculated boundaries
         if (p_nom_max - p_nom_min) < 0:
             raise ValueError(
