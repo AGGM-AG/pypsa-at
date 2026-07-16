@@ -221,6 +221,8 @@ solving:
     highs-default:
       threads: 0
       random_seed: 123
+      user_bound_scale: -13       # scale bounds by 2^-13
+      user_objective_scale: -1    # scale objective by 1e-1
     "highs-hipo":  # scaling the LP stabilizes HiPO
       user_bound_scale: -13       # scale bounds by 2^-13
       user_objective_scale: -1    # scale objective by 1e-1
