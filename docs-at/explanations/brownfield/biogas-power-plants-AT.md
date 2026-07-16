@@ -29,7 +29,7 @@ PyPSA-AT adds all known biogas-to-power plants explicitly from the Austrian
 
 ## Build years
 To best represent the reality of the Austrian biogas-to-power brownfield, the `build_year` of plants is assumed to be 2003. There is no available data on the actual build times of individual plants. The year 2003 is assumed for two reasons: 
-First, the Austrian government allowed large grants for the building of biogas-to-power plants in the years between 2005-2010. Second, with a lifetime of 25 years, plants installed after 2005 would still be viable in the myopic investment period 2030-2040. 
+First, the Austrian government allowed large grants for the building of biogas-to-power plants in the years between 2005 and 2010. Second, with a lifetime of 25 years, plants installed after 2005 would still be viable in the myopic investment period 2030-2040. 
 
 To force the assets to be decommissioned before 2030, we assume 2003 + 25 years = 2028 + 1 buffer year = 2029. 
 
