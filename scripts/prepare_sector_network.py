@@ -8,6 +8,7 @@ technologies for the buildings, transport and industry sectors.
 
 import logging
 import os
+from functools import partial
 from itertools import product
 from types import SimpleNamespace
 
@@ -6007,7 +6008,8 @@ aggregate_dict = {
     "v_ang_max": "min",
     "terrain_factor": "mean",
     "num_parallel": "sum",
-    "p_set": "sum",
+    # PyPSA-AT hotfix to keep NaN instead of zeros to prevent 0 bounded constraints
+    "p_set": partial(pd.Series.sum, min_count=1),
     "e_initial": "sum",
     "e_nom": pd.Series.sum,
     "e_nom_max": pd.Series.sum,
