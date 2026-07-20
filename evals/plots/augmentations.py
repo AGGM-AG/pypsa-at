@@ -5,8 +5,10 @@
 
 from math import isnan
 
+import numpy as np
 import pandas as pd
 import pypsa
+from pypsa.statistics import get_transmission_carriers
 
 from evals.utils import drop_from_multtindex_by_regex
 
@@ -47,6 +49,7 @@ from evals.utils import drop_from_multtindex_by_regex
 #             continue
 #         out[pair] = out.get(pair, 0.0) + abs(capacity)
 #     return out
+
 
 #
 # def collapse_items_to_corridors(items: list, p_opt_pair: dict) -> list:
@@ -91,59 +94,57 @@ from evals.utils import drop_from_multtindex_by_regex
 #         representatives.append(representative)
 #     return representatives
 #
+def get_transmission_corridor(func, carriers: list) -> pd.Series:
+    """
+    Calculate transmission corridor sums for bus pairs.
 
+    Parameters
+    ----------
+    func
+        The statistics function to use.
+    carriers
+        Transmission technologies to filter for.
 
-def calculate_additional_tooltip_statistics(
-    n: pypsa.Network, carrier: str | list[str], carriers_in_eb: pd.Index
-) -> dict:
-    flow_peak = (
-        n.statistics.transmission(
-            groupby=False, bus_carrier=carrier, at_port=[0], groupby_time="max"
+    Returns
+    -------
+    :
+        Aggregated values per bus0/1 pair in GW.
+    """
+    p = (
+        func(
+            groupby=["name", "bus0", "bus1", "carrier", "bus_carrier"],
+            components=["Line", "Link"],
+            carrier=carriers,
         )
-        .groupby("name")
-        .sum()
-    )
-
-    # capacity_kwargs = dict(
-    #     groupby=False,
-    #     bus_carrier=carrier,
-    #     at_port=[0],
-    #     components=["Line", "Link"],
-    #     carrier=carriers_in_eb.tolist(),
-    #     aggregate_across_components=True,
-    # )
-    capacity_kwargs = dict(
-        groupby=["name", "bus0", "bus1", "carrier", "bus_carrier"],
-        components=["Line", "Link"],
-        carrier=carriers_in_eb.tolist(),
-    )
-
-    # need to keep bus pairs for tooltip allotment
-    buses = ["bus0", "bus1"]
-    p_opt = (
-        n.statistics.optimal_capacity(**capacity_kwargs)
         .pipe(drop_from_multtindex_by_regex, "-reversed", level="name")
         .groupby(["bus0", "bus1"])
         .sum()
         .div(1e3)
     )
-    p_opt.attrs["unit"] = "GW"
-    p_installed = (
-        n.statistics.installed_capacity(**capacity_kwargs)
-        .pipe(drop_from_multtindex_by_regex, "-reversed", level="name")
-        .groupby(buses)
-        .sum()
-        .div(1e3)
+    p.attrs["unit"] = "GW"
+    b0 = p.index.get_level_values("bus0")
+    b1 = p.index.get_level_values("bus1")
+
+    # sort each pair so (A,B) and (B,A) map to the same key
+    pair = pd.MultiIndex.from_arrays(
+        np.sort(np.column_stack([b0, b1]), axis=1).T,
+        names=["bus0", "bus1"],
     )
-    p_installed.attrs["unit"] = "GW"
-    p_expanded = (
-        n.statistics.expanded_capacity(**capacity_kwargs)
-        .pipe(drop_from_multtindex_by_regex, "-reversed", level="name")
-        .groupby(buses)
-        .sum()
-        .div(1e3)
-    )
-    p_expanded.attrs["unit"] = "GW"
+
+    return p.groupby(pair).sum()
+
+
+def calculate_additional_tooltip_statistics(n: pypsa.Network, carrier: list) -> dict:
+
+    try:
+        p_opt = get_transmission_corridor(n.statistics.optimal_capacity, carrier)
+        p_installed = get_transmission_corridor(
+            n.statistics.installed_capacity, carrier
+        )
+        p_expanded = get_transmission_corridor(n.statistics.expanded_capacity, carrier)
+    except KeyError:
+        # For carrier groups without transmission infrastructure such as oil
+        p_opt = p_installed = p_expanded = pd.Series()
 
     # # scratch to correct capacities
     #
@@ -274,8 +275,22 @@ def calculate_additional_tooltip_statistics(
     #     p_installed, n.links, n.lines
     # )
     # p_expanded_pair = combined_branch_capacity_by_corridor(p_expanded, n.links, n.lines)
+
+    # aggregate bus0/bus1 with bus1/bus0 duplicates
+    # for s in (p_opt, p_installed, p_expanded)
+    #     b0 = s.index.get_level_values("bus0")
+    #     b1 = s.index.get_level_values("bus1")
+    #
+    #     # sort each pair so (A,B) and (B,A) map to the same key
+    #     pair = pd.MultiIndex.from_arrays(
+    #         np.sort(np.column_stack([b0, b1]), axis=1).T,
+    #         names=["bus0", "bus1"],
+    #     )
+    #
+    #     result = s.groupby(pair).sum()
+
     return {
-        "flow_peak": flow_peak,
+        # "flow_peak": flow_peak,
         "p_opt": p_opt,
         "p_installed": p_installed,
         "p_expanded": p_expanded,
@@ -323,18 +338,18 @@ def get_flow_unit(unit_conversion: float, settings: dict) -> str:
         return settings.get("flow_unit", "MWh/year")
 
 
-def get_import_node_coordinates(settings: dict) -> dict:
-    # ToDo: define import node coordinates in config
-    #   Example: import_node_coords = {"EU gas": {"x": 10.5, "y": 49.0, "label": "EU Gas Import"}}
-    return settings.get("import_node_coords", {})
+# def get_import_node_coordinates(settings: dict) -> dict:
+#     # ToDo: define import node coordinates in config
+#     #   Example: import_node_coords = {"EU gas": {"x": 10.5, "y": 49.0, "label": "EU Gas Import"}}
+#     return settings.get("import_node_coords", {})
 
 
-def remove_redundant_layer_items(deck, layer, value):
+def remove_redundant_layer_items(deck, layer, value, threshold=0.1):
     return [
         d
         for d in deck.layers[layer].data
-        if not isnan(d.get(value, 0)) and d.get(value, 0) > 0.001
-    ]  # todo: avoid magic threshold number
+        if not isnan(d.get(value, 0)) and d.get(value, 0) > threshold
+    ]
 
 
 def update_pydeck_layer_tooltip_for_paths(
@@ -351,30 +366,30 @@ def update_pydeck_layer_tooltip_for_paths(
 
     items = [item for i in path_layer_indices for item in deck.layers[i].data]
 
-    # # Pass A: capture each item's original net flow before widths are replaced.
-    # for item in items:
-    #     item["net_flow"] = abs(item.get("width", 0))
-
-    # # Collapse the parallel/reversed branches that overlap on a corridor into a
-    # # single representative carrying the combined optimal capacity. The capacity
-    # # replaces the flow as the branch width; its global maximum is computed once
-    # # across all representatives, matching upstream's auto-scaling.
-    # representatives = collapse_items_to_corridors(items, p_opt_pair)
-
-    # capacities = pd.Series([item["capacity"] for item in representatives], dtype=float)
-    # global_max = capacities.max() if not capacities.empty else 0.0
     global_max = stats["p_opt"].abs().max()
-
     scaled = scale_branch_widths_to_pdk(stats["p_opt"], branch_width_max, global_max)
 
-    # Pass B: assign widths from combined capacity and rebuild the tooltip on the
-    # representative items.
+    # One line per node pair. reversed will be dropped because they are checked last
+    items.sort(key=lambda it: it["name"].endswith("-reversed"))
+    seen = set()
     for item in items:
-        bus_pair = (item["bus0"], item["bus1"])
+        bus_pair = tuple(sorted((item["bus0"], item["bus1"])))
+
+        if bus_pair in seen:
+            # will be removed later because of 0 width
+            item["width"] = 0.0
+            item["width_pdk"] = 0.0
+            continue
+        seen.add(bus_pair)
+
         scaled_width = scaled.get(bus_pair, 0)
         capacity = stats["p_opt"].get(bus_pair, 0)
 
-        item["net_flow"] = abs(item.get("width", 0))
+        # FixMe: the netted flow below is on a per-asset level. An aggergation logic is
+        #    need
+        # item["net_flow"] = abs(item.get("width", 0))
+        item["net_flow"] = 0
+
         item["width"] = capacity
         item["width_pdk"] = scaled_width
 
@@ -386,24 +401,15 @@ def update_pydeck_layer_tooltip_for_paths(
             f"<tr><td style='font-weight:bold'>bus1:</td>"
             f"<td style='text-align:left'>{item['bus1']}</td></tr>\n"
             f"<tr><td style='font-weight:bold'>Optimal capacity:</td>"
-            f"<td style='text-align:left'>{item['width']:.2f} {stats['p_opt'].attrs['unit']}</td></tr>\n"
+            f"<td style='text-align:left'>{item['width']:.2f} {stats['p_opt'].attrs.get('unit')}</td></tr>\n"
             f"<tr><td style='font-weight:bold'>Net flow:</td>"
             f"<td style='text-align:left'>{item['net_flow']:.2f} {flow_unit}</td></tr>\n"
-            f"<tr><td style='font-weight:bold'>Installed capacity:</td>"
-            f"<td style='text-align:left'>{stats['p_expanded'].get(bus_pair, 0):.2f} {stats['p_expanded'].attrs['unit']}</td></tr>\n"
+            f"<tr><td style='font-weight:bold'>Expanded capacity:</td>"
+            f"<td style='text-align:left'>{stats['p_expanded'].get(bus_pair, 0):.2f} {stats['p_expanded'].attrs.get('unit')}</td></tr>\n"
             f"<tr><td style='font-weight:bold'>Existing capacity:</td>"
-            f"<td style='text-align:left'>{stats['p_installed'].get(bus_pair, 0):.2f} {stats['p_installed'].attrs['unit']}</td></tr>\n"
+            f"<td style='text-align:left'>{stats['p_installed'].get(bus_pair, 0):.2f} {stats['p_installed'].attrs.get('unit')}</td></tr>\n"
             f"</table>"
         )
-
-    # # Collapsed duplicates were given zero capacity; zero their width too so the
-    # # purge below removes them, leaving one line per corridor. Representatives
-    # # with a real combined capacity are retained even at zero net flow.
-    # representative_ids = {id(item) for item in representatives}
-    # for item in items:
-    #     if id(item) not in representative_ids:
-    #         item["width"] = 0.0
-    #         item["width_pdk"] = 0.0
 
     for i in path_layer_indices:
         deck.layers[i].data = remove_redundant_layer_items(deck, i, "width")
@@ -442,18 +448,18 @@ def build_legend_html(
 
     Parameters
     ----------
-    carrier : str
+    carrier
         Carrier name (e.g., "gas", "H2", "AC")
-    region_unit : str
+    region_unit
         Unit for choropleth (e.g., "€/MWh")
-    flow_unit : str
+    flow_unit
         Unit for annual energy flows in the pie charts (e.g., "TWh/year")
-    capacity_unit : str
+    capacity_unit
         Unit for branch optimal capacity (e.g., "GW")
 
     Returns
     -------
-    str
+    :
         HTML string for the legend overlay.
     """
     title = carrier
@@ -519,27 +525,30 @@ def augment_and_export_html(
 
     Parameters
     ----------
-    deck : pydeck.Deck
+    deck
         The interactive map deck to augment.
-    n : pypsa.Network
+    n
         The solved network.
-    carrier : str or list[str]
+    carrier
         The carrier(s) being visualised.
-    carriers_in_eb : pandas.Index
+    carriers_in_eb
         Carriers present in the energy balance.
-    unit_conversion : float
+    unit_conversion
         Divisor applied to flow values (1, 1_000, or 1_000_000).
-    settings : dict
+    settings
         Interactive map settings from snakemake params.
-    region_unit : str
+    region_unit
         Unit label for the regional choropleth price (e.g. "€/MWh").
-    output_path : str or pathlib.Path
+    output_path
         Destination path for the HTML file.
     """
-    stats = calculate_additional_tooltip_statistics(n, carrier, carriers_in_eb)
+    transmission_carrier = (
+        get_transmission_carriers(n, carrier).get_level_values("carrier").tolist()
+    )
+    stats = calculate_additional_tooltip_statistics(n, transmission_carrier)
     flow_unit = get_flow_unit(unit_conversion, settings)
     branch_width_max = settings["branch_width_max"]
-    capacity_unit = stats["p_opt"].attrs["unit"]
+    capacity_unit = stats["p_opt"].attrs.get("unit", "")
 
     update_pydeck_layer_tooltip_for_paths(deck, stats, flow_unit, branch_width_max)
     remove_arrow_layers(deck)
