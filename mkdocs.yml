@@ -28,6 +28,7 @@ nav:
       - electricity.py: reference/mods/network/electricity.md
       - gas.py: reference/mods/network/gas.md
       - h2.py: reference/mods/network/h2.md
+      - hydro.py: reference/mods/network/hydro.md
       - trajectories.py: reference/mods/network/trajectories.md
       - potentials.py: reference/mods/network/potentials.md
   - Evaluations:
@@ -69,10 +70,13 @@ nav:
   - Brownfield:
     - Open-TYNDP Trajectories: explanations/brownfield/open-tyndp.md
     - Gas Storage Capacities: explanations/brownfield/gas-storage-capacities.md
+    - Austrian Biogas-to-Power Plants: explanations/brownfield/biogas-power-plants-AT.md
   - Renewable Energy Potentials:
     - KLIEN Potentials: explanations/renewable-energy-potentials/klien-potentials.md
     - Photovoltaic Potentials: explanations/renewable-energy-potentials/pv-potentials.md
     - Wind Power Potentials: explanations/renewable-energy-potentials/wind-potentials.md
+  - Hydroelectric Resources:
+    - Inflow Calculation and Application: explanations/hydro-inflow.md
   - Regulatory Requirements:
     - explanations/regulatory-requirements/index.md
     - EAG Net-Zero Electricity: explanations/regulatory-requirements/eag-net-zero-electricity.md

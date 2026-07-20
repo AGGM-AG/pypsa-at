@@ -52,7 +52,7 @@ def configure(
     configuration yaml is not expected to be checked in to VCS.
     """
     # validate inputs
-    accepted_solver = ("highs", "gurobi")
+    accepted_solver = ("highs", "gurobi", "hipo")
     if solver not in accepted_solver:
         raise click.BadParameter(
             f"'{solver}' is not a valid solver. Chose from {accepted_solver}."
@@ -117,7 +117,13 @@ def configure(
     logger.info(f"Setting scenario name to '{scenario}'")
     config["run"]["name"] = [scenario]
 
-    solver_options = f"{solver}-default"
+    # hotfix for HiPO support in pipelines
+    if solver == "hipo":
+        solver = "highs"
+        solver_options = "highs-hipo"
+    else:
+        solver_options = f"{solver}-default"
+
     logger.info(f"Solver name to '{solver}' using options {solver_options}")
     config["solving"]["solver"]["name"] = solver
     config["solving"]["solver"]["options"] = solver_options

@@ -45,6 +45,7 @@ from linopy.remote.oetc import OetcCredentials, OetcHandler, OetcSettings
 from pypsa.descriptors import get_activity_mask
 from pypsa.descriptors import get_switchable_as_dense as get_as_dense
 
+from mods.utils import attach_resources_to_network_meta
 from scripts._benchmark import memory_logger
 from scripts._helpers import (
     PYPSA_V1,
@@ -1609,8 +1610,6 @@ if __name__ == "__main__":
     n.meta = dict(snakemake.config, **dict(wildcards=dict(snakemake.wildcards)))
 
     # PyPSA-AT: attach resource tables to network meta before export.
-    from mods import attach_resources_to_network_meta
-
     attach_resources_to_network_meta(n=n, snakemake=snakemake)
 
     n.export_to_netcdf(snakemake.output.network)
