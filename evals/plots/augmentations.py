@@ -9,6 +9,8 @@ from math import isnan
 import pandas as pd
 import pypsa
 
+from evals.utils import drop_from_multtindex_by_regex
+
 
 def combined_branch_capacity_by_corridor(
     p_opt_branch: pd.Series, links: pd.DataFrame, lines: pd.DataFrame
@@ -95,25 +97,171 @@ def collapse_items_to_corridors(items: list, p_opt_pair: dict) -> list:
 def calculate_additional_tooltip_statistics(
     n: pypsa.Network, carrier: str | list[str], carriers_in_eb: pd.Index
 ) -> dict:
-    flow_peak = n.statistics.transmission(
-        groupby=False, bus_carrier=carrier, at_port=[0], groupby_time="max"
+    flow_peak = (
+        n.statistics.transmission(
+            groupby=False, bus_carrier=carrier, at_port=[0], groupby_time="max"
+        )
+        .groupby("name")
+        .sum()
     )
 
+    # capacity_kwargs = dict(
+    #     groupby=False,
+    #     bus_carrier=carrier,
+    #     at_port=[0],
+    #     components=["Line", "Link"],
+    #     carrier=carriers_in_eb.tolist(),
+    #     aggregate_across_components=True,
+    # )
     capacity_kwargs = dict(
-        groupby=False,
-        bus_carrier=carrier,
-        at_port=[0],
+        groupby=["name", "bus0", "bus1", "carrier", "bus_carrier"],
         components=["Line", "Link"],
         carrier=carriers_in_eb.tolist(),
-        aggregate_across_components=True,
     )
 
-    p_opt = n.statistics.optimal_capacity(**capacity_kwargs).div(1e3)
+    p_opt = (
+        n.statistics.optimal_capacity(**capacity_kwargs)
+        .pipe(drop_from_multtindex_by_regex, "-reversed", level="name")
+        .groupby("bus0")
+        .sum()
+        .div(1e3)
+    )
     p_opt.attrs["unit"] = "GW"
-    p_installed = n.statistics.installed_capacity(**capacity_kwargs).div(1e3)
+    p_installed = (
+        n.statistics.installed_capacity(**capacity_kwargs)
+        .pipe(drop_from_multtindex_by_regex, "-reversed", level="name")
+        .groupby("bus0")
+        .sum()
+        .div(1e3)
+    )
     p_installed.attrs["unit"] = "GW"
-    p_expanded = n.statistics.expanded_capacity(**capacity_kwargs).div(1e3)
+    p_expanded = (
+        n.statistics.expanded_capacity(**capacity_kwargs)
+        .pipe(drop_from_multtindex_by_regex, "-reversed", level="name")
+        .groupby("bus0")
+        .sum()
+        .div(1e3)
+    )
     p_expanded.attrs["unit"] = "GW"
+
+    # # scratch to correct capacities
+    #
+    # # ground truth: DC example location=FR components=Links
+    #
+    # # all Links from France
+    # dc_france_from = n.links.query("carrier == 'DC' & bus0 == 'FR' & ~reversed & active")
+    #
+    # # all Links to France but reversed (=same as from FR)
+    # dc_france_to = n.links.query("carrier == 'DC' & bus1 == 'FR' & reversed & active")
+    #
+    # assert dc_france_from["p_nom_opt"].sum() - dc_france_to["p_nom_opt"].sum() < 0.1, "Reversed assets do not have the same capacity as directed assets"
+    #
+    # # DC
+    # for loc in n.buses["location"].unique():
+    #     dc_from = n.links.query(f"carrier == 'DC' & bus0 == '{loc}' & ~reversed & active")
+    #     dc_to = n.links.query(f"carrier == 'DC' & bus1 == '{loc}' & reversed & active")
+    #     assert (
+    #         dc_from["p_nom_opt"].sum() - dc_to["p_nom_opt"].sum() < 0.1
+    #     ), "Reversed assets do not have the same capacity as directed assets"
+    #
+    # # gas pipelines
+    # for loc in n.buses["location"].unique():
+    #     gas_from = n.links.query(f"carrier.str.contains('gas pipeline') & bus0 == '{loc} gas' & ~reversed & active")
+    #     gas_to = n.links.query(f"carrier.str.contains('gas pipeline') & bus1 == '{loc} gas' & reversed & active")
+    #     assert (
+    #         gas_from["p_nom_opt"].sum() - gas_to["p_nom_opt"].sum() < 0.1
+    #     ), f"Reversed gas pipelines do not have the same capacity as directed assets in {loc}: {gas_from["p_nom_opt"]}\n{gas_to["p_nom_opt"]}"
+    #
+    # # H2 pipelines
+    # for loc in n.buses["location"].unique():
+    #     gas_from = n.links.query(f"carrier.str.contains('H2 pipeline') & bus0 == '{loc} gas' & ~reversed & active")
+    #     gas_to = n.links.query(f"carrier.str.contains('H2 pipeline') & bus1 == '{loc} gas' & reversed & active")
+    #     assert (
+    #         gas_from["p_nom_opt"].sum() - gas_to["p_nom_opt"].sum() < 0.1
+    #     ), f"Reversed H2 pipelines do not have the same capacity as directed assets in {loc}: {gas_from["p_nom_opt"]}\n{gas_to["p_nom_opt"]}"
+    #
+    # # CO2 pipelines
+    # for loc in n.buses["location"].unique():
+    #     gas_from = n.links.query(f"carrier.str.contains('CO2 pipeline') & bus0 == '{loc} gas' & ~reversed & active")
+    #     gas_to = n.links.query(f"carrier.str.contains('CO2 pipeline') & bus1 == '{loc} gas' & reversed & active")
+    #     assert (
+    #         gas_from["p_nom_opt"].sum() - gas_to["p_nom_opt"].sum() < 0.1
+    #     ), f"Reversed CO2 pipelines do not have the same capacity as directed assets in {loc}: {gas_from["p_nom_opt"]}\n{gas_to["p_nom_opt"]}"
+    #
+    # optimal_capacity = n.statistics.optimal_capacity(
+    #     groupby=["name", "bus0", "bus1", "carrier", "bus_carrier"],
+    #     # bus_carrier=carrier,
+    #     components=["Line", "Link"],
+    #     carrier=carriers_in_eb.tolist(),
+    # ).pipe(drop_from_multtindex_by_regex, "-reversed", level="name").groupby("bus0").sum()
+    #
+    # # calculate FR sums
+    # fr = optimal_capacity.xs("FR")
+    #
+    # lines_fr = n.lines.query("bus0 == 'FR' & active")["s_nom_opt"]
+    # links_fr = n.links.query("bus0 == 'FR' & carrier == 'DC' & active & ~reversed")["p_nom_opt"]
+    #
+    # fr_direct = lines_fr.sum() + links_fr.sum()
+    #
+    # assert fr - fr_direct < 0.1, f"Statistics return differently than direct calculations for {loc}"
+    #
+    # # AC and DC
+    # stat_carrier = ["AC", "DC"]
+    # optimal_capacity = n.statistics.optimal_capacity(
+    #     groupby=["name", "bus0", "bus1", "carrier", "bus_carrier"],
+    #     # bus_carrier=carrier,
+    #     components=["Line", "Link"],
+    #     carrier=stat_carrier,
+    # ).pipe(drop_from_multtindex_by_regex, "-reversed", level="name").groupby("bus0").sum()
+    # for loc in n.buses["location"].unique():
+    #     b = n.links.query(f"bus0 == '{loc}' & carrier in @stat_carrier & active & ~reversed")["p_nom_opt"].sum()
+    #     c = n.lines.query(f"bus0 == '{loc}' & carrier in @stat_carrier & active")["s_nom_opt"].sum()
+    #     if b == 0:  # pipelines do not exist in the network
+    #         continue
+    #     a = optimal_capacity.xs(f"{loc}")
+    #     assert a - b - c < 0.1
+    #
+    # # gas pipelines
+    # stat_carrier = ["gas pipeline", "gas pipeline new"]
+    # optimal_capacity = n.statistics.optimal_capacity(
+    #     groupby=["name", "bus0", "bus1", "carrier", "bus_carrier"],
+    #     # bus_carrier=carrier,
+    #     components=["Line", "Link"],
+    #     carrier=stat_carrier,
+    #     drop_zero=False,
+    #     # at_port=0,
+    # ).pipe(drop_from_multtindex_by_regex, "-reversed", level="name").groupby("bus0").sum()
+    #
+    # for loc in n.buses["location"].unique():
+    #     b = n.links.query(f"bus0 == '{loc} gas' & carrier in @stat_carrier & active & ~reversed")["p_nom_opt"].sum()
+    #     if b == 0:  # pipelines do not exist in the network
+    #         continue
+    #     a = optimal_capacity.xs(f"{loc} gas")
+    #     assert a - b < 0.1
+    #
+    # # H2 pipelines
+    # stat_carrier = ["H2 pipeline", "H2 pipeline new", "H2 pipeline retrofit", "H2 pipeline (Kernnetz)"]
+    # optimal_capacity = (
+    #     n.statistics.optimal_capacity(
+    #         groupby=["name", "bus0", "bus1", "carrier", "bus_carrier"],
+    #         # bus_carrier=carrier,
+    #         components=["Line", "Link"],
+    #         carrier=stat_carrier,
+    #         drop_zero=False,
+    #     )
+    #     .pipe(drop_from_multtindex_by_regex, "-reversed", level="name")
+    #     .groupby("bus0")
+    #     .sum()
+    # )
+    #
+    # for loc in n.buses["location"].unique():
+    #     b = n.links.query(
+    #         f"bus0 == '{loc} gas' & carrier in @stat_carrier & active & ~reversed"
+    #     )["p_nom_opt"].sum()
+    #     if b == 0:  # pipelines do not exist in the network
+    #         continue
+    #     a = optimal_capacity.xs(f"{loc} gas")
+    #     assert a - b < 0.1
 
     # Combine parallel/reversed branches into one value per corridor so the map
     # draws a single line whose width reflects the total capacity between two
@@ -387,7 +535,7 @@ def augment_and_export_html(
     update_pydeck_layer_tooltip_for_paths(deck, stats, flow_unit, branch_width_max)
     remove_arrow_layers(deck)
 
-    # Only pie-chart PolygonLayers remain (arrow layers are removed beforehand).
+    # Only pie-chart PolygonLayers remain (arrow layers already removed).
     update_pydeck_layer_tooltip_for_circles(deck)
 
     html_output = deck.to_html(offline=False, as_string=True)
