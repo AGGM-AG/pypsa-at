@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """A module for functions that augment existing pypsa-eur or pypsa-de modules."""
 
-from collections import defaultdict
 from math import isnan
 
 import pandas as pd
@@ -11,87 +10,87 @@ import pypsa
 
 from evals.utils import drop_from_multtindex_by_regex
 
+# def combined_branch_capacity_by_corridor(
+#     p_opt_branch: pd.Series, links: pd.DataFrame, lines: pd.DataFrame
+# ) -> dict:
+#     """
+#     Sum per-branch optimal capacity into one value per unordered bus pair.
+#
+#     A bidirectional pipeline is modelled as a forward ``Link`` plus a
+#     ``reversed`` mirror copy with swapped buses and identical capacity. The
+#     mirror is an optimisation artefact, not extra physical capacity, so it is
+#     skipped here. Multiple distinct branches between the same two buses (e.g. a
+#     ``->`` and a ``<->`` pipeline) are genuine parallel capacity and summed.
+#
+#     Parameters
+#     ----------
+#     p_opt_branch
+#         Optimal capacity per branch, indexed by branch name.
+#     links
+#         ``n.links`` (must carry a ``reversed`` boolean column).
+#     lines
+#         ``n.lines`` (lines have no mirror copies, so all are kept).
+#
+#     Returns
+#     -------
+#     Mapping of ``frozenset({bus0, bus1})`` to the combined capacity.
+#     """
+#     out: dict = {}
+#     for name, capacity in p_opt_branch.items():
+#         if name in links.index:
+#             if bool(links.at[name, "reversed"]):
+#                 continue
+#             pair = frozenset((links.at[name, "bus0"], links.at[name, "bus1"]))
+#         elif name in lines.index:
+#             pair = frozenset((lines.at[name, "bus0"], lines.at[name, "bus1"]))
+#         else:
+#             continue
+#         out[pair] = out.get(pair, 0.0) + abs(capacity)
+#     return out
 
-def combined_branch_capacity_by_corridor(
-    p_opt_branch: pd.Series, links: pd.DataFrame, lines: pd.DataFrame
-) -> dict:
-    """
-    Sum per-branch optimal capacity into one value per unordered bus pair.
-
-    A bidirectional pipeline is modelled as a forward ``Link`` plus a
-    ``reversed`` mirror copy with swapped buses and identical capacity. The
-    mirror is an optimisation artefact, not extra physical capacity, so it is
-    skipped here. Multiple distinct branches between the same two buses (e.g. a
-    ``->`` and a ``<->`` pipeline) are genuine parallel capacity and summed.
-
-    Parameters
-    ----------
-    p_opt_branch
-        Optimal capacity per branch, indexed by branch name.
-    links
-        ``n.links`` (must carry a ``reversed`` boolean column).
-    lines
-        ``n.lines`` (lines have no mirror copies, so all are kept).
-
-    Returns
-    -------
-    Mapping of ``frozenset({bus0, bus1})`` to the combined capacity.
-    """
-    out: dict = {}
-    for name, capacity in p_opt_branch.items():
-        if name in links.index:
-            if bool(links.at[name, "reversed"]):
-                continue
-            pair = frozenset((links.at[name, "bus0"], links.at[name, "bus1"]))
-        elif name in lines.index:
-            pair = frozenset((lines.at[name, "bus0"], lines.at[name, "bus1"]))
-        else:
-            continue
-        out[pair] = out.get(pair, 0.0) + abs(capacity)
-    return out
-
-
-def collapse_items_to_corridors(items: list, p_opt_pair: dict) -> list:
-    """
-    Collapse overlapping branch path-items into one representative per corridor.
-
-    All path-items sharing an unordered bus pair (the parallel ``->``/``<->``
-    pipes and their ``-reversed`` mirrors) draw on top of each other. They are
-    reduced to a single representative carrying the corridor's combined optimal
-    capacity. Duplicates get zero capacity so the caller can purge them.
-
-    The representative is a non-reversed item; its ``net_flow`` becomes the sum
-    of the non-reversed members' net flows (mirror flows are already folded into
-    their forward partners upstream).
-
-    Parameters
-    ----------
-    items
-        Branch path-layer data items. Each must have ``name``, ``bus0``,
-        ``bus1`` and (optionally) ``net_flow``.
-    p_opt_pair
-        Combined capacity per ``frozenset({bus0, bus1})`` corridor.
-
-    Returns
-    -------
-    The representative items (one per corridor), mutated in place.
-    """
-    groups: dict = defaultdict(list)
-    for item in items:
-        groups[frozenset((item["bus0"], item["bus1"]))].append(item)
-
-    representatives = []
-    for pair, group in groups.items():
-        non_reversed = [it for it in group if not it["name"].endswith("-reversed")]
-        members = non_reversed or group
-        representative = members[0]
-        representative["capacity"] = abs(p_opt_pair.get(pair, 0.0))
-        representative["net_flow"] = sum(it.get("net_flow", 0.0) for it in members)
-        for item in group:
-            if item is not representative:
-                item["capacity"] = 0.0
-        representatives.append(representative)
-    return representatives
+#
+# def collapse_items_to_corridors(items: list, p_opt_pair: dict) -> list:
+#     """
+#     Collapse overlapping branch path-items into one representative per corridor.
+#
+#     All path-items sharing an unordered bus pair (the parallel ``->``/``<->``
+#     pipes and their ``-reversed`` mirrors) draw on top of each other. They are
+#     reduced to a single representative carrying the corridor's combined optimal
+#     capacity. Duplicates get zero capacity so the caller can purge them.
+#
+#     The representative is a non-reversed item; its ``net_flow`` becomes the sum
+#     of the non-reversed members' net flows (mirror flows are already folded into
+#     their forward partners upstream).
+#
+#     Parameters
+#     ----------
+#     items
+#         Branch path-layer data items. Each must have ``name``, ``bus0``,
+#         ``bus1`` and (optionally) ``net_flow``.
+#     p_opt_pair
+#         Combined capacity per ``frozenset({bus0, bus1})`` corridor.
+#
+#     Returns
+#     -------
+#     The representative items (one per corridor), mutated in place.
+#     """
+#     groups: dict = defaultdict(list)
+#     for item in items:
+#         groups[frozenset((item["bus0"], item["bus1"]))].append(item)
+#
+#     representatives = []
+#     for pair, group in groups.items():
+#         non_reversed = [it for it in group if not it["name"].endswith("-reversed")]
+#         members = non_reversed or group
+#         representative = members[0]
+#         representative["capacity"] = abs(p_opt_pair.get(pair, 0.0))
+#         representative["net_flow"] = sum(it.get("net_flow", 0.0) for it in members)
+#         for item in group:
+#             if item is not representative:
+#                 item["capacity"] = 0.0
+#         representatives.append(representative)
+#     return representatives
+#
 
 
 def calculate_additional_tooltip_statistics(
@@ -119,10 +118,12 @@ def calculate_additional_tooltip_statistics(
         carrier=carriers_in_eb.tolist(),
     )
 
+    # need to keep bus pairs for tooltip allotment
+    buses = ["bus0", "bus1"]
     p_opt = (
         n.statistics.optimal_capacity(**capacity_kwargs)
         .pipe(drop_from_multtindex_by_regex, "-reversed", level="name")
-        .groupby("bus0")
+        .groupby(["bus0", "bus1"])
         .sum()
         .div(1e3)
     )
@@ -130,7 +131,7 @@ def calculate_additional_tooltip_statistics(
     p_installed = (
         n.statistics.installed_capacity(**capacity_kwargs)
         .pipe(drop_from_multtindex_by_regex, "-reversed", level="name")
-        .groupby("bus0")
+        .groupby(buses)
         .sum()
         .div(1e3)
     )
@@ -138,7 +139,7 @@ def calculate_additional_tooltip_statistics(
     p_expanded = (
         n.statistics.expanded_capacity(**capacity_kwargs)
         .pipe(drop_from_multtindex_by_regex, "-reversed", level="name")
-        .groupby("bus0")
+        .groupby(buses)
         .sum()
         .div(1e3)
     )
@@ -263,22 +264,24 @@ def calculate_additional_tooltip_statistics(
     #     a = optimal_capacity.xs(f"{loc} gas")
     #     assert a - b < 0.1
 
-    # Combine parallel/reversed branches into one value per corridor so the map
-    # draws a single line whose width reflects the total capacity between two
-    # locations (mirror links excluded, parallel pipes summed).
-    p_opt_pair = combined_branch_capacity_by_corridor(p_opt, n.links, n.lines)
-    p_installed_pair = combined_branch_capacity_by_corridor(
-        p_installed, n.links, n.lines
-    )
-    p_expanded_pair = combined_branch_capacity_by_corridor(p_expanded, n.links, n.lines)
+    # we do not need pairs anymore. Simply add the correctly aggregated
+    # values per bus0 locations
+    # # Combine parallel/reversed branches into one value per corridor so the map
+    # # draws a single line whose width reflects the total capacity between two
+    # # locations (mirror links excluded, parallel pipes summed).
+    # p_opt_pair = combined_branch_capacity_by_corridor(p_opt, n.links, n.lines)
+    # p_installed_pair = combined_branch_capacity_by_corridor(
+    #     p_installed, n.links, n.lines
+    # )
+    # p_expanded_pair = combined_branch_capacity_by_corridor(p_expanded, n.links, n.lines)
     return {
         "flow_peak": flow_peak,
         "p_opt": p_opt,
         "p_installed": p_installed,
         "p_expanded": p_expanded,
-        "p_opt_pair": p_opt_pair,
-        "p_installed_pair": p_installed_pair,
-        "p_expanded_pair": p_expanded_pair,
+        # "p_opt_pair": p_opt_pair,
+        # "p_installed_pair": p_installed_pair,
+        # "p_expanded_pair": p_expanded_pair,
     }
 
 
@@ -342,33 +345,39 @@ def update_pydeck_layer_tooltip_for_paths(
     path_layer_indices = [
         i for i, layer in enumerate(deck.layers) if layer.type == "PathLayer"
     ]
-    p_opt_pair = stats["p_opt_pair"]
-    p_installed_pair = stats["p_installed_pair"]
-    p_expanded_pair = stats["p_expanded_pair"]
+    # p_opt_pair = stats["p_opt_pair"]
+    # p_installed_pair = stats["p_installed_pair"]
+    # p_expanded_pair = stats["p_expanded_pair"]
 
     items = [item for i in path_layer_indices for item in deck.layers[i].data]
 
-    # Pass A: capture each item's original net flow before widths are replaced.
-    for item in items:
-        item["net_flow"] = abs(item.get("width", 0))
+    # # Pass A: capture each item's original net flow before widths are replaced.
+    # for item in items:
+    #     item["net_flow"] = abs(item.get("width", 0))
 
-    # Collapse the parallel/reversed branches that overlap on a corridor into a
-    # single representative carrying the combined optimal capacity. The capacity
-    # replaces the flow as the branch width; its global maximum is computed once
-    # across all representatives, matching upstream's auto-scaling.
-    representatives = collapse_items_to_corridors(items, p_opt_pair)
+    # # Collapse the parallel/reversed branches that overlap on a corridor into a
+    # # single representative carrying the combined optimal capacity. The capacity
+    # # replaces the flow as the branch width; its global maximum is computed once
+    # # across all representatives, matching upstream's auto-scaling.
+    # representatives = collapse_items_to_corridors(items, p_opt_pair)
 
-    capacities = pd.Series([item["capacity"] for item in representatives], dtype=float)
-    global_max = capacities.max() if not capacities.empty else 0.0
-    scaled = scale_branch_widths_to_pdk(capacities, branch_width_max, global_max)
+    # capacities = pd.Series([item["capacity"] for item in representatives], dtype=float)
+    # global_max = capacities.max() if not capacities.empty else 0.0
+    global_max = stats["p_opt"].abs().max()
+
+    scaled = scale_branch_widths_to_pdk(stats["p_opt"], branch_width_max, global_max)
 
     # Pass B: assign widths from combined capacity and rebuild the tooltip on the
     # representative items.
-    for item, width_pdk in zip(representatives, scaled):
-        item["width"] = item["capacity"]
-        item["width_pdk"] = width_pdk
+    for item in items:
+        bus_pair = (item["bus0"], item["bus1"])
+        scaled_width = scaled.get(bus_pair, 0)
+        capacity = stats["p_opt"].get(bus_pair, 0)
 
-        pair = frozenset((item["bus0"], item["bus1"]))
+        item["net_flow"] = abs(item.get("width", 0))
+        item["width"] = capacity
+        item["width_pdk"] = scaled_width
+
         name = item["name"]
         item["tooltip_html"] = (
             f"<b>{name}</b>\n<table>\n"
@@ -381,20 +390,20 @@ def update_pydeck_layer_tooltip_for_paths(
             f"<tr><td style='font-weight:bold'>Net flow:</td>"
             f"<td style='text-align:left'>{item['net_flow']:.2f} {flow_unit}</td></tr>\n"
             f"<tr><td style='font-weight:bold'>Installed capacity:</td>"
-            f"<td style='text-align:left'>{p_expanded_pair.get(pair, 0):.2f} {stats['p_expanded'].attrs['unit']}</td></tr>\n"
+            f"<td style='text-align:left'>{stats['p_expanded'].get(bus_pair, 0):.2f} {stats['p_expanded'].attrs['unit']}</td></tr>\n"
             f"<tr><td style='font-weight:bold'>Existing capacity:</td>"
-            f"<td style='text-align:left'>{p_installed_pair.get(pair, 0):.2f} {stats['p_installed'].attrs['unit']}</td></tr>\n"
+            f"<td style='text-align:left'>{stats['p_installed'].get(bus_pair, 0):.2f} {stats['p_installed'].attrs['unit']}</td></tr>\n"
             f"</table>"
         )
 
-    # Collapsed duplicates were given zero capacity; zero their width too so the
-    # purge below removes them, leaving one line per corridor. Representatives
-    # with a real combined capacity are retained even at zero net flow.
-    representative_ids = {id(item) for item in representatives}
-    for item in items:
-        if id(item) not in representative_ids:
-            item["width"] = 0.0
-            item["width_pdk"] = 0.0
+    # # Collapsed duplicates were given zero capacity; zero their width too so the
+    # # purge below removes them, leaving one line per corridor. Representatives
+    # # with a real combined capacity are retained even at zero net flow.
+    # representative_ids = {id(item) for item in representatives}
+    # for item in items:
+    #     if id(item) not in representative_ids:
+    #         item["width"] = 0.0
+    #         item["width_pdk"] = 0.0
 
     for i in path_layer_indices:
         deck.layers[i].data = remove_redundant_layer_items(deck, i, "width")
