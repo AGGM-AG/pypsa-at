@@ -258,9 +258,6 @@ def require_config(nc, *keys, **condition):
 def result_path(pytestconfig) -> pathlib.Path:
     """
     Retrieve the results path from CLI.
-
-    Note, that we cannot directly access the run_path (project root), because
-    we want to run the tests on copied results folders as well.
     """
     default_path = get_latest_results_folder()
     result_path = pytestconfig.getoption("result_path")

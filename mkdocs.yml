@@ -78,7 +78,8 @@ nav:
     - Wind Power Potentials: explanations/renewable-energy-potentials/wind-potentials.md
   - Hydroelectric Resources:
     - Inflow Calculation and Application: explanations/hydro-inflow.md
-    - Generic Capacity Trajectories: explanations/hydro-capacity-trajectories.md
+    - Hydro Capacity Trajectories: explanations/hydro-capacity-trajectories.md
+  - Generic Capacity Trajectories: explanations/capacity-trajectories.md
   - Regulatory Requirements:
     - explanations/regulatory-requirements/index.md
     - EAG Net-Zero Electricity: explanations/regulatory-requirements/eag-net-zero-electricity.md

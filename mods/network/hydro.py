@@ -362,9 +362,7 @@ def _patch_component_inflows(
     Returns
     -------
     :
-        (idx, inflows)
-            Changes are applied inplace to the network.
-            Returns index and inflows for carrier.
+        Return a tuple of the changed index and inflows for the carrier.
     """
     component_name = "generators"
     idx = (

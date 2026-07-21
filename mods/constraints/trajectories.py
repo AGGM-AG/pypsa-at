@@ -323,14 +323,14 @@ def constraint_generic_trajectories(
         carriers = group["carrier"].drop_duplicates().tolist()
         match sense:
             case "max":
-                limits += snakemake.params.trajectories_eps
+                limits += snakemake.params.trajectories_tol
                 apply_constraint(
                     n, limits, expr, variable, carriers, "<=", "upper limit"
                 )
             case "min":
                 limits = np.where(
-                    limits > snakemake.params.trajectories_eps,
-                    limits - snakemake.params.trajectories_eps,
+                    limits > snakemake.params.trajectories_tol,
+                    limits - snakemake.params.trajectories_tol,
                     0,
                 )
                 apply_constraint(
