@@ -4,7 +4,10 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Integration tests for mods/network/gas.py — gas storage capacity overrides."""
 
+from importlib import import_module
+
 import pandas as pd
+import pypsa
 import pytest
 from pypsa import NetworkCollection
 
@@ -12,6 +15,34 @@ from evals.utils import filter_by
 from mods.clustering.utils import combine_regions_by_clustering
 from mods.network.gas import _TANAP_PIPELINE_CAPACITY
 from test.conftest import require_config
+
+update_gas_transport_data = import_module(
+    "scripts.pypsa-at.modify_brownfield_gas_network_AT"
+).update_gas_transport_data
+
+GAS_NETWORK_COLUMNS = [
+    "bus0",
+    "bus1",
+    "p_nom",
+    "p_nom_diameter",
+    "max_pressure_bar",
+    "build_year",
+    "diameter_mm",
+    "length",
+    "name",
+    "p_min_pu",
+]
+
+
+def gas_network(rows: list[tuple[str, str, float, str]]) -> pd.DataFrame:
+    """Build a gas network DataFrame from (bus0, bus1, p_nom, name) rows."""
+    df = pd.DataFrame(rows, columns=["bus0", "bus1", "p_nom", "name"])
+    for column in GAS_NETWORK_COLUMNS:
+        if column not in df:
+            df[column] = 0
+    # corridor identifiers are the index, as in the clustered gas network files
+    df.index = "gas pipeline " + df["bus0"] + " -> " + df["bus1"]
+    return df[GAS_NETWORK_COLUMNS]
 
 
 def test_gas_storage_update(nc, project_root, is_testrun):
@@ -129,3 +160,170 @@ def test_block_russian_gas_imports(nc, block_name):
     assert pipeline_supply.sum() == 0, (
         f"Remaining pipeline imports detected: {pipeline_supply}"
     )
+
+
+class TestModifyBrownfieldGasNetworkAT:
+    """Unit tests for adding AGGM brownfield gas grid"""
+
+    @pytest.fixture
+    def raw(self) -> pd.DataFrame:
+        """Clustered gas network as built by PyPSA-Eur standard from Sci2Grid data."""
+        return gas_network(
+            [
+                ("AT12", "AT13", 19616.0, "sci2grid_at_internal"),
+                ("AT12", "SI", 4689.0, "sci2grid_at_border"),
+                ("SK", "AT12", 96080.0, "sci2grid_border_at"),
+                ("DE1", "DE2", 12000.0, "sci2grid_de_internal"),
+                ("SK", "HU", 8000.0, "sci2grid_sk_hu"),
+            ]
+        )
+
+    @pytest.fixture
+    def input_data(self) -> pd.DataFrame:
+        """Mock AGGM expert data for Austrian transport corridors."""
+        return gas_network(
+            [
+                ("AT12", "AT13", 1234.0, "AGGM_pipeline01"),
+                ("AT12", "SI", 4500.0, "AGGM_pipeline02"),
+                ("SK", "AT12", 65300.0, "AGGM_pipeline03"),
+            ]
+        )
+
+    @pytest.fixture
+    def expected_output(self, raw, input_data) -> pd.DataFrame:
+        """Foreign corridors unchanged, AT corridors dropped, AGGM corridors appended."""
+        foreign = ["sci2grid_de_internal", "sci2grid_sk_hu"]
+        expected_foreign = raw[raw["name"].isin(foreign)]
+        return pd.concat([expected_foreign, input_data])
+
+    def test_update_gas_transport_data(self, raw, input_data, expected_output):
+        """AT corridors dropped from raw, foreign corridors preserved, AGGM corridors added."""
+        result = update_gas_transport_data(raw, input_data)
+
+        pd.testing.assert_frame_equal(result, expected_output)
+
+
+class TestAGGMGasNetworkCapacityData:
+    """Data integrity tests for the AGGM brownfield gas network capacity input files."""
+
+    @pytest.fixture(params=["AT10", "AT35"])
+    def aggm_data(self, request, project_root) -> pd.DataFrame:
+        """AGGM brownfield gas network for both supported custom clusterings is present."""
+        file_name = f"AGGM_gas_network_base_{request.param}.csv"
+        return pd.read_csv(project_root / "data" / "pypsa-at" / file_name, index_col=0)
+
+    @pytest.fixture
+    def raw(self) -> pd.DataFrame:
+        """
+        Mock network that contains every bus that borders AT regions
+        (Germany DE1, DE2, CH, IT0, SI, HU, SK, CZ)
+        """
+        return gas_network(
+            [
+                ("DE1", bus, 1.0, f"sci2grid_DE1_{bus}")
+                for bus in ["DE2", "CH", "IT0", "SI", "HU", "SK", "CZ"]
+            ]
+            + [("AT12", "AT13", 19616.0, "sci2grid_at_internal")]
+        )
+
+    def test_columns(self, aggm_data):
+        """The AGGM data provides exactly the columns of a PyPSA gas network."""
+        assert list(aggm_data.columns) == GAS_NETWORK_COLUMNS
+
+    def test_corridors_are_unique(self, aggm_data):
+        """Check that each corridor index and name are unique."""
+        assert aggm_data.index.is_unique
+        assert aggm_data["name"].is_unique
+
+    def test_capacities_are_valid(self, aggm_data):
+        """Transport capacities are numeric, non-negative and not NaN"""
+        p_nom = aggm_data["p_nom"]
+        assert pd.api.types.is_numeric_dtype(p_nom)
+        assert p_nom.notna().all()
+        assert (p_nom >= 0).all()
+
+    def test_capacities_are_added_to_csv(self, raw, aggm_data):
+        """All AGGM capacities are actually added to the clustered gas network csv."""
+        result = update_gas_transport_data(raw, aggm_data)
+
+        at_bus0 = result["bus0"].str.startswith("AT")
+        at_bus1 = result["bus1"].str.startswith("AT")
+        at_capacity = result.loc[at_bus0 | at_bus1, "p_nom"].sum()
+        assert at_capacity == pytest.approx(aggm_data["p_nom"].sum())
+
+    def test_corridor_count(self, raw, aggm_data):
+        """The new file contains all raw non-AT capacities plus all added AGGM AT capacities."""
+        at_bus0 = raw["bus0"].str.startswith("AT")
+        at_bus1 = raw["bus1"].str.startswith("AT")
+        foreign_corridors = (~(at_bus0 | at_bus1)).sum()
+
+        result = update_gas_transport_data(raw, aggm_data)
+
+        assert len(result) == foreign_corridors + len(aggm_data)
+
+
+class TestBrownfieldGasNetworkLinks:
+    """Verify the AGGM transport corridor capacities reach the brownfield"""
+
+    @pytest.fixture(scope="class")
+    def brownfield_network(self, nc) -> pypsa.Network:
+        """Solved 2025 network — topology (Links, buses) matches the pre-solve brownfield build."""
+        return nc.networks["2025"]
+
+    @pytest.fixture(scope="class")
+    def aggm_data(self, brownfield_network) -> pd.DataFrame:
+        """
+        Raw corridors touching AT are all dropped by update_gas_transport_data.
+        Any AT corridor left in the merged resource originates from the AGGM input data.
+        """
+        merged = pd.DataFrame.from_dict(
+            brownfield_network.meta["resources"]["aggm_gas_pipeline_data"]
+        )
+        at_bus0 = merged["bus0"].str.startswith("AT")
+        at_bus1 = merged["bus1"].str.startswith("AT")
+        return merged[at_bus0 | at_bus1]
+
+    @pytest.fixture(scope="class")
+    def gas_pipelines(self, brownfield_network) -> pd.DataFrame:
+        """Gas pipeline Links of the brownfield network."""
+        links = brownfield_network.links
+        gas_pipes = links[links["carrier"] == "gas pipeline"]
+        return gas_pipes[~gas_pipes.index.str.endswith("-reversed")]
+
+    @pytest.fixture(scope="class")
+    def expected_corridors(self, brownfield_network, aggm_data) -> pd.DataFrame:
+        """
+        To conform to reduced country scope (eg. in CI test runs), drop busses
+        that are outside the modeled regions from expected corridors.
+        """
+        gas_buses = set(
+            brownfield_network.buses.index[brownfield_network.buses["carrier"] == "gas"]
+        )
+        in_scope = aggm_data.apply(
+            lambda c: {f"{c.bus0} gas", f"{c.bus1} gas"} <= gas_buses, axis=1
+        )
+        expected = aggm_data[in_scope]
+        assert not expected.empty, "No AGGM corridors within the modeled scope."
+        return expected
+
+    def test_every_corridor_is_built(self, gas_pipelines, expected_corridors):
+        """Every in-scope AGGM corridor exists as a Link in the brownfield network."""
+        missing = set(expected_corridors.index) - set(gas_pipelines.index)
+        assert not missing, f"AGGM corridors missing from brownfield network: {missing}"
+
+    def test_corridors_connect_the_expected_buses(
+        self, gas_pipelines, expected_corridors
+    ):
+        """Each AGGM corridor connects the gas buses of its AGGM bus pair."""
+        built = gas_pipelines.loc[expected_corridors.index]
+
+        assert (built["bus0"] == expected_corridors["bus0"] + " gas").all()
+        assert (built["bus1"] == expected_corridors["bus1"] + " gas").all()
+
+    def test_capacities_are_built(self, gas_pipelines, expected_corridors):
+        """Every AGGM transport capacity is present as Link capacity in brownfield network."""
+        built = gas_pipelines.loc[expected_corridors.index, "p_nom"]
+
+        pd.testing.assert_series_equal(
+            built, expected_corridors["p_nom"], check_names=False, check_dtype=False
+        )

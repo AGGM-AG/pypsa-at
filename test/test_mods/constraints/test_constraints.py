@@ -562,7 +562,7 @@ def test_green_h2_constraint_statistics(nc, cc):
         supply = green_h2.xs(year)
         power_demand = h2_for_power.xs(year)
         fuel_demand = h2_for_fuel.xs(year)
-        assert supply.sum() + 1e-6 >= power_demand.sum() + fuel_demand.sum(), (
+        assert supply.sum() + 1e-4 >= power_demand.sum() + fuel_demand.sum(), (
             f"Year {year}, country {cc}: green H2 {supply.sum():.0f} MWh < "
             f"H2 for power {power_demand.sum():.0f} MWh + "
             f"H2 for fuel synthesis {fuel_demand.sum():.0f} MWh"

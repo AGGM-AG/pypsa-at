@@ -68,6 +68,10 @@ costs:
   - data/custom_costs.csv
   - data/pypsa-de/custom_costs_nep_2023.csv
 
+existing_capacities:
+  threshold_capacity: 2 # reduce threshold capacity for all carriers to better support
+                        # finer spatial resolution of PyPSA-AT
+
 sector:
   v2g: false
   solar_thermal: true
@@ -223,6 +227,13 @@ solving:
     highs-default:
       threads: 0
       random_seed: 123
+      # scaling prevents infeasibility in 2030 using HiGHs 1.15 and IPX
+      user_bound_scale: -13
+      user_objective_scale: -1
+    "highs-hipo":
+      # scaling the LP stabilizes HiPO
+      user_bound_scale: -13
+      user_objective_scale: -1
     gurobi-default:
       Seed: 123
 
@@ -265,6 +276,10 @@ mods:
     utilization_share: 0.0  # fraction of carbon black sold to market (0.0–1.0)
                             # Note that sold carbon black eventually re-emits CO2
                             # outside model boundary (Systemgrenze).
+
+  existing_capacities:
+    add_biogas_to_power_plants_AT: true # add Austrian biogas-to-power plants from Anlagenregister
+                                        # in addition to powerplantmatching
 
   tyndp_h2_import_scenario: "DE" # One of DE (Distributed Energy), NT (National Trends), GA (Global Ambition).
                            # Only used when H2 imports is enabled
