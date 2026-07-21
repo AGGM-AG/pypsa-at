@@ -49,6 +49,27 @@ def safe_inner_join(
     check_column: str = "index",
     value_column: str = "value",
 ) -> pd.DataFrame:
+    """
+    Performs an inner join of the given DataFrames that logs a warning if essential values are lost in the join.
+
+    Parameters
+    ----------
+    left
+        The left DataFrame to join.
+    right
+        The right DataFrame to join.
+    on
+        The columns to join on.
+    check_column
+        The column to check for missing values after the join.
+    value_column
+        Value column that allows missing entries if 0.
+
+    Returns
+    -------
+    :
+        The merged DataFrame
+    """
     result = left.merge(right, on=on, how="inner")
     missing = left[
         left[check_column].isin(set(left[check_column]) - set(result[check_column]))
