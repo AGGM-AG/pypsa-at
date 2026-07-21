@@ -21,7 +21,7 @@ def test_build_trajectories_capacity(nc: NetworkCollection) -> None:
         trajectories = pd.DataFrame.from_dict(n.meta["resources"]["trajectories"])
         powerplants = pd.DataFrame.from_dict(n.meta["resources"]["powerplants"])
         trajectories = trajectories[trajectories["year"] == int(year)]
-        input_path = Path(n.meta["resources"]["otyndp_hydro"]) / year
+        input_path = Path(n.meta["resources"]["open_tyndp_hydro"]) / year
         for (region,), actual in trajectories.groupby(["region"]):
             if (actual["value"] == 0).all():
                 continue
