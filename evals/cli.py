@@ -39,6 +39,7 @@ $ pixi shell
 import copy
 import logging
 import sys
+from pathlib import Path
 from time import time
 
 import click
@@ -77,7 +78,9 @@ def cli() -> None:
 
 
 @cli.command()
-@click.argument("result_path", type=click.Path(exists=True), required=True)
+@click.argument(
+    "result_path", type=click.Path(path_type=Path, exists=True), required=False
+)
 @click.option(
     "--sub_directory",
     "-s",
@@ -98,7 +101,7 @@ def cli() -> None:
     "--fail_fast", "-f", type=bool, multiple=False, required=False, default=False
 )
 def run_eval(
-    result_path: click.Path,
+    result_path: click.Path | None,
     sub_directory: str,
     names: list[str],
     config_override: str | None,
@@ -114,9 +117,9 @@ def run_eval(
     Parameters
     ----------
     result_path
-        The path to the result folder, usually ./pypsa-eur-sec/results.
-        Note that running on copied result folders might fail
-        due to missing resource files.
+        The path to the result folder, usually ./pypsa-at/results. Optional
+        — defaults to the most recently modified scenario folder below
+        ``./results``.
     sub_directory
         The subdirectory in the results folder that contains the network files.
     names
@@ -163,6 +166,10 @@ def run_eval(
     """
     import evals.views as views
     from evals.fileio import read_networks, read_views_config
+    from evals.utils import get_latest_results_folder
+
+    result_path = result_path or get_latest_results_folder()
+    logger.info(f"Running evaluations on results folder: {result_path.resolve()}")
 
     eval_functions = [
         getattr(views, fn) for fn in views.__all__ if (not names or fn in names)
