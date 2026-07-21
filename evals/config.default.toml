@@ -131,6 +131,8 @@ legend_order = [
     "CHP",
     "Biogas",
     "Thermal Powerplant",
+    "Reservoir",
+    "Pumped Hydro Storage",
     "Run-of-River",
     "Wind Power",
     "Solar Power"
@@ -158,7 +160,8 @@ database_specifier = "production"
 "H2 retrofit OCGT" = "Thermal Powerplant"
 "H2 Fuel Cell" = "Thermal Powerplant"  # "PP (Hydrogen)"
 "H2 turbine" = "Thermal Powerplant"  # "PP (Hydrogen)"
-#"PHS" = "Pumped Hydro Storage"
+"PHS discharger" = "Pumped Hydro Storage"
+"hydro discharger" = "Reservoir"
 "allam gas" = "Thermal Powerplant"  # "PP (Methane)"
 "biogas" = "Biogas"
 "coal" = "Thermal Powerplant"
