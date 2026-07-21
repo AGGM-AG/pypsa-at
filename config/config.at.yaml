@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: hipo-support
+  prefix: capacity-maps
   name:
   - AT_KN2040
   scenarios:

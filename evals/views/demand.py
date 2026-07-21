@@ -9,7 +9,7 @@ from pypsa import NetworkCollection
 
 from evals.constants import BusCarrier, DataModel
 from evals.fileio import Exporter
-from evals.statistic import collect_myopic_statistics
+from evals.stats import collect_myopic_statistics
 from evals.utils import (
     calculate_input_share,
     drop_from_multtindex_by_regex,
@@ -65,7 +65,7 @@ def view_demand_heat_total(
 
     generator_supply = collect_myopic_statistics(
         nc,
-        statistic="supply",
+        "supply",
         comps="Generator",
         bus_carrier=BusCarrier.heat_buses(),
     )
@@ -111,7 +111,7 @@ def view_demand_heat_system(
     result_path
         Path where the evaluation results (plots and data files) will be saved.
     nc
-        Dictionary containing PyPSA network objects, typically keyed by year or scenario.
+        Dictionary-like container for PyPSA network objects, typically keyed by year or scenario.
         Each network should contain Link and Generator components with energy data.
     config
         Configuration dictionary containing view settings and chart specifications.
@@ -141,7 +141,7 @@ def view_demand_heat_system(
 
     generator_supply = collect_myopic_statistics(
         nc,
-        statistic="supply",
+        "supply",
         comps="Generator",
         bus_carrier=BusCarrier.heat_buses(),
     ).pipe(rename_aggregate, "solar heat")
@@ -355,7 +355,7 @@ def _get_sectoral_fed(nc):
     # bus_carrier collectively, and we need to treat central and decentral
     # systems differently.
     decentral_production = (
-        collect_myopic_statistics(nc, comps="Link", statistic="energy_balance")
+        collect_myopic_statistics(nc, "energy_balance", comps="Link")
         .drop(["co2", "co2 stored"], level=DataModel.BUS_CARRIER)
         .pipe(drop_from_multtindex_by_regex, "water tanks|water pits")
         .pipe(filter_for_carrier_connected_to, decentral_heat_bus_carrier)
@@ -390,6 +390,8 @@ def _get_sectoral_fed(nc):
     loads.loc[central_heat_loads.index] = central_heat_loads / (1 + loss_factor)
 
     # transport Loads are final energy
+    # FixMe: aviation includes international amounts. International aviation
+    #  demands should not be in regional demands.
     transport = loads.filter(regex="transport|shipping|aviation")
     # no need to harmonize V2g:
     # bev_load = filter_by(transport, bus_carrier="EV battery")
@@ -419,7 +421,7 @@ def _get_sectoral_fed(nc):
     industry_cc.index.names = DataModel.YEAR_IDX_NAMES
     industry = pd.concat([industry, industry_cc])
 
-    # electricity base load contains loads not split
+    # electricity base load contain loads for rail transport and services sector
     base_load = filter_by(loads, carrier="electricity")
     # todo: base load splitting
 
