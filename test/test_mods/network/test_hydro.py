@@ -10,6 +10,33 @@ import xarray as xr
 
 from test.conftest import require_config
 
+_NON_RETIRING_HYDRO_CARRIERS = [
+    "ror",
+    "hydro discharger",
+    "hydro store",
+    "PHS charger",
+    "PHS discharger",
+    "PHS store",
+]
+
+
+def test_hydro_capacity_never_decreases(nc):
+    """Test that hydro (ror/reservoir/PHS) has a 100-year lifetime and must never retire."""
+    capacity = nc.statistics.installed_capacity(
+        carrier=_NON_RETIRING_HYDRO_CARRIERS,
+        groupby=["carrier", "location"],
+        aggregate_across_components=True,
+        nice_names=False,
+        drop_zero=False,
+    )
+    capacity.index.names = ["year", "carrier", "location"]
+
+    for carrier, group in capacity.groupby(["carrier", "location"]):
+        series = group.droplevel("carrier").sort_index()
+        assert (series.diff().dropna() >= 0).all(), (
+            f"'{carrier}' capacity decreased: {series}"
+        )
+
 
 def test_inflows_match_pemmdb_totals(nc, project_root):
     """
