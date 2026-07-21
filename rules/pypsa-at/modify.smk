@@ -130,6 +130,7 @@ use rule modify_prenetwork as modify_prenetwork_at with:
         gas_input_nodes_simplified=resources(
             "gas_input_locations_s_{clusters}_simplified.csv"
         ),
+        gas_storage_capacities="data/pypsa-at/gas_input_locations_s_AT35DE16_updated.csv",
         h2_imports_tyndp=branch(
             config_provider("sector", "h2_topology_tyndp"),
             resources("h2_import_potentials_{clusters}_{planning_horizons}.csv"),
