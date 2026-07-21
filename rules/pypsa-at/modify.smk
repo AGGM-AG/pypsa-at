@@ -15,6 +15,28 @@ if OSM_DATASET["source"] == "build":
             links=resources("osm/build/links.csv"),
             converters=resources("osm/build/converters.csv"),
             transformers=resources("osm/build/transformers.csv"),
+            # Raw Overpass JSON carries the `operator` and unmodified `frequency`
+            # tags that `clean_osm_data` drops and overwrites respectively.
+            cables_way=expand(
+                f"{OSM_DATASET['folder']}/{{country}}/cables_way.json",
+                country=config_provider("countries"),
+            ),
+            lines_way=expand(
+                f"{OSM_DATASET['folder']}/{{country}}/lines_way.json",
+                country=config_provider("countries"),
+            ),
+            routes_relation=expand(
+                f"{OSM_DATASET['folder']}/{{country}}/routes_relation.json",
+                country=config_provider("countries"),
+            ),
+            substations_way=expand(
+                f"{OSM_DATASET['folder']}/{{country}}/substations_way.json",
+                country=config_provider("countries"),
+            ),
+            substations_relation=expand(
+                f"{OSM_DATASET['folder']}/{{country}}/substations_relation.json",
+                country=config_provider("countries"),
+            ),
         output:
             buses=resources("osm/build-at/buses.csv"),
             lines=resources("osm/build-at/lines.csv"),
@@ -25,9 +47,10 @@ if OSM_DATASET["source"] == "build":
             logs("build_osm_network_at.log"),
         threads: 1
         resources:
-            mem_mb=2000,
+            # Matches clean_osm_data, which parses the same raw JSON files.
+            mem_mb=4000,
         message:
-            "Filtering built OSM network for AT: removing cross-border lines below 220 kV"
+            "Filtering built OSM network for AT: removing cross-border lines below 220 kV and recovering OSM operators"
         script:
             scripts("pypsa-at/build_osm_network_at.py")
 
