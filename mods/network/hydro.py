@@ -159,10 +159,9 @@ def add_phs_hydro(
 
         if "hydro" in carriers and not hydro.empty:
             hydro_max_hours = p.get("hydro_max_hours")
-
-            assert snakemake.input.hydro_capacities is not None, (
-                "No path for hydro capacities given."
-            )
+            max_hours = p["PHS_max_hours"]
+            if snakemake.input.hydro_capacities is None:
+                raise ValueError("No path for hydro capacities given.")
 
             hydro_stats = pd.read_csv(
                 snakemake.input.hydro_capacities,
@@ -209,7 +208,7 @@ def add_phs_hydro(
             hydro_max_hours = hydro.max_hours.where(
                 (hydro.max_hours > 0) & ~hydro.index.isin(missing_mh_single_i),
                 hydro.country.map(max_hours_country),
-            ).fillna(6)
+            ).fillna(max_hours)
 
             add_missing_carriers(n, ["hydro discharger", "hydro store", "hydro inflow"])
 
