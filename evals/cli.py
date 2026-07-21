@@ -39,6 +39,7 @@ $ pixi shell
 import copy
 import logging
 import sys
+from pathlib import Path
 from time import time
 
 import click
@@ -77,7 +78,9 @@ def cli() -> None:
 
 
 @cli.command()
-@click.argument("result_path", type=click.Path(exists=True), required=False)
+@click.argument(
+    "result_path", type=click.Path(path_type=Path, exists=True), required=False
+)
 @click.option(
     "--sub_directory",
     "-s",
