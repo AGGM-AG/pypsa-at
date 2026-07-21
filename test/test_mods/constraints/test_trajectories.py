@@ -10,12 +10,13 @@ from test.conftest import require_config
 def test_constraint_generic_trajectories(
     nc: NetworkCollection,
 ) -> None:
-    apply_trajectories = require_config(
-        nc, "mods", "trajectories", "apply_trajectories"
-    )
-    if not apply_trajectories:
+    """
+    Tests that all trajectory constraints that are defined in the resources folder trajectories_{cluster}.csv are
+    """
+    trajectories = require_config(nc, "mods", "trajectories", apply_trajectories=False)
+    if not trajectories["apply_trajectories"]:
         pytest.skip("No trajectories applied.")
-    eps = require_config(nc, "scenario", "trajectories", "eps")
+    tol = trajectories["tol"]
 
     for year, n in nc.networks.items():
         trajectories = pd.DataFrame.from_dict(n.meta["resources"]["trajectories"])
@@ -82,25 +83,24 @@ def test_constraint_generic_trajectories(
             assert (
                 (trajectories_var["_merge"] == "both")
                 | (trajectories_var["value"] == 0)
-            ).all(), "Not all trajectory variables are present in the model"
+            ).all(), "Not all trajectory variables are present in the network"
 
-            match sense:
-                case "max":
-                    trajectories_var["result"] = np.where(
-                        trajectories_var["value"] > trajectories_var["var_lower_bound"],
-                        trajectories_var["value"] + eps
-                        >= trajectories_var[f"{property}_opt"],
-                        True,
-                    )
-                case "min":
-                    trajectories_var["result"] = np.where(
-                        trajectories_var["value"] < trajectories_var["var_upper_bound"],
-                        trajectories_var["value"] - eps
-                        <= trajectories_var[f"{property}_opt"],
-                        True,
-                    )
-                case _:
-                    trajectories_var["result"] = False
+            if sense == "max":
+                trajectories_var["result"] = np.where(
+                    trajectories_var["value"] > trajectories_var["var_lower_bound"],
+                    trajectories_var["value"] + tol
+                    >= trajectories_var[f"{property}_opt"],
+                    True,
+                )
+            elif sense == "min":
+                trajectories_var["result"] = np.where(
+                    trajectories_var["value"] < trajectories_var["var_upper_bound"],
+                    trajectories_var["value"] - tol
+                    <= trajectories_var[f"{property}_opt"],
+                    True,
+                )
+            else:
+                trajectories_var["result"] = False
 
             violations = trajectories.set_index(["index"]).loc[
                 trajectories_var[~trajectories_var["result"]].index
