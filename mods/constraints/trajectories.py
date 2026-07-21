@@ -71,8 +71,8 @@ def add_regions_to_trajectories(n: Network, trajectories: pd.DataFrame) -> pd.Da
     trajectories
         The trajectories DataFrame containing a region column to be mapped
 
-    Return
-    ------
+    Returns
+    -------
     :
         The trajectories DataFrame with the added model regions.
     """
@@ -105,11 +105,11 @@ def calculate_limit(
     group
         Subset of trajectories data for the given variable
 
-    Return
-    ------
-    tuple
-        :The series of limits per constraint
-        :A DataFrame mapping constraint indices to PyPSA component names
+    Returns
+    -------
+    :
+        A tuple consisting of the series of limits per constraint and a DataFrame mapping constraint indices to PyPSA
+        component names
     """
     component, property = variable.split("-", 1)
 
