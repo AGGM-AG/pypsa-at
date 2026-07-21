@@ -5,7 +5,6 @@
 """Gas-related pre-network modifications for the ``modify_prenetwork`` step."""
 
 from logging import getLogger
-from pathlib import Path
 
 import pandas as pd
 import pypsa
@@ -218,7 +217,7 @@ def override_gas_storage_capacities(n: pypsa.Network, snakemake: Snakemake) -> N
     """
     Override gas Store e_nom_min with validated storage capacities.
 
-    Reads ``data/pypsa-at/gas_input_locations_s_AT35DE16_updated.csv`` (AT NUTS3
+    Reads ``snakemake.input.gas_storage_capacities`` (AT NUTS3
     + DE NUTS1 resolution) and overwrites ``e_nom_min`` on all matched gas Store
     components. Aggregates to the network's actual bus resolution:
 
@@ -256,10 +255,9 @@ def override_gas_storage_capacities(n: pypsa.Network, snakemake: Snakemake) -> N
 
     logger.info("Overriding gas storage capacities.")
 
-    # prefer relative path over extending upstream pypsa-de snakemake rule
-    file_name = "gas_input_locations_s_AT35DE16_updated.csv"
-    file_path = Path(__file__).parents[2] / "data" / "pypsa-at" / file_name
-    storage = pd.read_csv(file_path, index_col=0)["storage update (GWh)"]
+    storage = pd.read_csv(snakemake.input.gas_storage_capacities, index_col=0)[
+        "storage update (GWh)"
+    ]
 
     # calculate total existing gas storage capacities
     total_previous = n.stores.query("carrier == 'gas'")["e_nom_min"].sum()
