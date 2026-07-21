@@ -41,9 +41,6 @@ scenario:
   - 2030
   - 2040
   - 2050
-  trajectories:
-    apply_trajectories: true
-    eps: 0.1
 
 electricity:
   transmission_limit: v1.25
@@ -321,3 +318,7 @@ mods:
     fuels: ["gas", "H2", "solid biomass", "methanol"]  # green electricity production may be produced from these carriers
     h2_sources: ["AC", "low voltage", "solid biomass"]  # green hydrogen may be produced from these carriers
     AT: "2030"  # start year: constraints will be added from including this year onwards
+
+  trajectories:
+    apply_trajectories: true
+    tol: 0.1  # slack applied to upper/lower capacity bounds (MW / MWh)

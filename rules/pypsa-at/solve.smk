@@ -36,9 +36,9 @@ if config["foresight"] == "overnight":
         params:
             **rules.solve_sector_network.params,
             apply_trajectories=config_provider(
-                "scenario", "trajectories", "apply_trajectories"
+                "mods", "trajectories", "apply_trajectories"
             ),
-            trajectories_eps=config_provider("scenario", "trajectories", "eps"),
+            trajectories_tol=config_provider("mods", "trajectories", "tol"),
             resource_meta=lambda wildcards, input: {
                 key: value
                 for key, value in input.items()
@@ -75,9 +75,9 @@ if config["foresight"] == "myopic":
         params:
             **rules.solve_sector_network_myopic.params,
             apply_trajectories=config_provider(
-                "scenario", "trajectories", "apply_trajectories"
+                "mods", "trajectories", "apply_trajectories"
             ),
-            trajectories_eps=config_provider("scenario", "trajectories", "eps"),
+            trajectories_tol=config_provider("mods", "trajectories", "tol"),
             resource_meta=lambda wildcards, input: {
                 key: value
                 for key, value in input.items()
@@ -114,9 +114,9 @@ if config["foresight"] == "perfect":
         params:
             **rules.solve_sector_network_perfect.params,
             apply_trajectories=config_provider(
-                "scenario", "trajectories", "apply_trajectories"
+                "mods", "trajectories", "apply_trajectories"
             ),
-            trajectories_eps=config_provider("scenario", "trajectories", "eps"),
+            trajectories_tol=config_provider("mods", "trajectories", "tol"),
             resource_meta=lambda wildcards, input: {
                 key: value
                 for key, value in input.items()

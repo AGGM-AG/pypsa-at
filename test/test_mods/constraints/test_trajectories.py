@@ -11,7 +11,7 @@ def test_constraint_generic_trajectories(
     nc: NetworkCollection,
 ) -> None:
     apply_trajectories = require_config(
-        nc, "scenario", "trajectories", "apply_trajectories"
+        nc, "mods", "trajectories", "apply_trajectories"
     )
     if not apply_trajectories:
         pytest.skip("No trajectories applied.")
