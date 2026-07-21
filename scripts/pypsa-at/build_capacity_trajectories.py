@@ -195,7 +195,7 @@ def filter_market_data(snakemake: Snakemake, market_data: pd.DataFrame) -> pd.Da
     snakemake
         The Snakemake workflow object.
     market_data
-        The extraced market data
+        The extracted market data
 
     Returns
     -------
@@ -262,6 +262,35 @@ def filter_market_data(snakemake: Snakemake, market_data: pd.DataFrame) -> pd.Da
     ]
 
 
+def main(snakemake: Snakemake) -> pd.DataFrame:
+    """
+    Main function to calculate and return trajectories
+
+    Parameters
+    ----------
+    snakemake
+        The Snakemake workflow object.
+
+    Returns
+    -------
+    :
+        The calculated trajectories DataFrame
+    """
+    market_info = extract_hydro_capacities_tyndp(snakemake.input.hydro_inflows)
+
+    market_info = _map_index(market_info, TYNDP_TO_PYPSA_LOCATION, "region")
+    market_info = _map_index(
+        market_info, HYDRO_CARRIER_MAPPING, "carrier", ("carrier", "variable", "sense")
+    )
+    market_info = market_info[market_info.index.isin(market_info.index.dropna())]
+    market_info = market_info.groupby(level=market_info.index.names).sum().abs()
+    market_info = add_missing_regions(market_info)
+    market_info = filter_market_data(snakemake, market_info)
+    market_info = add_missing_years(market_info, snakemake)
+    market_info = market_info.sort_index()
+    return market_info
+
+
 if __name__ == "__main__":
     if "snakemake" not in globals():
         from scripts._helpers import mock_snakemake
@@ -277,20 +306,6 @@ if __name__ == "__main__":
     set_scenario_config(snakemake)
 
     logger.info("Calculating capacity trajectories...")
-
-    market_info = extract_hydro_capacities_tyndp(snakemake.input.hydro_inflows)
-
-    market_info = _map_index(market_info, TYNDP_TO_PYPSA_LOCATION, "region")
-    market_info = _map_index(
-        market_info, HYDRO_CARRIER_MAPPING, "carrier", ("carrier", "variable", "sense")
-    )
-    market_info = market_info[market_info.index.isin(market_info.index.dropna())]
-    market_info = market_info.groupby(level=market_info.index.names).sum().abs()
-    market_info = add_missing_regions(market_info)
-    market_info = filter_market_data(snakemake, market_info)
-    market_info = add_missing_years(market_info, snakemake)
-    market_info = market_info.sort_index()
-
-    trajectories = market_info.copy()
+    trajectories = main(snakemake)
     trajectories.to_csv(snakemake.output.trajectories)
     logger.info(f"Saved trajectories to {snakemake.output.trajectories}")
