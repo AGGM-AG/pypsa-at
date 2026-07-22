@@ -121,6 +121,7 @@ rule filter_osm_lines_at:
         electricity_network_overrides="data/pypsa-at/electricity_network_overrides.csv",
     output:
         lines=resources("osm/model/lines.csv"),
+        buses=resources("osm/model/buses.csv"),
         report=resources("osm/model/line_rules.csv"),
     log:
         logs("filter_osm_lines_at.log"),
@@ -136,8 +137,10 @@ rule filter_osm_lines_at:
 def input_base_network_at(w):
     """Route the base network onto the corridor-filtered AT OSM files.
 
-    Lines come from ``filter_osm_lines_at``; the remaining components are
-    passed through from the configured OSM data source unchanged.
+    Lines and buses come from ``filter_osm_lines_at``, which also strips the
+    archive provenance columns (they crash the clustering aggregation); the
+    remaining components are passed through from the configured OSM data
+    source unchanged.
 
     Redefining upstream ``input_base_network()`` does not work: the
     ``base_network`` rule captures the function object at parse time, long
@@ -155,9 +158,10 @@ def input_base_network_at(w):
     :
         A dictionary with component names as keys and Paths as values.
     """
-    components = {"buses", "links", "converters", "transformers"}
+    components = {"links", "converters", "transformers"}
     inputs = {c: osm_at_component(c) for c in components}
     inputs["lines"] = resources("osm/model/lines.csv")
+    inputs["buses"] = resources("osm/model/buses.csv")
     return inputs
 
 

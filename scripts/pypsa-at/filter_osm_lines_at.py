@@ -43,10 +43,18 @@ if __name__ == "__main__":
 
     kept, report = filter_inter_regional_lines(lines, buses, nuts3_shapes, overrides)
 
-    kept.to_csv(snakemake.output.lines, quotechar="'", quoting=QUOTE_NONNUMERIC)
-    report.to_csv(snakemake.output.report, quotechar="'", quoting=QUOTE_NONNUMERIC)
+    # The archive columns crash the clustering bus/line aggregation
+    provenance = ["operator", "operator_clean", "tag_frequency"]
+    kept = kept.drop(columns=provenance, errors="ignore")
+    buses = buses.drop(columns=provenance, errors="ignore")
+
+    to_csv_kwargs = dict(quotechar="'", quoting=QUOTE_NONNUMERIC)
+    kept.to_csv(snakemake.output.lines, **to_csv_kwargs)
+    buses.to_csv(snakemake.output.buses, **to_csv_kwargs)
+    report.to_csv(snakemake.output.report, **to_csv_kwargs)
 
     logger.info(
-        f"Wrote {len(kept)}/{len(lines)} lines to {snakemake.output.lines}; "
-        f"per-line report at {snakemake.output.report}."
+        f"Wrote {len(kept)}/{len(lines)} lines and {len(buses)} buses to "
+        f"{Path(snakemake.output.lines).parent}; per-line report at "
+        f"{snakemake.output.report}."
     )
