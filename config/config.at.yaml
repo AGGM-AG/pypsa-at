@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: capacity-maps
+  prefix: electricity-network-0p3
   name:
   - AT_KN2040
   scenarios:
