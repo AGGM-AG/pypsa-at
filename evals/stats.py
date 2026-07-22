@@ -7,6 +7,7 @@
 import logging
 import warnings
 from collections.abc import Callable, Sequence
+from functools import partial
 from inspect import getmembers
 from itertools import product
 
@@ -948,7 +949,10 @@ class ESMStatistics(StatisticsAccessor):
             loss_groupby = groupby
         if not callable(loss_groupby):
             loss_groupby = [
-                get_location if g == DataModel.LOCATION else g for g in loss_groupby
+                partial(get_location, avoid_eu_locations=False)
+                if g == DataModel.LOCATION
+                else g
+                for g in loss_groupby
             ]
 
         df = self._aggregate_components(

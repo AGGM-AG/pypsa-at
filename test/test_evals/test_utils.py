@@ -568,13 +568,26 @@ def test_to_duration_curve():
     """Values per row are sorted descending with cumulative hours as columns."""
     df = pd.DataFrame(
         {"row": range(12)},
-        index=pd.date_range("2020-01-01", periods=12, freq="MS"),
+        index=pd.date_range("2020-01-01", periods=12, freq="732h"),
     ).T
 
     result = to_duration_curve(df)
 
     assert result.columns[-1] == 8784  # hours in the (leap) year, exclusive
     assert result.loc["row"].tolist() == list(range(11, -1, -1))
+
+
+def test_to_duration_curve_raises_on_non_equidistant_snapshots():
+    """A ValueError is raised when the datetime snapshots are not equidistant."""
+    df = pd.DataFrame(
+        {"row": range(12)},
+        index=pd.date_range("2020-01-01", periods=12, freq="MS"),
+    ).T
+
+    with pytest.raises(
+        ValueError, match="The datetime snapshots in the DataFrame are not equidistant"
+    ):
+        to_duration_curve(df)
 
 
 @pytest.mark.parametrize(
