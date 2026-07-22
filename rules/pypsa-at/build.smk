@@ -124,3 +124,36 @@ rule build_inflows_per_region:
         "Building hydropower inflows per region"
     script:
         scripts("pypsa-at/build_inflows_per_region.py")
+
+
+rule build_capacity_trajectories:
+    input:
+        hydro_inflows=f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows",
+        code_files=[
+            "mods/constants.py",
+            "scripts/_helpers.py",
+        ],
+        powerplants=resources("powerplants_s_{clusters}.csv"),
+        costs=lambda w: resources(
+            f"costs_{config_provider('costs', 'year')(w)}_processed.csv"
+        ),
+    output:
+        trajectories=resources("trajectories_{clusters}.csv"),
+    log:
+        logs("trajectories_{clusters}.log"),
+    benchmark:
+        benchmarks("trajectories_{clusters}")
+    resources:
+        mem_mb=5000,
+    params:
+        countries=config_provider("countries"),
+        planning_horizons=config_provider("scenario", "planning_horizons"),
+        consider_efficiency_classes=config_provider(
+            "clustering", "consider_efficiency_classes"
+        ),
+        aggregation_strategies=config_provider("clustering", "aggregation_strategies"),
+        exclude_carriers=config_provider("clustering", "exclude_carriers"),
+    message:
+        "Building capacity trajectories"
+    script:
+        scripts("pypsa-at/build_capacity_trajectories.py")

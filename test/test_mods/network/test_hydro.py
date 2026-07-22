@@ -12,6 +12,35 @@ from pypsa import Network
 
 from test.conftest import require_config
 
+_NON_RETIRING_HYDRO_CARRIERS = [
+    "ror",
+    "hydro discharger",
+    "hydro store",
+    "PHS charger",
+    "PHS discharger",
+    "PHS store",
+]
+
+
+def test_hydro_capacity_never_decreases(nc):
+    """Test that hydro (ror/reservoir/PHS) has a 100-year lifetime and must never retire."""
+    capacity = nc.statistics.installed_capacity(
+        carrier=_NON_RETIRING_HYDRO_CARRIERS,
+        groupby=["carrier", "location"],
+        aggregate_across_components=True,
+        nice_names=False,
+        drop_zero=False,
+    )
+    if capacity.empty:
+        pytest.skip("No hydro components in network, skipping")
+    capacity.index.names = ["year", "carrier", "location"]
+
+    for carrier, group in capacity.groupby(["carrier", "location"]):
+        series = group.droplevel("carrier").sort_index()
+        assert (series.diff().dropna() >= 0).all(), (
+            f"'{carrier}' capacity decreased: {series}"
+        )
+
 
 def _snapshot_profiles(
     n: Network, inflow: xr.DataArray, carrier: str, suffix: str
@@ -74,44 +103,23 @@ def test_inflows_match_pemmdb_totals(nc, project_root):
         weightings = n.snapshot_weightings.stores
         tol = 0.01 * n.snapshot_weightings.max().iloc[0]
 
-        reservoirs_columns = n.storage_units.query('carrier == "hydro"').index
-        reservoirs_actual = (
-            n.storage_units_t.inflow.reindex(columns=reservoirs_columns, fill_value=0.0)
-            .mul(weightings, axis=0)
-            .sum()
-        )
-        reservoirs_expected = _energy(
-            _snapshot_profiles(n, inflow, "hydro", "hydro"), weightings, clip
-        )
-        _assert_energy_matches(reservoirs_actual, reservoirs_expected, tol)
-
-        phs_columns = n.generators.query('carrier == "PHS inflow"').index
-        phs_actual = (
-            n.generators_t.p_max_pu.reindex(columns=phs_columns, fill_value=0.0)
-            .mul(weightings, axis=0)
-            .sum()
-        )
-        phs_expected = _energy(
-            _per_unit(
-                _snapshot_profiles(n, inflow, "PHS", "PHS inflow"),
-                n.generators["p_nom"],
-            ),
-            weightings,
-            clip,
-        )
-        _assert_energy_matches(phs_actual, phs_expected, tol)
-
-        ror_columns = n.generators.query('carrier == "ror"').index
-        ror_actual = (
-            n.generators_t.p_max_pu.reindex(columns=ror_columns, fill_value=0.0)
-            .mul(weightings, axis=0)
-            .sum()
-        )
-        ror_expected = _energy(
-            _per_unit(
-                _snapshot_profiles(n, inflow, "ror", "ror"), n.generators["p_nom"]
-            ),
-            weightings,
-            clip,
-        )
-        _assert_energy_matches(ror_actual, ror_expected, tol)
+        for model_carrier, resource_carrier in [
+            ("hydro inflow", "hydro"),
+            ("PHS inflow", "PHS"),
+            ("ror", "ror"),
+        ]:
+            columns = n.generators.query(f'carrier == "{model_carrier}"').index
+            actual = (
+                n.generators_t.p_max_pu.reindex(columns=columns, fill_value=0.0)
+                .mul(weightings, axis=0)
+                .sum()
+            )
+            expected = _energy(
+                _per_unit(
+                    _snapshot_profiles(n, inflow, resource_carrier, model_carrier),
+                    n.generators["p_nom"],
+                ),
+                weightings,
+                clip,
+            )
+            _assert_energy_matches(actual, expected, tol)

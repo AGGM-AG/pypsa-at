@@ -331,7 +331,12 @@ def test_net_zero_electricity_constraint_statistics(nc, cc):
     # Electricity supply from batteries
     battery_supply = nc.statistics.supply(
         components="Link",
-        carrier=["battery discharger", "home battery discharger", "PHS discharger"],
+        carrier=[
+            "battery discharger",
+            "home battery discharger",
+            "PHS discharger",
+            "hydro discharger",
+        ],
         **common_kwargs,
     ).pipe(filter_by, country=cc)
 

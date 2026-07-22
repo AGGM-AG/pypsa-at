@@ -13,17 +13,17 @@ run:
     # for all AT scenarios as a base. As a result, the build_scenario step is obsolete.
     # We simply use the manual file with hard coded values.
     file: config/scenarios.manual.yaml
-    shared_resources:
-      policy: base #stops recalculating
-      exclude:
-      - existing_heating.csv     # specify files which should not be shared between scenarios
-      - costs
-      - retrieve_cost     # This is necessary to save retrieve_cost_data_{year}.log in the correct folder
-      - industry_sector_ratios
-      - build_industry_sector_ratios     # This is necessary to save build_industry_sector_ratios_data.log in the correct folder
-      - modify_existing_heating
-      - build_custom_cost_at
-      - custom_cost_at.csv
+  shared_resources:
+    policy: base #stops recalculating
+    exclude:
+    - existing_heating.csv   # specify files which should not be shared between scenarios
+    - costs
+    - retrieve_cost   # This is necessary to save retrieve_cost_data_{year}.log in the correct folder
+    - industry_sector_ratios
+    - build_industry_sector_ratios   # This is necessary to save build_industry_sector_ratios_data.log in the correct folder
+    - modify_existing_heating
+    - build_custom_cost_at
+    - custom_cost_at.csv
 
 countries: ['AL', 'AT', 'BA', 'BE', 'BG', 'CH', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'ME', 'MK', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'SE', 'SI', 'SK', 'XK']
 
@@ -183,8 +183,7 @@ data:
     version: 2026-v2
 
 pypsa_eur:
-  StorageUnit:
-  - hydro
+  StorageUnit: []
 
 solving:
   options:
@@ -319,3 +318,7 @@ mods:
     fuels: ["gas", "H2", "solid biomass", "methanol"]  # green electricity production may be produced from these carriers
     h2_sources: ["AC", "low voltage", "solid biomass"]  # green hydrogen may be produced from these carriers
     AT: "2030"  # start year: constraints will be added from including this year onwards
+
+  trajectories:
+    apply_trajectories: true
+    tol: 0.1  # slack applied to upper/lower capacity bounds (MW / MWh)
