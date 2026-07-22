@@ -1628,6 +1628,7 @@ skip_checks = true
 [view_timeseries_residual_load.global_override]
 line_shape="linear"
 pivot_index=["year", "location"]
+xaxis_title=""
 
 [view_timeseries_residual_load.categories]
 
