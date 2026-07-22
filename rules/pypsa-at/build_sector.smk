@@ -12,6 +12,7 @@ use rule prepare_sector_network as prepare_sector_network_at with:
         **rules.prepare_sector_network.input,
         powerplants=resources("powerplants_s_{clusters}.csv"),
         inflow=resources("inflow_per_region_{clusters}.nc"),
+        hydro_capacities=ancient("data/hydro_capacities.csv"),
         code_files=[
             "mods/network/common.py",
             "mods/network/electricity.py",

@@ -22,6 +22,7 @@ from mods import (
     constraint_net_zero_electricity,
     constraint_ntc_flow_limits,
 )
+from mods.constraints.trajectories import constraint_generic_trajectories
 
 logger = logging.getLogger(__name__)
 
@@ -44,3 +45,4 @@ def additional_functionality(n, snapshots, snakemake):
     constraint_ntc_flow_limits(n, snakemake, investment_year)
     constraint_net_zero_electricity(n, snakemake, investment_year)
     constraint_combined_solar_trajectories(n, snakemake, investment_year)
+    constraint_generic_trajectories(n, snakemake, investment_year)
