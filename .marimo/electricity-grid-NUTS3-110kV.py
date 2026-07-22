@@ -16,10 +16,10 @@ def _(mo):
     see every asset on the map, find it in the table below the map by its ID, and read
     exactly why it is in or out of the model.
 
-    **Scope note.** The archive carries no operator/DNO attribute — the OSM `tags`
-    column holds only the relation ID. Ownership therefore cannot be resolved
-    automatically. Each asset instead gets a clickable OSM link so ownership can be
-    checked by hand, which is what the manual sub-net labelling step needs.
+    **Data version.** Reads `osm-at 0.3-at`, which carries `operator`,
+    `operator_clean` and `tag_frequency` columns and already excludes railway
+    traction and cross-border sub-220 kV lines. Each asset also gets a clickable
+    OSM link for manual verification.
     """)
     return
 
@@ -84,98 +84,46 @@ def _(mo):
     mo.md(r"""
     ## 3b. Line operators
 
-    The OSM archive drops the `operator` tag, keeping only the source relation/way
-    ref. `.marimo/data/osm_line_operators.csv` resolves those refs back to their
-    OSM `operator`, so lines can be attributed to APG (the TSO) or to a DNO.
+    From `0.3-at` on the archive carries the operator attribution itself:
+    `build_osm_network_at` recovers `operator` (verbatim OSM values),
+    `operator_clean` (canonical alias, e.g. every APG spelling becomes `APG`)
+    and `tag_frequency` (the raw frequency tag before upstream normalisation)
+    from the raw Overpass JSON. The notebook reads those columns directly.
 
-    A line's `tags` cell may list several refs; the first ref carrying an operator
-    wins, and disagreements are reported below.
+    Railway traction (16.7 Hz) and cross-border sub-220 kV lines are already
+    removed at archive build time, so the corresponding rules below act as
+    verification guards and should match zero lines.
     """)
     return
 
 
 @app.cell
-def _(OPERATOR_PATH, lines, pd):
-    # Spelling of APG in OSM is inconsistent. Matched case-insensitively:
-    # "apg" as a whole word, or the full name including the transposed
-    # "Austrian Grid Power AG" typo. Verbund Hydro Power GmbH is the generation
-    # arm, NOT the TSO, and must not match — hence no bare "verbund" pattern.
-    APG_PATTERN = r"\bapg\b|austrian power grid|austrian grid power"
-    APG_WIKIDATA = "Q783723"
+def _(lines):
+    # The canonical aliases come straight from the archive's operator_clean
+    # column, produced by OPERATOR_ALIASES in build_osm_network_at (where every
+    # APG spelling maps to "APG" and Verbund Hydro Power stays separate).
+    line_operator = lines["operator"]
+    line_operator_clean = lines["operator_clean"]
+    line_frequency = lines["tag_frequency"].astype("string")
 
-    # Railway traction runs at 16.7 Hz on a galvanically separate network, so it
-    # does not belong in a 50 Hz model at all. ÖBB does however also own a few
-    # ordinary 50 Hz lines (the feeds to its converter stations), which is why an
-    # explicit frequency=50 always wins over the operator match.
-    TRACTION_PATTERN = r"öbb"
-    TRACTION_HZ = "16.7"
-    PUBLIC_HZ = "50.0"
+    is_apg = line_operator_clean.fillna("").str.contains("APG")
 
-    _ops = pd.read_csv(OPERATOR_PATH)
-    _by_ref = _ops.set_index("osm_ref")
-
-    def _refs_of(tag):
-        """A tags cell may hold several refs: ``relation/111080;way/12345``."""
-        out = []
-        for part in str(tag).split(";"):
-            part = part.strip()
-            kind, _, ident = part.partition("/")
-            if kind in ("relation", "way") and ident.isdigit():
-                out.append(f"{kind}/{ident}")
-        return out
-
-    def _matches(text, pattern):
-        return bool(pd.Series([text]).str.contains(pattern, case=False, regex=True)[0])
-
-    def _resolve(tag):
-        """Return (operator, frequencies, is_apg, is_traction) for a tags cell."""
-        names, freqs, apg = [], [], False
-        for ref in _refs_of(tag):
-            if ref not in _by_ref.index:
-                continue
-            row = _by_ref.loc[ref]
-            name = row["operator"]
-            if isinstance(name, str) and name.strip():
-                names.append(name.strip())
-            freq = row["frequency"]
-            if pd.notna(freq):
-                freqs.append(str(freq))
-            if str(row.get("operator_wikidata")) == APG_WIKIDATA:
-                apg = True
-
-        joined = " | ".join(dict.fromkeys(names))
-        freq_set = set(freqs)
-        if joined:
-            apg = apg or _matches(joined, APG_PATTERN)
-
-        # frequency=16.7 is decisive. An ÖBB line without any frequency tag is
-        # traction by default, but an explicit 50 Hz tag keeps it in the model.
-        traction = TRACTION_HZ in freq_set or (
-            bool(joined)
-            and _matches(joined, TRACTION_PATTERN)
-            and PUBLIC_HZ not in freq_set
-        )
-        return joined, " | ".join(sorted(freq_set)), apg, traction
-
-    _resolved = lines["tags"].fillna("").map(_resolve)
-    line_operator = _resolved.str[0].replace("", pd.NA)
-    line_frequency = _resolved.str[1].replace("", pd.NA)
-    is_apg = _resolved.str[2]
-    is_traction = _resolved.str[3]
+    # Traction is already removed at archive build time; recompute the flag from
+    # tag_frequency as a guard. Only 16.7 Hz counts — the ÖBB-operated 50 Hz
+    # feeds to its converter stations legitimately remain in the archive.
+    is_traction = line_frequency.fillna("").str.contains("16.7")
 
     print(
         f"Lines with a resolved operator: {int(line_operator.notna().sum())}/{len(lines)}"
     )
     print(f"Lines operated by APG         : {int(is_apg.sum())}")
-    print(f"Lines at 16.7 Hz / ÖBB traction: {int(is_traction.sum())}")
-    print("\nTop operators:")
-    print(line_operator.value_counts().head(12).to_string())
-    print("\nMatched as APG:")
+    print(f"Traction left in archive      : {int(is_traction.sum())} (guard, expect 0)")
+    print("\nTop operators (clean):")
+    print(line_operator_clean.value_counts().head(12).to_string())
+    print("\nMatched as APG (verbatim spellings):")
     print(line_operator[is_apg].value_counts().to_string())
-    print("\nMatched as traction:")
-    print(line_operator[is_traction].fillna("<no operator>").value_counts().to_string())
-    print("\nÖBB lines kept (explicit 50 Hz):")
-    _obb_kept = line_operator.fillna("").str.contains("ÖBB", case=False) & ~is_traction
+    print("\nÖBB lines kept (explicit 50 Hz converter feeds):")
+    _obb_kept = line_operator_clean.fillna("").str.contains("ÖBB") & ~is_traction
     print(
         line_frequency[_obb_kept].fillna("<none>").value_counts().to_string()
         or "  none"
@@ -197,7 +145,7 @@ def _(mo):
     | # | Rule | Effect |
     |---|------|--------|
     | R0 | `TRACTION` — 16.7 Hz railway line, or ÖBB without an explicit 50 Hz tag | inactive |
-    | R1 | `CROSS_BORDER_LV` — sub-220 kV line with exactly one AT endpoint | inactive |
+    | R1 | `CROSS_BORDER_LV` — sub-220 kV line with exactly one AT endpoint, unless TSO-operated | inactive |
     | R2 | `TRANSMISSION` — voltage ≥ 220 kV | active |
     | R2b | `APG_TSO` — operated by Austrian Power Grid at any voltage | active |
     | R3 | `INTRA_REGION` — 110 kV, both endpoints in the same NUTS3 region | active |
@@ -219,86 +167,10 @@ def _(mo):
 
 @app.cell
 def _(pd):
-    # Documented 110 kV feeds, one row per line. Regions listed here bypass the
-    # heuristic entirely. Add a row whenever a source pins down how a region is
-    # actually connected to the transmission grid; leave a region out to keep the
-    # heuristic (and its "undocumented" marker in the reason column).
-    FEED_OVERRIDES = pd.DataFrame(
-        [
-            {
-                "region": "AT111",
-                "line_id": "way/1041269738-110",
-                "substation": "Mattersburg",
-                "source": "OSM network topology",
-                "evidence": (
-                    "This is the single only Line connecting the region. OSM names it "
-                    "'Markt Sankt Martin - Mattersburg' (operator Netz Burgenland): it "
-                    "runs from Umspannwerk Markt Sankt Martin inside Mittelburgenland "
-                    "to Umspannwerk Mattersburg in AT112 Nordburgenland. Both ends are "
-                    "110 kV, so the transmission handover lies further downstream."
-                ),
-            },
-            {
-                "region": "AT315",
-                "line_id": "way/118101561-110",
-                "substation": "Lambach",
-                "source": "Netz OÖ, Netzentwicklungsplan 2024, §1.1 and project NOÖ-24-06",
-                "evidence": (
-                    "The VNEP names the Höchst-/Hochspannung handover points in Upper "
-                    "Austria as St. Peter, Jochenstein, Lambach and Ernsthofen — none "
-                    "inside Traunviertel, and UW Timelkam is 110/30 kV only. Lambach is "
-                    "the adjacent handover point; this line ends on its 110 kV busbar "
-                    "(way/93077882-110, 220/110 kV transformer, 984 MVA) and carries the "
-                    "Timelkam - Lenzing-Vöcklabruck - Regau corridor."
-                ),
-            },
-            {
-                "region": "AT315",
-                "line_id": "way/118132831-110",
-                "substation": "Lambach",
-                "source": "Netz OÖ, Netzentwicklungsplan 2024, §1.1 and project NOÖ-24-05",
-                "evidence": (
-                    "Second corridor onto the same Lambach 110 kV busbar, feeding "
-                    "Ohlsdorf - Laakirchen - Steyrermühl. The VNEP describes the inner "
-                    "Salzkammergut as two north-south corridors, Timelkam - Arthurwerk "
-                    "and Ohlsdorf - Bad Aussee, so both are needed to feed the region."
-                ),
-            },
-            {
-                "region": "AT321",
-                "line_id": "way/129580798-110",
-                "substation": "Reitdorf",
-                "source": (
-                    "Salzburg Netz, Netzentwicklungsplan 2024 "
-                    "(salzburgnetz.at/.../Netzentwicklungsplan_Salzburg_Netz_2024.pdf)"
-                ),
-                "evidence": (
-                    "Lungau has two candidate branches: a 2-circuit 4.3 km link south "
-                    "to AT212 Oberkärnten and this 1-circuit 41.2 km line north to "
-                    "AT322 Pinzgau-Pongau. The northern route is chosen because it "
-                    "connects Umspannwerk Lungau to the Salzburg AG distribution "
-                    "network at Umspannwerk Reitdorf, which is where the region is "
-                    "actually supplied from. The circuit-count heuristic would have "
-                    "picked the southern Katschberg link instead."
-                ),
-            },
-            {
-                "region": "AT331",
-                "line_id": "way/100872498-110",
-                "substation": "Imst",
-                "source": "OSM network topology",
-                "evidence": (
-                    "This is the single only Line connecting the region. OSM names it "
-                    "'Imst - Reutte' (operator TIWAG): it runs from Umspannwerk Reutte "
-                    "inside Außerfern to the Imst switching station in AT334 Tiroler "
-                    "Oberland, whose OSM object carries no name beyond '110kV "
-                    "Freischaltanlage'. Note that Außerfern's cross-border 110 kV "
-                    "links to Bayernwerk were already removed upstream, so this is the "
-                    "only remaining feed in the dataset."
-                ),
-            },
-        ]
-    )
+    # Documented 110 kV feeds, one row per line — the same file the model
+    # pipeline consumes (mods.filter_inter_regional_lines), so notebook and
+    # model cannot drift. Add rows there, with substation, source and evidence.
+    FEED_OVERRIDES = pd.read_csv("data/pypsa-at/electricity_network_overrides.csv")
     FEED_OVERRIDES
     return (FEED_OVERRIDES,)
 
@@ -432,13 +304,17 @@ def _(
                 "traction network is galvanically separate from the 50 Hz public "
                 "grid and must not carry power in this model.",
             )
-        if is_cross_border.get(line_id, False) and not is_transmission[line_id]:
+        if (
+            is_cross_border.get(line_id, False)
+            and not is_transmission[line_id]
+            and not is_apg.get(line_id, False)
+        ):
             return (
                 False,
                 "R1 CROSS_BORDER_LV",
                 f"Cross-border line at {kv:.0f} kV. The AT 110 kV level is not "
                 "validated against foreign grids, so sub-220 kV interconnectors "
-                "are excluded.",
+                "are excluded — unless TSO-operated (see R2b).",
             )
         if is_transmission[line_id]:
             return (
@@ -1058,18 +934,15 @@ def _(mo):
 
 @app.cell
 def _(Path):
-    OSM_DIR = Path("data/osm/archive/0.2-at")
+    # From 0.3-at on, the archive itself carries `operator`, `operator_clean`
+    # and `tag_frequency` (recovered in build_osm_network_at), so no external
+    # operator cache is needed any more.
+    OSM_DIR = Path("data/osm/archive/0.3-at")
 
     NUTS3_PATH = Path(
         "data/eu_nuts2021/archive/2021-01-01/ref-nuts-2021-01m.geojson"
         "/NUTS_RG_01M_2021_4326_LEVL_3.geojson"
     )
-
-    # The OSM archive carries no operator attribute — only the source relation/way
-    # ref in its `tags` column. This cache resolves those refs to their OSM
-    # `operator` tag; regenerate it with .marimo/data/fetch_osm_operators.py after
-    # moving to a new OSM archive version.
-    OPERATOR_PATH = Path(".marimo/data/osm_line_operators.csv")
 
     # Voltage at or above which a line is considered transmission level and is
     # never touched by the 110 kV rules.
@@ -1088,7 +961,6 @@ def _(Path):
         DEFAULT_COLOUR,
         INACTIVE_COLOUR,
         NUTS3_PATH,
-        OPERATOR_PATH,
         OSM_DIR,
         TRANSMISSION_KV,
         VOLTAGE_COLOURS,
