@@ -12,9 +12,10 @@ from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
+import pypsa
 from frozendict import frozendict
 from pypsa import NetworkCollection
-from pypsa.statistics import get_transmission_carriers
+from pypsa.statistics import get_transmission_carriers, groupers
 
 from evals.constants import (
     ALIAS_COUNTRY,
@@ -1238,3 +1239,57 @@ def to_duration_curve(df: pd.DataFrame) -> pd.DataFrame:
     )
     plot_df_out.attrs = df.attrs
     return plot_df_out
+
+
+def get_location(
+    n: pypsa.Network,
+    c: str,
+    port: str = "",
+    avoid_eu_locations: bool = True,
+) -> pd.Series:
+    """
+    Return the grouper series for the location of a component.
+
+    By default, the function avoids EU-locations by looking into port 0 and port 1 and prefering locations, that are not 'EU'.
+
+    Note, that the bus_carrier will still be the bus_carrier
+    from the "port" argument, i.e. only the location is swapped.
+
+    Parameters
+    ----------
+    n
+        The network to evaluate.
+    c
+        The component name, e.g. 'Load', 'Generator', 'Link', etc.
+    port
+        Limit results to this branch port.
+    avoid_eu_locations
+        Look into the port 0 and port 1 location in branch components
+        and prefer locations that are not 'EU'. By default,
+        pypsa.statistics assigns the respective bus port location.
+
+    Returns
+    -------
+    :
+        A list of series to group statistics by.
+    """
+    comp = n.components[c].static
+    bus_locations = n.components.buses.static.location
+
+    if avoid_eu_locations and c in n.branch_components:
+        # avoid EU buses for branch components, e.g. oil CHP
+        bus0 = groupers._map_with_multiindex(comp["bus0"], bus_locations).rename("loc0")
+        bus1 = groupers._map_with_multiindex(comp["bus1"], bus_locations).rename("loc1")
+        buses = pd.concat([bus0, bus1], axis=1)
+
+        def location_selection_logic(row) -> str:
+            if row.loc0 != "EU" or pd.isna(row.loc1):
+                return row.loc0
+            return row.loc1
+
+        return buses.apply(location_selection_logic, axis=1).rename("location")
+
+    # default logic to return location groupers
+    return groupers._map_with_multiindex(comp[f"bus{port}"], bus_locations).rename(
+        "location"
+    )

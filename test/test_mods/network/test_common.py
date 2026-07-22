@@ -7,7 +7,7 @@
 import pandas as pd
 from pypsa.statistics import get_transmission_carriers
 
-from evals.fileio import get_location
+from evals.utils import get_location
 from test.conftest import require_config
 
 
