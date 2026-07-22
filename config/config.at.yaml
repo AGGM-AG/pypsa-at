@@ -177,7 +177,7 @@ industry:
 data:
   osm:
     source: archive
-    version: 0.2-at
+    version: 0.3-at
   klien_potentials:
     source: archive
     version: 2026-v2
