@@ -964,8 +964,8 @@ class ESMStatistics(StatisticsAccessor):
             snapshots as columns.
 
         """
-        components = components if components else ["Link", "Line", "Transformer"]
-        groupby = groupby if groupby else ["location", "carrier", "bus_carrier"]
+        components = components or ["Link", "Line", "Transformer"]
+        groupby = groupby or ["location", "carrier", "bus_carrier"]
 
         @pass_empty_series_if_keyerror
         def loss_func(n: Network, c: str, port: str) -> pd.Series:
@@ -978,12 +978,11 @@ class ESMStatistics(StatisticsAccessor):
         # substitute a port-aware "location" grouper (see _port_location)
         # so that bus0/bus1 resolve to different locations, regardless
         # of what is currently registered under the "location" name.
-        loss_groupby = groupby
-        if isinstance(loss_groupby, str):
-            loss_groupby = [loss_groupby]
-        if not callable(loss_groupby):
-            loss_groupby = [
-                _port_location if g == DataModel.LOCATION else g for g in loss_groupby
+        if isinstance(groupby, str):
+            groupby = [groupby]
+        if not callable(groupby):
+            groupby = [
+                _port_location if g == DataModel.LOCATION else g for g in groupby
             ]
 
         df = self._aggregate_components(
@@ -991,7 +990,7 @@ class ESMStatistics(StatisticsAccessor):
             components=components,
             agg=groupby_method,
             aggregate_across_components=aggregate_across_components,
-            groupby=loss_groupby,
+            groupby=groupby,
             at_port=[0, 1],
             carrier=carrier,
             bus_carrier=bus_carrier,
