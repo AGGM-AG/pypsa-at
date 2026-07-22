@@ -506,7 +506,7 @@ def simple_residual_load(
         raise ValueError("'fluctuating_carriers' must not be empty.")
 
     loss_carriers = set(transmission_carrier + storage_links)
-    withdrawal_comps = set(transmission_comps) | {"Link"}
+    withdrawal_comps = set(transmission_comps) | {"Link", "Load"}
     load_carriers = (
         set(
             collect_myopic_statistics(
@@ -515,65 +515,39 @@ def simple_residual_load(
                 bus_carrier=bus_carrier,
                 aggregate_time=True,
                 aggregate_components=None,
-            )
-            .pipe(
-                filter_by,
-                component=list(withdrawal_comps),
-            )
-            .index.unique("carrier")
+                components=list(withdrawal_comps),
+            ).index.unique("carrier")
         )
         - loss_carriers
     )
 
-    load = (
-        collect_myopic_statistics(
-            nc,
-            statistic="withdrawal",
-            bus_carrier=bus_carrier,
-            aggregate_time=False,
-            aggregate_components=None,
-        )
-        .pipe(filter_by, component=["Load"])
-        .droplevel([DM.COMPONENT])
+    load = collect_myopic_statistics(
+        nc,
+        statistic="withdrawal",
+        bus_carrier=bus_carrier,
+        aggregate_time=False,
+        components=list(withdrawal_comps),
+        carrier=list(load_carriers),
     )
 
-    link_withdrawal = (
-        collect_myopic_statistics(
-            nc,
-            statistic="withdrawal",
-            bus_carrier=bus_carrier,
-            aggregate_time=False,
-            aggregate_components=None,
-        )
-        .pipe(filter_by, component=list(withdrawal_comps), carrier=list(load_carriers))
-        .droplevel([DM.COMPONENT])
-    )
+    fluctuating_generation = collect_myopic_statistics(
+        nc,
+        statistic="supply",
+        bus_carrier=bus_carrier,
+        aggregate_time=False,
+        carrier=fluctuating_carriers,
+    ).mul(-1)
 
-    fluctuating_generation = (
-        collect_myopic_statistics(
-            nc,
-            statistic="supply",
-            bus_carrier=bus_carrier,
-            aggregate_time=False,
-            aggregate_components=None,
-        )
-        .pipe(filter_by, carrier=fluctuating_carriers)
-        .mul(-1)
-        .droplevel([DM.COMPONENT])
-    )
-
-    losses = (
-        collect_myopic_statistics(
-            nc, statistic="loss", bus_carrier="AC", aggregate_components=None
-        )
-        .pipe(
-            filter_by, component=list(transmission_comps), carrier=list(loss_carriers)
-        )
-        .droplevel([DM.COMPONENT])
+    losses = collect_myopic_statistics(
+        nc,
+        statistic="loss",
+        bus_carrier="AC",
+        components=list(transmission_comps),
+        carrier=list(loss_carriers),
     )
 
     exporter = Exporter(
-        statistics=[load, link_withdrawal, fluctuating_generation, losses],
+        statistics=[load, fluctuating_generation, losses],
         view_config=config["view"],
     )
     exporter.export(result_path, config["global"]["subdir"])
