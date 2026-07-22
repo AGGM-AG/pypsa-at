@@ -1205,8 +1205,8 @@ def to_duration_curve(df: pd.DataFrame) -> pd.DataFrame:
     (datetime) columns are replaced by the cumulative number of hours
     they represent, so that the result can be plotted as x=duration
     (hours), y=sorted value. Snapshots are assumed to be equidistant;
-    the duration of the last snapshot is inferred by wrapping around to
-    one year after the first snapshot.
+    the duration of the last snapshot is inferred by repeating the
+    (equidistant) spacing of the other snapshots.
 
     Parameters
     ----------
@@ -1225,13 +1225,10 @@ def to_duration_curve(df: pd.DataFrame) -> pd.DataFrame:
     ValueError
         If the datetime snapshots in the DataFrame are not equidistant
     """
-    timedelta_index = (
-        df.columns.append(pd.Index([df.columns[0] + pd.DateOffset(years=1)])).diff()[1:]
-        / pd.Timedelta(hours=1)
-    ).astype(int)
+    timedelta_index = (df.columns.diff()[1:] / pd.Timedelta(hours=1)).astype(int)
     if timedelta_index.nunique() > 1:
         raise ValueError("The datetime snapshots in the DataFrame are not equidistant")
-    columns = timedelta_index.values.cumsum()
+    columns = np.append(timedelta_index.values, timedelta_index.values[0]).cumsum()
     plot_df_out = pd.DataFrame(
         np.sort(df.to_numpy(), axis=1)[:, ::-1],
         index=df.index,
