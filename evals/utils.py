@@ -1218,17 +1218,19 @@ def to_duration_curve(df: pd.DataFrame) -> pd.DataFrame:
         DataFrame with the same index as ``df``, values sorted in
         descending order per row, and cumulative duration (in hours)
         as columns.
+
+    Raises
+    ------
+    ValueError
+        If the datetime snapshots in the DataFrame are not equidistant
     """
-    columns = (
-        (
-            df.columns.append(
-                pd.Index([df.columns[0] + pd.DateOffset(years=1)])
-            ).diff()[1:]
-            / pd.Timedelta(hours=1)
-        )
-        .astype(int)
-        .values
-    ).cumsum()
+    timedelta_index = (
+        df.columns.append(pd.Index([df.columns[0] + pd.DateOffset(years=1)])).diff()[1:]
+        / pd.Timedelta(hours=1)
+    ).astype(int)
+    if timedelta_index.nunique() > 1:
+        raise ValueError("The datetime snapshots in the DataFrame are not equidistant")
+    columns = timedelta_index.values.cumsum()
     plot_df_out = pd.DataFrame(
         np.sort(df.to_numpy(), axis=1)[:, ::-1],
         index=df.index,
