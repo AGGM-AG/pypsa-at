@@ -41,7 +41,7 @@ nc = read_networks("results/my_scenario")
 ```
 
 [`read_networks`][evals.fileio.read_networks] also patches each network with
-[`ESMStatistics`][evals.statistic.ESMStatistics] so that `n.statistics.<method>()` is available
+[`ESMStatistics`][evals.stats.ESMStatistics] so that `n.statistics.<method>()` is available
 on every loaded network.
 
 ### Views — `evals.views`
@@ -163,7 +163,7 @@ between them is always safe.
     # evals/views/myviews.py
     from pathlib import Path
     from pypsa import NetworkCollection
-    from evals.statistic import collect_myopic_statistics
+    from evals.stats import collect_myopic_statistics
     from evals.fileio import Exporter, read_views_config
 
     def view_my_metric(result_path: Path, nc: NetworkCollection, config: dict) -> None:
@@ -254,7 +254,7 @@ DE        onwind          AC            20 300 000.0
 dtype: float64
 ```
 
-**Step 5 — Year prefix** (added by [`collect_myopic_statistics`][evals.statistic.collect_myopic_statistics]).
+**Step 5 — Year prefix** (added by [`collect_myopic_statistics`][evals.stats.collect_myopic_statistics]).
 When iterating over multiple planning years, a `year` level is prepended as the outermost index:
 
 ```
@@ -350,9 +350,9 @@ The evals module registers three additional named groupers at import time:
 
 | Name | Type | Function | Description |
 |------|------|----------|-------------|
-| `location` | `str` | [`get_location`][evals.statistic.get_location] | Maps bus → region; for branch components, prefers the non-EU endpoint |
-| `bus0` | `str` | [`get_location_from_name_at_port`][evals.statistic.get_location_from_name_at_port] (port 0) | Extracts the location from the bus0 name string |
-| `bus1` | `str` | [`get_location_from_name_at_port`][evals.statistic.get_location_from_name_at_port] (port 1) | Extracts the location from the bus1 name string |
+| `location` | `str` | [`get_location`][evals.fileio.get_location] | Maps bus → region; for branch components, prefers the non-EU endpoint |
+| `bus0` | `str` | [`get_location_from_name_at_port`][evals.fileio.get_location_from_name_at_port] (port 0) | Extracts the location from the bus0 name string |
+| `bus1` | `str` | [`get_location_from_name_at_port`][evals.fileio.get_location_from_name_at_port] (port 1) | Extracts the location from the bus1 name string |
 
 These names can be used directly in the `groupby` list:
 
@@ -362,12 +362,12 @@ n.statistics.transmission(groupby=["bus0", "bus1", "carrier"])
 
 ### `collect_myopic_statistics`
 
-[`collect_myopic_statistics`][evals.statistic.collect_myopic_statistics] is the primary entry
+[`collect_myopic_statistics`][evals.stats.collect_myopic_statistics] is the primary entry
 point used inside view functions. It handles the multi-year iteration and ensures a consistent
 index structure across all statistics:
 
 ```python
-from evals.statistic import collect_myopic_statistics
+from evals.stats import collect_myopic_statistics
 
 stat = collect_myopic_statistics(
     nc,
@@ -409,13 +409,13 @@ These methods are available on every `n.statistics` accessor (provided by `Stati
 | `market_value` | currency/MWh | Revenue per unit of energy; indicates how well a technology captures peak prices. |
 | `prices` | currency/MWh | Average marginal price per bus (dual variable of the nodal balance constraint), weighted by supply. |
 
-In addition, [`ESMStatistics`][evals.statistic.ESMStatistics] (the subclass registered by evals)
+In addition, [`ESMStatistics`][evals.stats.ESMStatistics] (the subclass registered by evals)
 provides:
 
 | Method | Unit | Description |
 |--------|------|-------------|
-| [`trade_energy`][evals.statistic.ESMStatistics.trade_energy] | MWh | Energy exchanged between locations. Scope can be `"foreign"` (cross-country), `"domestic"` (same country, different regions), or `"local"` (same location, different carrier). Positive = import, negative = export. |
-| [`trade_capacity`][evals.statistic.ESMStatistics.trade_capacity] | MW | Transmission capacity between locations for the given scope and bus carrier. |
+| [`trade_energy`][evals.stats.ESMStatistics.trade_energy] | MWh | Energy exchanged between locations. Scope can be `"foreign"` (cross-country), `"domestic"` (same country, different regions), or `"local"` (same location, different carrier). Positive = import, negative = export. |
+| [`trade_capacity`][evals.stats.ESMStatistics.trade_capacity] | MW | Transmission capacity between locations for the given scope and bus carrier. |
 
 ---
 
@@ -425,7 +425,7 @@ provides:
 
 ```python
 from evals.fileio import read_networks
-from evals.statistic import collect_myopic_statistics
+from evals.stats import collect_myopic_statistics
 
 nc = read_networks("results/my_scenario")
 
