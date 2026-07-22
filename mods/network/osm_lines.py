@@ -24,8 +24,9 @@ R4    keep            documented feed of a region without a >=220 kV
 R5    drop            any remaining sub-220 kV line crossing a region border
 ===== =============== ======================================================
 
-Railway traction (R0) and cross-border sub-220 kV lines (R1) are removed
-earlier, when the archive itself is built (``build_osm_network_at``); this
+Railway traction (R0) and cross-border sub-220 kV lines (R1, except
+TSO-operated interconnectors) are removed earlier, when the archive itself is
+built (``build_osm_network_at``); this
 module assumes an archive version >= ``0.3-at`` that carries the recovered
 ``operator_clean`` column and raises if it is absent.
 
