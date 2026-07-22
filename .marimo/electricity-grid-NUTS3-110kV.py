@@ -145,7 +145,8 @@ def _(mo):
     | # | Rule | Effect |
     |---|------|--------|
     | R0 | `TRACTION` — 16.7 Hz railway line, or ÖBB without an explicit 50 Hz tag | inactive |
-    | R1 | `CROSS_BORDER_LV` — sub-220 kV line with exactly one AT endpoint, unless TSO-operated | inactive |
+    | R1 | `CROSS_BORDER_LV` — sub-220 kV line with exactly one AT endpoint, unless TSO-operated (archive rule) | inactive |
+    | R1b | `CROSS_BORDER_TSO` — TSO-operated cross-border line, excluded from the model until validated | inactive |
     | R2 | `TRANSMISSION` — voltage ≥ 220 kV | active |
     | R2b | `APG_TSO` — operated by Austrian Power Grid at any voltage | active |
     | R3 | `INTRA_REGION` — 110 kV, both endpoints in the same NUTS3 region | active |
@@ -304,17 +305,21 @@ def _(
                 "traction network is galvanically separate from the 50 Hz public "
                 "grid and must not carry power in this model.",
             )
-        if (
-            is_cross_border.get(line_id, False)
-            and not is_transmission[line_id]
-            and not is_apg.get(line_id, False)
-        ):
+        if is_cross_border.get(line_id, False) and not is_transmission[line_id]:
+            if is_apg.get(line_id, False):
+                return (
+                    False,
+                    "R1b CROSS_BORDER_TSO",
+                    f"TSO-operated cross-border line at {kv:.0f} kV. Kept in the "
+                    "archive, but excluded from the model until the sub-220 kV "
+                    "cross-border exchange is validated.",
+                )
             return (
                 False,
                 "R1 CROSS_BORDER_LV",
                 f"Cross-border line at {kv:.0f} kV. The AT 110 kV level is not "
                 "validated against foreign grids, so sub-220 kV interconnectors "
-                "are excluded — unless TSO-operated (see R2b).",
+                "are excluded.",
             )
         if is_transmission[line_id]:
             return (

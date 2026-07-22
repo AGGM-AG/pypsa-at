@@ -16,8 +16,10 @@ Rules, evaluated in order with the first match winning:
 ===== =============== ======================================================
 rule  effect          condition
 ===== =============== ======================================================
+R1b   drop            TSO-operated cross-border line (kept in the archive,
+                      excluded from the model until validated)
 R2    keep            transmission level (voltage >= 220 kV)
-R2b   keep            operated by the TSO (APG), any voltage
+R2b   keep            operated by the TSO (APG), any voltage, domestic
 R3    keep            both endpoints in the same NUTS3 region
 R4    keep            documented feed of a region without a >=220 kV
                       substation (``data/pypsa-at/electricity_network_overrides.csv``)
@@ -295,13 +297,23 @@ def filter_inter_regional_lines(
     feeds = designate_feeds(overrides, feedless, candidates, regions0, regions1)
     is_feed = lines.index.isin(feeds)
 
+    # TSO-operated cross-border lines stay in the archive but are excluded
+    # from the model until the cross-border 110 kV exchange is validated.
+    is_tso_cross_border = (
+        ~is_transmission & is_tso & (regions0.isna() | regions1.isna())
+    )
+
     rule = pd.Series("R5 INTER_REGION", index=lines.index)
     rule[is_feed] = "R4 SOLE_FEED"
     rule[is_intra] = "R3 INTRA_REGION"
     rule[is_tso] = "R2b APG_TSO"
     rule[is_transmission] = "R2 TRANSMISSION"
+    rule[is_tso_cross_border] = "R1b CROSS_BORDER_TSO"
 
     reason = {
+        "R1b CROSS_BORDER_TSO": "TSO-operated cross-border line; kept in the "
+        "archive but excluded from the model until the sub-220 kV cross-border "
+        "exchange is validated.",
         "R2 TRANSMISSION": "Transmission level (>= 220 kV).",
         "R2b APG_TSO": "Operated by the TSO (APG); part of the transmission system.",
         "R3 INTRA_REGION": "Both endpoints in the same NUTS3 region; no transit.",
@@ -317,7 +329,7 @@ def filter_inter_regional_lines(
             "operator_clean": lines["operator_clean"],
             "rule": rule,
             "reason": rule.map(reason),
-            "active": rule != "R5 INTER_REGION",
+            "active": ~rule.isin(["R5 INTER_REGION", "R1b CROSS_BORDER_TSO"]),
         }
     )
 

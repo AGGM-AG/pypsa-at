@@ -14,7 +14,9 @@ agreement at both the 220 kV and 380 kV levels
 
 The pre-processed AT-specific OSM dataset is published on Zenodo:
 
-> **Zenodo record 19235142** — [https://zenodo.org/records/19235142](https://zenodo.org/records/19235142)
+> **Zenodo record 21487248** — [https://zenodo.org/records/21487248](https://zenodo.org/records/21487248)
+>
+> DOI: [10.5281/zenodo.21487248](https://doi.org/10.5281/zenodo.21487248)
 
 This archive is the default data source when `data.osm.source: archive` is set
 in the config. It is fetched automatically by the `retrieve_osm_archive` rule:
@@ -23,7 +25,7 @@ in the config. It is fetched automatically by the `retrieve_osm_archive` rule:
 data:
   osm:
     source: archive
-    version: 0.2-at
+    version: 0.3-at
 ```
 
 The archive was produced by applying the same processing steps described in this
@@ -79,13 +81,14 @@ first match wins**, so every line carries exactly one reason.
 |-----|-------------------|-------------------------------------------------------------|------------|
 | R0  | `TRACTION`        | 16.7 Hz, or ÖBB-operated without an explicit 50 Hz tag       | **drop**   |
 | R1  | `CROSS_BORDER_LV` | below 220 kV with exactly one endpoint in Austria, unless TSO-operated | **drop** |
+| R1b | `CROSS_BORDER_TSO` | TSO-operated cross-border line, pending validation | **drop** |
 | R2  | `TRANSMISSION`    | 220 kV and above                                             | **keep**   |
 | R2b | `APG_TSO`         | operated by Austrian Power Grid, at any voltage              | **keep**   |
 | R3  | `INTRA_REGION`    | both endpoints in the same NUTS3 region                      | **keep**   |
 | R4  | `SOLE_FEED`       | documented feed of a region without a ≥220 kV substation     | **keep**   |
 | R5  | `INTER_REGION`    | any remaining 110 kV line crossing a NUTS3 boundary          | **drop**   |
 
-Applied to `osm-at v0.3`, this keeps 688 of 763 Austrian lines.
+Applied to `osm-at v0.3`, this keeps 684 of 763 Austrian lines.
 
 ### Railway traction (R0)
 
@@ -110,9 +113,12 @@ inflate Austria's cross-border exchange capacity with capacity that cannot be
 scheduled. Cross-border lines at 220 kV and above are genuine interconnectors
 and are always kept.
 
-TSO-operated lines are exempt: an APG-operated 110 kV interconnector is
-scheduled transmission infrastructure, not a distribution tie, so it stays in
-the dataset (four such lines in `v0.3`, all towards Germany).
+TSO-operated lines are exempt from the archive rule: an APG-operated 110 kV
+interconnector is scheduled transmission infrastructure, not a distribution
+tie, so it stays in the dataset (four such lines in `v0.3`, all towards
+Germany). The model layer nonetheless excludes them for now (rule R1b), until
+the sub-220 kV cross-border exchange is validated — keeping them in the
+archive is what makes that decision revisable without republishing.
 
 This rule is applied when the archive is built, so a line matching it never
 appears in the published dataset.
@@ -161,7 +167,7 @@ development plans.
 | Rule       | Applied in                                                     |
 |------------|----------------------------------------------------------------|
 | R0, R1     | `build_osm_network_at`, when the archive is built               |
-| R2 – R5    | `filter_osm_lines_at`, on the retrieved archive before `base_network` |
+| R1b, R2 – R5 | `filter_osm_lines_at`, on the retrieved archive before `base_network` |
 
 Rules R0 and R1 remove lines from the dataset itself, so the published archive
 already excludes traction and cross-border low-voltage lines. The regional

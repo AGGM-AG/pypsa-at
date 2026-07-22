@@ -251,18 +251,22 @@ class TestFilterInterRegionalLines:
             filter_inter_regional_lines(lines, buses, nuts3_shapes, overrides_empty)
 
 
-def test_tso_cross_border_line_is_kept_despite_missing_region(
+def test_tso_cross_border_line_is_dropped_from_the_model(
     buses, nuts3_shapes, overrides_empty
 ):
     """
-    An APG-operated 110 kV cross-border line survives the corridor filter.
+    An APG-operated 110 kV cross-border line is excluded from the model.
 
-    Its foreign endpoint has no NUTS3 region, which must neither drop the line
-    nor trigger the unassigned-endpoint guard.
+    The archive keeps such lines (they are TSO infrastructure), but the model
+    layer drops them until the sub-220 kV cross-border exchange is validated.
+    Their foreign endpoint has no NUTS3 region, which must not trigger the
+    unassigned-endpoint guard.
     """
     lines = make_lines(
         [
             ("l_xb_apg", "b_r1_a", "b_foreign", 110.0, 2, 15_000.0, "APG"),
+            # domestic cross-regional APG line: still kept via R2b
+            ("l_apg_dom", "b_r1_a", "b_r2_a", 110.0, 2, 40_000.0, "APG"),
             ("l_hv", "b_r1_a", "b_r2_hv", 380.0, 2, 50_000.0, None),
         ]
     )
@@ -271,5 +275,7 @@ def test_tso_cross_border_line_is_kept_despite_missing_region(
         lines, buses, nuts3_shapes, overrides_empty
     )
 
-    assert report.loc["l_xb_apg", "rule"] == "R2b APG_TSO"
-    assert "l_xb_apg" in kept.index
+    assert report.loc["l_xb_apg", "rule"] == "R1b CROSS_BORDER_TSO"
+    assert not report.loc["l_xb_apg", "active"]
+    assert report.loc["l_apg_dom", "rule"] == "R2b APG_TSO"
+    assert set(kept.index) == {"l_apg_dom", "l_hv"}
