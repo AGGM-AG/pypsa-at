@@ -188,6 +188,7 @@ def test_drop_cross_border_lines_lv_removes_only_low_voltage_crossings():
             "bus0": ["at0", "at0", "at0"],
             "bus1": ["at1", "de0", "de0"],
             "voltage": [110.0, 110.0, 380.0],
+            "operator_clean": [None, None, None],
         },
         index=["domestic", "crossing_lv", "crossing_hv"],
     )
@@ -195,6 +196,52 @@ def test_drop_cross_border_lines_lv_removes_only_low_voltage_crossings():
     out = drop_cross_border_lines_lv(lines, buses, max_voltage=220.0)
 
     assert out.index.tolist() == ["domestic", "crossing_hv"]
+
+
+def test_drop_cross_border_lines_lv_keeps_tso_operated_crossings():
+    """APG-operated 110 kV interconnectors are transmission, not DSO ties."""
+    buses = pd.DataFrame({"country": ["AT", "DE", "DE"]}, index=["at0", "de0", "de1"])
+    lines = pd.DataFrame(
+        {
+            "bus0": ["at0", "at0"],
+            "bus1": ["de0", "de1"],
+            "voltage": [110.0, 110.0],
+            "operator_clean": ["APG", "Netz OÖ"],
+        },
+        index=["crossing_apg", "crossing_dso"],
+    )
+
+    out = drop_cross_border_lines_lv(lines, buses, max_voltage=220.0)
+
+    assert out.index.tolist() == ["crossing_apg"]
+
+
+def test_drop_cross_border_lines_lv_tso_match_is_word_bound():
+    """Only the canonical APG alias counts, not substrings of other names."""
+    buses = pd.DataFrame({"country": ["AT", "DE"]}, index=["at0", "de0"])
+    lines = pd.DataFrame(
+        {
+            "bus0": ["at0", "at0"],
+            "bus1": ["de0", "de0"],
+            "voltage": [110.0, 110.0],
+            "operator_clean": ["APG | Netz NÖ", "GAPGRID"],
+        },
+        index=["crossing_apg_joined", "crossing_other"],
+    )
+
+    out = drop_cross_border_lines_lv(lines, buses, max_voltage=220.0)
+
+    assert out.index.tolist() == ["crossing_apg_joined"]
+
+
+def test_drop_cross_border_lines_lv_requires_operator_column():
+    buses = pd.DataFrame({"country": ["AT"]}, index=["at0"])
+    lines = pd.DataFrame(
+        {"bus0": ["at0"], "bus1": ["at0"], "voltage": [110.0]}, index=["l1"]
+    )
+
+    with pytest.raises(ValueError, match="operator_clean"):
+        drop_cross_border_lines_lv(lines, buses, max_voltage=220.0)
 
 
 @pytest.mark.parametrize(
