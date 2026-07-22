@@ -78,14 +78,14 @@ first match wins**, so every line carries exactly one reason.
 | #   | Rule              | Condition                                                   | Result     |
 |-----|-------------------|-------------------------------------------------------------|------------|
 | R0  | `TRACTION`        | 16.7 Hz, or ÖBB-operated without an explicit 50 Hz tag       | **drop**   |
-| R1  | `CROSS_BORDER_LV` | below 220 kV with exactly one endpoint in Austria            | **drop**   |
+| R1  | `CROSS_BORDER_LV` | below 220 kV with exactly one endpoint in Austria, unless TSO-operated | **drop** |
 | R2  | `TRANSMISSION`    | 220 kV and above                                             | **keep**   |
 | R2b | `APG_TSO`         | operated by Austrian Power Grid, at any voltage              | **keep**   |
 | R3  | `INTRA_REGION`    | both endpoints in the same NUTS3 region                      | **keep**   |
 | R4  | `SOLE_FEED`       | documented feed of a region without a ≥220 kV substation     | **keep**   |
 | R5  | `INTER_REGION`    | any remaining 110 kV line crossing a NUTS3 boundary          | **drop**   |
 
-Applied to `osm-at v0.2`, this keeps 682 of 849 Austrian lines.
+Applied to `osm-at v0.3`, this keeps 688 of 763 Austrian lines.
 
 ### Railway traction (R0)
 
@@ -94,8 +94,8 @@ grid. Its lines cannot exchange power with the 50 Hz system and do not belong in
 the model at all. They are nonetheless present in the source data, because the
 upstream OSM cleaning overwrites the frequency tag with `50` and thereby
 relabels traction as ordinary AC. PyPSA-AT therefore recovers the original
-frequency tag from the raw OSM data and drops the affected lines — 92 in
-`v0.2`, mostly ÖBB-Infrastruktur.
+frequency tag from the raw OSM data and drops the affected lines — 93 in
+`v0.3`, mostly ÖBB-Infrastruktur.
 
 One exception matters: ÖBB also owns a small number of genuine 50 Hz lines that
 feed its converter stations from the public grid. An explicit 50 Hz tag
@@ -109,6 +109,10 @@ from a power plant to a substation across the border. Keeping them would
 inflate Austria's cross-border exchange capacity with capacity that cannot be
 scheduled. Cross-border lines at 220 kV and above are genuine interconnectors
 and are always kept.
+
+TSO-operated lines are exempt: an APG-operated 110 kV interconnector is
+scheduled transmission infrastructure, not a distribution tie, so it stays in
+the dataset (four such lines in `v0.3`, all towards Germany).
 
 This rule is applied when the archive is built, so a line matching it never
 appears in the published dataset.
@@ -154,15 +158,19 @@ development plans.
 
 ### Where the rules are applied
 
-| Rule       | Applied in                                          |
-|------------|-----------------------------------------------------|
-| R0, R1     | `build_osm_network_at`, when the archive is built    |
-| R2 – R5    | model layer, on the dataset as published             |
+| Rule       | Applied in                                                     |
+|------------|----------------------------------------------------------------|
+| R0, R1     | `build_osm_network_at`, when the archive is built               |
+| R2 – R5    | `filter_osm_lines_at`, on the retrieved archive before `base_network` |
 
 Rules R0 and R1 remove lines from the dataset itself, so the published archive
-already excludes traction and cross-border low-voltage lines. The regional rules
-are modelling decisions and are applied downstream, which means they can be
-revised without republishing the archive.
+already excludes traction and cross-border low-voltage lines. The regional
+rules are modelling decisions applied by `mods.filter_inter_regional_lines`
+each time the network is built, which means they can be revised without
+republishing the archive. The documented region feeds live in
+`data/pypsa-at/electricity_network_overrides.csv` — the same file the notebook
+renders — and a per-line report of every decision is written to
+`resources/osm/model/line_rules.csv`.
 
 ### Implementation
 
