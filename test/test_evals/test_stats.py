@@ -1,7 +1,7 @@
 import pypsa
 import pytest
 
-from evals.statistic import ESMStatistics
+from evals.stats import ESMStatistics
 
 
 @pytest.fixture
