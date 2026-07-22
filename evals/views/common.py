@@ -10,7 +10,7 @@ from pypsa import NetworkCollection
 from evals.constants import BusCarrier, DataModel, Group, TradeTypes
 from evals.constants import DataModel as DM
 from evals.fileio import Exporter
-from evals.statistic import collect_myopic_statistics
+from evals.stats import collect_myopic_statistics
 from evals.utils import (
     calculate_input_share,
     drop_from_multtindex_by_regex,
@@ -65,7 +65,7 @@ def simple_bus_balance(
 
     supply = collect_myopic_statistics(
         nc,
-        statistic="supply",
+        "supply",
         bus_carrier=bus_carrier,
         aggregate_components=None,
         allow_missing=allow_missing,
@@ -92,7 +92,7 @@ def simple_bus_balance(
     demand = (
         collect_myopic_statistics(
             nc,
-            statistic="withdrawal",
+            "withdrawal",
             bus_carrier=bus_carrier,
             aggregate_components=None,
             allow_missing=allow_missing,
@@ -139,7 +139,7 @@ def simple_bus_balance(
     ]:
         trade = collect_myopic_statistics(
             nc,
-            statistic="trade_energy",
+            "trade_energy",
             scope=scope,
             direction=direction,
             bus_carrier=bus_carrier,
@@ -211,7 +211,7 @@ def simple_timeseries(
     supply = (
         collect_myopic_statistics(
             nc,
-            statistic="supply",
+            "supply",
             bus_carrier=bus_carrier,
             aggregate_time=False,
             aggregate_components=None,
@@ -243,7 +243,7 @@ def simple_timeseries(
     demand = (
         collect_myopic_statistics(
             nc,
-            statistic="withdrawal",
+            "withdrawal",
             bus_carrier=bus_carrier,
             aggregate_time=False,
             aggregate_components=None,
@@ -302,7 +302,7 @@ def simple_timeseries(
     trade_saldo = (
         collect_myopic_statistics(
             nc,
-            statistic="trade_energy",
+            "trade_energy",
             scope=(TradeTypes.FOREIGN, TradeTypes.DOMESTIC),
             direction="saldo",
             bus_carrier=bus_carrier,
@@ -367,7 +367,7 @@ def simple_optimal_capacity(
     optimal_capacity = (
         collect_myopic_statistics(
             nc,
-            statistic="optimal_capacity",
+            "optimal_capacity",
             bus_carrier=bus_carrier,
             aggregate_components=None,
         )
@@ -456,7 +456,7 @@ def simple_storage_capacity(
 
     stores = collect_myopic_statistics(
         nc,
-        statistic="optimal_capacity",
+        "optimal_capacity",
         bus_carrier=bus_carrier,
         storage=True,
     ).pipe(filter_by, carrier=storage_carrier)
@@ -553,7 +553,7 @@ def get_energy_for_heat_production(
     energy carriers that directly contribute to heat production.
     """
     energy_balance = (
-        collect_myopic_statistics(nc, comps="Link", statistic="energy_balance")
+        collect_myopic_statistics(nc, "energy_balance", comps="Link")
         .drop(["co2", "co2 stored"], level=DataModel.BUS_CARRIER)
         .pipe(drop_from_multtindex_by_regex, drop_regex)
         .pipe(filter_for_carrier_connected_to, BusCarrier.heat_buses())

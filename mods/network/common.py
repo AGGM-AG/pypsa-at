@@ -21,7 +21,7 @@ from mods.network.h2 import (
     add_h2_imports,
     add_methane_pyrolysis_plasma,
 )
-from mods.network.hydro import add_phs, patch_inflows
+from mods.network.hydro import process_hydro
 from mods.network.potentials import apply_klien_potential_limits
 from mods.network.trajectories import apply_pemmdb_trajectories
 
@@ -52,8 +52,7 @@ def prepare_sector_network(n, snakemake, nodes, costs, spatial):
     """
     add_h2_for_industry_bus(n, nodes)
     add_methane_pyrolysis_plasma(n, snakemake, costs, nodes, spatial)
-    add_phs(n, snakemake, costs)
-    patch_inflows(n, snakemake)
+    process_hydro(n, snakemake, costs)
 
 
 def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
@@ -158,6 +157,10 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
     # For 120H runs IT1 always has negative electricity Loads
     if resolution == 120:
         _clip_electricity("IT1")
+
+    if resolution == 3:
+        for loc in ("AL", "AT111", "AT112", "AT126", "IT1", "IT2"):
+            _clip_electricity(loc)
 
     # Edge case: runs contain negative H2 for industry Loads until including 2030
     if investment_year <= 2030:

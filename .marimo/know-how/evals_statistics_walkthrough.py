@@ -111,8 +111,8 @@ def _(mo):
 @app.cell
 def _(bus_carrier, config, nc):
     import pandas as pd
-
     from evals.statistic import collect_myopic_statistics
+
     from evals.utils import (
         filter_by,
         get_storage_carriers,

@@ -124,3 +124,16 @@ TYNDP_TO_PYPSA_LOCATION_TRANSMISSION: dict[str, str | None] = (
 # for key countries use trajectories from values country
 # because some countries do not exist in Open-TYNDP data
 PROXIES = {"XK": "RS"}
+HYDRO_CARRIER_MAPPING = {
+    "Run of River - MW": ("ror", "Generator-p_nom", "max"),
+    "Pondage - MW": ("ror", "Generator-p_nom", "max"),
+    "Pondage - GWh": ("ror", None, None),
+    "Reservoir - MW": ("hydro discharger", "Link-p_nom", "max"),
+    "Reservoir - GWh": ("hydro store", "Store-e_nom", "max"),
+    "PS Open (turbine) - MW": ("PHS discharger", "Link-p_nom", "max"),
+    "PS Open (pump) - MW": ("PHS charger", "Link-p_nom", "max"),
+    "PS Open - GWh": ("PHS store", "Store-e_nom", "max"),
+    "PS Closed (turbine) - MW": ("PHS discharger", "Link-p_nom", "max"),
+    "PS Closed (pump) - MW": ("PHS charger", "Link-p_nom", "max"),
+    "PS Closed - GWh": ("PHS store", "Store-e_nom", "max"),
+}

@@ -15,6 +15,9 @@ import xarray as xr
 from pypsa import Network
 from snakemake.script import Snakemake
 
+from scripts._helpers import load_costs
+from scripts.add_electricity import load_and_aggregate_powerplants
+
 logger = logging.getLogger(__name__)
 
 __all__ = ["get_tyndp_location", "get_relevant_links_and_lines"]
@@ -247,11 +250,19 @@ def attach_resources_to_network_meta(n: Network, snakemake: Snakemake) -> None:
         "co2_totals": lambda path: pd.read_csv(path, index_col=0).to_dict(
             orient="tight"
         ),
+        "aggm_gas_pipeline_data": lambda path: pd.read_csv(path, index_col=0).to_dict(),
         "inflow_data": lambda path: (
             xr.open_dataarray(path)
             .assign_coords(time=lambda ds: pd.to_datetime(ds.time.values).astype(str))
             .to_dict()
         ),
+        "powerplants": lambda path: load_and_aggregate_powerplants(
+            path,
+            load_costs(snakemake.input.costs),
+            snakemake.params.consider_efficiency_classes,
+            snakemake.params.aggregation_strategies,
+            snakemake.params.exclude_carriers,
+        ).to_dict(),
     }
     suffix_readers = {
         ".nc": lambda path: xr.open_dataarray(path).to_dict(),

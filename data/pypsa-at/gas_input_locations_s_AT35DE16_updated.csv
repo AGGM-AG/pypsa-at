@@ -1,10 +1,10 @@
 Region,lng (MWh/h),pipeline (MWh/h),production (MWh/h),storage (GWh),storage update (GWh),storage update source,storage update url
 AT125,,,,4696.071261,0,AGGM,
 AT126,,,1785.956709,29422.4,26770.98,OMV (Schönkirchen + Tallesbrunn combined),https://ocb-st.omv.com/ocb/app/
-AT311,,,,9392.142521,35984,RAG (Aigelsbrunn+Haidach5; Haidach RAG); SEFE (Haidach SEFE),https://www.rag-austria.at/rag-energiewelt/energie-speichern/leistungskennzahlen-der-speicher
+AT311,,,,9392.142521,0,AGGM,
 AT312,,,,4696.071261,0,AGGM,
 AT314,,,,4696.071261,0,AGGM,
-AT315,,,,6202.56,37500,RAG (Puchkirchen; Nussdorf Zagling); UNIPER (7 Fields EGS),https://www.rag-austria.at/rag-energiewelt/energie-speichern/leistungskennzahlen-der-speicher
+AT315,,,,6202.56,73484,RAG (Puchkirchen; Nussdorf Zagling; Aigelsbrunn+Haidach5; Haidach RAG); SEFE (Haidach SEFE); UNIPER (7 Fields EGS),https://www.rag-austria.at/rag-energiewelt/energie-speichern/leistungskennzahlen-der-speicher
 AT323,,,,28176.42756,0,AGGM,
 BE,20780.2224,18782.82855,,545.28,7610,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/
 BG,,17204.76303,,5680,7004.4,Gas Infrastructure Europe - AGSI,https://agsi.gie.eu/

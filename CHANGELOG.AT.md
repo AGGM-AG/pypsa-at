@@ -35,7 +35,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Limit cross-country electricity flows by NTCs (TYNDP) ([#112](https://github.com/AGGM-AG/pypsa-at/pull/112))
 - Added H2 imports from countries that are not in the model based on tyndp data ([#126](https://github.com/AGGM-AG/pypsa-at/pull/126))
 - Added Know-How document for hydro power ([#135](https://github.com/AGGM-AG/pypsa-at/pull/135))
+- Added trajectories for hydro power components ([#147](https://github.com/AGGM-AG/pypsa-at/pull/147))
 - Added file list configuration for custom cost files ([#148](https://github.com/AGGM-AG/pypsa-at/pull/148))
+- Added files for biogas-to-power plants from Austrian Anlagenregister ([#157](https://github.com/AGGM-AG/pypsa-at/pull/157/)) 
+- Added `AT-Postal-to-NUTS3` file to map Austrian Postleitzahls to NUTS3 region ([#157](https://github.com/AGGM-AG/pypsa-at/pull/157/)) 
 
 ### Changed
 - Blocked imports of Russian methane via Ukraine and TurkStream ([#129](https://github.com/AGGM-AG/pypsa-at/pull/129))
@@ -44,8 +47,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Updated README features section and restructured CHANGELOG to Keep a Changelog format ([#124](https://github.com/AGGM-AG/pypsa-at/pull/124))
 - Updated PHS modeling by exchanging StorageUnits with 2x Links + Bus + Store + Generator ([#131](https://github.com/AGGM-AG/pypsa-at/pull/131))
 - Changed Inflow data source to PEMMDB data with ERA5 profiles ([#146](https://github.com/AGGM-AG/pypsa-at/pull/146))
+- Added Austrian biogas-to-power plants from Anlagenregister as brownfield capacities ([#157](https://github.com/AGGM-AG/pypsa-at/pull/157/)) 
 
 ### Fixed
 - Fixed double subtraction of brownfield capacities in `modify_prenetwork` and `solve_network` and added a new test for this case. ([#101](https://github.com/AGGM-AG/pypsa-at/pull/101))
 - Fixed bidirectional links of gaseous energy carriers via config.at.yaml. Will be in an upstream merge to PyPSA-Eur to fix there. ([#105](https://github.com/AGGM-AG/pypsa-at/pull/105))
 - Fixed issues with wrong bus matching for h2 imports ([#134](https://github.com/AGGM-AG/pypsa-at/pull/134))
+- Fixed tests for integration of brownfield gas pipeline data ([#159](https://github.com/AGGM-AG/pypsa-at/pull/159))

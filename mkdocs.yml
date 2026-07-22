@@ -22,6 +22,7 @@ nav:
       - co2_budget.py: reference/mods/constraints/co2_budget.md
       - eag.py: reference/mods/constraints/eag.md
       - tyndp.py: reference/mods/constraints/tyndp.md
+      - trajectories.py: reference/mods/constraints/trajectories.md
     - Network:
       - reference/mods/network/index.md
       - common.py: reference/mods/network/common.md
@@ -70,12 +71,15 @@ nav:
   - Brownfield:
     - Open-TYNDP Trajectories: explanations/brownfield/open-tyndp.md
     - Gas Storage Capacities: explanations/brownfield/gas-storage-capacities.md
+    - Austrian Biogas-to-Power Plants: explanations/brownfield/biogas-power-plants-AT.md
   - Renewable Energy Potentials:
     - KLIEN Potentials: explanations/renewable-energy-potentials/klien-potentials.md
     - Photovoltaic Potentials: explanations/renewable-energy-potentials/pv-potentials.md
     - Wind Power Potentials: explanations/renewable-energy-potentials/wind-potentials.md
   - Hydroelectric Resources:
     - Inflow Calculation and Application: explanations/hydro-inflow.md
+    - Hydro Capacity Trajectories: explanations/hydro-capacity-trajectories.md
+  - Generic Capacity Trajectories: explanations/capacity-trajectories.md
   - Regulatory Requirements:
     - explanations/regulatory-requirements/index.md
     - EAG Net-Zero Electricity: explanations/regulatory-requirements/eag-net-zero-electricity.md
