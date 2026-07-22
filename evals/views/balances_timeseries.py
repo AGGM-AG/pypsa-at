@@ -204,4 +204,4 @@ def view_residual_load_duration_curve(
         storage_links, chart type, and export parameters.
 
     """
-    simple_residual_load(nc, config, result_path)
+    simple_residual_load(nc, config, result_path, as_duration_curve=True)
