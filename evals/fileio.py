@@ -414,7 +414,8 @@ class Exporter:
             df_plot = to_duration_curve(df_plot)
 
         # needed for upload API data bundle ingestion
-        self.write_run_json(output_path, self.view_config["meta"])
+        # Disabled because DB upload not supported
+        # self.write_run_json(output_path, self.view_config["meta"])
 
         for idx, data in df_plot.groupby(cfg.plotby):
             chart = cfg.chart(data, cfg)
