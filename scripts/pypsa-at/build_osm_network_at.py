@@ -108,19 +108,23 @@ def drop_cross_border_lines_lv(
     max_voltage: float = 220.0,
 ) -> pd.DataFrame:
     """
-    Remove cross-border lines with voltage < *max_voltage* kV.
+    Remove cross-border lines with voltage < max_voltage kV.
 
     A line is considered cross-border when exactly one of its endpoints
-    (``bus0`` / ``bus1``) belongs to Austria.
+    (``bus0`` / ``bus1``) belongs to Austria. Lines operated by the TSO are
+    exempt: an APG-operated 110 kV interconnector is scheduled transmission
+    infrastructure, unlike the DSO distribution ties and generation tie-lines
+    this filter targets. The exemption requires the recovered
+    ``operator_clean`` column, so operators must be resolved first.
 
     Parameters
     ----------
-    lines:
+    lines
         Lines DataFrame (index = ``line_id``) with columns ``bus0``, ``bus1``,
-        ``voltage`` (kV).
-    buses:
+        ``voltage`` (kV) and ``operator_clean``.
+    buses
         Buses DataFrame (index = ``bus_id``) with column ``country``.
-    max_voltage:
+    max_voltage
         Exclusive upper voltage threshold in kV.  Lines with
         ``voltage < max_voltage`` that cross the Austrian border are removed.
         Default is 220 kV, which targets all 110 kV (and lower) cross-border
@@ -128,13 +132,27 @@ def drop_cross_border_lines_lv(
 
     Returns
     -------
-    pd.DataFrame
+    :
         Copy of *lines* with the matching cross-border entries removed.
     """
+    if "operator_clean" not in lines.columns:
+        raise ValueError(
+            "Cannot exempt TSO-operated cross-border lines, column "
+            "'operator_clean' is missing. Run add_operator_columns() first."
+        )
+
     at_bus_ids = set(buses[buses["country"] == "AT"].index)
 
     xb_mask = lines["bus0"].isin(at_bus_ids) != lines["bus1"].isin(at_bus_ids)
-    drop_mask = xb_mask & (lines["voltage"] < max_voltage)
+    is_tso = lines["operator_clean"].fillna("").str.contains(r"\bAPG\b", regex=True)
+    drop_mask = xb_mask & (lines["voltage"] < max_voltage) & ~is_tso
+
+    n_kept_tso = int((xb_mask & (lines["voltage"] < max_voltage) & is_tso).sum())
+    if n_kept_tso:
+        logger.info(
+            f"Keeping {n_kept_tso} TSO-operated cross-border lines below "
+            f"{max_voltage:.2f} kV."
+        )
 
     n_dropped = int(drop_mask.sum())
     if n_dropped:
@@ -369,7 +387,8 @@ if __name__ == "__main__":
         raise ValueError(
             "110.0 kV is not listed in config.electricity.voltages "
             f"(found: {voltages_config}). "
-            "Building the AT OSM dataset requires the 110 kV voltage level."
+            "Building the AT OSM dataset requires the 110 kV voltage level. "
+            "Without it, it is the same as the PyPSA-Eur OWM data set."
         )
 
     buses = pd.read_csv(snakemake.input.buses, index_col=0, quotechar="'")
@@ -382,21 +401,17 @@ if __name__ == "__main__":
         f"Loaded network: {len(buses)} buses, {len(lines)} lines, {len(links)} links."
     )
 
-    # Drop all international buses and lines below 220 kV, because they
-    # are not validated against ground truth.
-    buses = buses.query("country == 'AT' or voltage >= 220")
+    # Drop all international lines below 220 kV, because they are not
+    # validated against ground truth.
     at_buses = buses.query("country == 'AT'").index
     lines = lines.query(
         "bus0.isin(@at_buses) or bus1.isin(@at_buses) or voltage >= 220"
     )
 
-    # drop all cross border 110 kV Lines in Austria
-    lines = drop_cross_border_lines_lv(lines, buses, max_voltage=220.0)
-
     # Recover operator and the pre-normalisation frequency tag from the raw
-    # Overpass JSON. Lines and substations live in separate files, so each
-    # component type is resolved against its own object index; a way id is only
-    # unique within its feature type.
+    # Overpass JSON before any operator-aware filtering. Lines and substations
+    # live in separate files, so each component type is resolved against its
+    # own object index; a way id is only unique within its feature type.
     logger.info("Recovering OSM operators for lines.")
     lines = add_operator_columns(
         lines,
@@ -408,6 +423,19 @@ if __name__ == "__main__":
             ]
         ),
     )
+
+    # Drop all cross-border 110 kV lines in Austria, except TSO-operated ones.
+    lines = drop_cross_border_lines_lv(lines, buses, max_voltage=220.0)
+
+    # Drop international buses below 220 kV, except foreign endpoints of the
+    # kept (TSO-operated) cross-border lines — removing those would leave the
+    # lines dangling, and base_network would then silently discard them.
+    line_endpoints = set(lines["bus0"]) | set(lines["bus1"])
+    buses = buses[
+        (buses["country"] == "AT")
+        | (buses["voltage"] >= 220)
+        | buses.index.isin(line_endpoints)
+    ]
 
     logger.info("Recovering OSM operators for buses.")
     buses = add_operator_columns(
@@ -422,6 +450,22 @@ if __name__ == "__main__":
 
     # Traction can only be identified once tag_frequency has been recovered.
     lines = drop_traction_lines(lines)
+
+    # The upstream build emits transformers whose bus0/bus1 reference buses that
+    # do not exist in buses.csv (mostly sub-220 kV foreign station levels that
+    # were never exported). base_network would silently discard them via
+    # _remove_dangling_branches; drop them here instead so the published archive
+    # is internally consistent.
+    known_buses = set(buses.index)
+    dangling = ~(
+        transformers["bus0"].isin(known_buses) & transformers["bus1"].isin(known_buses)
+    )
+    if dangling.any():
+        logger.info(
+            f"Dropping {int(dangling.sum())} transformers referencing buses "
+            f"absent from buses.csv ({dangling.mean():.0%} of all transformers)."
+        )
+        transformers = transformers[~dangling].copy()
 
     # Traction substations are left in place: dropping buses risks orphaning
     # components elsewhere in the dataset. Report them so the count is visible.
