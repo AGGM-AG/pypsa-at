@@ -38,6 +38,7 @@ from evals.utils import (
     add_grid_lines,
     align_edge_directions,
     filter_by,
+    get_location,
     get_trade_type,
     insert_index_level,
     split_location_carrier,
@@ -45,41 +46,6 @@ from evals.utils import (
 )
 
 logger = logging.getLogger(__file__)
-
-
-def _port_location(n: Network, c: str, port: str = "") -> pd.Series:
-    """
-    Return the location of the bus at the given port.
-
-    Parameters
-    ----------
-    n
-        The network to evaluate.
-    c
-        The component name, e.g. "Line", "Link", "Transformer".
-    port
-        The port to look up the bus for, e.g. "0" or "1".
-
-    Returns
-    -------
-    :
-        Series with the location of the bus at this specific port.
-    """
-    bus = f"bus{port}"
-    component_series = n.c[c].static[bus]
-    mapping_series = n.c["Bus"].static["location"]
-
-    if isinstance(component_series.index, pd.MultiIndex) and isinstance(
-        mapping_series.index, pd.MultiIndex
-    ):
-        # NetworkCollection case: drop scenario levels from the mapping series
-        # and remove duplicates before mapping.
-        n_levels_to_drop = mapping_series.index.nlevels - 1
-        if n_levels_to_drop > 0:
-            mapping_series = mapping_series.droplevel(list(range(n_levels_to_drop)))
-            mapping_series = mapping_series[~mapping_series.index.duplicated()]
-
-    return component_series.map(mapping_series).rename("location")
 
 
 def collect_myopic_statistics(
@@ -979,10 +945,12 @@ class ESMStatistics(StatisticsAccessor):
         # so that bus0/bus1 resolve to different locations, regardless
         # of what is currently registered under the "location" name.
         if isinstance(groupby, str):
-            groupby = [groupby]
-        if not callable(groupby):
-            groupby = [
-                _port_location if g == DataModel.LOCATION else g for g in groupby
+            loss_groupby = [groupby]
+        else:
+            loss_groupby = groupby
+        if not callable(loss_groupby):
+            loss_groupby = [
+                get_location if g == DataModel.LOCATION else g for g in loss_groupby
             ]
 
         df = self._aggregate_components(
@@ -990,7 +958,7 @@ class ESMStatistics(StatisticsAccessor):
             components=components,
             agg=groupby_method,
             aggregate_across_components=aggregate_across_components,
-            groupby=groupby,
+            groupby=loss_groupby,
             at_port=[0, 1],
             carrier=carrier,
             bus_carrier=bus_carrier,
