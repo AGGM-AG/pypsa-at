@@ -474,6 +474,7 @@ def simple_residual_load(
     nc: NetworkCollection,
     config: dict,
     result_path: str | Path,
+    as_duration_curve: bool = False,
 ) -> None:
     """
     Calculate and export time series data for residual load.
@@ -492,6 +493,8 @@ def simple_residual_load(
         and export parameters.
     result_path
         Path where the evaluation results will be saved.
+    as_duration_curve
+        If the result should be displayed as a duration curve.
 
     """
     (
@@ -536,7 +539,9 @@ def simple_residual_load(
         bus_carrier=bus_carrier,
         aggregate_time=False,
         carrier=fluctuating_carriers,
-    ).mul(-1)
+    ).mul(
+        -1
+    )  # Supply is counted negative as residual load is calculated as load - fluctuating renewables
 
     losses = collect_myopic_statistics(
         nc,
@@ -545,6 +550,11 @@ def simple_residual_load(
         components=list(transmission_comps),
         carrier=list(loss_carriers),
     )
+
+    # config overrides
+    config["view"]["_global"]["line_shape"] = "linear"
+    config["view"]["global_override"]["pivot_index"] = ["year", "location"]
+    config["view"]["global_override"]["is_duration_curve"] = as_duration_curve
 
     exporter = Exporter(
         statistics=[load, fluctuating_generation, losses],
