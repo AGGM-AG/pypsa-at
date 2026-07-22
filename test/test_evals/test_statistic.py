@@ -1,6 +1,5 @@
 import pypsa
 import pytest
-
 from evals.statistic import ESMStatistics
 
 
