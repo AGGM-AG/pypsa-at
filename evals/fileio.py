@@ -32,7 +32,7 @@ from evals.constants import (
     Regex,
 )
 from evals.plots.components import FileExporter
-from evals.statistic import ESMStatistics
+from evals.stats import ESMStatistics
 from evals.utils import (
     build_plot_config,
     combine_statistics,
@@ -403,7 +403,7 @@ class Exporter:
         file_path = output_path / "CSV" / f"{file_name}_{NOW}.csv"
         self.df.to_csv(file_path, encoding="utf-8")
 
-    def export(self, result_path: Path, subdir: str) -> None:
+    def export(self, result_path: str | Path, subdir: str | Path) -> None:
         """
         Export the metric to formats specified in the config.
 
@@ -441,8 +441,10 @@ class Exporter:
 
         output_path = self.make_evaluation_result_directories(result_path, subdir)
 
+        # always export HTML and JSON files
         self.export_views(output_path)
 
+        # additional optional export formats
         export_formats = self.view_config.get("exports", [])
         if "csv" in export_formats:
             self.export_csv(output_path)

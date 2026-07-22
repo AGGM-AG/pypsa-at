@@ -24,7 +24,7 @@ from evals import plots as plots
 from evals.constants import BusCarrier, Group, TradeTypes
 from evals.constants import DataModel as DM
 from evals.fileio import Exporter
-from evals.statistic import collect_myopic_statistics
+from evals.stats import collect_myopic_statistics
 from evals.utils import (
     drop_from_multtindex_by_regex,
     filter_by,
@@ -143,7 +143,7 @@ def get_supply(
     supply = (
         collect_myopic_statistics(
             nc,
-            statistic="supply",
+            "supply",
             aggregate_components=None,
         )
         .pipe(
@@ -158,7 +158,7 @@ def get_supply(
         .pipe(
             rename_aggregate,
             {
-                "hydro": "hydro supply",
+                "hydro discharger": "hydro supply",
                 "PHS discharger": "PHS supply",
                 "H2 Store": "H2 Store supply",
                 "gas": "gas Store supply",
@@ -201,7 +201,7 @@ def get_demand(
     """
     withdrawal = collect_myopic_statistics(
         nc,
-        statistic="withdrawal",
+        "withdrawal",
         aggregate_components=None,
     )
     compressing = (
@@ -222,7 +222,6 @@ def get_demand(
         .pipe(
             rename_aggregate,
             {
-                "hydro": "hydro demand",
                 "PHS charger": "PHS demand",
                 "H2 Store": "H2 Store demand",
                 "gas": "gas Store demand",
@@ -318,7 +317,7 @@ def get_trade_statistics(
         trade = (
             collect_myopic_statistics(
                 nc,
-                statistic="trade_energy",
+                "trade_energy",
                 scope=scope,
                 direction=direction,
                 aggregate_components=None,

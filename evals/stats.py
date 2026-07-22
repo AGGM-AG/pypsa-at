@@ -161,9 +161,7 @@ def collect_myopic_statistics(
 
 class ESMStatistics(StatisticsAccessor):
     """
-    Provides additional statistics for ESM evaluations.
-
-    Extends the StatisticsAccessor with additional metrics.
+    Provides additional statistics for the evals module.
 
     Note, that the __call__ method of the base class is not
     updated. Metrics registered with this class need to
@@ -171,8 +169,8 @@ class ESMStatistics(StatisticsAccessor):
     of n.statistics().
 
     The actual patching is done directly after reading in the
-    network files in read_networks(). This means, that
-    io.read_networks() must be used to load networks, or the
+    network files in fileio.read_networks(). This means, that
+    read_networks()  must be used to load networks, or the
     statistics will not be available under n.statistics().
 
     Parameters
