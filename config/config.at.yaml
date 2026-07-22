@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: hydro-trajectories
+  prefix: capacity-maps
   name:
   - AT_KN2040
   scenarios:
