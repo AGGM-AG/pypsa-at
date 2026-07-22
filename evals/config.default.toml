@@ -1615,19 +1615,17 @@ bus_carrier = "AC"  # AC bus_carrier
 fluctuating_carriers=["onwind", "solar", "solar-hsat", "offwind-dc", "offwind-ac", "ror", "solar rooftop"]
 storage_links = ["battery charger", "PHS charger"]
 chart = "ESMTimeSeriesChart"
-cutoff = 0.00001  # 1 MWh
+cutoff = 0.001  # 1 MW
 legend_order = []
 checks = []
 exports = []
 # upload data model attributes
-database_plot_type = "sankey"
-database_bus_carrier = "mixed"
+database_plot_type = "timeseries"
+database_bus_carrier = "AC"
 database_specifier = ""
 skip_checks = true
 
 [view_timeseries_residual_load.global_override]
-line_shape="linear"
-pivot_index=["year", "location"]
 xaxis_title=""
 
 [view_timeseries_residual_load.categories]
@@ -1641,21 +1639,18 @@ bus_carrier = "AC"  # AC bus_carrier
 fluctuating_carriers=["onwind", "solar", "solar-hsat", "offwind-dc", "offwind-ac", "ror", "solar rooftop"]
 storage_links = ["battery charger", "PHS charger"]
 chart = "ESMTimeSeriesChart"
-cutoff = 0.00001  # 1 MWh
+cutoff = 0.001  # 1 MW
 legend_order = []
 checks = []
 exports = []
 # upload data model attributes
-database_plot_type = "sankey"
-database_bus_carrier = "mixed"
+database_plot_type = "timeseries"
+database_bus_carrier = "AC"
 database_specifier = ""
 # additional attributes
 skip_checks = true
 
 [view_residual_load_duration_curve.global_override]
-line_shape="linear"
 xaxis_title="Duration (hours)"
-is_duration_curve = true
-pivot_index=["year", "location"]
 
 [view_residual_load_duration_curve.categories]
