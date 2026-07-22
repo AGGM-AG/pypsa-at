@@ -492,10 +492,8 @@ class Exporter:
 
     def default_checks(self) -> None:
         """Perform integrity checks for views."""
-        if self.view_config.get("chart") == "SankeyChart" or self.view_config.get(
-            "skip_checks"
-        ):
-            return  # bypass all checks, because Sankey has its own set of assertions
+        if self.view_config.get("skip_default_checks", False):
+            return  # bypass all checks, because view has its own set of assertions
 
         category = self.defaults.plot_category
         categories = self.view_config["categories"]

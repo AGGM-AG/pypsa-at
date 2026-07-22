@@ -1604,6 +1604,8 @@ exports = []
 database_plot_type = "sankey"
 database_bus_carrier = "mixed"
 database_specifier = ""
+# additional attributes
+skip_default_checks = true
 
 [view_sankey.categories]
 
@@ -1623,7 +1625,8 @@ exports = []
 database_plot_type = "timeseries"
 database_bus_carrier = "AC"
 database_specifier = ""
-skip_checks = true
+# additional attributes
+skip_default_checks = true
 
 [view_timeseries_residual_load.global_override]
 xaxis_title=""
@@ -1648,7 +1651,7 @@ database_plot_type = "timeseries"
 database_bus_carrier = "AC"
 database_specifier = ""
 # additional attributes
-skip_checks = true
+skip_default_checks = true
 
 [view_residual_load_duration_curve.global_override]
 xaxis_title="Duration (hours)"
