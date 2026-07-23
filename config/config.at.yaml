@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: capacity-maps
+  prefix: electricity-network-0p3
   name:
   - AT_KN2040
   scenarios:
@@ -177,7 +177,7 @@ industry:
 data:
   osm:
     source: archive
-    version: 0.2-at
+    version: 0.3-at
   klien_potentials:
     source: archive
     version: 2026-v2

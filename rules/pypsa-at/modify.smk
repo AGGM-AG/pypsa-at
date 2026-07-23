@@ -15,6 +15,28 @@ if OSM_DATASET["source"] == "build":
             links=resources("osm/build/links.csv"),
             converters=resources("osm/build/converters.csv"),
             transformers=resources("osm/build/transformers.csv"),
+            # Raw Overpass JSON carries the `operator` and unmodified `frequency`
+            # tags that `clean_osm_data` drops and overwrites respectively.
+            cables_way=expand(
+                f"{OSM_DATASET['folder']}/{{country}}/cables_way.json",
+                country=config_provider("countries"),
+            ),
+            lines_way=expand(
+                f"{OSM_DATASET['folder']}/{{country}}/lines_way.json",
+                country=config_provider("countries"),
+            ),
+            routes_relation=expand(
+                f"{OSM_DATASET['folder']}/{{country}}/routes_relation.json",
+                country=config_provider("countries"),
+            ),
+            substations_way=expand(
+                f"{OSM_DATASET['folder']}/{{country}}/substations_way.json",
+                country=config_provider("countries"),
+            ),
+            substations_relation=expand(
+                f"{OSM_DATASET['folder']}/{{country}}/substations_relation.json",
+                country=config_provider("countries"),
+            ),
         output:
             buses=resources("osm/build-at/buses.csv"),
             lines=resources("osm/build-at/lines.csv"),
@@ -25,30 +47,136 @@ if OSM_DATASET["source"] == "build":
             logs("build_osm_network_at.log"),
         threads: 1
         resources:
-            mem_mb=2000,
+            # Matches clean_osm_data, which parses the same raw JSON files.
+            mem_mb=4000,
         message:
-            "Filtering built OSM network for AT: removing cross-border lines below 220 kV"
+            "Filtering built OSM network for AT: removing cross-border lines below 220 kV and recovering OSM operators"
         script:
             scripts("pypsa-at/build_osm_network_at.py")
 
-    def input_base_network(w):
-        """Updates the input network to pick up filtered files.
-
-        Patches ``input_base_network()`` in ``rules.build_electricity.smk``.
-
-        Parameters
-        ----------
-        w:
-            The Snakemake workflow wildcards object. Only used in upstream
-            function.
-
-        Returns
-        -------
-        :
-            A dictionary with component names as keys and Paths as values.
-        """
+    # The Zenodo map must show the archive contents. resources/networks/base.nc
+    # is corridor-filtered (filter_osm_lines_at), so the map gets its own base
+    # network built from the unfiltered build-at files instead.
+    def input_base_network_release(w):
         components = {"buses", "lines", "links", "converters", "transformers"}
         return {c: resources(f"osm/build-at/{c}.csv") for c in components}
+
+    use rule base_network as base_network_release with:
+        input:
+            unpack(input_base_network_release),
+            nuts3_shapes=resources("nuts3_shapes.geojson"),
+            country_shapes=resources("country_shapes.geojson"),
+            offshore_shapes=resources("offshore_shapes.geojson"),
+            europe_shape=resources("europe_shape.geojson"),
+        output:
+            base_network=resources("osm/build-at/networks/base.nc"),
+            regions_onshore=resources("osm/build-at/networks/regions_onshore.geojson"),
+            regions_offshore=resources("osm/build-at/networks/regions_offshore.geojson"),
+            admin_shapes=resources("osm/build-at/networks/admin_shapes.geojson"),
+        log:
+            logs("base_network_release.log"),
+        benchmark:
+            benchmarks("base_network_release")
+        message:
+            "Building unfiltered base network of the AT OSM archive for the release map"
+
+    rule map_osm_network_at:
+        input:
+            base_network=resources("osm/build-at/networks/base.nc"),
+        output:
+            map=resources("osm/build-at/map.html"),
+        log:
+            logs("map_osm_network_at.log"),
+        threads: 1
+        resources:
+            mem_mb=4000,
+        params:
+            line_types=config["lines"]["types"],
+            # Shown in the map title; bump together with the Zenodo release.
+            release_version="0.3-at",
+            include_polygons=False,
+            export=False,
+        message:
+            "Preparing interactive map of the AT OSM archive for the Zenodo release."
+        script:
+            scripts("prepare_osm_network_release.py")
+
+
+def osm_at_component(component):
+    """Path of one AT OSM component CSV, for either data source.
+
+    ``build`` reads the freshly built ``resources/osm/build-at/`` files,
+    ``archive`` the retrieved ``data/osm/archive/{version}/`` files.
+    """
+    if OSM_DATASET["source"] == "build":
+        return resources(f"osm/build-at/{component}.csv")
+    return f"{OSM_DATASET['folder']}/{component}.csv"
+
+
+rule filter_osm_lines_at:
+    input:
+        lines=osm_at_component("lines"),
+        buses=osm_at_component("buses"),
+        nuts3_shapes=resources("nuts3_shapes.geojson"),
+        electricity_network_overrides="data/pypsa-at/electricity_network_overrides.csv",
+    output:
+        lines=resources("osm/model/lines.csv"),
+        buses=resources("osm/model/buses.csv"),
+        report=resources("osm/model/line_rules.csv"),
+    log:
+        logs("filter_osm_lines_at.log"),
+    threads: 1
+    resources:
+        mem_mb=2000,
+    message:
+        "Filtering inter-regional 110 kV corridors from the AT OSM lines"
+    script:
+        scripts("pypsa-at/filter_osm_lines_at.py")
+
+
+def input_base_network_at(w):
+    """Route the base network onto the corridor-filtered AT OSM files.
+
+    Lines and buses come from ``filter_osm_lines_at``, which also strips the
+    archive provenance columns (they crash the clustering aggregation); the
+    remaining components are passed through from the configured OSM data
+    source unchanged.
+
+    Redefining upstream ``input_base_network()`` does not work: the
+    ``base_network`` rule captures the function object at parse time, long
+    before this file is included. The rule itself is therefore shadowed
+    below via ``use rule`` + ``ruleorder``, mirroring the
+    ``modify_prenetwork_at`` pattern.
+
+    Parameters
+    ----------
+    w:
+        The Snakemake workflow wildcards object. Unused.
+
+    Returns
+    -------
+    :
+        A dictionary with component names as keys and Paths as values.
+    """
+    components = {"links", "converters", "transformers"}
+    inputs = {c: osm_at_component(c) for c in components}
+    inputs["lines"] = resources("osm/model/lines.csv")
+    inputs["buses"] = resources("osm/model/buses.csv")
+    return inputs
+
+
+use rule base_network as base_network_at with:
+    input:
+        unpack(input_base_network_at),
+        nuts3_shapes=resources("nuts3_shapes.geojson"),
+        country_shapes=resources("country_shapes.geojson"),
+        offshore_shapes=resources("offshore_shapes.geojson"),
+        europe_shape=resources("europe_shape.geojson"),
+    message:
+        "Building base network from the corridor-filtered AT OSM dataset"
+
+
+ruleorder: base_network_at > base_network
 
 
 rule modify_nuts3_shapes:
@@ -198,6 +326,8 @@ use rule build_shapes as build_shapes_at with:
 
 
 ruleorder: build_shapes_at > build_shapes  # AT wins for the shared shape outputs
+
+
 ruleorder: modify_nuts3_shapes > build_shapes  # AT wins for the final nuts3_shapes.geojson
 
 

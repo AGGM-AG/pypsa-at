@@ -134,12 +134,13 @@ osm,0.5,primary,supported,2026-01-13,,https://zenodo.org/records/13981528/files
 osm,0.5,archive,supported,2026-01-13,,https://data.pypsa.org/workflows/eur/osm/0.5
 osm,0.4,primary,supported,2026-01-13,,https://zenodo.org/records/13759222/files
 osm,0.4,archive,supported,2026-01-13,,https://data.pypsa.org/workflows/eur/osm/0.4
+osm,0.3-at,archive,supported,2026-07-22,Custom AT OSM dataset: domestic 110 kV with operator/frequency columns; railway traction and dangling transformers removed; includes map.html,https://zenodo.org/records/21487248/files
 osm,0.3,primary,supported,2026-01-13,,https://zenodo.org/records/13358976/files
 osm,0.3,archive,supported,2026-01-13,,https://data.pypsa.org/workflows/eur/osm/0.3
-osm,0.2-at,archive,supported,2026-02-27,Custom AT OSM dataset with domestic sub 110kV levels included,https://zenodo.org/records/19235142/files
+osm,0.2-at,archive,not-supported,2026-02-27,Custom AT OSM dataset with domestic sub 110kV levels included,https://zenodo.org/records/19235142/files
 osm,0.2,primary,supported,2026-01-13,,https://zenodo.org/records/13342577/files
 osm,0.2,archive,supported,2026-01-13,,https://data.pypsa.org/workflows/eur/osm/0.2
-osm,0.1-at,archive,supported,2026-03-26,Custom AT OSM dataset with all sub 110kV levels included,https://zenodo.org/records/18799980/files
+osm,0.1-at,archive,not-supported,2026-03-26,Custom AT OSM dataset with all sub 110kV levels included,https://zenodo.org/records/18799980/files
 osm,0.1,primary,supported,2026-01-13,,https://zenodo.org/records/12799202/files
 osm,0.1,archive,supported,2026-01-13,,https://data.pypsa.org/workflows/eur/osm/0.1
 osm_boundaries,unknown,primary,latest supported,2025-12-02,Overpass API is used to fetch the latest available data,

@@ -1217,19 +1217,17 @@ if (TYDNP_DATASET := dataset_version("tyndp"))["source"] in ["primary", "archive
 
 
 def get_osm_archive_files(version):
+    # Newer versions include the additional map.html file for visualisation:
+    # upstream archives from 0.6 on, AT archives ("0.3-at") from 0.3-at on.
+    base_version, _, suffix = version.partition("-")
+    map_from = 0.3 if suffix == "at" else 0.6
     return [
         "buses.csv",
         "converters.csv",
         "lines.csv",
         "links.csv",
         "transformers.csv",
-        # Newer versions include the additional map.html file for visualisation
-        # Guard against non-numeric version strings (e.g. "v0.1-at")
-        *(
-            ["map.html"]
-            if (version.replace(".", "", 1).isnumeric() and float(version) >= 0.6)
-            else []
-        ),
+        *(["map.html"] if float(base_version) >= map_from else []),
     ]
 
 
