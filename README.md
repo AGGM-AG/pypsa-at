@@ -16,6 +16,9 @@
 > [!WARNING]
 > PyPSA-AT is under very active early development. Expect things to change rapidly.
 
+> [!CAUTION]
+> This repository is the **official source** of PyPSA-AT. Third-party forks are independent projects, and we do not vouch for their accuracy, methodology, or claims. When publishing results calculated with PyPSA-AT, users are strongly encouraged to clearly state which code version and input data were used, including whether the code was modified independently or the input data is not published (private data). Please carefully read through the [limitations](https://pypsa-at.readthedocs.io/en/latest/limitations/) documented in the docs to verify that this model is suited to answering your research questions.
+
 **PyPSA-AT** is an Austrian adaptation of the open European energy system
 model [PyPSA-Eur](https://github.com/pypsa/pypsa-eur).
 It provides a detailed sector-coupled model of the Austrian energy system, including the majority of relevant energy
@@ -30,9 +33,6 @@ For more comprehensive documentation on the underlying PyPSA-Eur/DE framework, m
 details, please refer to the [PyPSA-Eur documentation](https://pypsa-eur.readthedocs.io/)
 and [PyPSA-DE documentation](https://ariadneprojekt.de/modell-dokumentation-pypsa/), respectively.
 
-> [!WARNING]
-> This repository is the official source of PyPSA-AT. Third party forks are independent projects and we do not vouch for their accuracy, methodology, or claims. 
-
 ---
 
 ## 🚀 Installation 
@@ -45,7 +45,7 @@ And start the workflow (low time resolution and NUTS3 spatial resolution for Aus
 pixi run workflow
 ```
 Please note that PyPSA-AT is only supported on **Linux** platforms. Installations on Windows or macOS require
-modifications that are currently currently out of scope.
+modifications that are currently out of scope.
 
 ### Prerequisites
 [Git](https://git-scm.com/install) and [pixi](https://pixi.prefix.dev/latest/#installation) must be installed.
