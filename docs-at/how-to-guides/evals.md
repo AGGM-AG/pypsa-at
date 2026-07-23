@@ -54,7 +54,7 @@ def view_<name>(result_path: Path, nc: NetworkCollection, config: dict) -> None:
 ```
 
 It collects one or more statistics, applies category renaming from the config, constructs an
-[`Exporter`][evals.fileio.Exporter], and calls `exporter.export()`.  All 23 built-in views are
+[`Exporter`][evals.fileio.Exporter], and calls `exporter.export()`.  All 25 built-in views are
 importable from `evals.views`:
 
 ```python
@@ -139,6 +139,7 @@ cutoff = 0.5                          # replaces the scalar 0.1 from default
 | `categories` | `dict[str, str]` | Maps raw carrier strings to display (nice) names. Multiple carriers can share the same display name — they are summed after renaming. | `{}` |
 | `checks` | `list[str]` | Consistency checks to run after export. Currently supports `"balances_almost_zero"`. | `[]` |
 | `exports` | `list[str]` | Additional export formats beyond HTML. Currently supports `"csv"`. | `[]` |
+| `global_override` | `dict[str, Any]` | Sets arbitrary attributes directly on the `Exporter`'s plot defaults, bypassing the fixed config keys above. Useful for options like `xaxis_title` or `pivot_index` that have no dedicated key. | `{}` |
 
 ### Switching chart types
 
@@ -414,8 +415,9 @@ provides:
 
 | Method | Unit | Description |
 |--------|------|-------------|
-| [`trade_energy`][evals.stats.ESMStatistics.trade_energy] | MWh | Energy exchanged between locations. Scope can be `"foreign"` (cross-country), `"domestic"` (same country, different regions), or `"local"` (same location, different carrier). Positive = import, negative = export. |
-| [`trade_capacity`][evals.stats.ESMStatistics.trade_capacity] | MW | Transmission capacity between locations for the given scope and bus carrier. |
+| [`trade_energy`][evals.statistic.ESMStatistics.trade_energy] | MWh | Energy exchanged between locations. Scope can be `"foreign"` (cross-country), `"domestic"` (same country, different regions), or `"local"` (same location, different carrier). Positive = import, negative = export. |
+| [`trade_capacity`][evals.statistic.ESMStatistics.trade_capacity] | MW | Transmission capacity between locations for the given scope and bus carrier. |
+| [`loss`][evals.statistic.ESMStatistics.loss] | MWh | Energy lost in transmission and conversion branches (Link, Line, Transformer), attributed to the location sending power at each snapshot. |
 
 ---
 
@@ -560,6 +562,8 @@ The table below lists all built-in views, their default chart component, and a s
 | [`view_timeseries_hydrogen`][evals.views.balances_timeseries.view_timeseries_hydrogen] | `ESMTimeSeriesChart` | Hourly hydrogen production and demand for a selected year |
 | [`view_timeseries_methane`][evals.views.balances_timeseries.view_timeseries_methane] | `ESMTimeSeriesChart` | Hourly methane production and demand for a selected year |
 | [`view_timeseries_carbon`][evals.views.balances_timeseries.view_timeseries_carbon] | `ESMTimeSeriesChart` | Hourly CO₂ emissions and capturing for a selected year |
+| [`view_timeseries_residual_load`][evals.views.balances_timeseries.view_timeseries_residual_load] | `ESMTimeSeriesChart` | Hourly residual load (AC demand + transmission losses − fluctuating renewable supply) for a selected year |
+| [`view_residual_load_duration_curve`][evals.views.balances_timeseries.view_residual_load_duration_curve] | `ESMTimeSeriesChart` | Hourly residual load sorted into a duration curve for a selected year |
 
 ### Capacities
 

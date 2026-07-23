@@ -14,7 +14,9 @@ agreement at both the 220 kV and 380 kV levels
 
 The pre-processed AT-specific OSM dataset is published on Zenodo:
 
-> **Zenodo record 18799980** — [https://zenodo.org/records/18799980](https://zenodo.org/records/18799980)
+> **Zenodo record 21487248** — [https://zenodo.org/records/21487248](https://zenodo.org/records/21487248)
+>
+> DOI: [10.5281/zenodo.21487248](https://doi.org/10.5281/zenodo.21487248)
 
 This archive is the default data source when `data.osm.source: archive` is set
 in the config. It is fetched automatically by the `retrieve_osm_archive` rule:
@@ -23,7 +25,7 @@ in the config. It is fetched automatically by the `retrieve_osm_archive` rule:
 data:
   osm:
     source: archive
-    version: 0.2-at
+    version: 0.3-at
 ```
 
 The archive was produced by applying the same processing steps described in this
@@ -46,7 +48,7 @@ build_osm_network  →  build_osm_network_at  →  base_network
 applies AT-specific filtering, and writes the results to
 `resources/osm/build-at/`. The downstream `base_network` rule is automatically
 redirected to consume from `build-at/` by the `input_base_network` override in
-`rules/modify.smk`.
+`rules/pypsa-at/modify.smk`.
 
 ??? info "Running the snakemake rule"
 
@@ -61,94 +63,126 @@ redirected to consume from `build-at/` by the `input_base_network` override in
     pixi run snakemake build_osm_network_at -call --rerun-triggers mtime
     ```
 
-## Cross-Border Line Drop Logic
 
-### Why cross-border 110 kV lines are removed
+## Line Selection Rules
 
-Not all 110 kV lines in the OSM dataset are part of the inter-regional
-transmission grid. Some cross-border lines at this voltage level are:
+The Austrian 110 kV network is not a homogeneous transmission grid. It mixes
+railway traction lines that are electrically separate from the public grid,
+distribution assets belonging to nine different DSOs, and radial feeders that
+carry no transit power. Modelling all of it as transmission capacity would let
+the optimiser move bulk power along paths that do not exist in reality — in
+particular, it would create cross-regional corridors at 110 kV where the real
+network only has a distribution connection.
 
-- **DSO distribution tie-lines** — low-voltage interconnections between
-  neighboring distribution grids, operated below the TSO level.
-- **Generation tie-lines** — radial connections from a power plant on one side
-  of the border to a substation on the other side, carrying no transit capacity.
+Six rules decide whether a line is kept. They are evaluated **in order and the
+first match wins**, so every line carries exactly one reason.
 
-These lines are **not TSO interconnectors** and should not be modeled as
-cross-border transmission capacity. Including them would artificially inflate
-the cross-border exchange capacity between Austria and its neighbors at
-voltages below 220 kV.
+| #   | Rule              | Condition                                                   | Result     |
+|-----|-------------------|-------------------------------------------------------------|------------|
+| R0  | `TRACTION`        | 16.7 Hz, or ÖBB-operated without an explicit 50 Hz tag       | **drop**   |
+| R1  | `CROSS_BORDER_LV` | below 220 kV with exactly one endpoint in Austria, unless TSO-operated | **drop** |
+| R1b | `CROSS_BORDER_TSO` | TSO-operated cross-border line, pending validation | **drop** |
+| R2  | `TRANSMISSION`    | 220 kV and above                                             | **keep**   |
+| R2b | `APG_TSO`         | operated by Austrian Power Grid, at any voltage              | **keep**   |
+| R3  | `INTRA_REGION`    | both endpoints in the same NUTS3 region                      | **keep**   |
+| R4  | `SOLE_FEED`       | documented feed of a region without a ≥220 kV substation     | **keep**   |
+| R5  | `INTER_REGION`    | any remaining 110 kV line crossing a NUTS3 boundary          | **drop**   |
 
-### What is dropped
+Applied to `osm-at v0.3`, this keeps 684 of 763 Austrian lines.
 
-A line is removed when **both** of the following conditions hold:
+### Railway traction (R0)
 
-1. **Cross-border**: exactly one of its endpoints (`bus0` / `bus1`) belongs to
-   an Austrian bus (i.e. `country == "AT"`).
-2. **Low voltage**: `voltage < 220 kV`.
+The Austrian railway network runs at 16.7 Hz on its own galvanically separate
+grid. Its lines cannot exchange power with the 50 Hz system and do not belong in
+the model at all. They are nonetheless present in the source data, because the
+upstream OSM cleaning overwrites the frequency tag with `50` and thereby
+relabels traction as ordinary AC. PyPSA-AT therefore recovers the original
+frequency tag from the raw OSM data and drops the affected lines — 93 in
+`v0.3`, mostly ÖBB-Infrastruktur.
 
-In the current OSM-AT dataset `osm-at v0.2` this removes **18 lines**, all at 110 kV, that
-connect Austrian substations to substations in Germany, Switzerland, or Italy.
+One exception matters: ÖBB also owns a small number of genuine 50 Hz lines that
+feed its converter stations from the public grid. An explicit 50 Hz tag
+therefore always wins over the operator name, so those lines are kept.
 
-|    |   index | line_id                    | bus0              | bus1               |   voltage |   circuits |   length | tags                                 |
-|---:|--------:|:---------------------------|:------------------|:-------------------|----------:|-----------:|---------:|:-------------------------------------|
-|  0 |     277 | way/96001615-110           | way/273300969-110 | way/95975628-110   |       110 |          1 | 14471.5  | way/96001615-110                     |
-|  1 |    3134 | way/48442852-110           | way/93982415-110  | way/92320586-110   |       110 |          2 | 25408    | way/48442852-110                     |
-|  2 |   24336 | way/36969924-110           | way/26703085-110  | way/1075075893-110 |       110 |          2 | 11656    | way/36969924-110                     |
-|  3 |   24337 | way/61112955-110           | way/92293213-110  | AT70-110           |       110 |          2 | 13432.4  | way/61112955-110                     |
-|  4 |   24338 | way/92299558-110           | DE1342-110        | way/94406313-110   |       110 |          2 |  5638.39 | way/92299558-110                     |
-|  5 |   24339 | way/93129480-110           | way/81540198-110  | way/133669362-110  |       110 |          1 |  8266.06 | way/93129480-110                     |
-|  6 |   24340 | way/94177573-110           | AT70-110          | DE1342-110         |       110 |          4 |  3717.27 | way/94177573-110                     |
-|  7 |   24341 | way/105180509-110          | AT64-110          | way/33463751-110   |       110 |          2 |  2559.07 | way/105180509-110                    |
-|  8 |   24342 | way/114873667-110          | way/116021711-110 | way/86351876-110   |       110 |          2 |  2471.58 | way/114873667-110                    |
-|  9 |   24344 | way/123810051-110          | way/95972388-110  | way/95978048-110   |       110 |          1 |  7178.79 | way/123810051-110                    |
-| 10 |   24346 | way/353715115-110          | way/24886281-110  | way/118248006-110  |       110 |          2 | 11323.3  | way/353715115-110                    |
-| 11 |   24410 | way/169471085-110          | way/116021711-110 | way/114873634-110  |       110 |          1 | 10540    | way/169471085-110                    |
-| 12 |   24412 | way/368155120-110          | way/50729129-110  | way/888593883-110  |       110 |          1 |  4880.52 | way/368155120-110                    |
-| 13 |   36618 | merged_way/32493449-110+1  | way/32493406-110  | DE1299-110         |       110 |          2 | 26385.1  | way/30023326-110;way/32493449-110    |
-| 14 |   36664 | merged_way/93129482-110+1  | way/81540198-110  | way/133669362-110  |       110 |          2 | 13629.1  | way/105431204-2-110;way/93129482-110 |
-| 15 |   36668 | merged_way/169635581-110+1 | way/40641599-110  | DE1347-110         |       110 |          1 | 12885.5  | way/169635581-110;way/116009750-110  |
-| 16 |   36677 | merged_way/147059434-110+1 | way/42352281-110  | way/1155210065-110 |       110 |          1 | 10679.7  | way/147059434-110;way/996088216-110  |
-| 17 |   36678 | merged_way/30712473-110+1  | way/194983924-110 | way/1154201243-110 |       110 |          2 | 39639.9  | way/30712473-110;way/147563006-110   |
+### Cross-border 110 kV lines (R1)
 
-### What is kept
+Cross-border lines below 220 kV are not TSO interconnectors. They are either
+distribution tie-lines between neighbouring DSO grids, or radial connections
+from a power plant to a substation across the border. Keeping them would
+inflate Austria's cross-border exchange capacity with capacity that cannot be
+scheduled. Cross-border lines at 220 kV and above are genuine interconnectors
+and are always kept.
 
-Domestic Austrian lines below 220 kV are **not affected**. A line with both
-endpoints inside Austria — regardless of its voltage — is never removed. This
-preserves the full 110 kV intra-Austrian network that enables NUTS3-level
-clustering and captures the domestic transmission topology between regional
-load centres.
+TSO-operated lines are exempt from the archive rule: an APG-operated 110 kV
+interconnector is scheduled transmission infrastructure, not a distribution
+tie, so it stays in the dataset (four such lines in `v0.3`, all towards
+Germany). The model layer nonetheless excludes them for now (rule R1b), until
+the sub-220 kV cross-border exchange is validated — keeping them in the
+archive is what makes that decision revisable without republishing.
 
-Cross-border lines at **220 kV and above** are also always kept. Those are
-genuine TSO interconnectors (e.g. the 380 kV ties to Germany, Switzerland, and
-Italy) that represent real cross-border transmission capacity.
+This rule is applied when the archive is built, so a line matching it never
+appears in the published dataset.
 
-The table below summarizes which lines survive the filter:
+### TSO-operated lines (R2b)
 
-| Line type                         | Voltage  | Action   |
-|-----------------------------------|----------|----------|
-| Domestic AT–AT line               | any      | **keep** |
-| Cross-border TSO interconnector   | ≥ 220 kV | **keep** |
-| Cross-border DSO / generation tie | < 220 kV | **drop** |
+APG operates a number of lines at 110 kV. These are part of the transmission
+system irrespective of their voltage level and are kept unconditionally, ahead
+of any of the regional rules below. The operator is read from the OSM
+`operator` tag, which is spelled inconsistently — `Austrian Power Grid AG`,
+`APG`, `Verbund / APG` and several variants all map onto a single canonical
+name. Verbund Hydro Power is deliberately **not** treated as the TSO.
+
+### Cross-regional corridors (R3, R5)
+
+A 110 kV line with both endpoints inside the same NUTS3 region cannot carry
+inter-regional transit and is always kept — it represents the local
+distribution topology within the region.
+
+A 110 kV line crossing a NUTS3 boundary is dropped. Because regions are the
+model's spatial resolution, such a line would become a transmission corridor
+between two model nodes, letting power flow between regions on a voltage level
+that in reality is fragmented between DSOs, is separated by transformers, and
+is partly switched out of service ("gelöschte Netze"). The transmission grid at
+220 kV and above already provides the real inter-regional paths.
+
+### Regions without a transmission substation (R4)
+
+Four NUTS3 regions host no substation at 220 kV or above and would be left
+without any supply if every cross-regional 110 kV line were dropped:
+
+| Region                   | Fed via                | Source                     |
+|--------------------------|------------------------|----------------------------|
+| AT111 Mittelburgenland   | UW Mattersburg         | OSM topology (only line)   |
+| AT315 Traunviertel       | UW Lambach (two lines) | Netz OÖ, NEP 2024          |
+| AT321 Lungau             | UW Reitdorf            | Salzburg Netz, NEP 2024    |
+| AT331 Außerfern          | UW Imst                | OSM topology (only line)   |
+
+For these regions a small number of 110 kV lines is kept explicitly, so that
+each region retains exactly the connection through which it is supplied in
+reality. The lines are selected manually, guided by the DSOs' network
+development plans.
+
+### Where the rules are applied
+
+| Rule       | Applied in                                                     |
+|------------|----------------------------------------------------------------|
+| R0, R1     | `build_osm_network_at`, when the archive is built               |
+| R1b, R2 – R5 | `filter_osm_lines_at`, on the retrieved archive before `base_network` |
+
+Rules R0 and R1 remove lines from the dataset itself, so the published archive
+already excludes traction and cross-border low-voltage lines. The regional
+rules are modelling decisions applied by `mods.filter_inter_regional_lines`
+each time the network is built, which means they can be revised without
+republishing the archive. The documented region feeds live in
+`data/pypsa-at/electricity_network_overrides.csv` — the same file the notebook
+renders — and a per-line report of every decision is written to
+`resources/osm/model/line_rules.csv`.
 
 ### Implementation
 
-The filtering is implemented in
-`scripts/pypsa-at/build_osm_network_at.py::drop_cross_border_lines_lv`:
-
-Note that the script raises a `ValueError` at startup if `110.0` is absent from
-`config.electricity.voltages`:
-
-Building the AT dataset without the 110 kV level would produce the default PyPSA-Eur data set. 
-```yaml title="config/config.at.yaml"
-data:
-  osm:
-    source: archive
-    version: 0.7 (or latest)
-```
-
-### Notebook 
-
-A marimo notebook contains additional infos, graphs and calculation steps that may 
-be useful for debugging or deeper exploration. ``.marimo/validate-electricity-network-at.py``. 
-
-
+The dataset-level filtering lives in `scripts/pypsa-at/build_osm_network_at.py`.
+The script also recovers two attributes that upstream OSM processing discards —
+the line `operator` and the original `frequency` tag — without which rules R0
+and R2b could not be evaluated. It raises a `ValueError` at startup if `110.0`
+is absent from `config.electricity.voltages`, since building the AT dataset
+without the 110 kV level would simply reproduce the default PyPSA-Eur data.

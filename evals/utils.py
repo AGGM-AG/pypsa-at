@@ -12,9 +12,10 @@ from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
+import pypsa
 from frozendict import frozendict
 from pypsa import NetworkCollection
-from pypsa.statistics import get_transmission_carriers
+from pypsa.statistics import get_transmission_carriers, groupers
 
 from evals.constants import (
     ALIAS_COUNTRY,
@@ -23,7 +24,9 @@ from evals.constants import (
     ALIAS_REGION_AT35_CLUSTERING,
     ALIAS_REGION_DE5_CLUSTERING,
     ALIAS_REGION_DE16_CLUSTERING,
+    COLOR_SCHEME_FILL,
     COLOUR_SCHEME,
+    LINE_WIDTH,
     UNITS,
     BusCarrier,
     DataModel,
@@ -364,7 +367,7 @@ def scale(df: pd.DataFrame, to_unit: str) -> pd.DataFrame:
 
     if df.columns.name == DataModel.SNAPSHOTS:
         is_unit = df.attrs["unit"]
-        scaling_factor = is_unit / to_unit
+        scaling_factor = UNITS[is_unit] / UNITS[to_unit]
         result = df.mul(scaling_factor)
     else:
         scale_to = to_unit if isinstance(to_unit, float) else UNITS[to_unit]
@@ -1149,9 +1152,9 @@ def build_plot_config(global_cfg: dict) -> SimpleNamespace:
         facet_column=DataModel.BUS_CARRIER,
         # --- view-level overrides set per-view (empty by default) ---
         category_orders=(),
-        fill={},
+        fill=dict(COLOR_SCHEME_FILL),
         line_dash={},
-        line_width={},
+        line_width=dict(LINE_WIDTH),
         # --- complex defaults from Python constants ---
         colors=dict(COLOUR_SCHEME),
         pattern=dict.fromkeys(_pattern_keys, "/"),
@@ -1192,3 +1195,98 @@ def get_latest_results_folder() -> Path:
 
     # return largest system timestamp folder
     return max(scenario_dirs, key=lambda p: p.stat().st_mtime)
+
+
+def to_duration_curve(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Convert a time series into a duration curve.
+
+    For each row, values are sorted in descending order and the
+    (datetime) columns are replaced by the cumulative number of hours
+    they represent, so that the result can be plotted as x=duration
+    (hours), y=sorted value. Snapshots are assumed to be equidistant;
+    the duration of the last snapshot is inferred by repeating the
+    (equidistant) spacing of the other snapshots.
+
+    Parameters
+    ----------
+    df
+        DataFrame with equidistant datetime snapshots as columns.
+
+    Returns
+    -------
+    :
+        DataFrame with the same index as ``df``, values sorted in
+        descending order per row, and cumulative duration (in hours)
+        as columns.
+
+    Raises
+    ------
+    ValueError
+        If the datetime snapshots in the DataFrame are not equidistant
+    """
+    timedelta_index = (df.columns.diff()[1:] / pd.Timedelta(hours=1)).astype(int)
+    if timedelta_index.nunique() > 1:
+        raise ValueError("The datetime snapshots in the DataFrame are not equidistant")
+    columns = np.append(timedelta_index.values, timedelta_index.values[0]).cumsum()
+    plot_df_out = pd.DataFrame(
+        np.sort(df.to_numpy(), axis=1)[:, ::-1],
+        index=df.index,
+        columns=columns,
+    )
+    plot_df_out.attrs = df.attrs
+    return plot_df_out
+
+
+def get_location(
+    n: pypsa.Network,
+    c: str,
+    port: str = "",
+    avoid_eu_locations: bool = True,
+) -> pd.Series:
+    """
+    Return the grouper series for the location of a component.
+
+    By default, the function avoids EU-locations by looking into port 0 and port 1 and prefering locations, that are not 'EU'.
+
+    Note, that the bus_carrier will still be the bus_carrier
+    from the "port" argument, i.e. only the location is swapped.
+
+    Parameters
+    ----------
+    n
+        The network to evaluate.
+    c
+        The component name, e.g. 'Load', 'Generator', 'Link', etc.
+    port
+        Limit results to this branch port.
+    avoid_eu_locations
+        Look into the port 0 and port 1 location in branch components
+        and prefer locations that are not 'EU'. By default,
+        pypsa.statistics assigns the respective bus port location.
+
+    Returns
+    -------
+    :
+        A list of series to group statistics by.
+    """
+    comp = n.components[c].static
+    bus_locations = n.components.buses.static.location
+
+    if avoid_eu_locations and c in n.branch_components:
+        # avoid EU buses for branch components, e.g. oil CHP
+        bus0 = groupers._map_with_multiindex(comp["bus0"], bus_locations).rename("loc0")
+        bus1 = groupers._map_with_multiindex(comp["bus1"], bus_locations).rename("loc1")
+        buses = pd.concat([bus0, bus1], axis=1)
+
+        def location_selection_logic(row) -> str:
+            if row.loc0 != "EU" or pd.isna(row.loc1):
+                return row.loc0
+            return row.loc1
+
+        return buses.apply(location_selection_logic, axis=1).rename("location")
+
+    # default logic to return location groupers
+    return groupers._map_with_multiindex(comp[f"bus{port}"], bus_locations).rename(
+        "location"
+    )
