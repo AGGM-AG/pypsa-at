@@ -1247,6 +1247,10 @@ database_plot_type = "timeseries"
 database_bus_carrier = "electricity"
 database_specifier = ""
 
+[view_timeseries_electricity.global_override]
+xaxis_title=""
+pivot_index=["year", "location", "carrier"]
+
 [view_timeseries_electricity.exclude]
 "2020" = ["EV battery"]
 
@@ -1358,6 +1362,10 @@ database_plot_type = "timeseries"
 database_bus_carrier = "hydrogen"
 database_specifier = ""
 
+[view_timeseries_hydrogen.global_override]
+xaxis_title=""
+pivot_index=["year", "location", "carrier"]
+
 [view_timeseries_hydrogen.categories]
 "ammonia cracker" = "Ammonia Cracker"
 "Fischer-Tropsch" = "Liquids"
@@ -1423,6 +1431,10 @@ exports = []
 database_plot_type = "timeseries"
 database_bus_carrier = "methane"
 database_specifier = ""
+
+[view_timeseries_methane.global_override]
+xaxis_title=""
+pivot_index=["year", "location", "carrier"]
 
 [view_timeseries_methane.categories]
 "BioSNG" = "SynGas"
@@ -1493,6 +1505,10 @@ exports = []
 database_plot_type = "timeseries"
 database_bus_carrier = "carbon"
 database_specifier = ""
+
+[view_timeseries_carbon.global_override]
+xaxis_title=""
+pivot_index=["year", "location", "carrier"]
 
 [view_timeseries_carbon.categories]
 "BioSNG" = "Biogas"
@@ -1595,5 +1611,56 @@ exports = []
 database_plot_type = "sankey"
 database_bus_carrier = "mixed"
 database_specifier = ""
+# additional attributes
+skip_default_checks = true
 
 [view_sankey.categories]
+
+[view_timeseries_residual_load]
+name = "Residual Load"
+unit = "GW"
+file_name = "residual_load_{location}_{year}"
+bus_carrier = "AC"  # AC bus_carrier
+fluctuating_carriers=["onwind", "solar", "solar-hsat", "offwind-dc", "offwind-ac", "ror", "solar rooftop"]
+storage_links = ["battery charger", "PHS charger"]
+chart = "ESMTimeSeriesChart"
+cutoff = 0.001  # 1 MW
+legend_order = []
+checks = []
+exports = []
+# upload data model attributes
+database_plot_type = "timeseries"
+database_bus_carrier = "AC"
+database_specifier = ""
+# additional attributes
+skip_default_checks = true
+
+[view_timeseries_residual_load.global_override]
+xaxis_title=""
+
+[view_timeseries_residual_load.categories]
+
+
+[view_residual_load_duration_curve]
+name = "Residual Load Duration Curve"
+unit = "GW"
+file_name = "residual_load_duration_curve_{location}_{year}"
+bus_carrier = "AC"  # AC bus_carrier
+fluctuating_carriers=["onwind", "solar", "solar-hsat", "offwind-dc", "offwind-ac", "ror", "solar rooftop"]
+storage_links = ["battery charger", "PHS charger"]
+chart = "ESMTimeSeriesChart"
+cutoff = 0.001  # 1 MW
+legend_order = []
+checks = []
+exports = []
+# upload data model attributes
+database_plot_type = "timeseries"
+database_bus_carrier = "AC"
+database_specifier = ""
+# additional attributes
+skip_default_checks = true
+
+[view_residual_load_duration_curve.global_override]
+xaxis_title="Duration (hours)"
+
+[view_residual_load_duration_curve.categories]
