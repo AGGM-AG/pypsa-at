@@ -7,6 +7,7 @@
 import logging
 import warnings
 from collections.abc import Callable, Sequence
+from functools import partial
 from inspect import getmembers
 from itertools import product
 
@@ -38,6 +39,7 @@ from evals.utils import (
     add_grid_lines,
     align_edge_directions,
     filter_by,
+    get_location,
     get_trade_type,
     insert_index_level,
     split_location_carrier,
@@ -862,4 +864,111 @@ class ESMStatistics(StatisticsAccessor):
             df = df.round(round)
         df.attrs["name"] = "Technical Potential"
         df.attrs["unit"] = "MW"
+        return df
+
+    @MethodHandlerWrapper(handler_class=StatisticHandler, inject_attrs={"n": "_n"})
+    @deprecated_kwargs(
+        deprecated_in="1.0",
+        removed_in="2.0",
+        comps="components",
+        aggregate_groups="groupby_method",
+        aggregate_time="groupby_time",
+    )
+    def loss(  # noqa: D417
+        self,
+        components: str | Sequence[str] | None = None,
+        groupby_method: Callable | str = "sum",
+        aggregate_across_components: bool = False,
+        groupby: str | Sequence[str] | Callable | None = None,
+        carrier: str | Sequence[str] | None = None,
+        bus_carrier: str | Sequence[str] | None = None,
+        nice_names: bool | None = None,
+        drop_zero: bool | None = None,
+        round: int | None = None,
+    ) -> pd.DataFrame:
+        """
+        Calculate the **loss** of two-port components at each snapshot.
+
+        For every branch (default: Link, Line, Transformer), the loss is
+        ``p0 + p1`` at the port from which power is flowing into the branch
+        (i.e. the port whose power is non-negative); the other port is set
+        to zero for that snapshot. This makes the attribution direction
+        aware: loss is assigned to the location of the bus that is
+        supplying power to the branch, rather than being double counted or
+        assigned to a fixed port. Time is **not** aggregated: the result
+        keeps snapshots as columns.
+
+        Parameters
+        ----------
+        components : str | Sequence[str] | None, default=None
+            Components to include. If None, includes all one-port and branch
+            components.
+        groupby_method : Callable | str, default="sum"
+            Aggregation function for groups.
+        aggregate_across_components : bool, default=False
+            Whether to aggregate across components.
+        groupby : str | Sequence[str] | Callable, default="carrier"
+            How to group components.
+        carrier : str | Sequence[str] | None, default=None
+            Filter by carrier.
+        bus_carrier : str | Sequence[str] | None, default=None
+            Filter by carrier of connected buses.
+        nice_names : bool | None, default=None
+            Whether to use carrier nice names.
+        drop_zero : bool | None, default=None
+            Whether to drop zero values from the result.
+        round : int | None, default=None
+            Number of decimal places to round to.
+
+
+        Returns
+        -------
+        :
+            Loss of components in the network, with the grouping
+            keys (e.g. component, location, carrier, bus_carrier) as rows and
+            snapshots as columns.
+
+        """
+        components = components or ["Link", "Line", "Transformer"]
+        groupby = groupby or ["location", "carrier", "bus_carrier"]
+
+        @pass_empty_series_if_keyerror
+        def loss_func(n: Network, c: str, port: str) -> pd.Series:
+            dynamic = n.c[c].dynamic
+            own = dynamic[f"p{port}"]
+            other = dynamic[f"p{'1' if port == '0' else '0'}"]
+            loss = (own + other).where(own >= 0, 0).clip(lower=0)
+            return loss.T
+
+        # substitute a port-aware "location" grouper (see _port_location)
+        # so that bus0/bus1 resolve to different locations, regardless
+        # of what is currently registered under the "location" name.
+        if isinstance(groupby, str):
+            loss_groupby = [groupby]
+        else:
+            loss_groupby = groupby
+        if not callable(loss_groupby):
+            loss_groupby = [
+                partial(get_location, avoid_eu_locations=False)
+                if g == DataModel.LOCATION
+                else g
+                for g in loss_groupby
+            ]
+
+        df = self._aggregate_components(
+            loss_func,
+            components=components,
+            agg=groupby_method,
+            aggregate_across_components=aggregate_across_components,
+            groupby=loss_groupby,
+            at_port=[0, 1],
+            carrier=carrier,
+            bus_carrier=bus_carrier,
+            nice_names=nice_names,
+            drop_zero=drop_zero,
+            round=round,
+        )
+
+        df.attrs["name"] = "Loss"
+        df.attrs["unit"] = "MWh_el"
         return df

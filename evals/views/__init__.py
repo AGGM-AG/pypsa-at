@@ -14,10 +14,12 @@ from evals.views.balances import (
     view_balance_methane,
 )
 from evals.views.balances_timeseries import (
+    view_residual_load_duration_curve,
     view_timeseries_carbon,
     view_timeseries_electricity,
     view_timeseries_hydrogen,
     view_timeseries_methane,
+    view_timeseries_residual_load,
 )
 from evals.views.capacities import (
     view_capacity_electricity_demand,
@@ -65,4 +67,7 @@ __all__ = [
     "view_timeseries_carbon",
     # energy flow
     "view_sankey",
+    # residual load
+    "view_timeseries_residual_load",
+    "view_residual_load_duration_curve",
 ]

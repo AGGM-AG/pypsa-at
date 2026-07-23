@@ -36,7 +36,9 @@ from evals.stats import ESMStatistics
 from evals.utils import (
     build_plot_config,
     combine_statistics,
+    get_location,
     rename_aggregate,
+    to_duration_curve,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,60 +47,6 @@ logger = logging.getLogger(__name__)
 # Configure PyPSA statistics defaults once at import time.
 pypsa.options.params.statistics.nice_names = False
 pypsa.options.params.statistics.drop_zero = True
-
-
-def get_location(
-    n: pypsa.Network,
-    c: str,
-    port: str = "",
-    avoid_eu_locations: bool = True,
-) -> pd.Series:
-    """
-    Return the grouper series for the location of a component.
-
-    By default, the function avoids EU-locations by looking into port 0 and port 1 and prefering locations, that are not 'EU'.
-
-    Note, that the bus_carrier will still be the bus_carrier
-    from the "port" argument, i.e. only the location is swapped.
-
-    Parameters
-    ----------
-    n
-        The network to evaluate.
-    c
-        The component name, e.g. 'Load', 'Generator', 'Link', etc.
-    port
-        Limit results to this branch port.
-    avoid_eu_locations
-        Look into the port 0 and port 1 location in branch components
-        and prefer locations that are not 'EU'. By default,
-        pypsa.statistics assigns the respective bus port location.
-
-    Returns
-    -------
-    :
-        A list of series to group statistics by.
-    """
-    comp = n.components[c].static
-    bus_locations = n.components.buses.static.location
-
-    if avoid_eu_locations and c in n.branch_components:
-        # avoid EU buses for branch components, e.g. oil CHP
-        bus0 = groupers._map_with_multiindex(comp["bus0"], bus_locations).rename("loc0")
-        bus1 = groupers._map_with_multiindex(comp["bus1"], bus_locations).rename("loc1")
-        buses = pd.concat([bus0, bus1], axis=1)
-
-        def location_selection_logic(row) -> str:
-            if row.loc0 != "EU" or pd.isna(row.loc1):
-                return row.loc0
-            return row.loc1
-
-        return buses.apply(location_selection_logic, axis=1).rename("location")
-
-    # default logic to return location groupers
-    return groupers._map_with_multiindex(comp[f"bus{port}"], bus_locations).rename(
-        "location"
-    )
 
 
 def get_location_from_name_at_port(
@@ -319,12 +267,15 @@ class Exporter:
         # apply per-view overrides from the view config
         title = view_config["name"] + TITLE_SUFFIX
         self.defaults.title = title
+        self.defaults.name = view_config["name"]
         self.defaults.file_name_template = view_config["file_name"]
         self.defaults.cutoff = view_config["cutoff"]
         self.defaults.category_orders = view_config["legend_order"]
         self.defaults.database_plot_type = view_config["database_plot_type"]
         self.defaults.database_bus_carrier = view_config["database_bus_carrier"]
         self.defaults.database_specifier = view_config["database_specifier"]
+        if "global_override" in view_config.keys():
+            vars(self.defaults).update(view_config["global_override"])
 
     @cached_property
     def df(self) -> pd.DataFrame:
@@ -406,8 +357,12 @@ class Exporter:
             index=cfg.pivot_index, columns=cfg.pivot_columns, aggfunc="sum"
         )
 
+        if hasattr(cfg, "is_duration_curve") and cfg.is_duration_curve:
+            df_plot = to_duration_curve(df_plot)
+
         # needed for upload API data bundle ingestion
-        self.write_run_json(output_path, self.view_config["meta"])
+        # Disabled because DB upload not supported
+        # self.write_run_json(output_path, self.view_config["meta"])
 
         for idx, data in df_plot.groupby(cfg.plotby):
             chart = cfg.chart(data, cfg)
@@ -470,13 +425,7 @@ class Exporter:
         if chart_class == plots.ESMGroupedBarChart:
             self.defaults.xaxis_title = ""
         elif chart_class == plots.ESMTimeSeriesChart:
-            self.defaults.xaxis_title = ""
             self.defaults.plotby = [DataModel.YEAR, DataModel.LOCATION]
-            self.defaults.pivot_index = [
-                DataModel.YEAR,
-                DataModel.LOCATION,
-                DataModel.CARRIER,
-            ]
         elif (
             chart_class == plots.ESMBarChart
             and self.defaults.plot_category == DataModel.CARRIER
@@ -545,8 +494,8 @@ class Exporter:
 
     def default_checks(self) -> None:
         """Perform integrity checks for views."""
-        if self.view_config.get("chart") == "SankeyChart":
-            return  # bypass all checks, because Sankey has its own set of assertions
+        if self.view_config.get("skip_default_checks", False):
+            return  # bypass all checks, because view has its own set of assertions
 
         category = self.defaults.plot_category
         categories = self.view_config["categories"]
