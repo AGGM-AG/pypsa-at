@@ -169,6 +169,10 @@ def validate_feed_overrides(
             problems.append(
                 f"{row.line_id}: does not touch its stated region {row.region}"
             )
+        elif regions0.get(row.line_id) == regions1.get(row.line_id):
+            problems.append(
+                f"{row.line_id}: has identical regions and will be removed by the clustering."
+            )
     if problems:
         raise ValueError(
             "Stale entries in electricity_network_overrides.csv — the OSM archive has "
