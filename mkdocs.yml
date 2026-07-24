@@ -7,6 +7,7 @@ site_url: https://pypsa-at.readthedocs.io
 
 nav:
 - Home: index.md
+- Limitations: limitations.md
 - How-to-Guides:
   - how-to-guides/index.md
   - Working with Evaluations: how-to-guides/evals.md
@@ -37,7 +38,7 @@ nav:
     - cli.py: reference/evals/cli.md
     - constants.py: reference/evals/constants.md
     - fileio.py: reference/evals/fileio.md
-    - statistic.py: reference/evals/statistic.md
+    - stats.py: reference/evals/stats.md
     - utils.py: reference/evals/utils.md
     - Plots:
       - reference/evals/plots/index.md
