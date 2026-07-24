@@ -19,6 +19,8 @@ rule export_evaluation_pypsa_at:
         touch(
             RESULTS + "evaluation/.run_by_snakemake",
         ),
+    resources:
+        mem_mb=8000,
     params:
         rdir=RESULTS,
     message:
@@ -38,7 +40,7 @@ rule validate_pypsa_at:
     output:
         validity_report=RESULTS + "test_report.html",
     resources:
-        mem_mb=4000,
+        mem_mb=8000,
     params:
         clustering=config_provider("clustering"),
         rdir=RESULTS,
@@ -53,4 +55,4 @@ rule all_at:
     input:
         expand(RESULTS + "test_report.html", run=config["run"]["name"]),
         lambda w: balance_map_paths("interactive", w),
-        RESULTS + "evaluation/.run_by_snakemake",
+        expand(RESULTS + "evaluation/.run_by_snakemake", run=config["run"]["name"]),
