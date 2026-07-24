@@ -29,9 +29,11 @@ rule export_evaluation_pypsa_at:
 
 rule validate_pypsa_at:
     input:
-        expand(
-            RESULTS + "evaluation/.run_by_snakemake",
-            run=config["run"]["name"],
+        networks=expand(
+            RESULTS
+            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
+            **config["scenario"],
+            allow_missing=True,
         ),
     output:
         validity_report=RESULTS + "test_report.html",
@@ -51,3 +53,4 @@ rule all_at:
     input:
         expand(RESULTS + "test_report.html", run=config["run"]["name"]),
         lambda w: balance_map_paths("interactive", w),
+        RESULTS + "evaluation/.run_by_snakemake",
