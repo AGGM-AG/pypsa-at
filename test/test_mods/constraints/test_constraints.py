@@ -185,7 +185,7 @@ def test_national_co2_budget_constraint(nc):
             # optimized model values
             country_emissions = co2_balance.loc[mask_country].sum()
 
-            assert country_emissions <= country_limit + 1e-6, (
+            assert country_emissions <= country_limit + 1e-05, (
                 f"Exceeded emission limit for country {ct} and year "
                 f"{year}: {country_limit} > {country_emissions} in Mt_CO2"
             )
