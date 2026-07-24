@@ -196,45 +196,6 @@ rule modify_nuts3_shapes:
         scripts("pypsa-at/modify_nuts3_shapes.py")
 
 
-rule export_evaluation_pypsa_at:
-    input:
-        networks=expand(
-            RESULTS
-            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
-            **config["scenario"],
-            allow_missing=True,
-        ),
-    output:
-        touch(
-            RESULTS + "evaluation/.run_by_snakemake",
-        ),
-    params:
-        rdir=RESULTS,
-    message:
-        "Runs all evaluations from the evals module to generate aggregated result views."
-    shell:
-        "pixi run evals {params.rdir}"
-
-
-rule validate_pypsa_at:
-    input:
-        expand(
-            RESULTS + "evaluation/.run_by_snakemake",
-            run=config["run"]["name"],
-        ),
-    output:
-        validity_report=RESULTS + "test_report.html",
-    resources:
-        mem_mb=16000,
-    params:
-        clustering=config_provider("clustering"),
-        rdir=RESULTS,
-    message:
-        "Execute pypsa-at modifications layer tests. They are marked as 'AT' and require the `--result-path` extra argument."
-    shell:
-        'pixi run -e test pytest -m "AT" --html {params.rdir}/test_report.html --result-path={params.rdir}'
-
-
 # modify_prenetwork: keep the upstream pypsa-de rule pristine and shadow it here
 # to inject the AT-specific inputs (KLIEN potentials, TYNDP trajectories, Ukrainian
 # gas transit) and params. The `**rules.modify_prenetwork.input/params` splats pull
