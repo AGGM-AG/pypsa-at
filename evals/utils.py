@@ -1166,7 +1166,7 @@ def build_plot_config(global_cfg: dict) -> SimpleNamespace:
         yaxis_color=global_cfg["yaxis_color"],
         footnotes=tuple(global_cfg["footnotes"]),
         cutoff=global_cfg.get(
-            "cutoff", 0.0001
+            "cutoff", 0.001
         ),  # overwritten per-view; toml has no view-level default
         cutoff_drop=global_cfg["cutoff_drop"],
         legend_font_size=global_cfg["legend_font_size"],
