@@ -38,7 +38,7 @@ rule validate_pypsa_at:
     output:
         validity_report=RESULTS + "test_report.html",
     resources:
-        mem_mb=16000,
+        mem_mb=4000,
     params:
         clustering=config_provider("clustering"),
         rdir=RESULTS,
