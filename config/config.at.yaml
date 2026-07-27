@@ -320,3 +320,11 @@ mods:
   trajectories:
     apply_trajectories: true
     tol: 0.1  # slack applied to upper/lower capacity bounds (MW / MWh)
+
+  demand:
+    electricity:
+      AT:
+        2020: 0  # TWh
+        2030: 0  # TWh
+        2040: 0  # TWh
+        2050: 0  # TWh
