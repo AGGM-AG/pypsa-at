@@ -324,10 +324,12 @@ mods:
     apply_trajectories: true
     tol: 0.1  # slack applied to upper/lower capacity bounds (MW / MWh)
 
+  # Scales loads by name to a yearly total
   demand:
     electricity:
       AT:
-        2020: 0  # TWh
-        2030: 0  # TWh
-        2040: 0  # TWh
-        2050: 0  # TWh
+        # 40 as a first guess for Energiebilanz Statistik Austria = 62.7 - Industry sector - heat
+        2020: 40  # TWh
+        2030: 40  # TWh
+        2040: 40  # TWh
+        2050: 40  # TWh

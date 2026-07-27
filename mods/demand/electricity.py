@@ -2,4 +2,4 @@
 #
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
-
+"""Electricity demand update module."""
