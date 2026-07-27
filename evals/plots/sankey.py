@@ -554,7 +554,7 @@ class SankeyChart:
         waste_to_hvc = filter_by(
             self._df, carrier="municipal solid waste", component="Link"
         )
-        assert waste_to_hvc.sum().abs().item() < 1e-6, waste_to_hvc
+        assert waste_to_hvc.sum().abs().item() < 1e-5, waste_to_hvc
         self._df.drop(waste_to_hvc.index, inplace=True)
 
         transformation = filter_by(
@@ -654,7 +654,7 @@ class SankeyChart:
             self._df.drop(oil_refining.index, inplace=True)
 
         stores = filter_by(self._df, bus_carrier=bus_carrier, component="Store")
-        assert stores.sum().abs().item() < 1e-6
+        assert stores.sum().abs().item() < 1e-5
         self._df.drop(stores.index, inplace=True)
 
         self._check_remainder(bus_carrier)

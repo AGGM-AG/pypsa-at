@@ -54,5 +54,4 @@ rule all_at:
     default_target: True
     input:
         expand(RESULTS + "test_report.html", run=config["run"]["name"]),
-        lambda w: balance_map_paths("interactive", w),
         expand(RESULTS + "evaluation/.run_by_snakemake", run=config["run"]["name"]),
