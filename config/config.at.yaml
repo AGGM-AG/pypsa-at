@@ -224,9 +224,6 @@ solving:
     highs-default:
       threads: 0
       random_seed: 123
-      # scaling prevents infeasibility in 2030 using HiGHs 1.15 and IPX
-      user_bound_scale: -13
-      user_objective_scale: -1
     "highs-hipo":
       # scaling the LP stabilizes HiPO
       user_bound_scale: -13
