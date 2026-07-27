@@ -23,5 +23,5 @@ def test_yearly_total_electricity_demand(nc: NetworkCollection, location: str):
         The location under ``mods.demand.{location}`` to compare.
     """
     cfg = require_config(nc, "mods", "demand", "electricity")
-    expected = cfg[location]
+    expected = cfg[location]  # KeyError on misalignment of config and parametrize
     print(expected)
