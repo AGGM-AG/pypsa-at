@@ -2,9 +2,12 @@
 #
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
+"""Build the combined Austrian Useful Energy Analysis (NEA) dataset."""
+
 import logging
 import re
 import tempfile
+from pathlib import Path
 
 import pandas as pd
 from odf import teletype
@@ -67,7 +70,20 @@ SECTOR_TO_CATEGORY = {
 # =============================================================================
 
 
-def clean_text(value):
+def clean_text(value: object) -> str:
+    """
+    Normalize a raw ODS cell value to a clean string.
+
+    Parameters
+    ----------
+    value
+        Raw cell value
+
+    Returns
+    -------
+    cleaned
+        Normalized string, or "" if the value is NaN
+    """
     if pd.isna(value):
         return ""
 
@@ -75,27 +91,42 @@ def clean_text(value):
     value = re.sub(r"\s+", " ", value).strip()
     value = re.sub(r"\s*([<>])\s*", r"\1", value)
     value = value.replace("° C", "°C")
-    value = "0" if value == "." or value == "-" else value
+    value = "0" if value in (".", "-") else value
 
     return value
 
 
-def find_sector(table, header_row):
-    """Get the sector"""
+def find_sector(table: pd.DataFrame, header_row: int) -> str:
+    """
+    Get the sector name belonging to a header row.
+
+    Parameters
+    ----------
+    table
+        Raw sheet data
+    header_row
+        Row index of the "Energieträger" header
+
+    Returns
+    -------
+    sector
+        Cleaned sector name from the title row above the header
+    """
     title_row = header_row - 1
     value = table.iloc[title_row]
     return clean_text(value[0])
 
 
-def clean_ods_errors(input_path, output_path):
+def clean_ods_errors(input_path: str | Path, output_path: str | Path) -> None:
     """
-    Cleans file of DIV/0 errors
+    Clean an ODS file of #DIV/0! errors.
 
     Parameters
     ----------
     input_path
+        Path to the source ODS file
     output_path
-
+        Path to write the cleaned ODS file to
     """
     doc = load(input_path)
 
@@ -120,8 +151,22 @@ def clean_ods_errors(input_path, output_path):
 # =============================================================================
 
 
-def read_workbook(path, bundesland):
+def read_workbook(path: str | Path, bundesland: str) -> list[pd.DataFrame]:
+    """
+    Read and reshape one NEA workbook into stacked (long) blocks.
 
+    Parameters
+    ----------
+    path
+        Path to the source NEA ODS workbook
+    bundesland
+        Name of the federal state the workbook belongs to
+
+    Returns
+    -------
+    workbook_data
+        List of long-format DataFrames, one per sector and year
+    """
     with tempfile.NamedTemporaryFile(suffix=".ods") as tmp:
         clean_ods_errors(path, tmp.name)
 
@@ -209,10 +254,19 @@ def read_workbook(path, bundesland):
 
 
 def main(snakemake: Snakemake) -> None:
+    """
+    Combine NEA workbooks for all Bundesländer into a single CSV file.
+
+    Parameters
+    ----------
+    snakemake
+        Snakemake object providing ``input`` (per-Bundesland ODS paths)
+        and ``output.nea_at`` (combined CSV path)
+    """
     records = []
 
     for bundesland, path in snakemake.input.items():
-        records.append(
+        records.extend(
             read_workbook(
                 path=path,
                 bundesland=bundesland,
@@ -234,9 +288,7 @@ def main(snakemake: Snakemake) -> None:
         snakemake.output.nea_at,
         index=False,
     )
-    logging.info(
-        f"Wrote combined NEA at file to {snakemake.output.nea_at}",
-    )
+    logger.info(f"Wrote combined NEA at file to {snakemake.output.nea_at}")
 
 
 if __name__ == "__main__":
