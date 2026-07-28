@@ -180,6 +180,7 @@ pytest-html = ">=4.2.0"
 anthropic = ">=0.85.0"
 pixi-pycharm = ">=0.0.11,<0.0.12"
 pydantic-ai-slim = ">=1.69.0"
+odfpy = ">=1.4.1"
 
 [environments]
 doc = { features = ["doc"], no-default-feature = true }

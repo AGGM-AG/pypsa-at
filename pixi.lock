@@ -551,6 +551,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/notebook-shim-0.2.4-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/oauthlib-3.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/oda-reader-1.6.0-pyhc364b38_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/odfpy-1.4.1-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/opentelemetry-api-1.43.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/orderedmultidict-1.0.2-pyhc364b38_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/overrides-7.7.0-pyhd8ed1ab_1.conda
@@ -11138,6 +11139,19 @@ packages:
   run_exports: {}
   size: 58701
   timestamp: 1777469373977
+- conda: https://conda.anaconda.org/conda-forge/noarch/odfpy-1.4.1-pyhd8ed1ab_1.conda
+  sha256: 79867bab6743d94bb00c8c5df1f053cd71dfbfab1e8996fe1604880cf5f2b6e7
+  md5: 0af156e0f72b30a3f5b6d3efd83e28d9
+  depends:
+  - defusedxml
+  - python >=3.9
+  license: Apache-2.0
+  license_family: APACHE
+  purls:
+  - pkg:pypi/odfpy?source=hash-mapping
+  run_exports: {}
+  size: 105874
+  timestamp: 1734511869535
 - conda: https://conda.anaconda.org/conda-forge/noarch/opentelemetry-api-1.43.0-pyhd8ed1ab_0.conda
   sha256: d7ec9d99e25de1e7ee46585495bc767c74afa45bc3cd9c75f30c86a6e1c7fcb3
   md5: 8bba3a6f0ec08a4088330093f52b0b64
