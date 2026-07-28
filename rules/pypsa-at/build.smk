@@ -157,3 +157,22 @@ rule build_capacity_trajectories:
         "Building capacity trajectories"
     script:
         scripts("pypsa-at/build_capacity_trajectories.py")
+
+
+if NEA_AT["source"] == "primary":
+
+    rule build_nea_at:
+        input:
+            **{b: f"{NEA_AT['folder']}/NEA{b}Daten.ods" for b in BUNDESLAENDER},
+        output:
+            nea_at=resources("nea_at.csv"),
+        log:
+            logs("build_nea_at.log"),
+        benchmark:
+            benchmarks("build_nea_at")
+        resources:
+            mem_mb=5000,
+        message:
+            "Building stacked Statistik Austria NEA .csv"
+        script:
+            "scripts/pypsa-at/build_nea_at.py"

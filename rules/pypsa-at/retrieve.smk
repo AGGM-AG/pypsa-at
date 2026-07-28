@@ -69,18 +69,6 @@ elif KLIEN_POTENTIALS["source"] == "archive":
 # NEA_AT is defined in Snakefile (dataset_version("nea-at")); one ODS file per
 # Bundesland is fetched via storage() from the NEA_AT["url"] base directory.
 
-BUNDESLAENDER = [
-    "Burgenland",
-    "Kaernten",
-    "Niederoesterreich",
-    "Oberoesterreich",
-    "Salzburg",
-    "Steiermark",
-    "Tirol",
-    "Vorarlberg",
-    "Wien",
-]
-
 if NEA_AT["source"] == "primary":
 
     rule retrieve_nea_at:
