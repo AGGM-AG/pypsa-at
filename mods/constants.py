@@ -137,3 +137,15 @@ HYDRO_CARRIER_MAPPING = {
     "PS Closed (pump) - MW": ("PHS charger", "Link-p_nom", "max"),
     "PS Closed - GWh": ("PHS store", "Store-e_nom", "max"),
 }
+NUTS2_CODES = {
+    "Burgenland": "AT11",
+    "Niederoesterreich": "AT12",
+    "Wien": "AT13",
+    "Kaernten": "AT21",
+    "Steiermark": "AT22",
+    "Oberoesterreich": "AT31",
+    "Salzburg": "AT32",
+    "Tirol": "AT33",
+    "Vorarlberg": "AT34",
+}
+TJ_PER_TWH = 3600.0
