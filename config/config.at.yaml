@@ -181,6 +181,9 @@ data:
   klien_potentials:
     source: archive
     version: 2026-v2
+  nea-at:
+    source: primary
+    version: latest
 
 pypsa_eur:
   StorageUnit: []

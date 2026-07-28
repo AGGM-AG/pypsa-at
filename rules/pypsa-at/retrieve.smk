@@ -64,3 +64,34 @@ elif KLIEN_POTENTIALS["source"] == "archive":
         run:
             for key in input.keys():
                 copy2(input[key], output[key])
+
+
+# NEA_AT is defined in Snakefile (dataset_version("nea-at")); one ODS file per
+# Bundesland is fetched via storage() from the NEA_AT["url"] base directory.
+
+BUNDESLAENDER = [
+    "Burgenland",
+    "Kaernten",
+    "Niederoesterreich",
+    "Oberoesterreich",
+    "Salzburg",
+    "Steiermark",
+    "Tirol",
+    "Vorarlberg",
+    "Wien",
+]
+
+if NEA_AT["source"] == "primary":
+
+    rule retrieve_nea_at:
+        input:
+            **{b: storage(f"{NEA_AT['url']}/NEA{b}Daten.ods") for b in BUNDESLAENDER},
+        output:
+            **{b: f"{NEA_AT['folder']}/NEA{b}Daten.ods" for b in BUNDESLAENDER},
+        log:
+            logs("retrieve_nea_at.log"),
+        message:
+            "Retrieving Statistik Austria NEA files per Bundesland"
+        run:
+            for b in BUNDESLAENDER:
+                move(input[b], output[b])

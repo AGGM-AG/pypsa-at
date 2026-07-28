@@ -111,6 +111,7 @@ natura,v0.8.2,archive,supported,2026-01-13,,https://data.pypsa.org/workflows/eur
 natura,unknown,build,latest supported,2025-12-02,,https://sdi.eea.europa.eu/datashare/s/tWpGXaWdWGYcqsL/download
 natura,2025-08-15,primary,latest supported,2025-12-02,,https://zenodo.org/records/16881818/files/natura.tiff
 natura,2025-08-15,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/natura/2025-08-15/natura.tiff
+nea-at,latest,primary,latest supported,2026-07-28,Statistik Austria Nutzenergieanalyse (NEA) per-Bundesland ODS files,https://www.statistik.at/fileadmin/pages/103
 neso_electricity_demand,unknown,build,latest supported,2026-02-02,,https://www.neso.energy/data-portal/historic-demand-data
 neso_electricity_demand,2026-02-02,archive,latest supported,2026-02-03,,https://data.pypsa.org/workflows/eur/neso_electricity_demand/2026-02-02/electricity_demand_neso_raw.csv
 nitrogen_statistics,2023,primary,latest supported,2025-12-02,,https://d9-wret.s3.us-west-2.amazonaws.com/assets/palladium/production/s3fs-public/media/files/myb1-2023-nitro-ERT.xlsx
