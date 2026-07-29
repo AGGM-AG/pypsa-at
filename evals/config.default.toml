@@ -274,7 +274,7 @@ unit = "TWh"
 file_name = "capacity_gas_storage_{location}"
 chart = "ESMBarChart"
 bus_carrier = ["H2", "gas"]  # "co2 sequestered"
-cutoff = 0.00001  # 1 MWh
+cutoff = 0.0001  # 100 MWh
 legend_order = ["Methane Store", "Hydrogen Store"]
 checks = []
 exports = []
@@ -908,6 +908,8 @@ legend_order = [
     "Solar Thermal",
     "Ambient Heat",
     "Storage Out",
+    "Sabatier",
+    "Methanolisation",
     # from zero to bottom
     "Industry",
     "Agriculture",
@@ -936,12 +938,17 @@ database_specifier = ""
 "rural solar thermal" = "Solar Thermal"
 "rural water tanks" = "Storage Out"
 "rural water tanks charger" = "Storage In"
+"rural biomass boiler" = "Solid Biomass"
+"rural gas boiler" = "Methane"
+"rural oil boiler" = "Oil"
+"urban decentral biomass boiler" = "Solid Biomass"
 "solid biomass" = "Solid Biomass"
 "urban decentral heat" = "HH & Services"
 "urban decentral heat vent" = "Heat Ventilation"
 "urban decentral solar thermal" = "Solar Thermal"
 "urban decentral water tanks" = "Storage In"
 "urban decentral water tanks charger" = "Storage Out"
+"urban decentral oil boiler" = "Oil"
 "AC" = "Electricity"
 "H2" = "Hydrogen"
 "coal" = "Coal"
@@ -957,6 +964,8 @@ database_specifier = ""
 "urban central water tanks" = "Storage In"
 "urban central water tanks charger" = "Storage Out"
 "lignite" = "Coal"
+"Sabatier" = "Sabatier"
+"methanolisation" = "Methanolisation"
 
 [view_balance_biomass]
 name = "Solid Biomass Energy Balance"
@@ -1603,7 +1612,7 @@ unit = "TWh"
 file_name = "sankey_{location}_{year}"
 bus_carrier = ""  # all bus_carrier
 chart = "SankeyChart"
-cutoff = 0.00001  # 1 MWh
+cutoff = 0.0001  # 100 MWh
 legend_order = []
 checks = []
 exports = []
