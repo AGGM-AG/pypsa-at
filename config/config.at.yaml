@@ -329,8 +329,9 @@ mods:
   demand:
     electricity:
       AT:
-        # 40 as a first guess for Energiebilanz Statistik Austria = 62.7 - Industry sector - heat
+        # 40 as a first guess for Energiebilanz Statistik Austria = 62.7 - NEA Industry sector - NEA heat (Raumklima u. Warmwasser)
         2020: 40  # TWh
         2030: 40  # TWh
         2040: 40  # TWh
         2050: 40  # TWh
+
