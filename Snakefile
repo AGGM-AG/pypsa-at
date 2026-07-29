@@ -80,6 +80,7 @@ include: "rules/common.smk"
 # Data constants
 OSM_DATASET = dataset_version("osm")
 KLIEN_POTENTIALS = dataset_version("klien_potentials")
+NEA_AT = dataset_version("nea-at")
 
 
 include: "rules/collect.smk"
