@@ -6922,7 +6922,9 @@ if __name__ == "__main__":
         )
 
     # PyPSA-AT: add AT-specific sector technologies
-    prepare_sector_network(n, snakemake, pop_layout.index, costs, spatial)
+    prepare_sector_network(
+        n, snakemake, pop_layout.index, costs, spatial, pop_weighted_energy_totals
+    )
 
     n.meta = dict(snakemake.config, **dict(wildcards=dict(snakemake.wildcards)))
 
