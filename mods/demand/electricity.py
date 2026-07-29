@@ -40,18 +40,13 @@ def base_load_load_splitting(
     :
         Updates the network in place.
     """
-    # todo: Notes
-    #   - electricity for agriculture is added on top in prepare_sector_network, no deduction from base load. This amount is double counted
-    #   - missing deduction of "electricity road" from base load. AC for road is modeled in the EV battery subsystem, but todays AC demand in JRC-IDEES in energy_totals ("electricity road") remains in the base load. Amounts are small for AT in 20204, but its a bug nontheless.
-
     nodes = pop_weighted_energy_totals.index
 
     base_load_idx = n.loads.query("carrier == 'electricity'").index
     base_load = n.loads_t["p_set"][base_load_idx]
 
     # sanity check: both indices contain the same entries
-    differences = base_load.columns.symmetric_difference(nodes)
-    if any(differences):
+    if any(differences := base_load.columns.symmetric_difference(nodes)):
         raise Exception(
             f"Electricity base load and electricity rail indices are not identical: {differences}"
         )
@@ -66,8 +61,7 @@ def base_load_load_splitting(
 
     # sanity check: the rail share must be a true fraction of the base load,
     # otherwise the energy totals and the disaggregated base load are inconsistent
-    invalid = rail_share[rail_share.lt(0) | rail_share.ge(1)]
-    if not invalid.empty:
+    if any(invalid := rail_share[rail_share.lt(0) | rail_share.ge(1)]):
         raise Exception(f"Electricity for rail shares out of bounds [0, 1): {invalid}")
 
     # split the base load proportionally: both parts keep the ENTSO-E profile
@@ -86,4 +80,4 @@ def base_load_load_splitting(
         p_set=rail_profile,
     )
 
-    logger.info("Split 'electricity for rail' demand to a new Load component.")
+    logger.info(f"Split 'electricity rail' JRC-IDEE demands to a new Load '{carrier}'.")
