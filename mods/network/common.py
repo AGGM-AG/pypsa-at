@@ -30,7 +30,7 @@ logger = getLogger(__name__)
 
 
 def prepare_sector_network(
-    n, snakemake, nodes, costs, spatial, pop_weighted_energy_totals
+    n, snakemake, nodes, costs, spatial, pop_weighted_energy_totals, nyears
 ):
     """
     Apply all PyPSA-AT specific modifications during ``prepare_sector_network``.
@@ -48,7 +48,12 @@ def prepare_sector_network(
     spatial
         Spatial namespace produced by ``define_spatial``.
     pop_weighted_energy_totals
-
+        Population weighted energy totals per node in TWh per calendar
+        year, used to split demands out of the electricity base load.
+    nyears
+        Fraction of a calendar year covered by the snapshots
+        (``nhours / 8760``); scales annual energy totals to the model
+        period.
 
     Returns
     -------
@@ -58,7 +63,7 @@ def prepare_sector_network(
     add_h2_for_industry_bus(n, nodes)
     add_methane_pyrolysis_plasma(n, snakemake, costs, nodes, spatial)
     process_hydro(n, snakemake, costs)
-    base_load_load_splitting(n, pop_weighted_energy_totals)
+    base_load_load_splitting(n, pop_weighted_energy_totals, nyears)
 
 
 def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
