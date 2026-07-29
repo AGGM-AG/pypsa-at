@@ -84,11 +84,9 @@ def clean_text(value: object) -> str:
     if pd.isna(value):
         return ""
 
-    value = str(value).replace("\n", " ")
-    value = re.sub(r"\s+", " ", value).strip()
-    value = re.sub(r"\s*([<>])\s*", r"\1", value)
-    value = value.replace("° C", "°C")
-    value = "0" if value in (".", "-") else value
+    value = str(value).replace("\n", "")  # remove newline
+    value = re.sub(r"\s+", " ", value).strip()  # clean consecutive whitespace and strip
+    value = "0" if value in (".", "-") else value  # replace - or . with 0
 
     return value
 
@@ -168,7 +166,7 @@ def read_workbook(path: str | Path, bundesland: str) -> list[pd.DataFrame]:
 
     Returns
     -------
-    workbook_data
+    :
         List of long-format DataFrames, one per sector and year
     """
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -205,7 +203,7 @@ def read_workbook(path: str | Path, bundesland: str) -> list[pd.DataFrame]:
 
             sector = find_sector(table, header_row)
 
-            # Skip all aggregate Bereiche
+            # Skip all aggregate sectors
             if sector in SKIP_SECTORS:
                 continue
 
@@ -289,10 +287,7 @@ def main(snakemake: Snakemake) -> None:
         ]
     )
 
-    result.to_csv(
-        snakemake.output.nea_at,
-        index=False,
-    )
+    result.to_csv(snakemake.output.nea_at, index=False)
     logger.info(f"Wrote combined NEA at file to {snakemake.output.nea_at}")
 
 
