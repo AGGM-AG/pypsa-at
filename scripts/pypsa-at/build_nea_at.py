@@ -111,7 +111,7 @@ def find_sector(table: pd.DataFrame, header_row: int) -> str:
     """
     title_row = header_row - 1
     value = table.iloc[title_row]
-    return clean_text(value[0])
+    return clean_text(value.iloc[0])
 
 
 def clean_ods_errors(input_path: str | Path, output_path: str | Path) -> list[str]:
