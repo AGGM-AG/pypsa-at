@@ -9,6 +9,7 @@ from logging import getLogger
 import pypsa
 from snakemake.script import Snakemake
 
+from mods.demand.electricity import base_load_load_splitting
 from mods.network.electricity import apply_tyndp_transmission_lower_bounds
 from mods.network.gas import (
     block_russian_gas_imports,
@@ -28,7 +29,9 @@ from mods.network.trajectories import apply_pemmdb_trajectories
 logger = getLogger(__name__)
 
 
-def prepare_sector_network(n, snakemake, nodes, costs, spatial):
+def prepare_sector_network(
+    n, snakemake, nodes, costs, spatial, pop_weighted_energy_totals
+):
     """
     Apply all PyPSA-AT specific modifications during ``prepare_sector_network``.
 
@@ -44,6 +47,8 @@ def prepare_sector_network(n, snakemake, nodes, costs, spatial):
         Clustered node index (``pop_layout.index``).
     spatial
         Spatial namespace produced by ``define_spatial``.
+    pop_weighted_energy_totals
+
 
     Returns
     -------
@@ -53,6 +58,7 @@ def prepare_sector_network(n, snakemake, nodes, costs, spatial):
     add_h2_for_industry_bus(n, nodes)
     add_methane_pyrolysis_plasma(n, snakemake, costs, nodes, spatial)
     process_hydro(n, snakemake, costs)
+    base_load_load_splitting(n, pop_weighted_energy_totals)
 
 
 def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
