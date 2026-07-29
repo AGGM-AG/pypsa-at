@@ -184,7 +184,7 @@ odfpy = ">=1.4.1"
 
 [environments]
 doc = { features = ["doc"], no-default-feature = true }
-test = ["test"]
+test = {features = ["pypsa-at", "test"]}
 default = {features = ["pypsa-at", "test"]}
 
 [pypi-dependencies]
