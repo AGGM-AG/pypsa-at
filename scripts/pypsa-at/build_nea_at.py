@@ -40,6 +40,8 @@ SKIP_SECTORS = [
     "Sonstige Wirtschaftsbereiche insgesamt",
 ]
 
+SKIP_SHEETS = ["Deckblatt"]
+
 SECTOR_TO_CATEGORY = {
     "Eisen- und Stahlerzeugung": "Produzierender Bereich",
     "Chemie und Petrochemie": "Produzierender Bereich",
@@ -63,11 +65,6 @@ SECTOR_TO_CATEGORY = {
     "Private Haushalte": "Sonstige Wirtschaftsbereiche",
     "Landwirtschaft": "Sonstige Wirtschaftsbereiche",
 }
-
-
-# =============================================================================
-# Small helper functions
-# =============================================================================
 
 
 def clean_text(value: object) -> str:
@@ -117,7 +114,7 @@ def find_sector(table: pd.DataFrame, header_row: int) -> str:
     return clean_text(value[0])
 
 
-def clean_ods_errors(input_path: str | Path, output_path: str | Path) -> None:
+def clean_ods_errors(input_path: str | Path, output_path: str | Path) -> list[str]:
     """
     Clean an ODS file of #DIV/0! errors.
 
@@ -127,10 +124,21 @@ def clean_ods_errors(input_path: str | Path, output_path: str | Path) -> None:
         Path to the source ODS file
     output_path
         Path to write the cleaned ODS file to
+
+    Returns
+    -------
+    :
+        List of all sheet names in the file
     """
     doc = load(input_path)
 
+    sheet_names = []
     for table in doc.spreadsheet.getElementsByType(Table):
+        sheet_names.append(
+            table.attributes[
+                ("urn:oasis:names:tc:opendocument:xmlns:table:1.0", "name")
+            ]
+        )
         for cell in table.getElementsByType(TableCell):
             if cell.getAttribute("valuetype") == "error":
                 value = (
@@ -144,11 +152,7 @@ def clean_ods_errors(input_path: str | Path, output_path: str | Path) -> None:
                 cell.setAttribute("value", None)
 
     doc.save(output_path)
-
-
-# =============================================================================
-# Read one workbook
-# =============================================================================
+    return sheet_names
 
 
 def read_workbook(path: str | Path, bundesland: str) -> list[pd.DataFrame]:
@@ -167,13 +171,14 @@ def read_workbook(path: str | Path, bundesland: str) -> list[pd.DataFrame]:
     workbook_data
         List of long-format DataFrames, one per sector and year
     """
-    with tempfile.NamedTemporaryFile(suffix=".ods") as tmp:
-        clean_ods_errors(path, tmp.name)
-
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir) / "nea_cleaned.ods"
+        sheet_names = clean_ods_errors(path, tmp_path)
+        sheet_names = [sn for sn in sheet_names if sn not in SKIP_SHEETS]
         sheets = pd.read_excel(
-            tmp.name,
+            tmp_path,
             engine="odf",
-            sheet_name=[f"NEA_{year}" for year in range(2005, 2025)],
+            sheet_name=sheet_names,
             header=None,
             usecols="A:I",
         )

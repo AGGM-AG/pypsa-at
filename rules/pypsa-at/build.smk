@@ -6,6 +6,10 @@
 Build rules for AT-specific datasets.
 """
 
+from mods.constants import NUTS2_CODES
+
+BUNDESLAENDER = list(NUTS2_CODES.keys())
+
 
 rule build_custom_cost_at:
     input:

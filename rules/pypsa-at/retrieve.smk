@@ -17,6 +17,11 @@ Downloads AT-specific data from the sources for the dataset entries in
 # and available via include scope. Individual GeoJSON files are fetched via storage()
 # using per-file path fragments appended to KLIEN_POTENTIALS['url'].
 
+from mods.constants import NUTS2_CODES
+
+BUNDESLAENDER = list(NUTS2_CODES.keys())
+
+
 if KLIEN_POTENTIALS["source"] == "build":
 
     rule build_klien_potentials:
