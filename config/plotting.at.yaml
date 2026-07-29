@@ -19,3 +19,6 @@ plotting:
     hydro discharger: '#298c81'
     hydro store: '#298c81'
     hydro inflow: '#298c81'
+    # rail demand split out of the electricity base load; darker shade of
+    # 'land transport demand' ('#38baf2') to match the transport sector colours
+    electricity for rail: '#2b96c4'
