@@ -40,6 +40,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added files for biogas-to-power plants from Austrian Anlagenregister ([#157](https://github.com/AGGM-AG/pypsa-at/pull/157/)) 
 - Added `AT-Postal-to-NUTS3` file to map Austrian Postleitzahls to NUTS3 region ([#157](https://github.com/AGGM-AG/pypsa-at/pull/157/)) 
 - New `loss` statistic, residual load views, and duration curve support in evals ([#161](https://github.com/AGGM-AG/pypsa-at/pull/161))
+- Data retrieval and preparation for Statistik Austria Nutzenergieanalyse ([#174](https://github.com/AGGM-AG/pypsa-at/pull/174))
 
 ### Changed
 - Blocked imports of Russian methane via Ukraine and TurkStream ([#129](https://github.com/AGGM-AG/pypsa-at/pull/129))
