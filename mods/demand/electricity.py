@@ -46,12 +46,15 @@ def base_load_load_splitting(
     base_load = n.loads_t["p_set"][base_load_idx]
 
     # sanity check: both indices contain the same entries
-    if any(differences := base_load.columns.symmetric_difference(nodes)):
+    if not (differences := base_load.columns.symmetric_difference(nodes)).empty:
         raise ValueError(
             f"Electricity base load and electricity rail indices are not identical: {differences}"
         )
 
-    # nodal annual energy of the (residual) base load in MWh/a
+    # n.add requires p_set columns to match the passed names positionally
+    base_load = base_load[nodes]
+
+    # nodal energy of the (residual) base load over the model period in MWh
     weightings = n.snapshot_weightings.generators
     base_energy = base_load.mul(weightings, axis="index").sum()
     rail_energy = (
@@ -61,7 +64,8 @@ def base_load_load_splitting(
 
     # sanity check: the rail share must be a true fraction of the base load,
     # otherwise the energy totals and the disaggregated base load are inconsistent
-    if any(invalid := rail_share[rail_share.lt(0) | rail_share.ge(1)]):
+    # (NaN from 0/0 fails between() and is rejected as well)
+    if not (invalid := rail_share[~rail_share.between(0, 1, inclusive="left")]).empty:
         raise ValueError(f"Electricity for rail shares out of bounds [0, 1): {invalid}")
 
     # split the base load proportionally: both parts keep the ENTSO-E profile
