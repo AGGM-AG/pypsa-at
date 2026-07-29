@@ -13,55 +13,77 @@ logger = logging.getLogger(__name__)
 
 
 def base_load_load_splitting(
-    n: pypsa.Network, pop_weighted_energy_totals: pd.DataFrame
+    n: pypsa.Network, pop_weighted_energy_totals: pd.DataFrame, nyears: float
 ) -> None:
     """
     Split the electricity base load into granular components.
 
+    The electricity for rail demand is carved out of the base load
+    proportionally: each node's base load time series is scaled down by
+    its rail share and the removed part is re-added as a separate
+    ``electricity for rail`` Load with the same profile shape, so the
+    hourly sum of both components equals the original base load.
+
     Parameters
     ----------
     n
-        The Network just before solving.
+        The Network during ``prepare_sector_network``.
     pop_weighted_energy_totals
-        The population weighted energy totals in TWh/a.
+        The population weighted energy totals in TWh per calendar year.
+    nyears
+        Fraction of a calendar year covered by the snapshots
+        (``nhours / 8760``); scales the annual energy totals to the
+        model period.
 
     Returns
     -------
     :
         Updates the network in place.
     """
+    # todo: Notes
+    #   - electricity for agriculture is added on top in prepare_sector_network, no deduction from base load. This amount is double counted
+    #   - missing deduction of "electricity road" from base load. AC for road is modeled in the EV battery subsystem, but todays AC demand in JRC-IDEES in energy_totals ("electricity road") remains in the base load. Amounts are small for AT in 20204, but its a bug nontheless.
 
     nodes = pop_weighted_energy_totals.index
 
     base_load_idx = n.loads.query("carrier == 'electricity'").index
-    base_load_dynamic = n.loads_t["p_set"][base_load_idx]
-
-    # constant nodal power draw from annual totals (TWh/a -> MW)
-    nhours = n.snapshot_weightings.generators.sum()
-    electricity_rail = pop_weighted_energy_totals["electricity rail"] * 1e6 / nhours
+    base_load = n.loads_t["p_set"][base_load_idx]
 
     # sanity check: both indices contain the same entries
-    differences = base_load_dynamic.columns.symmetric_difference(nodes)
+    differences = base_load.columns.symmetric_difference(nodes)
     if any(differences):
         raise Exception(
             f"Electricity base load and electricity rail indices are not identical: {differences}"
         )
 
-    # deduct electricity rail parts from the base load and add them as a separate component again
-    n.loads_t["p_set"][nodes] -= electricity_rail
+    # nodal annual energy of the (residual) base load in MWh/a
+    weightings = n.snapshot_weightings.generators
+    base_energy = base_load.mul(weightings, axis="index").sum()
+    rail_energy = (
+        pop_weighted_energy_totals["electricity rail"].mul(nyears).mul(1e6)
+    )  # to MWh/a
+    rail_share = rail_energy / base_energy
 
-    # no sanity checks for negative loads, because negative loads already exist before the deduction.
-    # the root cause is spatial disaggregation logic, not the rail deductions.
+    # sanity check: the rail share must be a true fraction of the base load,
+    # otherwise the energy totals and the disaggregated base load are inconsistent
+    invalid = rail_share[rail_share.lt(0) | rail_share.ge(1)]
+    if not invalid.empty:
+        raise Exception(f"Electricity for rail shares out of bounds [0, 1): {invalid}")
 
+    # split the base load proportionally: both parts keep the ENTSO-E profile
+    rail_profile = base_load.mul(rail_share, axis="columns")
+    n.loads_t["p_set"][nodes] -= rail_profile
+
+    carrier = "electricity for rail"
+    # No need to register the new carrier because add_missing_carriers()
+    # runs at the end of prepare_sector_network.py.
     n.add(
         "Load",
         nodes,
-        suffix=" electricity for rail",
+        suffix=f" {carrier}",
         bus=n.loads.loc[nodes, "bus"],
-        carrier="electricity for rail",
-        p_set=electricity_rail,
+        carrier=carrier,
+        p_set=rail_profile,
     )
-    # No need to register the new carrier because add_missing_carriers()
-    # runs at the end of prepare_sector_network.py.
 
     logger.info("Split 'electricity for rail' demand to a new Load component.")
