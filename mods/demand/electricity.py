@@ -114,7 +114,7 @@ def base_load_load_splitting(
     weights = sector_energies.div(sector_energies.sum(axis="columns"), axis="index")
 
     # sanity check: 0/0 yields NaN weights for nodes without any sectoral energy
-    if not (invalid := weights[weights.isna().any(axis=1)]).empty:
+    if not (invalid := weights[weights.isna().any(axis="columns")]).empty:
         raise ValueError(
             f"Nodes without any sectoral energy: {invalid.index.to_list()}"
         )
@@ -158,8 +158,9 @@ def base_load_load_splitting(
     n.loads_t["p_set"][agriculture_loads] = agriculture_profile
     n.loads.loc[agriculture_loads, "p_set"] = 0.0
 
-    # the base load is fully distributed to the sectoral Loads
-    n.remove("Load", base_load_idx)
+    # the base load is fully distributed to the sectoral Loads; skipped
+    # nodes keep their base load Load components
+    n.remove("Load", nodes)
 
     logger.info(
         f"Split the electricity base load into sectoral Loads {list(new_load_carriers)}"

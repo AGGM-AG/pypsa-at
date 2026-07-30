@@ -19,10 +19,35 @@ from scripts._helpers import (
 
 logger = logging.getLogger(__name__)
 
-bus_mappings = {
-    "DE": "DE5",  # German Hydrogen Imports can stem from Norway or by sea (ammonia). In both cases they go through North-Germany.
-    "IT": "IT1",  # Italian Hydrogen Imports are exclusively from Algeria and do therefore have to go through Sicily
-}
+
+def build_bus_mappings(admin_levels: dict) -> dict:
+    """
+    Build the mapping from country codes to H2 import landing nodes.
+
+    The landing nodes only exist for specific administrative clustering
+    levels, therefore the mapping depends on the clustering configuration.
+
+    Parameters
+    ----------
+    admin_levels
+        Per-country administrative clustering levels from
+        ``config.clustering.administrative``.
+
+    Returns
+    -------
+    :
+        Mapping from country code to the H2 import landing node.
+    """
+    mappings = {}
+
+    if admin_levels.get("DE") == 1:
+        mappings["DE"] = "DE9"  # NUTS1 Lower Saxony
+    if admin_levels.get("DE") == 3:
+        mappings["DE"] = "DE5"  # custom clusterin North-Germany
+    if admin_levels.get("IT") == 1:
+        mappings["IT"] = "IT1"  # Sicily
+
+    return mappings
 
 
 if __name__ == "__main__":
@@ -50,6 +75,7 @@ if __name__ == "__main__":
     import_potentials_filtered = import_potentials.query(
         "(Scenario == 'All' or Scenario == @scenario) and Year == @year and bus1 in @countries"
     )
+    bus_mappings = build_bus_mappings(snakemake.params.admin_levels)
     import_potentials_filtered["bus1"] = import_potentials_filtered["bus1"].replace(
         bus_mappings
     )

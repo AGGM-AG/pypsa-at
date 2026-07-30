@@ -51,6 +51,8 @@ if config["foresight"] == "overnight":
                 "clustering", "aggregation_strategies"
             ),
             exclude_carriers=config_provider("clustering", "exclude_carriers"),
+            admin_levels=config_provider("clustering", "administrative"),
+            custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
 
     ruleorder: solve_sector_network_at > solve_sector_network
 
@@ -90,6 +92,8 @@ if config["foresight"] == "myopic":
                 "clustering", "aggregation_strategies"
             ),
             exclude_carriers=config_provider("clustering", "exclude_carriers"),
+            admin_levels=config_provider("clustering", "administrative"),
+            custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
 
     ruleorder: solve_sector_network_myopic_at > solve_sector_network_myopic
 
@@ -129,5 +133,7 @@ if config["foresight"] == "perfect":
                 "clustering", "aggregation_strategies"
             ),
             exclude_carriers=config_provider("clustering", "exclude_carriers"),
+            admin_levels=config_provider("clustering", "administrative"),
+            custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
 
     ruleorder: solve_sector_network_perfect_at > solve_sector_network_perfect

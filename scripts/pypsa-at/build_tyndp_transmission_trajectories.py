@@ -13,6 +13,7 @@ from pathlib import Path
 import pandas as pd
 
 from mods import TYNDP_TO_PYPSA_LOCATION_TRANSMISSION
+from mods.constants import resolve_tyndp_locations
 from scripts._helpers import configure_logging, set_scenario_config
 
 logger = logging.getLogger(__name__)
@@ -233,6 +234,7 @@ def build_trajectories(
 def build_tyndp_transmission_trajectories(
     elec_reference_grid_fn: str | Path,
     invest_grid_fn: str | Path,
+    location_mapping: dict,
 ) -> pd.DataFrame:
     """
     Read, map, and aggregate TYNDP transmission data into a multi-year NTC table.
@@ -248,6 +250,8 @@ def build_tyndp_transmission_trajectories(
         Path to ``ReferenceGrid_Electricity.xlsx``.
     invest_grid_fn : str | Path
         Path to ``GRID.xlsx`` (Grid Investment Dataset).
+    location_mapping : dict
+        The resolved TYNDP location mapping for the clustering.
 
     Returns
     -------
@@ -259,8 +263,8 @@ def build_tyndp_transmission_trajectories(
     tyndp_2030 = read_elec_reference_grid(elec_reference_grid_fn)
     investments = read_invest_grid(invest_grid_fn)
 
-    tyndp_2030 = map_tyndp_nodes(tyndp_2030, TYNDP_TO_PYPSA_LOCATION_TRANSMISSION)
-    investments = map_tyndp_nodes(investments, TYNDP_TO_PYPSA_LOCATION_TRANSMISSION)
+    tyndp_2030 = map_tyndp_nodes(tyndp_2030, location_mapping)
+    investments = map_tyndp_nodes(investments, location_mapping)
 
     tyndp_2030 = sort_data(tyndp_2030)
     investments = sort_data(investments)
@@ -279,9 +283,15 @@ def main(snakemake) -> None:
         ``input.invest_grid``, and
         ``output.tyndp_transmission_trajectories``.
     """
+    location_mapping = resolve_tyndp_locations(
+        snakemake.params.admin_levels,
+        snakemake.params.custom_clustering,
+        TYNDP_TO_PYPSA_LOCATION_TRANSMISSION,
+    )
     tyndp_transmission = build_tyndp_transmission_trajectories(
         snakemake.input.elec_reference_grid,
         snakemake.input.invest_grid,
+        location_mapping,
     )
     out_path = snakemake.output.tyndp_transmission_trajectories
     tyndp_transmission.to_csv(out_path)

@@ -158,11 +158,8 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
             raise RuntimeError(f"Expected negative electricity Loads for {location}.")
         p_set[columns] = p_set[columns].clip(lower=0)
 
-    # Edge case (CI test config only): in the reduced at10 test network a few
-    # "H2 for industry" demands are net-negative (industry produces surplus H2),
-    # so the Load injects energy and trips test_no_load_supply. Clip to zero in
-    # the test run only; full-resolution production runs are left untouched.
-    if cfg["run"]["prefix"] == "test-sector-myopic-at10":
+    # In the reduced at10 test network a few "H2 for industry" negative
+    if cfg["run"]["prefix"] == "test-sector-myopic-at10" and investment_year < 2030:
         _clip_static("H2 for industry")
         return  # skip any other clipping
 
