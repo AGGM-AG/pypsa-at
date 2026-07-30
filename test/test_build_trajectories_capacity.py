@@ -5,7 +5,7 @@ from typing import Any
 import pandas as pd
 from pypsa import NetworkCollection
 
-from mods.constants import HYDRO_CARRIER_MAPPING, TYNDP_TO_PYPSA_LOCATION
+from mods.constants import HYDRO_CARRIER_MAPPING, resolve_tyndp_locations
 
 
 def _reverse_dict(d: dict[Any, Any]) -> dict[Any, list[Any]]:
@@ -19,8 +19,13 @@ def test_build_trajectories_capacity(nc: NetworkCollection) -> None:
     """
     Tests whether the values of the trajectories_{cluster}.csv file the in the resources folder match the input data.
     """
-    PYPSA_TO_TYNDP_LOCATIONS = _reverse_dict(TYNDP_TO_PYPSA_LOCATION)
     for year, n in nc.networks.items():
+        # resolve the location mapping for the run's clustering configuration
+        location_mapping = resolve_tyndp_locations(
+            n.meta["clustering"]["administrative"],
+            n.meta["mods"]["modify_nuts3_shapes"],
+        )
+        PYPSA_TO_TYNDP_LOCATIONS = _reverse_dict(location_mapping)
         trajectories = pd.DataFrame.from_dict(n.meta["resources"]["trajectories"])
         powerplants = pd.DataFrame.from_dict(n.meta["resources"]["powerplants"])
         trajectories = trajectories[trajectories["year"] == int(year)]

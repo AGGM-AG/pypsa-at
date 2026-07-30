@@ -7,7 +7,7 @@
 import pandas as pd
 import pytest
 
-from mods.constants import TYNDP_TO_PYPSA_LOCATION
+from mods.constants import resolve_tyndp_locations
 from test.conftest import require_config
 
 _CARRIER_TO_KLIEN_FILE = {
@@ -130,8 +130,12 @@ def test_tyndp_trajectory_ceilings(nc, project_root, is_testrun):
     )["p_nom_max"]
     expect.index.names = ["year", "location", "carrier"]
 
-    # rename to pypsa-at location names
-    expect = expect.rename(index=TYNDP_TO_PYPSA_LOCATION, level="location")
+    # rename to pypsa-at location names, resolved for the run's clustering
+    location_mapping = resolve_tyndp_locations(
+        nc["2030"].meta["clustering"]["administrative"],
+        nc["2030"].meta["mods"]["modify_nuts3_shapes"],
+    )
+    expect = expect.rename(index=location_mapping, level="location")
 
     # the technical potential statistics calculates the upper boundary
     kwargs = dict(
