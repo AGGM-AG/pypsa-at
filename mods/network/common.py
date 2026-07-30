@@ -9,7 +9,7 @@ from logging import getLogger
 import pypsa
 from snakemake.script import Snakemake
 
-from mods.demand.electricity import base_load_load_splitting
+from mods.demand.electricity import BASE_LOAD_CARRIERS, base_load_load_splitting
 from mods.network.electricity import apply_tyndp_transmission_lower_bounds
 from mods.network.gas import (
     block_russian_gas_imports,
@@ -30,7 +30,7 @@ logger = getLogger(__name__)
 
 
 def prepare_sector_network(
-    n, snakemake, nodes, costs, spatial, pop_weighted_energy_totals, nyears
+    n, snakemake, nodes, costs, spatial, pop_weighted_energy_totals
 ):
     """
     Apply all PyPSA-AT specific modifications during ``prepare_sector_network``.
@@ -49,11 +49,8 @@ def prepare_sector_network(
         Spatial namespace produced by ``define_spatial``.
     pop_weighted_energy_totals
         Population weighted energy totals per node in TWh per calendar
-        year, used to split demands out of the electricity base load.
-    nyears
-        Fraction of a calendar year covered by the snapshots
-        (``nhours / 8760``); scales annual energy totals to the model
-        period.
+        year, used to split the electricity base load into sectoral
+        Loads.
 
     Returns
     -------
@@ -63,7 +60,7 @@ def prepare_sector_network(
     add_h2_for_industry_bus(n, nodes)
     add_methane_pyrolysis_plasma(n, snakemake, costs, nodes, spatial)
     process_hydro(n, snakemake, costs)
-    base_load_load_splitting(n, pop_weighted_energy_totals, nyears)
+    base_load_load_splitting(n, pop_weighted_energy_totals)
 
 
 def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
@@ -150,10 +147,16 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
         n.loads.loc[negatives, "p_set"] = 0
 
     def _clip_electricity(location: str):
-        negatives = n.loads_t["p_set"][location].lt(0)
-        if not any(negatives):
-            raise RuntimeError(f"Expected negative electricity Load for {location}.")
-        n.loads_t["p_set"].loc[negatives, location] = 0
+        # the base load is split into sectoral Loads (see
+        # base_load_load_splitting), so negative hours from the electric
+        # heating deduction sit proportionally in all of them
+        at_location = n.loads.index.str.startswith(f"{location} ")
+        is_split = n.loads["carrier"].isin(BASE_LOAD_CARRIERS).to_numpy()
+        p_set = n.loads_t["p_set"]
+        columns = p_set.columns.intersection(n.loads.index[at_location & is_split])
+        if not p_set[columns].lt(0).any().any():
+            raise RuntimeError(f"Expected negative electricity Loads for {location}.")
+        p_set[columns] = p_set[columns].clip(lower=0)
 
     # Edge case (CI test config only): in the reduced at10 test network a few
     # "H2 for industry" demands are net-negative (industry produces surplus H2),

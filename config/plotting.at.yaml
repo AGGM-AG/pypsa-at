@@ -19,6 +19,11 @@ plotting:
     hydro discharger: '#298c81'
     hydro store: '#298c81'
     hydro inflow: '#298c81'
-    # rail demand split out of the electricity base load; darker shade of
-    # 'land transport demand' ('#38baf2') to match the transport sector colours
+    # sectoral demands split out of the electricity base load. Rail and road
+    # take shades of 'land transport demand' ('#38baf2') to match the
+    # transport sector colours; residential and services take shades of
+    # 'electricity' ('#110d63').
     electricity for rail: '#2b96c4'
+    electricity for road: '#66cbf5'
+    electricity for residential: '#2f2a8a'
+    electricity for services: '#5a54b5'

@@ -6929,7 +6929,6 @@ if __name__ == "__main__":
         costs,
         spatial,
         pop_weighted_energy_totals,
-        nyears,
     )
 
     n.meta = dict(snakemake.config, **dict(wildcards=dict(snakemake.wildcards)))
