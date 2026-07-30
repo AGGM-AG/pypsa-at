@@ -159,8 +159,9 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
         p_set[columns] = p_set[columns].clip(lower=0)
 
     # In the reduced at10 test network a few "H2 for industry" negative
-    if cfg["run"]["prefix"] == "test-sector-myopic-at10" and investment_year < 2030:
-        _clip_static("H2 for industry")
+    if cfg["run"]["prefix"] == "test-sector-myopic-at10":
+        if investment_year < 2030:
+            _clip_static("H2 for industry")
         return  # skip any other clipping
 
     # Edge case: electricity for heat is larger than base load in AT126
