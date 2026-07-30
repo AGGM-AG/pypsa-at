@@ -16,6 +16,7 @@ from build_klien_potentials import (
 )
 from shapely.geometry import box
 
+from mods.constants import TYNDP_TO_PYPSA_LOCATION
 from mods.network.trajectories import (
     aggregate_by_cluster_and_country,
     apply_trajectories,
@@ -44,7 +45,7 @@ def test_basic_aggregation():
             },
         ]
     )
-    result = aggregate_by_cluster_and_country(df)
+    result = aggregate_by_cluster_and_country(df, TYNDP_TO_PYPSA_LOCATION)
     assert ("BE", "onwind") in result.index
     assert result.loc[("BE", "onwind"), "p_nom_min"] == 10.0
     assert result.loc[("BE", "onwind"), "p_nom_max"] == 50.0
@@ -74,7 +75,7 @@ def test_multiple_tyndp_buses_sum_to_location():
             },
         ]
     )
-    result = aggregate_by_cluster_and_country(df)
+    result = aggregate_by_cluster_and_country(df, TYNDP_TO_PYPSA_LOCATION)
     assert result.loc[("NO", "onwind"), "p_nom_min"] == 180.0
     assert result.loc[("NO", "onwind"), "p_nom_max"] == 360.0
 
@@ -98,7 +99,7 @@ def test_sub_national_locations_kept_separate():
             },
         ]
     )
-    result = aggregate_by_cluster_and_country(df)
+    result = aggregate_by_cluster_and_country(df, TYNDP_TO_PYPSA_LOCATION)
     assert ("DK0", "onwind") in result.index
     assert ("DK1", "onwind") in result.index
     assert ("DK", "onwind") not in result.index
@@ -123,7 +124,9 @@ def test_skip_countries_filters_locations():
             },
         ]
     )
-    result = aggregate_by_cluster_and_country(df, skip_countries=["FR"])
+    result = aggregate_by_cluster_and_country(
+        df, TYNDP_TO_PYPSA_LOCATION, skip_countries=["FR"]
+    )
     assert ("BE", "onwind") in result.index
     assert ("FR", "onwind") not in result.index
 
@@ -140,7 +143,7 @@ def test_unmapped_bus_raises():
         ]
     )
     with pytest.raises(ValueError, match="TYNDP bus codes not in"):
-        aggregate_by_cluster_and_country(df)
+        aggregate_by_cluster_and_country(df, TYNDP_TO_PYPSA_LOCATION)
 
 
 def test_multiple_carriers():
@@ -160,7 +163,7 @@ def test_multiple_carriers():
             },
         ]
     )
-    result = aggregate_by_cluster_and_country(df)
+    result = aggregate_by_cluster_and_country(df, TYNDP_TO_PYPSA_LOCATION)
     assert ("PL", "onwind") in result.index
     assert ("PL", "solar rooftop") in result.index
 
@@ -176,7 +179,7 @@ def test_result_index_names():
             },
         ]
     )
-    result = aggregate_by_cluster_and_country(df)
+    result = aggregate_by_cluster_and_country(df, TYNDP_TO_PYPSA_LOCATION)
     assert result.index.names == ["location", "pypsa_eur_carrier"]
 
 
