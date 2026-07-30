@@ -31,7 +31,9 @@ def _(mo):
        water/space` × hourly heat demand shape).
     3. **− today's industry electricity** — multiplicative scaling per country
        (`add_industry`, `current electricity` from JRC-IDEES).
-    4. **− rail electricity** (PyPSA-AT) — proportional per-node scaling
+    4. **Sectoral split** (PyPSA-AT) — the remaining base load is distributed
+       *without remainder* into sectoral Loads using weights normalised over
+       the JRC-IDEES sectoral energies
        (`mods.demand.electricity.base_load_load_splitting`).
 
     The distribution-grid-losses scaling that runs between steps 3 and 4 in the
@@ -43,22 +45,26 @@ def _(mo):
 @app.cell
 def _():
     RESOURCES = "resources/base-load-updates/AT_KN2040/"
-    NYEARS = 1.0  # elec network has 8760 hourly snapshots -> full calendar year
-    COLORS = {
+    STAGE_COLORS = {
         "raw": "#0072B2",
         "after heat": "#E69F00",
         "after industry": "#009E73",
-        "after rail": "#CC79A7",
     }
-    return COLORS, NYEARS, RESOURCES
+    SECTOR_COLORS = {
+        "electricity for residential": "#0072B2",
+        "electricity for services": "#E69F00",
+        "electricity for road": "#009E73",
+        "electricity for rail": "#CC79A7",
+        "agriculture electricity": "#D55E00",
+    }
+    return RESOURCES, SECTOR_COLORS, STAGE_COLORS
 
 
 @app.cell
 def _(RESOURCES, pypsa):
     n = pypsa.Network(RESOURCES + "networks/base_s_adm_elec.nc")
     base_raw = n.loads_t.p_set.copy()  # MW, one column per node
-    nodes = base_raw.columns
-    return base_raw, nodes
+    return (base_raw,)
 
 
 @app.cell
@@ -122,8 +128,8 @@ def _(base_raw, describe_load):
 
 
 @app.cell
-def _(COLORS, base_raw, plot_system):
-    plot_system(base_raw, "Raw base load", COLORS["raw"])
+def _(STAGE_COLORS, base_raw, plot_system):
+    plot_system(base_raw, "Raw base load", STAGE_COLORS["raw"])
     return
 
 
@@ -142,7 +148,7 @@ def _(mo):
 
 
 @app.cell
-def _(NYEARS, RESOURCES, base_raw, pd, xr):
+def _(RESOURCES, base_raw, pd, xr):
     pwet = pd.read_csv(RESOURCES + "pop_weighted_energy_totals_s_adm.csv", index_col=0)
 
     _shape = (
@@ -159,7 +165,7 @@ def _(NYEARS, RESOURCES, base_raw, pd, xr):
     ]:
         _sector, _use = _name.rsplit(" ", 1)
         _supply[_name] = (_shape[_name] / _shape[_name].sum()).multiply(
-            pwet[f"electricity {_sector} {_use}"] * NYEARS
+            pwet[f"electricity {_sector} {_use}"]
         ) * 1e6
 
     electric_heat = pd.concat(_supply, axis=1).T.groupby(level=1).sum().T
@@ -177,11 +183,11 @@ def _(base_after_heat, describe_load):
 
 
 @app.cell
-def _(COLORS, base_after_heat, plot_system):
+def _(STAGE_COLORS, base_after_heat, plot_system):
     plot_system(
         base_after_heat,
         "Base load after electric heating deduction",
-        COLORS["after heat"],
+        STAGE_COLORS["after heat"],
     )
     return
 
@@ -200,19 +206,18 @@ def _(mo):
 
 
 @app.cell
-def _(NYEARS, RESOURCES, base_after_heat, nodes, pd):
+def _(RESOURCES, base_after_heat, pd):
     industry_today = (
         pd.read_csv(
             RESOURCES + "industrial_energy_demand_base_s_adm_2025.csv", index_col=0
         )
         * 1e6
-        * NYEARS
     )
 
     base_after_industry = base_after_heat.copy()
     _factors = {}
-    for _ct in sorted({_c[:2] for _c in nodes}):
-        _cols = [_c for _c in nodes if _c.startswith(_ct)]
+    for _ct in sorted({_c[:2] for _c in base_after_heat.columns}):
+        _cols = [_c for _c in base_after_heat.columns if _c.startswith(_ct)]
         _factor = (
             1
             - industry_today.loc[_cols, "current electricity"].sum()
@@ -234,11 +239,11 @@ def _(base_after_industry, describe_load):
 
 
 @app.cell
-def _(COLORS, base_after_industry, plot_system):
+def _(STAGE_COLORS, base_after_industry, plot_system):
     plot_system(
         base_after_industry,
         "Base load after industry electricity deduction",
-        COLORS["after industry"],
+        STAGE_COLORS["after industry"],
     )
     return
 
@@ -246,113 +251,171 @@ def _(COLORS, base_after_industry, plot_system):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## 4. Deduct rail electricity (PyPSA-AT)
+    ## 4. Sectoral split (PyPSA-AT)
 
-    Mirrors `mods.demand.electricity.base_load_load_splitting`: per node, the
-    rail share `s = E_rail / E_base` scales the base load down; the removed
-    part keeps the identical profile shape and becomes the
-    `electricity for rail` Load in the real workflow.
+    Mirrors `mods.demand.electricity.base_load_load_splitting`: the remaining
+    base load of every node is distributed **without remainder** into sectoral
+    Loads. The weights are normalised over the JRC-IDEES sectoral energies
+    (`w_i = E_i / ΣE_j`), so every part keeps the measured ENTSO-E profile and
+    the parts sum exactly to the base load. Grid losses and the statistical gap
+    between measured load and JRC bottom-up totals are distributed pro-rata.
+
+    - `electricity for residential` / `electricity for services` exclude the
+      space and water heating amounts (already deducted in step 2).
+    - `electricity for road` uses the aggregate column (includes the PHEV
+      share).
+    - the `agriculture electricity` share **replaces the flat Load** added by
+      `add_agriculture()` with a profiled time series, fixing the upstream
+      double counting.
+    - negative sectoral energies from source-data inconsistencies are clipped
+      to zero (affects `NO`: services electricity < space + water heating).
+
+    Because `pop_weighted_energy_totals` distributes country totals by
+    population, all nodes of a country share identical weights — nodal
+    differences come purely from the base load profiles.
     """)
     return
 
 
 @app.cell
-def _(NYEARS, base_after_industry, pwet):
-    rail_energy = pwet["electricity rail"] * NYEARS * 1e6  # MWh/a
-    rail_share = rail_energy / base_after_industry.sum()
-    rail_profile = base_after_industry.mul(rail_share, axis="columns")
-    base_after_rail = base_after_industry - rail_profile
-    rail_share.sort_values(ascending=False).head(10).round(4).to_frame("rail share")
-    return base_after_rail, rail_share
-
-
-@app.cell
-def _(mo, rail_share):
-    _invalid = rail_share[~rail_share.between(0, 1)]
-    mo.md(
-        r"""
-    !!! warning "Invalid rail shares"
-
-        Nodes whose rail share falls outside `[0, 1)` — here the heat
-        deduction has already consumed the node's entire base load (annual
-        residual ≤ 0), so a share is meaningless. This is the known `AT126`
-        edge case handled by `clip_negative_loads_for_edge_cases`; the
-        production sanity check in `base_load_load_splitting` raises for
-        these nodes.
-
-    """
-        + _invalid.round(3).to_frame("rail share").to_markdown()
-        if not _invalid.empty
-        else "All rail shares within `[0, 1)`."
+def _(mo, pd, pwet):
+    sector_energies = pd.DataFrame(
+        {
+            "electricity for residential": (
+                pwet["electricity residential"]
+                - pwet["electricity residential space"]
+                - pwet["electricity residential water"]
+            ),
+            "electricity for services": (
+                pwet["electricity services"]
+                - pwet["electricity services space"]
+                - pwet["electricity services water"]
+            ),
+            "electricity for road": pwet["electricity road"],
+            "electricity for rail": pwet["electricity rail"],
+            "agriculture electricity": pwet["total agriculture electricity"],
+        }
     )
-    return
+    clipped_nodes = sector_energies.index[sector_energies.lt(0).any(axis=1)].to_list()
+    weights = sector_energies.clip(lower=0)
+    weights = weights.div(weights.sum(axis="columns"), axis="index")
 
-
-@app.cell
-def _(base_after_rail, describe_load):
-    stats_rail = describe_load(base_after_rail)
-    stats_rail
-    return
-
-
-@app.cell
-def _(COLORS, base_after_rail, plot_system):
-    plot_system(
-        base_after_rail,
-        "Remaining base load after rail deduction",
-        COLORS["after rail"],
+    country_weights = weights.groupby(weights.index.str[:2]).first().round(3)
+    mo.vstack(
+        [
+            mo.md(f"Nodes with clipped negative sectoral energies: `{clipped_nodes}`"),
+            mo.md("**Per-country sectoral weights:**"),
+            country_weights,
+        ]
     )
+    return (weights,)
+
+
+@app.cell
+def _(base_after_industry, pd, weights):
+    sector_loads = {
+        _carrier: base_after_industry.mul(weights[_carrier], axis="columns")
+        for _carrier in weights.columns
+    }
+
+    sector_stats = pd.DataFrame(
+        {
+            "total energy [TWh/a]": {
+                _c: _df.sum().sum() / 1e6 for _c, _df in sector_loads.items()
+            },
+            "system peak [GW]": {
+                _c: _df.sum(axis=1).max() / 1e3 for _c, _df in sector_loads.items()
+            },
+            "negative node-hours": {
+                _c: float(_df.lt(0).sum().sum()) for _c, _df in sector_loads.items()
+            },
+        }
+    )
+    sector_stats["share [%]"] = (
+        100
+        * sector_stats["total energy [TWh/a]"]
+        / sector_stats["total energy [TWh/a]"].sum()
+    )
+    sector_stats.round(2)
+    return (sector_loads,)
+
+
+@app.cell
+def _(SECTOR_COLORS, plt, sector_loads):
+    _fig, _ax = plt.subplots(figsize=(10, 3.5))
+    for _carrier, _df in sector_loads.items():
+        _system = _df.sum(axis=1) / 1e3
+        _ax.plot(
+            _system.rolling(168, center=True).mean(),
+            color=SECTOR_COLORS[_carrier],
+            lw=1.8,
+            label=_carrier,
+        )
+    _ax.set_ylabel("system load [GW]")
+    _ax.set_title("Sectoral Loads, 7-day rolling mean", loc="left")
+    _ax.grid(axis="y", color="0.9", lw=0.6)
+    _ax.spines[["top", "right"]].set_visible(False)
+    _ax.legend(frameon=False, loc="upper right", fontsize=8)
+    _fig.tight_layout()
+    _fig
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Summary — energy removed per stage and duration curves
+    !!! note "Conservation and negatives"
+
+        The sectoral parts sum exactly to the post-industry base load at every
+        node and hour — the split neither adds nor removes energy (the
+        agriculture share is not dropped; it replaces the flat upstream Load).
+        The negative node-hours introduced by the heat deduction in step 2
+        propagate proportionally into **all** sectoral Loads; they are handled
+        later by `clip_negative_loads_for_edge_cases` in `modify_prenetwork`.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Summary — energy per stage and duration curves
     """)
     return
 
 
 @app.cell
-def _(base_after_heat, base_after_industry, base_after_rail, base_raw, pd):
+def _(base_after_heat, base_after_industry, base_raw, pd, sector_loads):
     _totals = {
         "raw": base_raw.sum().sum() / 1e6,
         "after heat": base_after_heat.sum().sum() / 1e6,
         "after industry": base_after_industry.sum().sum() / 1e6,
-        "after rail": base_after_rail.sum().sum() / 1e6,
     }
     summary_table = pd.DataFrame({"total energy [TWh/a]": pd.Series(_totals)})
     summary_table["removed [TWh/a]"] = -summary_table["total energy [TWh/a]"].diff()
-    summary_table["removed [%]"] = (
-        100
-        * summary_table["removed [TWh/a]"]
-        / summary_table["total energy [TWh/a]"].iloc[0]
+
+    _split = pd.Series(
+        {_c: _df.sum().sum() / 1e6 for _c, _df in sector_loads.items()},
+        name="total energy [TWh/a]",
     )
-    summary_table.round(2)
+    _split.loc["sum of sectoral Loads"] = _split.sum()
+    pd.concat([summary_table.round(2), _split.round(2).to_frame()], axis=0).fillna("")
     return
 
 
 @app.cell
-def _(
-    COLORS,
-    base_after_heat,
-    base_after_industry,
-    base_after_rail,
-    base_raw,
-    plt,
-):
+def _(STAGE_COLORS, base_after_heat, base_after_industry, base_raw, plt):
     _stages = {
         "raw": base_raw,
         "after heat": base_after_heat,
         "after industry": base_after_industry,
-        "after rail": base_after_rail,
     }
     _fig, _ax = plt.subplots(figsize=(10, 3.5))
     for _label, _df in _stages.items():
         _system = (
             _df.sum(axis=1).sort_values(ascending=False).reset_index(drop=True) / 1e3
         )
-        _ax.plot(_system, color=COLORS[_label], lw=1.8, label=_label)
+        _ax.plot(_system, color=STAGE_COLORS[_label], lw=1.8, label=_label)
     _ax.set_xlabel("hours (sorted)")
     _ax.set_ylabel("system load [GW]")
     _ax.set_title("Load duration curves per deduction stage", loc="left")
