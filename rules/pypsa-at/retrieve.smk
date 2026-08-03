@@ -88,3 +88,27 @@ if NEA_AT["source"] == "primary":
         run:
             for b in BUNDESLAENDER:
                 move(input[b], output[b])
+
+
+# FfE (Forschungsstelle für Energiewirtschaft) normalized industrial electricity
+# load profiles. `requests` and `json` are imported at module scope by rules/retrieve.smk,
+# included before this file (see Snakefile).
+
+
+rule retrieve_ffe_industry_load_profiles:
+    output:
+        "data/pypsa-at/ffe_industry_load_profiles.json",
+    log:
+        logs("retrieve_ffe_industry_load_profiles.log"),
+    retries: 2
+    resources:
+        mem_mb=1000,
+    message:
+        "Retrieving FfE normalized industrial electricity load profiles"
+    run:
+        data = requests.get(
+            "https://api.opendata.ffe.de/opendata",
+            params={"id_opendata": 59},
+        ).json()
+        with open(output[0], "w") as f:
+            json.dump(data, f)
