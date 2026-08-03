@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 
 from mods import TYNDP_TO_PYPSA_LOCATION_TRANSMISSION
-from mods.constants import resolve_tyndp_locations
+from mods.utils import resolve_tyndp_locations
 from scripts._helpers import configure_logging, set_scenario_config
 
 logger = logging.getLogger(__name__)

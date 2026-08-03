@@ -5,7 +5,8 @@ from typing import Any
 import pandas as pd
 from pypsa import NetworkCollection
 
-from mods.constants import HYDRO_CARRIER_MAPPING, resolve_tyndp_locations
+from mods.constants import HYDRO_CARRIER_MAPPING
+from mods.utils import resolve_tyndp_locations
 
 
 def _reverse_dict(d: dict[Any, Any]) -> dict[Any, list[Any]]:

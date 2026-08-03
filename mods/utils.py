@@ -15,6 +15,7 @@ import xarray as xr
 from pypsa import Network
 from snakemake.script import Snakemake
 
+from mods.constants import TYNDP_TO_PYPSA_LOCATION, ISLAND_SPLIT_NODES
 from scripts._helpers import load_costs
 from scripts.add_electricity import load_and_aggregate_powerplants
 
@@ -283,3 +284,47 @@ def attach_resources_to_network_meta(n: Network, snakemake: Snakemake) -> None:
             )
             attach_resource_to_network_meta(n, {name: file})
     n.name = f"PyPSA-AT Network {investment_year}"
+
+
+def resolve_tyndp_locations(
+    admin_levels: dict, custom_clustering: str | bool, mapping: dict | None = None
+) -> dict:
+    """
+    Resolve a TYNDP location mapping for the clustering configuration.
+
+    The static mappings target the custom clustering with all island
+    splits applied (e.g. ``IT0``/``IT1``/``IT2``). Island nodes only
+    exist if the custom clustering is active and the country is
+    clustered at administrative level 1; for any other level the island
+    nodes collapse to the plain country code, so locations missing from
+    the network never enter the workflow.
+
+    Parameters
+    ----------
+    admin_levels
+        Per-country administrative clustering levels from
+        ``config.clustering.administrative``.
+    custom_clustering
+        The custom clustering name from ``config.mods.modify_nuts3_shapes``
+        or a falsy value if the custom clustering is disabled.
+    mapping
+        The TYNDP location mapping to resolve. Defaults to
+        ``TYNDP_TO_PYPSA_LOCATION``.
+
+    Returns
+    -------
+    :
+        The mapping with disabled island nodes replaced by country codes.
+    """
+    if mapping is None:
+        mapping = TYNDP_TO_PYPSA_LOCATION
+    if custom_clustering:
+        reverse_island_split = {
+            node: country
+            for country, nodes in ISLAND_SPLIT_NODES.items()
+            if admin_levels.get(country) != 1
+            for node in nodes
+        }
+        return {region: reverse_island_split.get(node, node) for region, node in mapping.items()}
+    else:
+        return mapping

@@ -24,7 +24,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from mods.constants import PROXIES, resolve_tyndp_locations
+from mods.constants import PROXIES
+from mods.utils import resolve_tyndp_locations
 from scripts._helpers import (
     configure_logging,
     get_snapshots,

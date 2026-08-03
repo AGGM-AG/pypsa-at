@@ -9,9 +9,8 @@ import logging
 import pandas as pd
 import pypsa
 
-from mods.constants import resolve_tyndp_locations
 from mods.network.trajectories import aggregate_by_cluster_and_country
-from mods.utils import get_relevant_links_and_lines
+from mods.utils import get_relevant_links_and_lines, resolve_tyndp_locations
 
 logger = logging.getLogger(__name__)
 

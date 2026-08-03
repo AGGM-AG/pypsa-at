@@ -21,7 +21,8 @@ import pandas as pd
 import pypsa
 from snakemake.script import Snakemake
 
-from mods.constants import PROXIES, resolve_tyndp_locations
+from mods.constants import PROXIES
+from mods.utils import resolve_tyndp_locations
 
 logger = getLogger(__name__)
 

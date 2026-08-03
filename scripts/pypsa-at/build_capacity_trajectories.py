@@ -25,7 +25,8 @@ from pathlib import Path
 import pandas as pd
 from snakemake.script import Snakemake
 
-from mods.constants import HYDRO_CARRIER_MAPPING, resolve_tyndp_locations
+from mods.constants import HYDRO_CARRIER_MAPPING
+from mods.utils import resolve_tyndp_locations
 from scripts._helpers import (
     configure_logging,
     load_costs,

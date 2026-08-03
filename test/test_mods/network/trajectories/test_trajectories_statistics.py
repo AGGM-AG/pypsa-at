@@ -7,7 +7,7 @@
 import pandas as pd
 import pytest
 
-from mods.constants import resolve_tyndp_locations
+from mods.utils import resolve_tyndp_locations
 from test.conftest import require_config
 
 _CARRIER_TO_KLIEN_FILE = {

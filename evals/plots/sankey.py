@@ -356,7 +356,6 @@ class SankeyChart:
             [
                 "rural",
                 "decentral",
-                "'electricity'",
                 "'electricity for residential'",
                 "'electricity for services'",
             ]

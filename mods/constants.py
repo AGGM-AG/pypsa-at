@@ -130,48 +130,6 @@ ISLAND_SPLIT_NODES: dict[str, tuple[str, ...]] = {
     "IT": ("IT0", "IT1", "IT2"),
 }
 
-
-def resolve_tyndp_locations(
-    admin_levels: dict, custom_clustering: str | bool, mapping: dict | None = None
-) -> dict:
-    """
-    Resolve a TYNDP location mapping for the clustering configuration.
-
-    The static mappings target the custom clustering with all island
-    splits applied (e.g. ``IT0``/``IT1``/``IT2``). Island nodes only
-    exist if the custom clustering is active and the country is
-    clustered at administrative level 1; for any other level the island
-    nodes collapse to the plain country code, so locations missing from
-    the network never enter the workflow.
-
-    Parameters
-    ----------
-    admin_levels
-        Per-country administrative clustering levels from
-        ``config.clustering.administrative``.
-    custom_clustering
-        The custom clustering name from ``config.mods.modify_nuts3_shapes``
-        or a falsy value if the custom clustering is disabled.
-    mapping
-        The TYNDP location mapping to resolve. Defaults to
-        ``TYNDP_TO_PYPSA_LOCATION``.
-
-    Returns
-    -------
-    :
-        The mapping with disabled island nodes replaced by country codes.
-    """
-    if mapping is None:
-        mapping = TYNDP_TO_PYPSA_LOCATION
-    collapse = {
-        node: country
-        for country, nodes in ISLAND_SPLIT_NODES.items()
-        if custom_clustering and admin_levels.get(country) != 1
-        for node in nodes
-    }
-    return {zone: collapse.get(node, node) for zone, node in mapping.items()}
-
-
 # for key countries use trajectories from values country
 # because some countries do not exist in Open-TYNDP data
 PROXIES = {"XK": "RS"}
