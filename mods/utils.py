@@ -15,7 +15,7 @@ import xarray as xr
 from pypsa import Network
 from snakemake.script import Snakemake
 
-from mods.constants import TYNDP_TO_PYPSA_LOCATION, ISLAND_SPLIT_NODES
+from mods.constants import ISLAND_SPLIT_NODES, TYNDP_TO_PYPSA_LOCATION
 from scripts._helpers import load_costs
 from scripts.add_electricity import load_and_aggregate_powerplants
 
@@ -325,6 +325,9 @@ def resolve_tyndp_locations(
             if admin_levels.get(country) != 1
             for node in nodes
         }
-        return {region: reverse_island_split.get(node, node) for region, node in mapping.items()}
+        return {
+            region: reverse_island_split.get(node, node)
+            for region, node in mapping.items()
+        }
     else:
         return mapping
