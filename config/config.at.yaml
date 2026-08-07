@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: electricity-network-0p3
+  prefix: industrial-demand-profiles
   name:
   - AT_KN2040
   scenarios:
@@ -173,6 +173,18 @@ industry:
     2040: 0.7751
     2045: 1.0
     2050: 1.0
+
+  # AT-owned normalized temporal demand profiles (see mods/demand/industrial_demand.py).
+  # Reshapes the given industry Load(s) from a flat annual value into a
+  # time-varying one, preserving each Load's total annual energy. Adapted
+  # from the (not yet merged) PyPSA-Eur PR #1875 "Temporal industry load".
+  # `carrier_mapping` maps the carrier labels used by the profile builder to
+  # the carrier labels of the network Loads. Further profile carrier mappings
+  # can be added without changing the application code.
+  demand_profiles:
+    enable: true
+    carrier_mapping:
+      elec: industry electricity
 
 data:
   osm:

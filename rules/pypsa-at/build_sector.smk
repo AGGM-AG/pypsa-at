@@ -13,6 +13,13 @@ use rule prepare_sector_network as prepare_sector_network_at with:
         powerplants=resources("powerplants_s_{clusters}.csv"),
         inflow=resources("inflow_per_region_{clusters}.nc"),
         hydro_capacities=ancient("data/hydro_capacities.csv"),
+        industrial_demand_profiles=branch(
+            config_provider("industry", "demand_profiles", "enable"),
+            resources(
+                "industrial_demand_profiles_base_s_{clusters}_{opts}_{sector_opts}.csv"
+            ),
+            [],
+        ),
         code_files=[
             "mods/network/common.py",
             "mods/network/electricity.py",
@@ -21,6 +28,7 @@ use rule prepare_sector_network as prepare_sector_network_at with:
             "mods/network/hydro.py",
             "mods/network/potentials.py",
             "mods/network/trajectories.py",
+            "mods/demand/industrial_demand.py",
             "mods/constants.py",
             "mods/utils.py",
         ],
@@ -34,3 +42,59 @@ use rule prepare_sector_network as prepare_sector_network_at with:
 
 
 ruleorder: prepare_sector_network_at > prepare_sector_network
+
+
+# AT-owned adaptation of the (not yet merged) PyPSA-Eur PR #1875 "Temporal
+# industry load": builds normalized hourly industry demand profiles (one
+# resource file covering all planning horizons) from FfE load-shape data.
+# Applied to network Loads by mods/demand/industrial_demand.py during
+# prepare_sector_network -- see
+# docs-at/explanations/data-flows/industrial-demand.md.
+# Gated behind `industry.demand_profiles.enable` so the rule (and the FfE
+# retrieval it depends on) is only defined when opted in.
+if config.get("industry", {}).get("demand_profiles", {}).get("enable", False):
+
+    rule build_industrial_demand_profiles_at:
+        input:
+            industry_sector_ratios=expand(
+                resources("industry_sector_ratios_{planning_horizons}.csv"),
+                planning_horizons=config["scenario"]["planning_horizons"],
+                allow_missing=True,
+            ),
+            industrial_production_per_node=expand(
+                resources(
+                    "industrial_production_base_s_{clusters}_{planning_horizons}.csv"
+                ),
+                planning_horizons=config["scenario"]["planning_horizons"],
+                allow_missing=True,
+            ),
+            ffe_profiles="data/pypsa-at/ffe_industry_load_profiles.json",
+            snapshot_weightings=resources(
+                "snapshot_weightings_base_s_{clusters}_elec_{opts}_{sector_opts}.csv"
+            ),
+        output:
+            industrial_demand_profiles=resources(
+                "industrial_demand_profiles_base_s_{clusters}_{opts}_{sector_opts}.csv"
+            ),
+        log:
+            logs(
+                "build_industrial_demand_profiles_at_{clusters}_{opts}_{sector_opts}.log"
+            ),
+        benchmark:
+            benchmarks(
+                "build_industrial_demand_profiles_at/s_{clusters}_{opts}_{sector_opts}"
+            )
+        threads: 1
+        resources:
+            mem_mb=2000,
+        params:
+            planning_horizons=config_provider("scenario", "planning_horizons"),
+            snapshots=config_provider("snapshots"),
+            drop_leap_day=config_provider("enable", "drop_leap_day"),
+            carrier_mapping=config_provider(
+                "industry", "demand_profiles", "carrier_mapping"
+            ),
+        message:
+            "Building normalized hourly industry demand profiles for {wildcards.clusters} clusters"
+        script:
+            scripts("pypsa-at/build_industrial_demand_profiles.py")
