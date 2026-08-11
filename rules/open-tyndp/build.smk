@@ -215,6 +215,9 @@ rule build_tyndp_transmission_trajectories:
     threads: 1
     resources:
         mem_mb=1000,
+    params:
+        admin_levels=config_provider("clustering", "administrative"),
+        custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
     message:
         "Building TYNDP transmission capacity trajectories"
     script:
@@ -297,6 +300,7 @@ if config.get("sector", {}).get("h2_topology_tyndp", False):
         params:
             scenario=config_provider("mods", "tyndp_h2_import_scenario"),
             countries=config_provider("countries"),
+            admin_levels=config_provider("clustering", "administrative"),
         message:
             "Building TYNDP H2 import capacities for {wildcards.planning_horizons}"
         script:

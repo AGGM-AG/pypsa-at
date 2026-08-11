@@ -10,7 +10,7 @@ import pandas as pd
 import pypsa
 
 from mods.network.trajectories import aggregate_by_cluster_and_country
-from mods.utils import get_relevant_links_and_lines
+from mods.utils import get_relevant_links_and_lines, resolve_tyndp_locations
 
 logger = logging.getLogger(__name__)
 
@@ -211,7 +211,13 @@ def constraint_combined_solar_trajectories(
     trajectories = pd.read_csv(snakemake.input.tyndp_trajectories).query(
         "pyear == @investment_year"
     )
-    traj_clustered = aggregate_by_cluster_and_country(trajectories, [])
+    location_mapping = resolve_tyndp_locations(
+        snakemake.params.admin_levels,
+        snakemake.params.custom_clustering,
+    )
+    traj_clustered = aggregate_by_cluster_and_country(
+        trajectories, location_mapping, []
+    )
 
     # solar-pv-utility rows carry pypsa_eur_carrier == "solar(-hsat)"
     traj_solar = traj_clustered.xs("solar(-hsat)", level="pypsa_eur_carrier")

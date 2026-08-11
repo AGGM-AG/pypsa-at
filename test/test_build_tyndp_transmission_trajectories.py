@@ -7,6 +7,8 @@
 import pandas as pd
 from build_tyndp_transmission_trajectories import build_tyndp_transmission_trajectories
 
+from mods.constants import TYNDP_TO_PYPSA_LOCATION_TRANSMISSION
+
 
 def test_build_tyndp_transmission_trajectories_full_pipeline(tmp_path):
     """Full pipeline: read → map → sort → build_trajectories produces correct 4-year NTC table."""
@@ -40,7 +42,9 @@ def test_build_tyndp_transmission_trajectories_full_pipeline(tmp_path):
     with pd.ExcelWriter(invest_grid_path, engine="openpyxl") as writer:
         invest_df.to_excel(writer, sheet_name="Electricity", index=False)
 
-    result = build_tyndp_transmission_trajectories(ref_grid_path, invest_grid_path)
+    result = build_tyndp_transmission_trajectories(
+        ref_grid_path, invest_grid_path, TYNDP_TO_PYPSA_LOCATION_TRANSMISSION
+    )
 
     expected = pd.DataFrame(
         [

@@ -352,8 +352,23 @@ class SankeyChart:
         self._flow_sector(final, "agriculture", name, "AGRICULTURE")
 
         # include losses from decentral heat production technologies
-        self._flow_sector(final, "rural|decentral|'electricity'", name, "HH_SERVICES")
-        self._flow_sector(final, "BEV charger", name, "TRANSPORT")
+        hh_services_regex = "|".join(
+            [
+                "rural",
+                "decentral",
+                "'electricity for residential'",
+                "'electricity for services'",
+            ]
+        )
+        self._flow_sector(final, hh_services_regex, name, "HH_SERVICES")
+        transport_regex = "|".join(
+            [
+                "BEV charger",
+                "'electricity for road'",
+                "'electricity for rail'",
+            ]
+        )
+        self._flow_sector(final, transport_regex, name, "TRANSPORT")
 
         distribution_losses = filter_by(
             self._df,

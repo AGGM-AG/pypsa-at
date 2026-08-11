@@ -121,6 +121,15 @@ TYNDP_TO_PYPSA_LOCATION_TRANSMISSION: dict[str, str | None] = (
     }
 )
 
+# Custom island nodes only exist if the country is clustered at
+# administrative level 1 (see mods.clustering.custom).
+ISLAND_SPLIT_NODES: dict[str, tuple[str, ...]] = {
+    "DK": ("DK0", "DK1"),
+    "ES": ("ES0", "ES1"),
+    "GB": ("GB0", "GB1"),
+    "IT": ("IT0", "IT1", "IT2"),
+}
+
 # for key countries use trajectories from values country
 # because some countries do not exist in Open-TYNDP data
 PROXIES = {"XK": "RS"}

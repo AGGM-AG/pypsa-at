@@ -244,6 +244,8 @@ use rule modify_prenetwork as modify_prenetwork_at with:
         ),
         block_russian_gas_imports=config_provider("mods", "block_russian_gas_imports"),
         sector=config_provider("sector"),
+        admin_levels=config_provider("clustering", "administrative"),
+        custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
 
 
 ruleorder: modify_prenetwork_at > modify_prenetwork  # AT wins for the final .nc

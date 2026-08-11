@@ -106,6 +106,8 @@ if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
             hydro=config_provider("renewable", "hydro"),
             snapshots=config_provider("snapshots"),
             drop_leap_day=config_provider("enable", "drop_leap_day"),
+            admin_levels=config_provider("clustering", "administrative"),
+            custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
         message:
             "Building hydropower inflow totals per region"
         script:
@@ -157,6 +159,8 @@ rule build_capacity_trajectories:
         ),
         aggregation_strategies=config_provider("clustering", "aggregation_strategies"),
         exclude_carriers=config_provider("clustering", "exclude_carriers"),
+        admin_levels=config_provider("clustering", "administrative"),
+        custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
     message:
         "Building capacity trajectories"
     script:

@@ -500,7 +500,9 @@ def fill_missing_years(fill_values: pd.Series) -> pd.Series:
     """
 
     # Forward fill and then backward fill within each country group
-    fill_values = fill_values.groupby(level="country").ffill().bfill()
+    fill_values = fill_values.groupby(level="country").transform(
+        lambda x: x.ffill().bfill()
+    )
 
     return fill_values
 
