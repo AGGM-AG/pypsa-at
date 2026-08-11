@@ -20,6 +20,11 @@ use rule prepare_sector_network as prepare_sector_network_at with:
             ),
             [],
         ),
+        annual_demand_overrides=branch(
+            config_provider("industry", "annual_demand_overrides", "enable"),
+            resources("industrial_demand_overrides_base_s_{clusters}.csv"),
+            [],
+        ),
         code_files=[
             "mods/network/common.py",
             "mods/network/electricity.py",
@@ -29,6 +34,7 @@ use rule prepare_sector_network as prepare_sector_network_at with:
             "mods/network/potentials.py",
             "mods/network/trajectories.py",
             "mods/demand/industrial_demand.py",
+            "mods/demand/annual.py",
             "mods/constants.py",
             "mods/utils.py",
         ],
@@ -39,6 +45,41 @@ use rule prepare_sector_network as prepare_sector_network_at with:
         ),
         aggregation_strategies=config_provider("clustering", "aggregation_strategies"),
         exclude_carriers=config_provider("clustering", "exclude_carriers"),
+        carrier_to_load_mapping=config_provider("demand", "carrier_to_load_mapping"),
+        annual_demand_overrides=config_provider("industry", "annual_demand_overrides"),
+
+
+rule build_industrial_demand_overrides_at:
+    input:
+        nea_at=resources("nea_at.csv"),
+        industrial_distribution_key=resources(
+            "industrial_distribution_key_base_s_{clusters}.csv"
+        ),
+    output:
+        industrial_demand_overrides=resources(
+            "industrial_demand_overrides_base_s_{clusters}.csv"
+        ),
+    log:
+        logs("build_industrial_demand_overrides_at_{clusters}.log"),
+    benchmark:
+        benchmarks("build_industrial_demand_overrides_at/s_{clusters}")
+    threads: 1
+    resources:
+        mem_mb=2000,
+    params:
+        target_years=config_provider(
+            "industry", "annual_demand_overrides", "target_years"
+        ),
+        source_years=config_provider(
+            "industry", "annual_demand_overrides", "source_years"
+        ),
+        source_category=config_provider(
+            "industry", "annual_demand_overrides", "source_category"
+        ),
+    message:
+        "Building annual industrial demand overrides from NEA data"
+    script:
+        scripts("pypsa-at/build_nea_industry_demand.py")
 
 
 ruleorder: prepare_sector_network_at > prepare_sector_network

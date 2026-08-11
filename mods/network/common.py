@@ -9,6 +9,7 @@ from logging import getLogger
 import pypsa
 from snakemake.script import Snakemake
 
+from mods.demand.annual import apply_annual_demand_overrides
 from mods.demand.industrial_demand import apply_industrial_demand_profiles
 from mods.network.electricity import apply_tyndp_transmission_lower_bounds
 from mods.network.gas import (
@@ -54,6 +55,7 @@ def prepare_sector_network(n, snakemake, nodes, costs, spatial):
     add_h2_for_industry_bus(n, nodes)
     add_methane_pyrolysis_plasma(n, snakemake, costs, nodes, spatial)
     process_hydro(n, snakemake, costs)
+    apply_annual_demand_overrides(n, snakemake)
     apply_industrial_demand_profiles(n, snakemake)
 
 
