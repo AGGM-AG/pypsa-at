@@ -11,6 +11,46 @@ from mods.constants import NUTS2_CODES
 BUNDESLAENDER = list(NUTS2_CODES.keys())
 
 
+def heat_demand_at_raster_path(scenario, year):
+    return f"{HEAT_DEMAND_DATASET['folder']}/{HEAT_DEMAND_DATASETS[scenario][year]}"
+
+
+def heat_demand_at_inputs(w):
+    scenario = config_provider("sector", "heat_demand_scenario")(w)
+    return [
+        heat_demand_at_raster_path("WEM", 2021),
+        heat_demand_at_raster_path(scenario, 2030),
+        heat_demand_at_raster_path(scenario, 2050),
+    ]
+
+
+HEAT_DEMAND_AT_OUTPUT = resources(
+    f"heat_demand_at_{config['sector']['heat_demand_scenario']}.csv"
+)
+
+
+rule build_heat_demand_at:
+    input:
+        nuts3_shapes=resources("nuts3_shapes.geojson"),
+        heatmaps=heat_demand_at_inputs,
+    output:
+        heat_demand=HEAT_DEMAND_AT_OUTPUT,
+    log:
+        logs("build_heat_demand_at.log"),
+    benchmark:
+        benchmarks("build_heat_demand_at")
+    threads: 1
+    resources:
+        mem_mb=4000,
+    params:
+        planning_horizons=config_provider("scenario", "planning_horizons"),
+        clustering=config_provider("mods", "modify_nuts3_shapes"),
+    message:
+        "Building Austrian NUTS3 heat demand from heatmaps"
+    script:
+        scripts("pypsa-at/build_heat_demand_at.py")
+
+
 rule build_custom_cost_at:
     input:
         custom_cost_files=branch(

@@ -90,6 +90,18 @@ if NEA_AT["source"] == "primary":
                 move(input[b], output[b])
 
 
+rule retrieve_heat_demand_at:
+    input:
+        tif=storage(f"{HEAT_DEMAND_DATASET['url']}/{{heatmap_file}}"),
+    output:
+        tif=f"{HEAT_DEMAND_DATASET['folder']}/{{heatmap_file}}",
+    retries: 2
+    message:
+        "Retrieving Austrian heat demand heatmap {wildcards.heatmap_file}"
+    run:
+        copy2(input.tif, output.tif)
+
+
 # FfE (Forschungsstelle für Energiewirtschaft) normalized industrial electricity
 # load profiles. `requests` and `json` are imported at module scope by rules/retrieve.smk,
 # included before this file (see Snakefile).
