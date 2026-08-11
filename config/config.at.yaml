@@ -86,6 +86,7 @@ sector:
   municipal_solid_waste: true
   cluster_heat_buses: true
   hydrogen_turbines: false  # PyPSA-AT uses the PyPSA-DE implementation in electricity.H2_plants instead
+  heat_demand_scenario: WEM  # WEM or Transition Austrian heat demand heatmaps
   methanol:
     regional_methanol_demand: true
     methanol_reforming: true
@@ -185,6 +186,9 @@ data:
   nea-at:
     source: primary
     version: latest
+  heat_demand_at:
+    source: primary
+    version: v1
 
 pypsa_eur:
   StorageUnit: []
