@@ -89,6 +89,77 @@ def recalibrate_heat_demand(
     )
 
 
+def allocate_heat_demand(
+    demand: pd.DataFrame,
+    urban_fraction: pd.DataFrame,
+    cluster_heat_buses: bool = False,
+) -> pd.DataFrame:
+    """
+    Allocate recalibrated demand to urban, rural, and central heat carriers.
+
+    Parameters
+    ----------
+    demand : pd.DataFrame
+        Recalibrated demand by year, region, sector, and heating type.
+    urban_fraction : pd.DataFrame
+        Nodal urban fractions with regions as the index and years as columns.
+    cluster_heat_buses : bool, default=False
+        Merge residential and services carriers into shared heat carriers.
+
+    Returns
+    -------
+    :
+        Demand by year, region, carrier, and value.
+    """
+    fractions = urban_fraction.rename_axis(index="region", columns="year")
+    fractions = fractions.stack().rename("urban_fraction").reset_index()
+    demand = demand.merge(fractions, on=["region", "year"])
+
+    central = (
+        demand.loc[demand["heating"].eq("central")]
+        .groupby(["year", "region"], as_index=False)["value"]
+        .sum()
+        .assign(carrier="urban central heat")
+    )
+
+    decentral = demand.loc[demand["heating"].eq("decentral")].copy()
+    urban = decentral.assign(
+        value=decentral["value"] * decentral["urban_fraction"],
+        carrier=decentral["sector"].map(
+            {
+                "households": "residential urban decentral heat",
+                "services": "services urban decentral heat",
+            }
+        ),
+    )
+    rural = decentral.assign(
+        value=decentral["value"] * (1 - decentral["urban_fraction"]),
+        carrier=decentral["sector"].map(
+            {
+                "households": "residential rural heat",
+                "services": "services rural heat",
+            }
+        ),
+    )
+
+    result = pd.concat([central, urban, rural], ignore_index=True)[
+        ["year", "region", "carrier", "value"]
+    ]
+    if cluster_heat_buses:
+        result["carrier"] = result["carrier"].replace(
+            {
+                "residential rural heat": "rural heat",
+                "services rural heat": "rural heat",
+                "residential urban decentral heat": "urban decentral heat",
+                "services urban decentral heat": "urban decentral heat",
+            }
+        )
+        result = result.groupby(
+            ["year", "region", "carrier"], as_index=False
+        ).value.sum()
+    return result.sort_values(["year", "region", "carrier"])
+
+
 def main(snakemake: Snakemake) -> None:
     """
     Read inputs, recalibrate heat demand, and write the output file.
@@ -109,8 +180,19 @@ def main(snakemake: Snakemake) -> None:
         snakemake.params.source_years,
         base_year=snakemake.params.base_year,
     )
+    urban_fraction = pd.concat(
+        [
+            pd.read_csv(path, index_col=0)["urban fraction"]
+            for path in snakemake.input.urban_fraction
+        ],
+        axis=1,
+        keys=snakemake.params.planning_horizons,
+    )
+    result = allocate_heat_demand(
+        result, urban_fraction, snakemake.params.cluster_heat_buses
+    )
     result.to_csv(snakemake.output.heat_demand, index=False)
-    logger.info("Wrote %d recalibrated heat-demand values", len(result))
+    logger.info("Wrote recalibrated heat-demand")
 
 
 if __name__ == "__main__":
