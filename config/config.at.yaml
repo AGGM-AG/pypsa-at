@@ -191,11 +191,11 @@ industry:
   annual_demand_overrides:
     enable: true
     target_years: [2025] # years to overwrite
-    source_years:
-      2025: 2024  # mapping from target years to years in NEA data
     source_category: Produzierender Bereich # include only industrial production for now
 
 demand:
+  source_years:
+    2025: 2024  # mapping from target years to years in NEA data
   carrier_to_load_mapping:
     industry:
       electricity: industry electricity

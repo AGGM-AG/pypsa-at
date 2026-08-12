@@ -70,9 +70,7 @@ rule build_industrial_demand_overrides_at:
         target_years=config_provider(
             "industry", "annual_demand_overrides", "target_years"
         ),
-        source_years=config_provider(
-            "industry", "annual_demand_overrides", "source_years"
-        ),
+        source_years=config_provider("demand", "source_years"),
         source_category=config_provider(
             "industry", "annual_demand_overrides", "source_category"
         ),
