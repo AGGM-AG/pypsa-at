@@ -5,6 +5,9 @@ import pandas as pd
 recalibrate = importlib.import_module(
     "scripts.pypsa-at.recalibrate_heat_demand_at"
 ).recalibrate_heat_demand
+allocate = importlib.import_module(
+    "scripts.pypsa-at.recalibrate_heat_demand_at"
+).allocate_heat_demand
 
 
 def test_recalibrate_heat_demand_matches_nea_by_nuts2():
@@ -73,3 +76,60 @@ def test_recalibrate_heat_demand_matches_nea_by_nuts2():
         }
     )
     pd.testing.assert_frame_equal(result, expected)
+
+
+def test_allocate_heat_demand_to_carriers():
+    demand = pd.DataFrame(
+        {
+            "year": [2025] * 4,
+            "region": ["AT111"] * 4,
+            "sector": ["households", "households", "services", "services"],
+            "heating": ["central", "decentral"] * 2,
+            "value": [10.0, 20.0, 30.0, 40.0],
+        }
+    )
+    urban_fraction = pd.DataFrame({2025: [0.6]}, index=["AT111"])
+
+    result = allocate(demand, urban_fraction)
+
+    expected = pd.DataFrame(
+        {
+            "year": [2025] * 5,
+            "region": ["AT111"] * 5,
+            "carrier": [
+                "residential rural heat",
+                "residential urban decentral heat",
+                "services rural heat",
+                "services urban decentral heat",
+                "urban central heat",
+            ],
+            "value": [8.0, 12.0, 16.0, 24.0, 40.0],
+        }
+    )
+
+    pd.testing.assert_frame_equal(result.reset_index(drop=True), expected)
+
+
+def test_allocate_heat_demand_clusters_heat_buses():
+    demand = pd.DataFrame(
+        {
+            "year": [2025] * 4,
+            "region": ["AT111"] * 4,
+            "sector": ["households", "households", "services", "services"],
+            "heating": ["central", "decentral"] * 2,
+            "value": [10.0, 20.0, 30.0, 40.0],
+        }
+    )
+
+    result = allocate(demand, pd.DataFrame({2025: [0.6]}, index=["AT111"]), True)
+
+    expected = pd.DataFrame(
+        {
+            "year": [2025] * 3,
+            "region": ["AT111"] * 3,
+            "carrier": ["rural heat", "urban central heat", "urban decentral heat"],
+            "value": [24.0, 40.0, 36.0],
+        }
+    )
+
+    pd.testing.assert_frame_equal(result.reset_index(drop=True), expected)
