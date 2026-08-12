@@ -51,6 +51,12 @@ rule recalibrate_heat_demand_at:
         heat_demand=resources("heat_demand_at_{cluster}.csv"),
         nea_at=resources("nea_at.csv"),
         nuts3_shapes=resources("nuts3_shapes-raw.geojson"),
+        urban_fraction=lambda w: [
+            resources(
+                "district_heat_share_base_s_{clusters}_{planning_horizons}-modified.csv"
+            ).format(run=w.run, clusters=w.cluster, planning_horizons=year)
+            for year in config["scenario"]["planning_horizons"]
+        ],
     output:
         heat_demand=resources("heat_demand_nea_at_{cluster}.csv"),
     log:
@@ -63,6 +69,8 @@ rule recalibrate_heat_demand_at:
     params:
         base_year=2025,
         source_years=config_provider("demand", "source_years"),
+        planning_horizons=config_provider("scenario", "planning_horizons"),
+        cluster_heat_buses=config_provider("sector", "cluster_heat_buses"),
     message:
         "Recalibrating Austrian household and service heat demand against NEA data"
     script:
