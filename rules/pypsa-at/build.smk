@@ -24,17 +24,14 @@ def heat_demand_at_inputs(w):
     ]
 
 
-HEAT_DEMAND_AT_OUTPUT = resources(
-    f"heat_demand_at_{config['sector']['heat_demand_scenario']}.csv"
-)
-
-
 rule build_heat_demand_at:
     input:
         nuts3_shapes=resources("nuts3_shapes.geojson"),
         heatmaps=heat_demand_at_inputs,
     output:
-        heat_demand=HEAT_DEMAND_AT_OUTPUT,
+        heat_demand=resources(
+            f"heat_demand_at_{config['sector']['heat_demand_scenario']}.csv"
+        ),
     log:
         logs("build_heat_demand_at.log"),
     benchmark:
