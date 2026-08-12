@@ -29,13 +29,11 @@ rule build_heat_demand_at:
         nuts3_shapes=resources("nuts3_shapes.geojson"),
         heatmaps=heat_demand_at_inputs,
     output:
-        heat_demand=resources(
-            f"heat_demand_at_{config['sector']['heat_demand_scenario']}.csv"
-        ),
+        heat_demand=resources("heat_demand_at_{cluster}.csv"),
     log:
-        logs("build_heat_demand_at.log"),
+        logs("build_heat_demand_at_{cluster}.log"),
     benchmark:
-        benchmarks("build_heat_demand_at")
+        benchmarks("build_heat_demand_at_{cluster}")
     threads: 1
     resources:
         mem_mb=4000,
@@ -46,6 +44,29 @@ rule build_heat_demand_at:
         "Building Austrian NUTS3 heat demand from heatmaps"
     script:
         scripts("pypsa-at/build_heat_demand_at.py")
+
+
+rule recalibrate_heat_demand_at:
+    input:
+        heat_demand=resources("heat_demand_at_{cluster}.csv"),
+        nea_at=resources("nea_at.csv"),
+        nuts3_shapes=resources("nuts3_shapes-raw.geojson"),
+    output:
+        heat_demand=resources("heat_demand_nea_at_{cluster}.csv"),
+    log:
+        logs("recalibrate_heat_demand_at_{cluster}.log"),
+    benchmark:
+        benchmarks("recalibrate_heat_demand_at_{cluster}")
+    threads: 1
+    resources:
+        mem_mb=2000,
+    params:
+        base_year=2025,
+        source_years=config_provider("demand", "source_years"),
+    message:
+        "Recalibrating Austrian household and service heat demand against NEA data"
+    script:
+        scripts("pypsa-at/recalibrate_heat_demand_at.py")
 
 
 rule build_custom_cost_at:
