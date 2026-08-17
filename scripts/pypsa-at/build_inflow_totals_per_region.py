@@ -24,7 +24,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from mods.constants import PROXIES, TYNDP_TO_PYPSA_LOCATION
+from mods.constants import PROXIES
+from mods.utils import resolve_tyndp_locations
 from scripts._helpers import (
     configure_logging,
     get_snapshots,
@@ -112,7 +113,9 @@ def extract_inflow_totals_tyndp(
 
 
 def process_inflow_per_region(
-    inflow_df: pd.DataFrame, market_info_df: pd.DataFrame
+    inflow_df: pd.DataFrame,
+    market_info_df: pd.DataFrame,
+    location_mapping: dict,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Group PEMMDB inflow data by model carriers
@@ -131,9 +134,9 @@ def process_inflow_per_region(
             - inflow_df: countries x technologies (sheet names)
             - market_info_df: countries x market node info labels
     """
-    inflow_df = inflow_df.groupby(inflow_df.index.map(TYNDP_TO_PYPSA_LOCATION)).sum()
+    inflow_df = inflow_df.groupby(inflow_df.index.map(location_mapping)).sum()
     market_info_df = market_info_df.groupby(
-        market_info_df.index.map(TYNDP_TO_PYPSA_LOCATION)
+        market_info_df.index.map(location_mapping)
     ).sum()
 
     inflow_df *= 1000  # GWh to MWh
@@ -294,7 +297,12 @@ if __name__ == "__main__":
         snakemake.input.hydro_inflows, year
     )
 
-    inflow_df, market_info_df = process_inflow_per_region(inflow_df, market_info_df)
+    location_mapping = resolve_tyndp_locations(
+        snakemake.params.admin_levels, snakemake.params.custom_clustering
+    )
+    inflow_df, market_info_df = process_inflow_per_region(
+        inflow_df, market_info_df, location_mapping
+    )
 
     inflow, region_to_country_mapping = normalize_ror(inflow_df, ppl, market_info_df)
     distributed_inflow_df = distribute_inflow_to_powerplants(

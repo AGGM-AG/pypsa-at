@@ -25,7 +25,8 @@ from pathlib import Path
 import pandas as pd
 from snakemake.script import Snakemake
 
-from mods.constants import HYDRO_CARRIER_MAPPING, TYNDP_TO_PYPSA_LOCATION
+from mods.constants import HYDRO_CARRIER_MAPPING
+from mods.utils import resolve_tyndp_locations
 from scripts._helpers import (
     configure_logging,
     load_costs,
@@ -158,7 +159,7 @@ def add_missing_years(s: pd.Series, snakemake: Snakemake) -> pd.Series:
     return data
 
 
-def add_missing_regions(s: pd.Series) -> pd.Series:
+def add_missing_regions(s: pd.Series, location_mapping: dict) -> pd.Series:
     """
     Add missing regions to the index in the given Series.
 
@@ -168,6 +169,8 @@ def add_missing_regions(s: pd.Series) -> pd.Series:
     ----------
     s
         The Series to extend
+    location_mapping
+        The resolved TYNDP location mapping for the clustering.
 
     Returns
     -------
@@ -176,7 +179,7 @@ def add_missing_regions(s: pd.Series) -> pd.Series:
     """
     data = s.copy()
     regions_pemmdb = set(data.index.get_level_values("region"))
-    all_regions = {r for r in TYNDP_TO_PYPSA_LOCATION.values() if r is not None}
+    all_regions = {r for r in location_mapping.values() if r is not None}
     missing_regions = [region for region in all_regions if region not in regions_pemmdb]
     for region in sorted(missing_regions):
         df_region = data.loc[data.index.get_level_values("region") == "AT"].copy()
@@ -278,13 +281,16 @@ def main(snakemake: Snakemake) -> pd.DataFrame:
     """
     market_info = extract_hydro_capacities_tyndp(snakemake.input.hydro_inflows)
 
-    market_info = _map_index(market_info, TYNDP_TO_PYPSA_LOCATION, "region")
+    location_mapping = resolve_tyndp_locations(
+        snakemake.params.admin_levels, snakemake.params.custom_clustering
+    )
+    market_info = _map_index(market_info, location_mapping, "region")
     market_info = _map_index(
         market_info, HYDRO_CARRIER_MAPPING, "carrier", ("carrier", "variable", "sense")
     )
     market_info = market_info[market_info.index.isin(market_info.index.dropna())]
     market_info = market_info.groupby(level=market_info.index.names).sum().abs()
-    market_info = add_missing_regions(market_info)
+    market_info = add_missing_regions(market_info, location_mapping)
     market_info = filter_market_data(snakemake, market_info)
     market_info = add_missing_years(market_info, snakemake)
     market_info = market_info.sort_index()

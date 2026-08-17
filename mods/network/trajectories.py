@@ -21,26 +21,33 @@ import pandas as pd
 import pypsa
 from snakemake.script import Snakemake
 
-from mods.constants import PROXIES, TYNDP_TO_PYPSA_LOCATION
+from mods.constants import PROXIES
+from mods.utils import resolve_tyndp_locations
 
 logger = getLogger(__name__)
 
 
 def aggregate_by_cluster_and_country(
     trajectories: pd.DataFrame,
+    location_mapping: dict,
     skip_countries: tuple[str] | None = None,
 ) -> pd.DataFrame:
     """
     Aggregate TYNDP trajectory data to PyPSA-AT cluster regions and country codes.
 
-    Maps raw TYNDP bus codes to PyPSA-AT location codes via ``TYNDP_TO_PYPSA_LOCATION``,
-    sums ``p_nom_min`` / ``p_nom_max`` per ``(location, pypsa_eur_carrier)`` pair.
+    Maps raw TYNDP bus codes to PyPSA-AT location codes via the resolved
+    location mapping, sums ``p_nom_min`` / ``p_nom_max`` per
+    ``(location, pypsa_eur_carrier)`` pair.
 
     Parameters
     ----------
     trajectories:
         Raw trajectory DataFrame with at minimum the columns ``bus``,
         ``pypsa_eur_carrier``, ``p_nom_min``, and ``p_nom_max``.
+    location_mapping:
+        The TYNDP location mapping resolved for the clustering
+        configuration, see
+        :func:`mods.constants.resolve_tyndp_locations`.
     skip_countries:
         Two-letter ISO country codes (e.g. ``["AT", "DE"]``) whose locations
         are excluded from the output.  ``None`` skips no countries.
@@ -55,17 +62,16 @@ def aggregate_by_cluster_and_country(
     ------
     ValueError
         If any ``bus`` value in *trajectories* is absent from
-        ``TYNDP_TO_PYPSA_LOCATION``.
+        the location mapping.
     """
     df = trajectories.copy()  # to prevent mutating input
-    df["location"] = df["bus"].map(TYNDP_TO_PYPSA_LOCATION)
+    df["location"] = df["bus"].map(location_mapping)
 
     # make sure clustering is as expected
     unmapped = df.loc[df["location"].isna(), "bus"].unique()
     if len(unmapped):
         raise ValueError(
-            f"TYNDP bus codes not in TYNDP_TO_PYPSA_LOCATION mapping: "
-            f"{sorted(unmapped)}"
+            f"TYNDP bus codes not in the location mapping: {sorted(unmapped)}"
         )
 
     if skip_countries:
@@ -358,7 +364,13 @@ def apply_pemmdb_trajectories(n: pypsa.Network, snakemake: Snakemake, costs) -> 
     if trajectories.empty:
         raise ValueError(f"No trajectory data for horizon {pyear}.")
 
-    traj_clustered = aggregate_by_cluster_and_country(trajectories, skip_countries)
+    location_mapping = resolve_tyndp_locations(
+        snakemake.params.admin_levels,
+        snakemake.params.custom_clustering,
+    )
+    traj_clustered = aggregate_by_cluster_and_country(
+        trajectories, location_mapping, skip_countries
+    )
 
     # Edge case (CI test config only): the reduced at10 test network models just
     # AT and its neighbours, while the TYNDP trajectories cover all of Europe.
