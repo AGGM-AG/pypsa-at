@@ -7,6 +7,7 @@ app = marimo.App(width="medium")
 @app.cell
 def _():
     import sys
+
     import yaml
 
     sys.path.insert(0, ".")
@@ -15,9 +16,11 @@ def _():
 
     from evals.fileio import read_networks
 
-    n = read_networks(["results/electricity-load-clipping/AT_KN2040/networks/base_s_adm__none_2050.nc"])[
-        "2050"
-    ]
+    n = read_networks(
+        [
+            "results/electricity-load-clipping/AT_KN2040/networks/base_s_adm__none_2050.nc"
+        ]
+    )["2050"]
 
     # n = pypsa.Network("results/v2025.04/AT_KN2040/networks/base_s_adm__none_2050.nc")
     return mo, n, yaml

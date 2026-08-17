@@ -71,7 +71,9 @@ def _(at_carrier, carrier_selector):
             linestyle="--",
             label=f"{_index_carrier} p_nom_max",
         )
-        ax.fill_between(_group.pyear, _group.p_nom_min, _group.p_nom_max, color=_color, alpha=0.15)
+        ax.fill_between(
+            _group.pyear, _group.p_nom_min, _group.p_nom_max, color=_color, alpha=0.15
+        )
     ax.set_xlabel("pyear")
     ax.set_ylabel("MW")
     ax.set_title(f"{carrier_selector.value} — AT00")
