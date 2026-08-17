@@ -20,7 +20,7 @@ def _region_by_load(n: pypsa.Network) -> pd.Series:
 
     Returns
     -------
-    :e
+    :
         Model region indexed by Load name.
     """
     location = n.loads.bus.map(n.buses.location)

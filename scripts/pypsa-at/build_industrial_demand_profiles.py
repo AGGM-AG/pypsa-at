@@ -268,6 +268,7 @@ def main(snakemake) -> None:
     snapshots = pd.read_csv(
         snakemake.input.snapshot_weightings, parse_dates=["snapshot"]
     )["snapshot"]
+    snapshots = snapshots.sort_values()
     ffe_profiles = load_ffe_load_profiles(
         snakemake.input.ffe_profiles, snapshots_hourly
     )
