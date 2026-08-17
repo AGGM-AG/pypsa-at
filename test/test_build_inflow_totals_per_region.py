@@ -2,6 +2,8 @@ import importlib
 
 import pandas as pd
 
+from mods.constants import TYNDP_TO_PYPSA_LOCATION
+
 build = importlib.import_module("scripts.pypsa-at.build_inflow_totals_per_region")
 
 
@@ -28,6 +30,7 @@ def test_process_inflow_per_region_groups_regions_and_technologies():
     result_inflow_df, result_market_info_df = build.process_inflow_per_region(
         inflow_df,
         market_info_df,
+        TYNDP_TO_PYPSA_LOCATION,
     )
 
     expected_inflow_df = pd.DataFrame(

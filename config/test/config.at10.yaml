@@ -18,6 +18,7 @@ clustering:
   administrative:
     level: 0 # countries
     AT: 2  # 10 regions
+    IT: 0  # Sicily and Sardinia outside cutouts would receive 0 population fraction and cause 0 population_weighted_energy_totals
   temporal:
     resolution_sector: 24H
 

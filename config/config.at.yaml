@@ -1,6 +1,7 @@
-# Basisszenario für PyPSA-AT mit Anpassungen des KN2045_Mix Szenarios aus PyPSA-DE with
-#   * custom administrative clustering für Austrian regions
-#   * calibrations
+# SPDX-FileCopyrightText: 2023-2026 Austrian Gas Grid Management AG
+#
+# SPDX-License-Identifier: MIT
+# For license information, see the LICENSE.txt file in the project root.
 
 run:
   prefix: industrial-demand-nea
@@ -176,12 +177,6 @@ industry:
     2050: 1.0
 
   # AT-owned normalized temporal demand profiles (see mods/demand/industrial_demand.py).
-  # Reshapes the given industry Load(s) from a flat annual value into a
-  # time-varying one, preserving each Load's total annual energy. Adapted
-  # from the (not yet merged) PyPSA-Eur PR #1875 "Temporal industry load".
-  # `carrier_mapping` maps the carrier labels used by the profile builder to
-  # the carrier labels of the network Loads. Further profile carrier mappings
-  # can be added without changing the application code.
   demand_profiles:
     enable: true
     carrier_mapping:
@@ -357,3 +352,14 @@ mods:
   trajectories:
     apply_trajectories: true
     tol: 0.1  # slack applied to upper/lower capacity bounds (MW / MWh)
+
+  # Scales loads by name to a yearly total
+  demand:
+    electricity:
+      AT:
+        # 40 as a first guess for Energiebilanz Statistik Austria = 62.7 - NEA Industry sector - NEA heat (Raumklima u. Warmwasser)
+        2020: 40  # TWh
+        2030: 40  # TWh
+        2040: 40  # TWh
+        2050: 40  # TWh
+

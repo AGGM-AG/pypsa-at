@@ -10,6 +10,7 @@ import pypsa
 from snakemake.script import Snakemake
 
 from mods.demand.annual import apply_annual_demand_overrides
+from mods.demand.electricity import BASE_LOAD_CARRIERS, base_load_load_splitting
 from mods.demand.industrial_demand import apply_industrial_demand_profiles
 from mods.network.electricity import apply_tyndp_transmission_lower_bounds
 from mods.network.gas import (
@@ -30,7 +31,9 @@ from mods.network.trajectories import apply_pemmdb_trajectories
 logger = getLogger(__name__)
 
 
-def prepare_sector_network(n, snakemake, nodes, costs, spatial):
+def prepare_sector_network(
+    n, snakemake, nodes, costs, spatial, pop_weighted_energy_totals
+):
     """
     Apply all PyPSA-AT specific modifications during ``prepare_sector_network``.
 
@@ -46,6 +49,10 @@ def prepare_sector_network(n, snakemake, nodes, costs, spatial):
         Clustered node index (``pop_layout.index``).
     spatial
         Spatial namespace produced by ``define_spatial``.
+    pop_weighted_energy_totals
+        Population weighted energy totals per node in TWh per calendar
+        year, used to split the electricity base load into sectoral
+        Loads.
 
     Returns
     -------
@@ -55,6 +62,7 @@ def prepare_sector_network(n, snakemake, nodes, costs, spatial):
     add_h2_for_industry_bus(n, nodes)
     add_methane_pyrolysis_plasma(n, snakemake, costs, nodes, spatial)
     process_hydro(n, snakemake, costs)
+    base_load_load_splitting(n, pop_weighted_energy_totals)
     apply_annual_demand_overrides(n, snakemake)
     apply_industrial_demand_profiles(n, snakemake)
 
@@ -92,9 +100,11 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     apply_pemmdb_trajectories(n, snakemake, costs)
     override_gas_storage_capacities(n, snakemake)
     apply_klien_potential_limits(n, snakemake)
-    clip_negative_loads_for_edge_cases(n, snakemake)
     apply_tyndp_transmission_lower_bounds(n, snakemake)
     add_h2_imports(n, snakemake)
+
+    # Apply Load clipping just before the solve step
+    clip_negative_loads_for_edge_cases(n, snakemake)
 
 
 def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -> None:
@@ -141,17 +151,21 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
         n.loads.loc[negatives, "p_set"] = 0
 
     def _clip_electricity(location: str):
-        negatives = n.loads_t["p_set"][location].lt(0)
-        if not any(negatives):
-            raise RuntimeError(f"Expected negative electricity Load for {location}.")
-        n.loads_t["p_set"].loc[negatives, location] = 0
+        # the base load is split into sectoral Loads (see
+        # base_load_load_splitting), so negative hours from the electric
+        # heating deduction sit proportionally in all of them
+        at_location = n.loads.index.str.startswith(f"{location} ")
+        is_split = n.loads["carrier"].isin(BASE_LOAD_CARRIERS).to_numpy()
+        p_set = n.loads_t["p_set"]
+        columns = p_set.columns.intersection(n.loads.index[at_location & is_split])
+        if not p_set[columns].lt(0).any().any():
+            raise RuntimeError(f"Expected negative electricity Loads for {location}.")
+        p_set[columns] = p_set[columns].clip(lower=0)
 
-    # Edge case (CI test config only): in the reduced at10 test network a few
-    # "H2 for industry" demands are net-negative (industry produces surplus H2),
-    # so the Load injects energy and trips test_no_load_supply. Clip to zero in
-    # the test run only; full-resolution production runs are left untouched.
+    # In the reduced at10 test network a few "H2 for industry" negative
     if cfg["run"]["prefix"] == "test-sector-myopic-at10":
-        _clip_static("H2 for industry")
+        if investment_year < 2030:
+            _clip_static("H2 for industry")
         return  # skip any other clipping
 
     # Edge case: electricity for heat is larger than base load in AT126
