@@ -1,0 +1,325 @@
+# Basisszenario für PyPSA-AT mit Anpassungen des KN2045_Mix Szenarios aus PyPSA-DE with
+#   * custom administrative clustering für Austrian regions
+#   * calibrations
+
+run:
+  prefix: electricity-load-clipping
+  name:
+  - AT_KN2040
+  scenarios:
+    enable: true
+    # PyPSA-DE uses config/scenarios.automated.yaml to incorporate Ariadne project
+    # specific scenario settings in model runs. PyPSA-AT uses the KN2045_Mix scenario
+    # for all AT scenarios as a base. As a result, the build_scenario step is obsolete.
+    # We simply use the manual file with hard coded values.
+    file: config/scenarios.manual.yaml
+  shared_resources:
+    policy: base #stops recalculating
+    exclude:
+    - existing_heating.csv   # specify files which should not be shared between scenarios
+    - costs
+    - retrieve_cost   # This is necessary to save retrieve_cost_data_{year}.log in the correct folder
+    - industry_sector_ratios
+    - build_industry_sector_ratios   # This is necessary to save build_industry_sector_ratios_data.log in the correct folder
+    - modify_existing_heating
+    - build_custom_cost_at
+    - custom_cost_at.csv
+
+countries: ['AL', 'AT', 'BA', 'BE', 'BG', 'CH', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'ME', 'MK', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'SE', 'SI', 'SK', 'XK']
+
+scenario:
+  ll:
+  - v1.25
+  clusters:
+  - adm
+  opts:
+  - ''
+  sector_opts:
+  - none
+  planning_horizons:
+  - 2025
+  - 2030
+  - 2040
+  - 2050
+
+electricity:
+  transmission_limit: v1.25
+  voltages: [110., 220., 300., 330., 380., 400., 500., 750.]
+
+clustering:
+  mode: administrative
+  administrative:
+    level: 0 # countries
+    AT: 3 # 10 regions if NUTS 2, 35 if NUTS 3
+    DE: 3 # NUTS3 as a proxy for 5 regions
+    DK: 1 # +1 Sjaelland
+    GB: 1 # +1 Northern Ireland
+    IT: 1 # +2 Sicily, Sardinia
+  temporal:
+    resolution_sector: 24H
+
+costs:
+  use_list: true       # Whether to use the file custom_cost_fn or combine files from custom_cost_fn_list
+  custom_cost_fn: data/custom_costs.csv
+  custom_cost_fn_list:  # List is combined into one cost file, keeping only the first occurrence of each entry.
+  - data/custom_costs.csv
+  - data/pypsa-de/custom_costs_nep_2023.csv
+
+existing_capacities:
+  threshold_capacity: 2 # reduce threshold capacity for all carriers to better support
+                        # finer spatial resolution of PyPSA-AT
+
+sector:
+  v2g: true
+  solar_thermal: true
+  biomass_transport: true
+  regional_methanol_demand: true
+  gas_network: true
+  gas_network_connectivity_upgrade: 1
+  electrobiofuels: true
+  biosng: true
+  biosng_cc: true
+  bioH2: true
+  h2_topology_tyndp: true
+  h2_zones_tyndp: false
+  municipal_solid_waste: true
+  cluster_heat_buses: true
+  hydrogen_turbines: false  # PyPSA-AT uses the PyPSA-DE implementation in electricity.H2_plants instead
+  methanol:
+    regional_methanol_demand: true
+    methanol_reforming: true
+    methanol_reforming_cc: true
+    methanol_to_kerosene: true
+    methanol_to_power:
+      ccgt: true
+      ccgt_cc: true
+      ocgt: true
+      allam: true
+    biomass_to_methanol: true
+    biomass_to_methanol_cc: true
+  ammonia: "regional"
+  regional_co2_sequestration_potential:
+    enable: true
+    attribute:
+    - conservative estimate Mt
+    - conservative estimate GAS Mt
+    - conservative estimate OIL Mt
+    - conservative estimate aquifer Mt
+    include_onshore: false
+    min_size: 3
+    max_size: 25
+    years_of_storage: 25
+  co2_network: true
+  imports:  # this is for renewable gas/H2/methanol/oil imports
+    enable: true
+    carriers_tyndp:
+    - H2
+  transmission_efficiency:
+    # all link carriers must be enabled and given an efficiency here
+    # this ensures that bidirectional links (p_min_pu=-1) are split into two monodirectional pairs
+    # and prevents negative shadow prices depending on direction of energy flows
+    enable:
+    # upstream defaults (config.default.yaml) — the enable list is replaced, not merged,
+    # so these must be repeated or DC/H2/gas links are no longer split into reverse pairs
+    - DC
+    - H2 pipeline
+    - gas pipeline
+    - electricity distribution grid
+    - H2 pipeline retrofitted
+    - gas pipeline new
+    - CO2 pipeline
+    H2 pipeline retrofitted:
+      efficiency_per_1000km: 1
+      compression_per_1000km: 0.018
+    gas pipeline new:
+      efficiency_per_1000km: 1
+      compression_per_1000km: 0.01
+    CO2 pipeline:
+      efficiency_per_1000km: 1
+
+  # PyPSA-DE KN2045_Mix scenario settings
+  aviation_demand_factor:
+    2020: 1.0
+    2025: 1.096
+    2030: 1.1816
+    2035: 1.2048
+    2040: 1.2285
+    2045: 1.1193
+    2050: 1.0157
+
+industry:
+  # gas compression seems incompatible with gas network. Pipelines connect
+  # gas buses. However, Generators in '{node} gas primary' buses introduce gas
+  # energy at local nodes, which is then compressed to the local gas bus.
+  # As a result, gas is not transported via pipelines.
+  # Note that gas compression AC withdrawal still is implemented. Losses are
+  # for methane to the atmosphere.
+  gas_compression_losses: 0  # 0.04
+
+  # PyPSA-DE KN2045_Mix scenario settings
+  St_primary_fraction:
+    2020: 0.7023
+    2025: 0.705
+    2030: 0.6929
+    2035: 0.6592
+    2040: 0.6266
+    2045: 0.6047
+    2050: 0.5995
+  DRI_fraction:
+    2020: 0.0
+    2025: 0.0
+    2030: 0.2011
+    2035: 0.4974
+    2040: 0.7751
+    2045: 1.0
+    2050: 1.0
+
+data:
+  osm:
+    source: archive
+    version: 0.3-at
+  klien_potentials:
+    source: archive
+    version: 2026-v2
+  nea-at:
+    source: primary
+    version: latest
+
+pypsa_eur:
+  StorageUnit: []
+
+solving:
+  options:
+    custom_extra_functionality: "../scripts/pypsa-at/additional_functionality.py"
+  # The default CO2 budget uses the KSG targets, and the non CO2 emissions from the REMIND model in the KN2045_Mix scenario
+  constraints:
+    co2_budget_national:
+      AT:
+        2020: 0.67
+        2025: 0.52
+        2030: 0.34
+        2035: 0.21
+        2040: 0.00
+        2045: -0.00
+        2050: -0.05
+      DE:  # KN2045_Mix scenario settings
+        2020: 0.691
+        2025: 0.538
+        2030: 0.364
+        2035: 0.216
+        2040: 0.09
+        2045: -0.05
+        2050: -0.048
+    limits_capacity_min:  # in GW
+      Link:
+        H2 Electrolysis:
+          AT:
+            # EAG Ausbauziel: 1 GW Elektrolyseleistung in MW_el in AT
+            # limit set for p_nom_opt, which already is for MW_el at bus0
+            2030: 1
+            2040: 1
+            2050: 1
+  solver:
+    name: gurobi
+    options: gurobi-default
+  solver_options:
+    # https://ergo-code.github.io/HiGHS/dev/options/definitions/
+    highs-default:
+      threads: 0
+      solver: "ipx"
+      random_seed: 123
+    "highs-hipo":
+      # scaling the LP stabilizes HiPO
+      user_bound_scale: -13
+      user_objective_scale: -1
+    gurobi-default:
+      Seed: 123
+
+mods:
+
+  # AT10 or NUTS3 administrative clustering
+  modify_nuts3_shapes: AT35DE5
+
+  # use improved Austrian gas grid capacities
+  # provided by AGGM experts
+  modify_brownfield_gas_network_AT: true
+
+  # threshold year for extending gas grid capacities
+  # until threshold year, no extension of the gas grid is possible
+  threshold_year_for_gas_grid_expansion: 2040
+
+  # Block Russian gas imports post 2025 with two optional routes:
+  # via Eastern Europe (eastern_border_block) or via TurkStream (turkstream_block)
+  # start_year defaults to 2025/2030 for the two blocks
+  # end_year defaults to infinity
+  block_russian_gas_imports:
+    enable: true
+    eastern_border_block:
+      start_year: 2025
+      countries: [FI, EE, LV, LT, PL, SK, RO]
+    turkstream_block:
+      start_year: 2030
+      countries: [BG]
+
+  # split gas generators by type and multiply generator
+  # marginal costs by the following factors
+  unravel_natural_gas_imports:
+    enable: true
+    lng: 1.2
+    pipeline: 1.0
+    production: 0.95
+
+  methane_pyrolysis:
+    plasma: true
+    utilization_share: 0.0  # fraction of carbon black sold to market (0.0–1.0)
+                            # Note that sold carbon black eventually re-emits CO2
+                            # outside model boundary (Systemgrenze).
+
+  existing_capacities:
+    add_biogas_to_power_plants_AT: true # add Austrian biogas-to-power plants from Anlagenregister
+                                        # in addition to powerplantmatching
+
+  tyndp_h2_import_scenario: "DE" # One of DE (Distributed Energy), NT (National Trends), GA (Global Ambition).
+                           # Only used when H2 imports is enabled
+
+  PEMMDB_trajectories:
+    enable: true
+    tyndp_scenario: All  # All — default TYNDP 2024 scenario with complete list of techs.
+                         # Other options fail during runtime due to missing techs.
+    skip_countries: ["AT", "DE"]  # use calibrations from PyPSA-DE/AT
+
+  override_gas_storage_capacities:
+    enable: true
+
+  klien_potential_limits:
+    technologies:            # carriers to cap; empty list disables all limits
+    - solar rooftop
+    - solar
+    - solar-hsat
+    - onwind
+    use_technical_potentials: false # if true, technical potentials are used.
+                                    # if true, climate_scenario, year and ambition are ignored.
+    climate_scenario: wocc   # wocc | mocc | stcc
+    year: 2040               # 2030 | 2040
+    ambition: medium         # low | medium | high
+
+  tyndp_cross_border_flow_limits:
+    enable: true
+
+  # enforce TYNDP NTC capacities as expansion lower bounds
+  tyndp_lower_bounds:
+    enable: true
+    years:
+    - 2030
+    - 2040
+
+  # force country level yearly netted electricity autarky
+  net_zero_electricity:
+    enable: true
+    fuels: ["gas", "H2", "solid biomass", "methanol"]  # green electricity production may be produced from these carriers
+    h2_sources: ["AC", "low voltage", "solid biomass"]  # green hydrogen may be produced from these carriers
+    AT: "2030"  # start year: constraints will be added from including this year onwards
+
+  trajectories:
+    apply_trajectories: true
+    tol: 0.1  # slack applied to upper/lower capacity bounds (MW / MWh)
