@@ -7,6 +7,7 @@ app = marimo.App(width="medium")
 @app.cell
 def _():
     import sys
+
     import yaml
 
     sys.path.insert(0, ".")
@@ -33,25 +34,6 @@ def _(mo):
 
 @app.cell
 def _(n, yaml):
-    colors = {
-        "Multiple": "pink",
-        "AC": "black",
-        "Brown Coal": "saddlebrown",
-        "Gas": "darkorange",
-        "Geothermal": "firebrick",
-        "Hard Coal": "darkslategray",
-        "Nuclear": "mediumorchid",
-        "Oil": "peru",
-        "Other": "dimgray",
-        "Pumped Hydro": "cornflowerblue",
-        "Run of River": "royalblue",
-        "Solar": "gold",
-        "Storage Hydro": "navy",
-        "Waste": "olive",
-        "Wind Offshore": "teal",
-        "Wind Onshore": "turquoise",
-    }
-
     with open("config/plotting.default.yaml") as f:
         default_tech_colors = yaml.safe_load(f)["plotting"]["tech_colors"]
 
