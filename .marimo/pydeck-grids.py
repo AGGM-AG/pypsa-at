@@ -45,14 +45,7 @@ def _(n, yaml):
     tech_colors = {**default_tech_colors, **at_tech_colors}
 
     n.carriers.color = n.carriers.index.map(tech_colors)
-    return
-
-
-@app.cell
-def _(n):
-    # hotfix missing colors
-    no_color = n.carriers["color"].isna()
-    n.carriers.loc[no_color, "color"] = "red"
+    n.carriers['color'] = n.carriers.index.map(tech_colors).fillna('darkred')
     return
 
 
