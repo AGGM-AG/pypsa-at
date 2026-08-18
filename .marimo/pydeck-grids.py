@@ -45,7 +45,7 @@ def _(n, yaml):
     tech_colors = {**default_tech_colors, **at_tech_colors}
 
     n.carriers.color = n.carriers.index.map(tech_colors)
-    n.carriers['color'] = n.carriers.index.map(tech_colors).fillna('darkred')
+    n.carriers["color"] = n.carriers.index.map(tech_colors).fillna("darkred")
     return
 
 
