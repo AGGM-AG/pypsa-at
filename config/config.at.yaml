@@ -3,7 +3,7 @@
 #   * calibrations
 
 run:
-  prefix: industrial-demand-nea
+  prefix: heat-demand-at
   name:
   - AT_KN2040
   scenarios:

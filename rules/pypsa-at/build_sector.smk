@@ -9,7 +9,12 @@ PyPSA-AT patch to prepare_sector_network rule.
 
 use rule prepare_sector_network as prepare_sector_network_at with:
     input:
-        **rules.prepare_sector_network.input,
+        **{
+            **rules.prepare_sector_network.input,
+            "district_heat_share": resources(
+                "district_heat_share_base_s_{clusters}_{planning_horizons}-modified_at.csv"
+            ),
+        },
         powerplants=resources("powerplants_s_{clusters}.csv"),
         inflow=resources("inflow_per_region_{clusters}.nc"),
         hydro_capacities=ancient("data/hydro_capacities.csv"),
@@ -25,6 +30,7 @@ use rule prepare_sector_network as prepare_sector_network_at with:
             resources("industrial_demand_overrides_base_s_{clusters}.csv"),
             [],
         ),
+        heat_demand_nea_at=resources("heat_demand_nea_at_{clusters}.csv"),
         code_files=[
             "mods/network/common.py",
             "mods/network/electricity.py",
@@ -35,6 +41,7 @@ use rule prepare_sector_network as prepare_sector_network_at with:
             "mods/network/trajectories.py",
             "mods/demand/industrial_demand.py",
             "mods/demand/annual.py",
+            "mods/demand/heat_demand.py",
             "mods/constants.py",
             "mods/utils.py",
         ],

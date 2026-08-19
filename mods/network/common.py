@@ -10,6 +10,7 @@ import pypsa
 from snakemake.script import Snakemake
 
 from mods.demand.annual import apply_annual_demand_overrides
+from mods.demand.heat_demand import apply_heat_demand
 from mods.demand.industrial_demand import apply_industrial_demand_profiles
 from mods.network.electricity import apply_tyndp_transmission_lower_bounds
 from mods.network.gas import (
@@ -57,6 +58,7 @@ def prepare_sector_network(n, snakemake, nodes, costs, spatial):
     process_hydro(n, snakemake, costs)
     apply_annual_demand_overrides(n, snakemake)
     apply_industrial_demand_profiles(n, snakemake)
+    apply_heat_demand(n, snakemake)
 
 
 def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
