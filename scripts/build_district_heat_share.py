@@ -36,8 +36,9 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "build_district_heat_share",
-            clusters=60,
-            planning_horizons="2050",
+            run="AT_KN2040",
+            clusters="adm",
+            planning_horizons="2025",
         )
     configure_logging(snakemake)
     set_scenario_config(snakemake)
