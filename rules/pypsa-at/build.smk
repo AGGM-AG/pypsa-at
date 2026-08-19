@@ -59,6 +59,7 @@ rule recalibrate_heat_demand_at:
         ],
     output:
         heat_demand=resources("heat_demand_nea_at_{cluster}.csv"),
+        urban_fraction_at=resources("urban_fraction_at_{cluster}.csv"),
     log:
         logs("recalibrate_heat_demand_at_{cluster}.log"),
     benchmark:
@@ -75,6 +76,27 @@ rule recalibrate_heat_demand_at:
         "Recalibrating Austrian household and service heat demand against NEA data"
     script:
         scripts("pypsa-at/recalibrate_heat_demand_at.py")
+
+
+rule modify_district_heat_share_at:
+    input:
+        urban_fraction_at=resources("urban_fraction_at_{clusters}.csv"),
+        district_heat_share=resources(
+            "district_heat_share_base_s_{clusters}_{planning_horizons}-modified.csv"
+        ),
+    output:
+        district_heat_share=resources(
+            "district_heat_share_base_s_{clusters}_{planning_horizons}-modified_at.csv"
+        ),
+    log:
+        logs("modify_district_heat_share_at_{clusters}_{planning_horizons}.log"),
+    benchmark:
+        benchmarks("modify_district_heat_share_at_{clusters}_{planning_horizons}")
+    threads: 1
+    resources:
+        mem_mb=1000,
+    script:
+        scripts("pypsa-at/modify_district_heat_share_at.py")
 
 
 rule build_custom_cost_at:

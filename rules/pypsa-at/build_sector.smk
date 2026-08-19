@@ -9,7 +9,12 @@ PyPSA-AT patch to prepare_sector_network rule.
 
 use rule prepare_sector_network as prepare_sector_network_at with:
     input:
-        **rules.prepare_sector_network.input,
+        **{
+            **rules.prepare_sector_network.input,
+            "district_heat_share": resources(
+                "district_heat_share_base_s_{clusters}_{planning_horizons}-modified_at.csv"
+            ),
+        },
         powerplants=resources("powerplants_s_{clusters}.csv"),
         inflow=resources("inflow_per_region_{clusters}.nc"),
         hydro_capacities=ancient("data/hydro_capacities.csv"),

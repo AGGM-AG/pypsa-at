@@ -10,6 +10,7 @@ import pypsa
 from snakemake.script import Snakemake
 
 from mods.demand.electricity import BASE_LOAD_CARRIERS, base_load_load_splitting
+from mods.demand.heat_demand import apply_heat_demand
 from mods.network.electricity import apply_tyndp_transmission_lower_bounds
 from mods.network.gas import (
     block_russian_gas_imports,
@@ -61,6 +62,7 @@ def prepare_sector_network(
     add_methane_pyrolysis_plasma(n, snakemake, costs, nodes, spatial)
     process_hydro(n, snakemake, costs)
     base_load_load_splitting(n, pop_weighted_energy_totals)
+    apply_heat_demand(n, snakemake)
 
 
 def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
