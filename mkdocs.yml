@@ -14,6 +14,7 @@ nav:
 - Tutorials:
   - tutorials/index.md
   - tutorials/model-modifications.md
+- Data Sources: data_sources.md
 - Function Reference:
   - Modifications:
     - reference/mods/index.md
@@ -128,6 +129,7 @@ plugins:
 - autorefs
 - plotly
 - marimo
+- table-reader
 - mkdocstrings:
     default_handler: python
     handlers:
