@@ -51,7 +51,8 @@ def recalibrate_heat_demand(
     Returns
     -------
     :
-        Recalibrated demand by year, region, sector, and heating type.
+        Recalibrated demand by year, NUTS-2 region, region, sector, and
+        heating type.
     """
     nea = nea.loc[
         nea["year"].eq(source_years[base_year])
@@ -84,14 +85,128 @@ def recalibrate_heat_demand(
         on="NUTS-2 Code",
     )
     result["value"] *= result["factor"]
-    return result[["year", "region", "sector", "heating", "value"]].sort_values(
-        ["year", "region", "sector", "heating"]
+    return result[
+        ["year", "NUTS-2 Code", "region", "sector", "heating", "value"]
+    ].sort_values(["year", "NUTS-2 Code", "region", "sector", "heating"])
+
+
+def redistribute_central_heat(
+    result: pd.DataFrame,
+    urban_fraction: pd.DataFrame,
+    region_to_nuts2: pd.Series,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Redistribute central heat by urban-weighted regional demand.
+
+    Central heat is preserved per NUTS2 region and sector. Decentral heat is
+    adjusted so total heat demand per region and sector remains unchanged.
+
+    If all urban fractions in a NUTS-2 sector group are zero, the
+    central-demand share is used as the fallback allocation fraction.
+
+    Parameters
+    ----------
+    result : pd.DataFrame
+        Recalibrated demand.
+    urban_fraction : pd.DataFrame
+        Wide urban fractions indexed by region.
+    region_to_nuts2 : pd.Series
+        Mapping from regional codes to NUTS-2 codes.
+
+    Returns
+    -------
+    :
+        Adjusted demand and long urban fractions.
+    """
+    fractions = urban_fraction.rename_axis(index="region", columns="year")
+    fractions = fractions.stack().rename("urban_fraction").reset_index()
+    weights = result.groupby(["year", "region", "sector"], as_index=False)[
+        "value"
+    ].sum()
+    weights = weights.rename(columns={"value": "sectoral_totals"})
+    weights["NUTS-2 Code"] = weights["region"].map(region_to_nuts2)
+    weights["nuts2_totals"] = weights.groupby(
+        ["year", "NUTS-2 Code", "sector"], as_index=False
+    )["sectoral_totals"].transform("sum")
+
+    weights["share"] = weights["sectoral_totals"] / weights["nuts2_totals"]
+
+    weights = weights.merge(fractions, on=["year", "region"], how="left")
+
+    central_mask = result["heating"].eq("central")
+    regional_sector_totals = result.groupby(["year", "region", "sector"])["value"].sum()
+    central_totals = (
+        result.loc[central_mask]
+        .groupby(["year", "NUTS-2 Code", "sector"], as_index=False)["value"]
+        .sum()
+        .rename(columns={"value": "central_total"})
     )
+    central_totals = central_totals.merge(
+        weights[
+            [
+                "year",
+                "NUTS-2 Code",
+                "region",
+                "sector",
+                "nuts2_totals",
+                "share",
+                "urban_fraction",
+            ]
+        ],
+        on=["year", "sector", "NUTS-2 Code"],
+        validate="many_to_many",
+    )
+    central_totals["nuts2_urban_fraction"] = central_totals.groupby(
+        ["year", "NUTS-2 Code", "sector"]
+    )["urban_fraction"].transform(sum)
+    central_totals.loc[
+        central_totals["nuts2_urban_fraction"] == 0, "urban_fraction"
+    ] = (
+        central_totals.loc[central_totals["nuts2_urban_fraction"] == 0, "central_total"]
+        / central_totals.loc[
+            central_totals["nuts2_urban_fraction"] == 0, "nuts2_totals"
+        ]
+    )
+    urban_fraction_unstacked = central_totals[
+        ["sector", "year", "region", "urban_fraction"]
+    ].copy()
+    central_totals["weight"] = (
+        central_totals["share"] * central_totals["urban_fraction"]
+    )
+    central_totals["weight"] /= central_totals.groupby(
+        ["year", "NUTS-2 Code", "sector"]
+    )["weight"].transform(sum)
+
+    central_totals["target_central"] = (
+        central_totals["central_total"] * central_totals["weight"]
+    )
+    central_keys = ["year", "region", "sector"]
+    central_totals = central_totals.sort_values(central_keys)
+    target_central = central_totals.set_index(central_keys)["target_central"]
+
+    central_rows = result.loc[central_mask, central_keys]
+    central_values = target_central.reindex(pd.MultiIndex.from_frame(central_rows))
+    result.loc[central_mask, "value"] = central_values.to_numpy()
+
+    target_decentral = regional_sector_totals - target_central.reindex(
+        regional_sector_totals.index, fill_value=0
+    )
+    target_decentral = target_decentral.clip(lower=0)
+
+    decentral_mask = result["heating"].eq("decentral")
+    decentral_rows = result.loc[decentral_mask, central_keys]
+    decentral_values = target_decentral.reindex(
+        pd.MultiIndex.from_frame(decentral_rows)
+    )
+    result.loc[decentral_mask, "value"] = decentral_values.to_numpy()
+
+    return result.drop(columns="NUTS-2 Code"), urban_fraction_unstacked
 
 
 def allocate_heat_demand(
     demand: pd.DataFrame,
     urban_fraction: pd.DataFrame,
+    base_year: int,
     cluster_heat_buses: bool = False,
 ) -> pd.DataFrame:
     """
@@ -102,7 +217,9 @@ def allocate_heat_demand(
     demand : pd.DataFrame
         Recalibrated demand by year, region, sector, and heating type.
     urban_fraction : pd.DataFrame
-        Nodal urban fractions with regions as the index and years as columns.
+        Long urban fractions.
+    base_year : int
+        Heat-demand base year.
     cluster_heat_buses : bool, default=False
         Merge residential and services carriers into shared heat carriers.
 
@@ -111,9 +228,7 @@ def allocate_heat_demand(
     :
         Demand by year, region, carrier, and value.
     """
-    fractions = urban_fraction.rename_axis(index="region", columns="year")
-    fractions = fractions.stack().rename("urban_fraction").reset_index()
-    demand = demand.merge(fractions, on=["region", "year"])
+    demand = demand.merge(urban_fraction, on=["region", "year", "sector"])
 
     central = (
         demand.loc[demand["heating"].eq("central")]
@@ -145,8 +260,9 @@ def allocate_heat_demand(
     result = pd.concat([central, urban, rural], ignore_index=True)[
         ["year", "region", "carrier", "value"]
     ]
+
     if cluster_heat_buses:
-        result["carrier"] = result["carrier"].replace(
+        result.loc[:, "carrier"] = result["carrier"].replace(
             {
                 "residential rural heat": "rural heat",
                 "services rural heat": "rural heat",
@@ -168,6 +284,12 @@ def main(snakemake: Snakemake) -> None:
     ----------
     snakemake : Snakemake
         Snakemake input, output, and parameter collections.
+
+    Returns
+    -------
+    :
+        Writes recalibrated carrier-level heat demand and Austrian urban
+        fractions to the configured outputs.
     """
     shapes = gpd.read_file(snakemake.input.nuts3_shapes)
     region_to_nuts2 = shapes.loc[shapes["country"].eq("AT")].set_index("level3")[
@@ -188,9 +310,23 @@ def main(snakemake: Snakemake) -> None:
         axis=1,
         keys=snakemake.params.planning_horizons,
     )
-    result = allocate_heat_demand(
-        result, urban_fraction, snakemake.params.cluster_heat_buses
+    result, urban_fraction_unstacked = redistribute_central_heat(
+        result, urban_fraction, region_to_nuts2
     )
+    result = allocate_heat_demand(
+        result,
+        urban_fraction_unstacked,
+        snakemake.params.base_year,
+        snakemake.params.cluster_heat_buses,
+    )
+    urban_fraction_at = (
+        urban_fraction_unstacked.groupby(["year", "region"], as_index=False)[
+            "urban_fraction"
+        ]
+        .mean()
+        .pivot(index="region", columns="year", values="urban_fraction")
+    )
+    urban_fraction_at.to_csv(snakemake.output.urban_fraction_at)
     result.to_csv(snakemake.output.heat_demand, index=False)
     logger.info("Wrote recalibrated heat-demand")
 

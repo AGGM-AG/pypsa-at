@@ -8,8 +8,6 @@ import pandas as pd
 import pypsa
 from snakemake.script import Snakemake
 
-from mods.demand.annual import _region_by_load
-
 
 def apply_heat_demand(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
@@ -32,15 +30,20 @@ def apply_heat_demand(n: pypsa.Network, snakemake: Snakemake) -> None:
     demand = demand[demand["year"].eq(year)]
     demand["name"] = demand["region"] + " " + demand["carrier"]
     targets = demand.groupby(["name"]).value.sum()
+    names = targets[targets.index.isin(n.loads.index) | (targets > 0)].index
+    targets = targets.loc[names]
 
-    load_regions = _region_by_load(n)
-    keys = pd.MultiIndex.from_arrays([load_regions, n.loads.carrier])
-    values = pd.Series(targets.reindex(keys).to_numpy(), index=n.loads.index)
-    mask = values.notna()
-    total_weight = n.snapshot_weightings.generators.sum()
-    names = n.loads.index[mask]
     dynamic = names.intersection(n.loads_t.p_set.columns)
-    n.loads_t.p_set.loc[:, dynamic] = values.loc[dynamic].to_numpy() / total_weight
-    static = names.difference(dynamic)
-    n.loads.loc[static, "p_set"] = values.loc[static].to_numpy() / total_weight
+    factor = (
+        targets.loc[dynamic]
+        / n.loads_t.p_set.loc[:, dynamic]
+        .mul(n.snapshot_weightings.generators, axis=0)
+        .sum()
+    )
+    n.loads_t.p_set.loc[:, dynamic] *= factor
     n.loads.loc[dynamic, "p_set"] = 0.0
+
+    static = names.difference(dynamic)
+    n.loads.loc[static, "p_set"] = (
+        targets.loc[static].to_numpy() / n.snapshot_weightings.generators.sum()
+    )

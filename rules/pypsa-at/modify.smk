@@ -225,6 +225,7 @@ use rule modify_prenetwork as modify_prenetwork_at with:
             resources("h2_import_potentials_{clusters}_{planning_horizons}.csv"),
             [],
         ),
+        heat_demand_nea_at=resources("heat_demand_nea_at_{clusters}.csv"),
     params:
         **rules.modify_prenetwork.params,
         klien_potential_limits_technologies=config_provider(

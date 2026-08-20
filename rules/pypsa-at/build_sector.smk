@@ -30,7 +30,6 @@ use rule prepare_sector_network as prepare_sector_network_at with:
             resources("industrial_demand_overrides_base_s_{clusters}.csv"),
             [],
         ),
-        heat_demand_nea_at=resources("heat_demand_nea_at_{clusters}.csv"),
         code_files=[
             "mods/network/common.py",
             "mods/network/electricity.py",

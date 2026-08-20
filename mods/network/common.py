@@ -58,7 +58,6 @@ def prepare_sector_network(n, snakemake, nodes, costs, spatial):
     process_hydro(n, snakemake, costs)
     apply_annual_demand_overrides(n, snakemake)
     apply_industrial_demand_profiles(n, snakemake)
-    apply_heat_demand(n, snakemake)
 
 
 def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
@@ -97,6 +96,7 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     clip_negative_loads_for_edge_cases(n, snakemake)
     apply_tyndp_transmission_lower_bounds(n, snakemake)
     add_h2_imports(n, snakemake)
+    apply_heat_demand(n, snakemake)
 
 
 def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -> None:
