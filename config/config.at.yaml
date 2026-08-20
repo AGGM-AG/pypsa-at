@@ -220,7 +220,7 @@ solving:
             2030: 1
             2040: 1
             2050: 1
-    limits_volume_min:  # in TWh/a
+    limits_volume_min:  # in TWh/a Quelle EAG + https://energie.gv.at/energiewende/wie-ist-der-stand-zur-erneuerbaren-stromerzeugung-in-den-bundeslaendern
       solar:
         AT:
           2030: 14
