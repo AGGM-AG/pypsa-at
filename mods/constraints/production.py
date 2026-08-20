@@ -6,8 +6,8 @@
 
 import logging
 
-import pypsa
 import pandas as pd
+import pypsa
 
 from mods.constants import UNITS
 
@@ -19,12 +19,16 @@ GENERATOR_CARRIERS = {
     "hydro": ["hydro inflow", "ror", "PHS inflow"],
 }
 LINK_CARRIERS = {
-    "biomass": (["solid biomass", "biogas", "gas", "renewable gas"], ["AC", "low voltage"])
+    "biomass": (
+        ["solid biomass", "biogas", "gas", "renewable gas"],
+        ["AC", "low voltage"],
+    )
 }
 
 
 def _production_expression(n: pypsa.Network, source: str, region: str):
-    """Build a snapshot-weighted production expression.
+    """
+    Build a snapshot-weighted production expression.
 
     Parameters
     ----------
@@ -61,23 +65,29 @@ def _production_expression(n: pypsa.Network, source: str, region: str):
         to_buses = n.buses[
             n.buses.carrier.isin(to_carriers) & n.buses.index.str.startswith(region)
         ].index
-        links = pd.concat([n.links.loc[
-            n.links.bus0.isin(from_buses)
-            & n.links[f"bus{port}"].isin(to_buses)
-            & n.links.active
-            & (n.links[f"efficiency{port if port > 1 else ''}"] > 0), f"efficiency{port if port > 1 else ''}"
-        ] for port in range(1,5)])
+        links = pd.concat(
+            [
+                n.links.loc[
+                    n.links.bus0.isin(from_buses)
+                    & n.links[f"bus{port}"].isin(to_buses)
+                    & n.links.active
+                    & (n.links[f"efficiency{port if port > 1 else ''}"] > 0),
+                    f"efficiency{port if port > 1 else ''}",
+                ]
+                for port in range(1, 5)
+            ]
+        )
 
         return n.model["Link-p"].loc[:, links.index].mul(links).mul(weightings).sum()
     else:
         return None
 
 
-
 def constraint_production_targets(
     n: pypsa.Network, snakemake, investment_year: int
 ) -> None:
-    """Add annual production lower and upper bounds.
+    """
+    Add annual production lower and upper bounds.
 
     Parameters
     ----------
@@ -97,7 +107,7 @@ def constraint_production_targets(
     maximums = constraints.get("limits_volume_max", {})
     minimums = constraints.get("limits_volume_min", {})
 
-    for sense, limits, suffix in [("<=", maximums, "upper"),(">=", minimums, "lower")]:
+    for sense, limits, suffix in [("<=", maximums, "upper"), (">=", minimums, "lower")]:
         for source, region_dict in limits.items():
             for region, year_dict in region_dict.items():
                 years = year_dict.keys()
