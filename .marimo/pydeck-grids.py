@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.17.6"
+__generated_with = "0.23.13"
 app = marimo.App(width="medium")
 
 
@@ -8,18 +8,22 @@ app = marimo.App(width="medium")
 def _():
     import sys
 
+    import yaml
+
     sys.path.insert(0, ".")
 
     import marimo as mo
 
     from evals.fileio import read_networks
 
-    n = read_networks(["results/v2025.04/AT_KN2040/networks/base_s_adm__none_2050.nc"])[
-        "2050"
-    ]
+    n = read_networks(
+        [
+            "results/electricity-load-clipping/AT_KN2040/networks/base_s_adm__none_2050.nc"
+        ]
+    )["2050"]
 
     # n = pypsa.Network("results/v2025.04/AT_KN2040/networks/base_s_adm__none_2050.nc")
-    return mo, n
+    return mo, n, yaml
 
 
 @app.cell
@@ -31,34 +35,16 @@ def _(mo):
 
 
 @app.cell
-def _(n):
-    colors = {
-        "Multiple": "pink",
-        "AC": "black",
-        "Brown Coal": "saddlebrown",
-        "Gas": "darkorange",
-        "Geothermal": "firebrick",
-        "Hard Coal": "darkslategray",
-        "Nuclear": "mediumorchid",
-        "Oil": "peru",
-        "Other": "dimgray",
-        "Pumped Hydro": "cornflowerblue",
-        "Run of River": "royalblue",
-        "Solar": "gold",
-        "Storage Hydro": "navy",
-        "Waste": "olive",
-        "Wind Offshore": "teal",
-        "Wind Onshore": "turquoise",
-    }
-    n.carriers.color = n.carriers.index.map(colors)
-    return
+def _(n, yaml):
+    with open("config/plotting.default.yaml") as f:
+        default_tech_colors = yaml.safe_load(f)["plotting"]["tech_colors"]
 
+    with open("config/plotting.at.yaml") as f:
+        at_tech_colors = yaml.safe_load(f)["plotting"]["tech_colors"]
 
-@app.cell
-def _(n):
-    # hotfix missing colors
-    no_color = n.carriers["color"].isna()
-    n.carriers.loc[no_color, "color"] = "red"
+    tech_colors = {**default_tech_colors, **at_tech_colors}
+
+    n.carriers["color"] = n.carriers.index.map(tech_colors).fillna("darkred")
     return
 
 
@@ -86,7 +72,6 @@ def _(n):
 def _(n):
     line_flow = n.lines_t.p0.sum(axis=0)
     # link_flow = n.links_t.p0.sum(axis=0)
-
     return (line_flow,)
 
 
@@ -107,19 +92,23 @@ def _():
 
 @app.cell
 def _(n):
-    # need to add missing carrier
-    missing_carrier = [
-        "Offshore Wind (AC)",
-        "Offshore Wind (DC)",
-        "Onshore Wind",
-        "Reservoir & Dam",
-        "Run of River",
-        "Solar",
-        "Pumped Hydro Storage",
-        "production gas",
-        "lng gas",
-        "pipeline gas",
-    ]
+    # some components (e.g. H2 retrofit CCGT/OCGT links) reference
+    # carriers that were never registered in n.carriers at all, not just
+    # missing a color -- n.explore() needs a color entry for every
+    # carrier it encounters, so backfill any that are missing.
+    used_carriers = set()
+    for static_df in (
+        n.generators,
+        n.links,
+        n.lines,
+        n.loads,
+        n.storage_units,
+        n.stores,
+    ):
+        if "carrier" in static_df.columns:
+            used_carriers |= set(static_df["carrier"].unique())
+
+    missing_carrier = sorted(used_carriers - set(n.carriers.index))
     for carr in missing_carrier:
         n.carriers.loc[carr, "color"] = "darkred"
     return
@@ -131,7 +120,7 @@ def _(eb, line_flow, link_flow, n):
     view_state["zoom"] = 6
     view_state["pitch"] = 0  # Up/down angle relative to the map's plane
 
-    map = n.explore(
+    map_big = n.explore(
         view_state=view_state,
         map_style="light",
         bus_size=eb,  # MWh -> km²
@@ -150,12 +139,12 @@ def _(eb, line_flow, link_flow, n):
         arrow_size_factor=2,
         tooltip=True,  # disabled here for technical limits of mkdocs-jupyter plugin
     )
-    return (map,)
+    return (map_big,)
 
 
 @app.cell
-def _(map):
-    map.to_html("gridmap.html")
+def _(map_big):
+    map_big.to_html("gridmap.html")
     return
 
 

@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.4"
+__generated_with = "0.23.13"
 app = marimo.App(width="medium")
 
 
@@ -18,7 +18,7 @@ def _():
     return Path, gpd, mo, mpatches, pd, plt, wkt
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md("""
     # Validate the Austrian Electricity Grid from OSM data source including 110 kV levels
@@ -60,7 +60,7 @@ def _(mo):
 
 @app.cell
 def _(Path, gpd, pd, wkt):
-    osm_dir = Path("data/osm/archive/0.2-at")
+    osm_dir = Path("data/osm/archive/0.3-at")
 
     buses_raw = pd.read_csv(osm_dir / "buses.csv", quotechar="'")
 
