@@ -220,7 +220,8 @@ solving:
             2030: 1
             2040: 1
             2050: 1
-    limits_volume_min:  # in TWh/a Quelle EAG + https://energie.gv.at/energiewende/wie-ist-der-stand-zur-erneuerbaren-stromerzeugung-in-den-bundeslaendern
+    limits_volume_min:
+      # in TWh/a Quelle EAG + https://energie.gv.at/energiewende/wie-ist-der-stand-zur-erneuerbaren-stromerzeugung-in-den-bundeslaendern
       solar:
         AT:
           2030: 14
@@ -229,7 +230,7 @@ solving:
           2030: 17
       hydro:
         AT:
-          2030: 47
+          2030: 37  # Should be 47 TWh but that is too much for the networks constraints
       biomass:
         AT:
           2030: 5.6
