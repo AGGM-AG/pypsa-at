@@ -8,6 +8,7 @@ from mods.clustering.custom import apply_custom_clustering
 from mods.constants import TYNDP_TO_PYPSA_LOCATION_TRANSMISSION
 from mods.constraints.co2_budget import constraint_national_co2_budgets
 from mods.constraints.eag import constraint_net_zero_electricity
+from mods.constraints.production import constraint_production_targets
 from mods.constraints.tyndp import (
     constraint_combined_solar_trajectories,
     constraint_ntc_flow_limits,
@@ -25,6 +26,7 @@ __all__ = [
     "constraint_national_co2_budgets",
     "constraint_net_zero_electricity",
     "constraint_ntc_flow_limits",
+    "constraint_production_targets",
     "filter_inter_regional_lines",
     "modify_prenetwork",
     "prepare_sector_network",

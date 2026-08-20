@@ -4,7 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 
 run:
-  prefix: base-load-updates
+  prefix: eag-production-after
   name:
   - AT_KN2040
   scenarios:
@@ -220,6 +220,19 @@ solving:
             2030: 1
             2040: 1
             2050: 1
+    limits_volume_min:  # in TWh/a
+      solar:
+        AT:
+          2030: 22
+      wind:
+        AT:
+          2030: 12
+      hydro:
+        AT:
+          2030: 27
+      biomass:
+        AT:
+          2030: 1
   solver:
     name: highs
     options: highs-default
