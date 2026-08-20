@@ -55,7 +55,9 @@ def test_production_targets(nc):
                         bus0 = supply.index.get_level_values("bus0")
                         production = supply[
                             bus0.str.startswith(region)
-                            & n.buses.carrier.reindex(bus0).isin(input_carriers).to_numpy()
+                            & n.buses.carrier.reindex(bus0)
+                            .isin(input_carriers)
+                            .to_numpy()
                         ].sum()
                     else:
                         supply = n.statistics.supply(
