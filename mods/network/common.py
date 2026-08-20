@@ -62,7 +62,6 @@ def prepare_sector_network(
     add_methane_pyrolysis_plasma(n, snakemake, costs, nodes, spatial)
     process_hydro(n, snakemake, costs)
     base_load_load_splitting(n, pop_weighted_energy_totals)
-    apply_heat_demand(n, snakemake)
 
 
 def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
@@ -100,6 +99,7 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     apply_klien_potential_limits(n, snakemake)
     apply_tyndp_transmission_lower_bounds(n, snakemake)
     add_h2_imports(n, snakemake)
+    apply_heat_demand(n, snakemake)
 
     # Apply Load clipping just before the solve step
     clip_negative_loads_for_edge_cases(n, snakemake)

@@ -2,80 +2,59 @@ import importlib
 
 import pandas as pd
 
-recalibrate = importlib.import_module(
-    "scripts.pypsa-at.recalibrate_heat_demand_at"
-).recalibrate_heat_demand
-allocate = importlib.import_module(
-    "scripts.pypsa-at.recalibrate_heat_demand_at"
-).allocate_heat_demand
+module = importlib.import_module("scripts.pypsa-at.recalibrate_heat_demand_at")
+recalibrate = module.recalibrate_heat_demand
+allocate = module.allocate_heat_demand
+redistribute = module.redistribute_central_heat
 
 
 def test_recalibrate_heat_demand_matches_nea_by_nuts2():
     heat_demand = pd.DataFrame(
         {
-            "region": ["AT111", "AT112", "AT121", "AT111", "AT112", "AT121"],
-            "year": [2025, 2025, 2025, 2030, 2030, 2030],
-            "value": [100.0, 300.0, 200.0, 120.0, 280.0, 220.0],
+            "region": ["AT111", "AT112", "AT111", "AT112"],
+            "year": [2025, 2025, 2030, 2030],
+            "value": [100.0, 300.0, 120.0, 280.0],
         }
     )
     nea = pd.DataFrame(
         {
-            "NUTS-2 Code": ["AT11"] * 4 + ["AT12"] * 4,
-            "year": [2023] * 8,
-            "Bereich": [
-                "Private Haushalte",
-                "Private Haushalte",
-                "Offentliche und Private Dienstleistungen",
-                "Offentliche und Private Dienstleistungen",
-            ]
-            * 2,
-            "Nutzenergiekategorie": ["Raumklima und Warmwasser"] * 8,
-            "Energieträger": ["Fernwärme", "Erdgas", "Fernwärme", "Erdgas"] * 2,
-            "value_TWh": [0.1, 0.3, 0.05, 0.15, 0.2, 0.4, 0.1, 0.2],
+            "NUTS-2 Code": ["AT11", "AT11"],
+            "year": [2024, 2024],
+            "Bereich": ["Private Haushalte"] * 2,
+            "Nutzenergiekategorie": ["Raumklima und Warmwasser"] * 2,
+            "Energieträger": ["Fernwärme", "Erdgas"],
+            "value_TWh": [0.1, 0.3],
         }
     )
+
     result = recalibrate(
         nea,
         heat_demand,
-        pd.Series({"AT111": "AT11", "AT112": "AT11", "AT121": "AT12"}),
-        {2025: 2023},
+        pd.Series({"AT111": "AT11", "AT112": "AT11"}),
+        {2025: 2024},
     )
 
     expected = pd.DataFrame(
         {
-            "year": [2025] * 12 + [2030] * 12,
-            "region": (["AT111"] * 4 + ["AT112"] * 4 + ["AT121"] * 4) * 2,
-            "sector": (["households"] * 2 + ["services"] * 2) * 6,
-            "heating": ["central", "decentral"] * 12,
+            "year": [2025] * 4 + [2030] * 4,
+            "NUTS-2 Code": ["AT11"] * 8,
+            "region": ["AT111", "AT111", "AT112", "AT112"] * 2,
+            "sector": ["households"] * 8,
+            "heating": ["central", "decentral"] * 4,
             "value": [
                 25000.0,
                 75000.0,
-                12500.0,
-                37500.0,
                 75000.0,
                 225000.0,
-                37500.0,
-                112500.0,
-                200000.0,
-                400000.0,
-                100000.0,
-                200000.0,
                 30000.0,
                 90000.0,
-                15000.0,
-                45000.0,
                 70000.0,
                 210000.0,
-                35000.0,
-                105000.0,
-                220000.0,
-                440000.0,
-                110000.0,
-                220000.0,
             ],
         }
     )
-    pd.testing.assert_frame_equal(result, expected)
+
+    pd.testing.assert_frame_equal(result.reset_index(drop=True), expected)
 
 
 def test_allocate_heat_demand_to_carriers():
@@ -88,9 +67,16 @@ def test_allocate_heat_demand_to_carriers():
             "value": [10.0, 20.0, 30.0, 40.0],
         }
     )
-    urban_fraction = pd.DataFrame({2025: [0.6]}, index=["AT111"])
+    urban_fraction = pd.DataFrame(
+        {
+            "year": [2025, 2025],
+            "region": ["AT111", "AT111"],
+            "sector": ["households", "services"],
+            "urban_fraction": [0.6, 0.6],
+        }
+    )
 
-    result = allocate(demand, urban_fraction)
+    result = allocate(demand, urban_fraction, 2025)
 
     expected = pd.DataFrame(
         {
@@ -110,26 +96,65 @@ def test_allocate_heat_demand_to_carriers():
     pd.testing.assert_frame_equal(result.reset_index(drop=True), expected)
 
 
-def test_allocate_heat_demand_clusters_heat_buses():
+def test_redistribute_central_heat_by_urban_weighted_demand():
     demand = pd.DataFrame(
         {
-            "year": [2025] * 4,
-            "region": ["AT111"] * 4,
-            "sector": ["households", "households", "services", "services"],
-            "heating": ["central", "decentral"] * 2,
-            "value": [10.0, 20.0, 30.0, 40.0],
+            "year": [2025] * 8,
+            "NUTS-2 Code": ["AT11"] * 4 + ["AT12"] * 4,
+            "region": [
+                "AT111",
+                "AT111",
+                "AT112",
+                "AT112",
+                "AT121",
+                "AT121",
+                "AT122",
+                "AT122",
+            ],
+            "sector": ["households"] * 8,
+            "heating": ["central", "decentral"] * 4,
+            "value": [10.0, 90.0, 20.0, 80.0, 5.0, 95.0, 25.0, 175.0],
         }
     )
 
-    result = allocate(demand, pd.DataFrame({2025: [0.6]}, index=["AT111"]), True)
+    result, urban_fraction = redistribute(
+        demand,
+        pd.DataFrame(
+            {2025: [0.5, 0.0, 0.0, 0.0]},
+            index=["AT111", "AT112", "AT121", "AT122"],
+        ),
+        pd.Series(
+            {
+                "AT111": "AT11",
+                "AT112": "AT11",
+                "AT121": "AT12",
+                "AT122": "AT12",
+            }
+        ),
+    )
 
-    expected = pd.DataFrame(
+    central = result[result["heating"].eq("central")].set_index("region")["value"]
+    pd.testing.assert_series_equal(
+        central,
+        pd.Series(
+            {"AT111": 30.0, "AT112": 0.0, "AT121": 10.0, "AT122": 20.0},
+            name="value",
+        ).rename_axis("region"),
+    )
+    expected_urban_fraction = pd.DataFrame(
         {
-            "year": [2025] * 3,
-            "region": ["AT111"] * 3,
-            "carrier": ["rural heat", "urban central heat", "urban decentral heat"],
-            "value": [24.0, 40.0, 36.0],
+            "sector": ["households"] * 4,
+            "year": [2025] * 4,
+            "region": ["AT111", "AT112", "AT121", "AT122"],
+            "urban_fraction": [0.5, 0.0, 0.1, 0.1],
         }
     )
-
-    pd.testing.assert_frame_equal(result.reset_index(drop=True), expected)
+    pd.testing.assert_frame_equal(
+        urban_fraction.reset_index(drop=True), expected_urban_fraction
+    )
+    assert result.groupby(["region", "sector"]).value.sum().to_dict() == {
+        ("AT111", "households"): 100.0,
+        ("AT112", "households"): 100.0,
+        ("AT121", "households"): 100.0,
+        ("AT122", "households"): 200.0,
+    }
