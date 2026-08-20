@@ -243,13 +243,13 @@ def build_nodal_profiles(
 
     regional_profile = grouped.groupby(["region", "carrier"])["value"].transform("sum")
 
-    missing = grouped[~np.isclose(regional_profile, 1)]
+    missing = grouped[np.isclose(regional_profile, 0)]
     if missing.shape[0] > 0:
         logger.warning(
             f"Non-complete profiles for: {missing[['region', 'carrier']].drop_duplicates()}. Dropping entries"
         )
 
-    grouped = grouped[np.isclose(regional_profile, 1)]
+    grouped = grouped[~np.isclose(regional_profile, 0)]
     return grouped
 
 
@@ -300,7 +300,7 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "build_industrial_demand_profiles_at",
             run="AT_KN2040",
-            # configfiles="config/test/config.at10.yaml",
+            configfiles="config/test/config.at10.yaml",
             clusters="adm",
             opts="",
             sector_opts="none",

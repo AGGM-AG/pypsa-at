@@ -11,7 +11,9 @@ from test.conftest import require_config
 
 def test_annual_industry_loads_match_input(nc):
     """Compare annual network Load energy with the prepared override input."""
-    override_config = require_config(nc, "industry", "annual_demand_overrides")
+    override_config = require_config(
+        nc, "industry", "annual_demand_overrides", enable=False
+    )
     carrier_mapping = require_config(nc, "demand", "carrier_to_load_mapping")
 
     target_years = {str(year) for year in override_config["target_years"]}

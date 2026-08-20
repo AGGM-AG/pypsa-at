@@ -21,6 +21,7 @@ def test_industrial_loads_match_profiles(nc):
         profiles = profiles[profiles["year"].astype(str) == str(year)]
         expected = profiles.pivot(index="snapshot", columns="region", values="value")
         expected.index = pd.to_datetime(expected.index)
+        expected = expected.div(expected.sum(), axis=1)
 
         loads = network.loads[network.loads.carrier.isin(load_carriers)]
         idx = loads[
