@@ -4,6 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Apply prepared annual demand totals to network Loads."""
 
+import numpy as np
 import pandas as pd
 import pypsa
 from snakemake.script import Snakemake
@@ -73,8 +74,14 @@ def apply_annual_demand_overrides(n: pypsa.Network, snakemake: Snakemake) -> Non
         names = n.loads.index[
             load_regions.eq(row.region) & n.loads.carrier.eq(row.load_carrier)
         ]
-        value = row.value_TWh * 1e6 / total_weight
+        value = row.value_TWh * 1e6
         dynamic_names = names.intersection(n.loads_t.p_set.columns)
-        n.loads_t.p_set.loc[:, dynamic_names] = value
-        n.loads.loc[names.difference(dynamic_names), "p_set"] = value
+        annual_dynamic_energy = (
+            n.loads_t.p_set.loc[:, dynamic_names]
+            .mul(n.snapshot_weightings.generators, axis=0)
+            .sum()
+        )
+        factor = np.where(annual_dynamic_energy > 0, value / annual_dynamic_energy, 0)
+        n.loads_t.p_set.loc[:, dynamic_names] *= factor
         n.loads.loc[dynamic_names, "p_set"] = 0.0
+        n.loads.loc[names.difference(dynamic_names), "p_set"] = value / total_weight

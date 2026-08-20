@@ -16,7 +16,7 @@ For each planning horizon and network node:
 2. The node's subsector electricity demands (TWh/a, from
    ``industry_sector_ratios`` x ``industrial_production_per_node``) weight and
    sum the corresponding FfE profiles into one nodal profile.
-3. The FfE profiles are normalized, hourly, and reference year 2017; their
+3. The FfE profiles are normalized, hourly, and for reference year 2017; their
    timestamps are relabelled to the model snapshot year and aggregated onto
    the model's temporally aggregated snapshots. The model reuses the same
    snapshot calendar (e.g. 2013) for every planning horizon, so only the
@@ -41,11 +41,6 @@ from scripts._helpers import configure_logging, get_snapshots, set_scenario_conf
 
 logger = logging.getLogger(__name__)
 
-# Fixed labels for the columns produced by this (electricity-only) builder;
-# other sectors/carriers would come from separate builder scripts writing
-# the same long-form schema.
-SECTOR = "Industry"
-CARRIER = "electricity"
 
 # Industry category (JRC-IDEES subsector, as used in `industry_sector_ratios`)
 # to FfE profile mapping.

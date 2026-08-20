@@ -13,6 +13,12 @@ from scripts._helpers import configure_logging, set_scenario_config
 
 logger = logging.getLogger(__name__)
 
+# Possible Keys:
+#       'Iron and steel', 'Cement', 'Refineries', 'Paper and printing',
+#       'Chemical industry', 'Glass', 'Non-ferrous metals',
+#       'Non-metallic mineral products', 'Other non-classified', 'population',
+#       'EAF', 'DRI + EAF', 'Integrated steelworks', 'Ammonia'
+
 SECTOR_DISTRIBUTION_KEYS = {
     "Eisen- und Stahlerzeugung": "Iron and steel",
     "Chemie und Petrochemie": "Chemical industry",
