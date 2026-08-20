@@ -61,6 +61,17 @@ solving:
   solver:
     name: highs
     options: highs-default
+  constraints:
+    limits_volume_min: # in TWh/a
+      solar:
+        AT:
+          2030: 0
+      wind:
+        AT:
+          2030: 0
+      biomass:
+        AT:
+          2030: 0
 
 mods:
   modify_nuts3_shapes: AT10DE5

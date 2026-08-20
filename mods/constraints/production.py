@@ -115,20 +115,19 @@ def constraint_production_targets(
                     continue
                 limit = year_dict[investment_year]
                 lhs = _production_expression(n, source, region)
-                if lhs is None:
+                if lhs is None or lhs.empty:
                     continue
                 limit *= UNITS["TWh"]
 
                 cname = f"production_limit_{suffix}-{source}-{region}"
-                n.model.add_constraints(
-                    lhs, sense, limit, name=f"GlobalConstraint-{cname}"
-                )
-
                 if cname in n.global_constraints.index:
                     logger.warning(
                         f"Global constraint {cname} already exists. Dropping and adding it again."
                     )
                     n.global_constraints.drop(cname, inplace=True)
+                n.model.add_constraints(
+                    lhs, sense, limit, name=f"GlobalConstraint-{cname}"
+                )
                 n.add(
                     "GlobalConstraint",
                     cname,
