@@ -101,3 +101,16 @@ if KFZ_BESTAND_AT["source"] in ["primary", "archive"]:
             "Retrieving Statistik Austria vehicle stock data"
         run:
             copy2(input["ods"], output["ods"])
+
+
+if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
+
+    rule retrieve_statistik_at_regions:
+        input:
+            ods=storage(STATISTIK_AT_REGIONS["url"]),
+        output:
+            ods=f"{STATISTIK_AT_REGIONS['folder']}/RegGemVz{STATISTIK_AT_REGIONS['version']}.ods",
+        message:
+            "Retrieving Statistik Austria municipality register"
+        run:
+            copy2(input["ods"], output["ods"])

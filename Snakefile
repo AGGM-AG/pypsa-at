@@ -82,6 +82,7 @@ OSM_DATASET = dataset_version("osm")
 KLIEN_POTENTIALS = dataset_version("klien_potentials")
 NEA_AT = dataset_version("nea-at")
 KFZ_BESTAND_AT = dataset_version("kfz-bestand-at")
+STATISTIK_AT_REGIONS = dataset_version("statistik-at-regions")
 
 
 include: "rules/collect.smk"

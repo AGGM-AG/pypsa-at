@@ -188,6 +188,9 @@ data:
   kfz-bestand-at:
     source: primary
     version: "2025"
+  statistik-at-regions:
+    source: primary
+    version: "2025"
 
 pypsa_eur:
   StorageUnit: []
