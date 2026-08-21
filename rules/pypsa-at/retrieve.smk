@@ -88,3 +88,16 @@ if NEA_AT["source"] == "primary":
         run:
             for b in BUNDESLAENDER:
                 move(input[b], output[b])
+
+
+if KFZ_BESTAND_AT["source"] in ["primary", "archive"]:
+
+    rule retrieve_kfz_bestand_at:
+        input:
+            ods=storage(KFZ_BESTAND_AT["url"]),
+        output:
+            ods=f"{KFZ_BESTAND_AT['folder']}/kfz-bestand_{KFZ_BESTAND_AT['version']}.ods",
+        message:
+            "Retrieving Statistik Austria vehicle stock data"
+        run:
+            copy2(input["ods"], output["ods"])

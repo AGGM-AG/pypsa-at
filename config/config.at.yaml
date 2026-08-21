@@ -185,6 +185,9 @@ data:
   nea-at:
     source: primary
     version: latest
+  kfz-bestand-at:
+    source: primary
+    version: "2025"
 
 pypsa_eur:
   StorageUnit: []
@@ -348,4 +351,3 @@ mods:
         2030: 40  # TWh
         2040: 40  # TWh
         2050: 40  # TWh
-
