@@ -184,3 +184,24 @@ if NEA_AT["source"] == "primary":
             "Building stacked Statistik Austria NEA .csv"
         script:
             "scripts/pypsa-at/build_nea_at.py"
+
+
+if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
+
+    rule build_statistik_at_regions:
+        input:
+            ods=rules.retrieve_statistik_at_regions.output["ods"],
+            nuts3_shapes=resources("nuts3_shapes.geojson"),
+        output:
+            regional_data=resources("statistik_at_regions.csv"),
+        log:
+            logs("build_statistik_at_regions.log"),
+        benchmark:
+            benchmarks("build_statistik_at_regions")
+        threads: 1
+        resources:
+            mem_mb=2000,
+        message:
+            "Building general Statistik Austria regional data CSV"
+        script:
+            scripts("pypsa-at/build_statistik_at_regions.py")
