@@ -33,12 +33,12 @@ def read_municipalities(path: str | Path) -> pd.DataFrame:
 
     Parameters
     ----------
-    path : str or pathlib.Path
+    path
         Path to a ``RegGemVz`` ODS workbook.
 
     Returns
     -------
-    pandas.DataFrame
+    :
         Municipality records with English, machine-readable column names.
     """
     source = pd.read_excel(path, sheet_name="Gemeinden", engine="odf")
@@ -85,15 +85,15 @@ def add_nuts2_code(
 
     Parameters
     ----------
-    municipalities : pandas.DataFrame
+    municipalities
         Municipality records containing ``nuts3_code``.
-    nuts3_shapes : str or pathlib.Path
+    nuts3_shapes
         Final project NUTS3 GeoJSON. Its ``level2`` column contains the
         model-compatible NUTS2 assignment.
 
     Returns
     -------
-    pandas.DataFrame
+    :
         Municipality records with a validated ``nuts2_code`` column.
     """
     shapes = gpd.read_file(nuts3_shapes)[["level3", "level2"]].rename(
@@ -117,12 +117,12 @@ def main(snakemake: Snakemake) -> None:
     Parameters
     ----------
     snakemake
-
+        The Snakemake workflow object providing inputs, params, and config.
 
     Returns
     -------
-    pandas.DataFrame
-        Municipality records with a validated ``nuts2_code`` column.
+    :
+        Result is written to the snakemake output
     """
     municipalities = read_municipalities(snakemake.input.ods)
     result = add_nuts2_code(municipalities, snakemake.input.nuts3_shapes)
