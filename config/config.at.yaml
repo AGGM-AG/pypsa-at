@@ -175,6 +175,9 @@ industry:
     2040: 0.7751
     2045: 1.0
     2050: 1.0
+demand:
+  source_years:
+    2025: 2024  # mapping from target years to years in NEA data
 
 data:
   osm:
