@@ -1,6 +1,7 @@
-# Basisszenario für PyPSA-AT mit Anpassungen des KN2045_Mix Szenarios aus PyPSA-DE with
-#   * custom administrative clustering für Austrian regions
-#   * calibrations
+# SPDX-FileCopyrightText: 2023-2026 Austrian Gas Grid Management AG
+#
+# SPDX-License-Identifier: MIT
+# For license information, see the LICENSE.txt file in the project root.
 
 run:
   prefix: eag-production-after
@@ -76,7 +77,6 @@ sector:
   regional_methanol_demand: true
   gas_network: true
   gas_network_connectivity_upgrade: 1
-  regional_coal_demand: true
   electrobiofuels: true
   biosng: true
   biosng_cc: true
