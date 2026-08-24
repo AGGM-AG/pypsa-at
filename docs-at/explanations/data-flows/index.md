@@ -1,14 +1,12 @@
 # Data Flow Diagrams
 
-This section documents, for selected demand/supply categories, how data moves from its
-**original raw source** through the PyPSA-Eur / PyPSA-DE / PyPSA-AT workflow phases
-(`retrieve` → `build_electricity` / `build_sector` → `modify` → `solve`) to the final
-network component used in the optimization.
+: This section documents how data moves from its original raw source through the 
+PyPSA-Eur / PyPSA-DE / PyPSA-AT workflow phases. The phases follow the rules 
+retrieve → build_electricity / build_sector → modify → solve to the final network
+component that is used in the optimization. To help illustrate the data workflow 
+diagrams using mermaid are created.
 
-Each diagram is a self-contained [Mermaid](https://mermaid.js.org/) flowchart. Mermaid was
-chosen because it is plain text (git-diffable, easy to review in PRs), renders natively on
-GitHub and in this MkDocs site (via `mkdocs-material`'s built-in Mermaid support), and is
-straightforward to keep in sync with the code by hand or with agent assistance.
+
 
 ## Convention
 
@@ -18,14 +16,14 @@ compare and maintain.
 ### Layout
 
 - `flowchart TD` (top-down): source data at the top, final network component at the bottom.
-- One `subgraph` per relevant workflow phase or rule: `Retrieve`, `Build Electricity` /
-  `Build Sector`, `Prepare Sector Network (AT)`, `Modify (AT)`, `Solve`. Skip phases that
+- One `subgraph` per relevant workflow phase or rule: `retrieve`, `build_electricity` /
+  `build_sector`, `prepare_sector_network_at`, `modify_at`, `solve`. Skip phases that
   don't apply.
-- Steps within a phase are chained top-to-bottom in execution order.
+- Steps within a phase are chained top-to-bottom in order of execution.
 
 ### Node types and styling
 
-Four node classes and one AT-specific highlight, defined once per diagram via `classDef`
+Four node classes and one AT-specific highlight, defined once per diagram via `classDef` are used
 and applied with `:::class`. All diagrams use the same **soft, flat, rounded-corner palette**
 so the color code is consistent and only needs to be learned once:
 
@@ -37,10 +35,10 @@ so the color code is consistent and only needs to be learned once:
 | `final`     | The final data / network component consumed by `solve`         | soft emerald green     |
 | `at`        | An Austrian-specific source or processing step                 | soft violet            |
 
-The `at` class is an ownership highlight rather than a new data shape. Use it for
+The `at` class is an ownership highlight rather than a new data shape. It is used for
 AT-specific sources and transformations; the node syntax still distinguishes data-at-rest
-from processing steps. Shared upstream steps keep their `source`, `step`, or `aggstep`
-class.
+(sources and final output) from processing steps. Shared upstream steps keep their 
+`source`, `step`, or `aggstep` class.
 
 Shapes reinforce the same distinction: **rounded/pill nodes** (`(["..."])`) mark
 data-at-rest (sources and final output), **rounded rectangles** (`["..."]` with `rx/ry` in
@@ -113,7 +111,7 @@ than rectangular ones. Use `padding:12px 26px` for pill nodes (`source`/`final`)
 - Each file contains a short intro paragraph, the Mermaid diagram, and (optionally) a
   brief narrative walkthrough of noteworthy steps below the diagram.
 - Register new files under **Explanations → Data Flows** in `mkdocs.yml`.
-- When a flow contains Austrian-owned sources or transformations, highlight them with the
+- When a flow contains PyPSA-AT related sources or transformations, highlight them with the
   `at` class and keep the class definition identical to the one above.
 
 ## Available diagrams
