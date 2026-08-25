@@ -183,4 +183,4 @@ if NEA_AT["source"] == "primary":
         message:
             "Building stacked Statistik Austria NEA .csv"
         script:
-            "scripts/pypsa-at/build_nea_at.py"
+            scripts("pypsa-at/build_nea_at.py")
