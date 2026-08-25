@@ -36,6 +36,10 @@ atlite:
       y: [45., 56.]
       time: ["2013-03-01", "2013-03-08"]
 
+industry:
+  annual_demand_overrides:
+    enable: false
+
 renewable:
   onwind:
     cutout: dach-03-2013-sarah3-era5
@@ -61,6 +65,17 @@ solving:
   solver:
     name: highs
     options: highs-default
+  constraints:
+    limits_volume_min: # in TWh/a
+      solar:
+        AT:
+          2030: 0
+      wind:
+        AT:
+          2030: 0
+      biomass:
+        AT:
+          2030: 0
 
 mods:
   modify_nuts3_shapes: AT10DE5

@@ -388,7 +388,9 @@ def _patch_component_inflows(
             n.components[component_name].static.loc[idx, "p_nom"] = inflows[idx].max()
         case "ror":
             p_nom = n.components[component_name].static.loc[idx, "p_nom"]
-            ror_p_max_pu = inflows[idx].div(p_nom).where(p_nom > 0, 0.0)
+            ror_p_max_pu = (
+                inflows[idx].div(p_nom.where(p_nom > 0), axis="columns").fillna(0.0)
+            )
             ror_p_max_pu = _redistribute_peaks(ror_p_max_pu)
             n.components[component_name].dynamic.p_max_pu[idx] = ror_p_max_pu
         case _:

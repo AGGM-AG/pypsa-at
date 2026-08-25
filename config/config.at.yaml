@@ -4,7 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 
 run:
-  prefix: base-load-updates
+  prefix: industrial-demand-nea
   name:
   - AT_KN2040
   scenarios:
@@ -77,6 +77,7 @@ sector:
   regional_methanol_demand: true
   gas_network: true
   gas_network_connectivity_upgrade: 1
+  regional_coal_demand: true
   electrobiofuels: true
   biosng: true
   biosng_cc: true
@@ -175,6 +176,33 @@ industry:
     2045: 1.0
     2050: 1.0
 
+  # AT-owned normalized temporal demand profiles (see mods/demand/industrial_demand.py).
+  demand_profiles:
+    enable: true
+    carrier_mapping:
+      elec: industry electricity
+
+  annual_demand_overrides:
+    enable: true
+    target_years: [2025] # years to overwrite
+    source_years:
+      2025: 2024  # mapping from target years to years in NEA data
+    source_category: Produzierender Bereich # include only industrial production for now
+
+demand:
+  carrier_to_load_mapping:
+    industry:
+      electricity: industry electricity
+      solid biomass: solid biomass for industry
+      methane: gas for industry
+      hydrogen: H2 for industry
+      low-temperature heat: low-temperature heat for industry
+      naphtha: naphtha for industry
+      coal: coal for industry
+      coke: coal for industry
+      methanol: industry methanol
+      ammonia: NH3
+
 data:
   osm:
     source: archive
@@ -220,6 +248,20 @@ solving:
             2030: 1
             2040: 1
             2050: 1
+    limits_volume_min:
+      # in TWh/a Quelle EAG + https://energie.gv.at/energiewende/wie-ist-der-stand-zur-erneuerbaren-stromerzeugung-in-den-bundeslaendern
+      solar:
+        AT:
+          2030: 14
+      wind:
+        AT:
+          2030: 17
+      hydro:
+        AT:
+          2030: 37  # Should be 47 TWh but that is too much for the networks constraints
+      biomass:
+        AT:
+          2030: 5.6
   solver:
     name: highs
     options: highs-default
