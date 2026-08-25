@@ -415,9 +415,9 @@ provides:
 
 | Method | Unit | Description |
 |--------|------|-------------|
-| [`trade_energy`][evals.statistic.ESMStatistics.trade_energy] | MWh | Energy exchanged between locations. Scope can be `"foreign"` (cross-country), `"domestic"` (same country, different regions), or `"local"` (same location, different carrier). Positive = import, negative = export. |
-| [`trade_capacity`][evals.statistic.ESMStatistics.trade_capacity] | MW | Transmission capacity between locations for the given scope and bus carrier. |
-| [`loss`][evals.statistic.ESMStatistics.loss] | MWh | Energy lost in transmission and conversion branches (Link, Line, Transformer), attributed to the location sending power at each snapshot. |
+| [`trade_energy`][evals.stats.ESMStatistics.trade_energy] | MWh | Energy exchanged between locations. Scope can be `"foreign"` (cross-country), `"domestic"` (same country, different regions), or `"local"` (same location, different carrier). Positive = import, negative = export. |
+| [`trade_capacity`][evals.stats.ESMStatistics.trade_capacity] | MW | Transmission capacity between locations for the given scope and bus carrier. |
+| [`loss`][evals.stats.ESMStatistics.loss] | MWh | Energy lost in transmission and conversion branches (Link, Line, Transformer), attributed to the location sending power at each snapshot. |
 
 ---
 
