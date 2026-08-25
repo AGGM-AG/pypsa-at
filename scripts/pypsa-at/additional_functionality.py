@@ -21,6 +21,7 @@ from mods import (
     constraint_national_co2_budgets,
     constraint_net_zero_electricity,
     constraint_ntc_flow_limits,
+    constraint_production_targets,
 )
 from mods.constraints.trajectories import constraint_generic_trajectories
 
@@ -46,3 +47,4 @@ def additional_functionality(n, snapshots, snakemake):
     constraint_net_zero_electricity(n, snakemake, investment_year)
     constraint_combined_solar_trajectories(n, snakemake, investment_year)
     constraint_generic_trajectories(n, snakemake, investment_year)
+    constraint_production_targets(n, snakemake, investment_year)
