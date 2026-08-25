@@ -20,10 +20,11 @@ GENERATOR_CARRIERS = {
 }
 LINK_CARRIERS = {
     "biomass": (
-        ["solid biomass", "biogas", "gas", "renewable gas"],
+        ["solid biomass", "biogas", "renewable gas"],
         ["AC", "low voltage"],
     )
 }
+LINK_EAG_ADDITIONS = {"biomass": (["gas"], [])}
 
 
 def _production_expression(n: pypsa.Network, source: str, region: str):
@@ -32,11 +33,11 @@ def _production_expression(n: pypsa.Network, source: str, region: str):
 
     Parameters
     ----------
-    n : pypsa.Network
+    n
         Network with an attached optimization model.
-    source : str
+    source
         Production source to constrain.
-    region : str
+    region
         Region prefix used to select components.
 
     Returns
@@ -83,6 +84,29 @@ def _production_expression(n: pypsa.Network, source: str, region: str):
         return None
 
 
+def _add_eag_entries(eag_enabled: bool) -> None:
+    """
+    Modify LINK_CARRIERS to contain eag relevant carriers if applicable
+
+    Parameters
+    ----------
+    eag_enabled
+        Config parameter indicating if eag constraints are enabled
+
+    Returns
+    -------
+    :
+        Modifies LINK_CARRIERS inplace.
+    """
+    if eag_enabled:
+        for eag_key, eag_tuple in LINK_EAG_ADDITIONS.items():
+            link_tuple = LINK_CARRIERS[eag_key]
+            LINK_CARRIERS[eag_key] = (
+                [*link_tuple[0], *eag_tuple[0]],
+                [*link_tuple[1], *eag_tuple[1]],
+            )
+
+
 def constraint_production_targets(
     n: pypsa.Network, snakemake, investment_year: int
 ) -> None:
@@ -91,11 +115,11 @@ def constraint_production_targets(
 
     Parameters
     ----------
-    n : pypsa.Network
+    n
         Network with an attached optimization model.
     snakemake
         Snakemake workflow object with solving constraints.
-    investment_year : int
+    investment_year
         Planning horizon year.
 
     Returns
@@ -103,6 +127,7 @@ def constraint_production_targets(
     :
         Constraints are added to the model in place.
     """
+    _add_eag_entries(snakemake.config["mods"]["net_zero_electricity"]["enable"])
     constraints = snakemake.params.solving["constraints"]
     maximums = constraints.get("limits_volume_max", {})
     minimums = constraints.get("limits_volume_min", {})

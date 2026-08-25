@@ -17,6 +17,7 @@ from mods.constraints.eag import _compute_electricity_fraction
 from mods.constraints.production import (
     GENERATOR_CARRIERS,
     LINK_CARRIERS,
+    _add_eag_entries,
 )
 from mods.utils import get_relevant_links_and_lines
 from scripts.prepare_sector_network import determine_emission_sectors
@@ -24,11 +25,14 @@ from test.conftest import require_config
 
 
 def test_production_targets(nc):
+    eag_enabled = require_config(nc, "mods", "net_zero_electricity", "enable")
     for year, n in nc.networks.items():
         constraints = n.meta["solving"]["constraints"]
         year = int(year)
         maximums = constraints.get("limits_volume_max", {})
         minimums = constraints.get("limits_volume_min", {})
+
+        _add_eag_entries(eag_enabled)
 
         for sense, limits, suffix in [
             ("<=", maximums, "upper"),
