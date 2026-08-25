@@ -32,6 +32,7 @@ def test_recalibrate_heat_demand_matches_nea_by_nuts2():
         heat_demand,
         pd.Series({"AT111": "AT11", "AT112": "AT11"}),
         {2025: 2024},
+        2025
     )
 
     expected = pd.DataFrame(
@@ -76,7 +77,7 @@ def test_allocate_heat_demand_to_carriers():
         }
     )
 
-    result = allocate(demand, urban_fraction, 2025)
+    result = allocate(demand, urban_fraction, False)
 
     expected = pd.DataFrame(
         {

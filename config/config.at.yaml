@@ -260,7 +260,7 @@ solving:
 mods:
 
   # AT10 or NUTS3 administrative clustering
-  modify_nuts3_shapes: AT35DE5
+  modify_nuts3_shapes: AT10DE5
 
   # use improved Austrian gas grid capacities
   # provided by AGGM experts

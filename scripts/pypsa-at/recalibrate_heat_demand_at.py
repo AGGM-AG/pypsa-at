@@ -30,22 +30,22 @@ def recalibrate_heat_demand(
     heat_demand: pd.DataFrame,
     region_to_nuts2: pd.Series,
     source_years: dict[int, int],
-    base_year: int = 2025,
+    base_year: int,
 ) -> pd.DataFrame:
     """
     Scale regional heat demand to NEA household and service totals.
 
     Parameters
     ----------
-    nea : pd.DataFrame
+    nea
         NEA heat-demand data in long format.
-    heat_demand : pd.DataFrame
+    heat_demand
         Unsplit regional heat-demand data in MWh.
-    region_to_nuts2 : pd.Series
+    region_to_nuts2
         Mapping from NUTS3 region codes to NUTS2 codes.
-    source_years : dict[int, int]
+    source_years
         Mapping from target years to NEA source years.
-    base_year : int, default=2025
+    base_year
         Heat-demand year used to calculate the scaling factors.
 
     Returns
@@ -106,11 +106,11 @@ def redistribute_central_heat(
 
     Parameters
     ----------
-    result : pd.DataFrame
+    result
         Recalibrated demand.
-    urban_fraction : pd.DataFrame
+    urban_fraction
         Wide urban fractions indexed by region.
-    region_to_nuts2 : pd.Series
+    region_to_nuts2
         Mapping from regional codes to NUTS-2 codes.
 
     Returns
@@ -206,21 +206,18 @@ def redistribute_central_heat(
 def allocate_heat_demand(
     demand: pd.DataFrame,
     urban_fraction: pd.DataFrame,
-    base_year: int,
-    cluster_heat_buses: bool = False,
+    cluster_heat_buses: bool,
 ) -> pd.DataFrame:
     """
     Allocate recalibrated demand to urban, rural, and central heat carriers.
 
     Parameters
     ----------
-    demand : pd.DataFrame
+    demand
         Recalibrated demand by year, region, sector, and heating type.
-    urban_fraction : pd.DataFrame
+    urban_fraction
         Long urban fractions.
-    base_year : int
-        Heat-demand base year.
-    cluster_heat_buses : bool, default=False
+    cluster_heat_buses
         Merge residential and services carriers into shared heat carriers.
 
     Returns
@@ -292,15 +289,18 @@ def main(snakemake: Snakemake) -> None:
         fractions to the configured outputs.
     """
     shapes = gpd.read_file(snakemake.input.nuts3_shapes)
-    region_to_nuts2 = shapes.loc[shapes["country"].eq("AT")].set_index("level3")[
+    modify_nuts3_shapes = snakemake.params.modify_nuts3_shapes
+    region_to_nuts2 = shapes.loc[shapes["country"].eq("AT")].set_index("level3" if modify_nuts3_shapes.startswith("AT35") else "level2", drop=False)[
         "level2"
-    ]
+    ].drop_duplicates()
+    region_to_nuts2.index = region_to_nuts2.index.map(lambda x: "AT333" if x == "AT33" else x)
+
     result = recalibrate_heat_demand(
         pd.read_csv(snakemake.input.nea_at),
         pd.read_csv(snakemake.input.heat_demand),
         region_to_nuts2,
         snakemake.params.source_years,
-        base_year=snakemake.params.base_year,
+        base_year=snakemake.params.planning_horizons[0],
     )
     urban_fraction = pd.concat(
         [
@@ -316,7 +316,6 @@ def main(snakemake: Snakemake) -> None:
     result = allocate_heat_demand(
         result,
         urban_fraction_unstacked,
-        snakemake.params.base_year,
         snakemake.params.cluster_heat_buses,
     )
     urban_fraction_at = (

@@ -68,10 +68,10 @@ rule recalibrate_heat_demand_at:
     resources:
         mem_mb=2000,
     params:
-        base_year=2025,
         source_years=config_provider("demand", "source_years"),
         planning_horizons=config_provider("scenario", "planning_horizons"),
         cluster_heat_buses=config_provider("sector", "cluster_heat_buses"),
+        modify_nuts3_shapes=config_provider("mods", "modify_nuts3_shapes"),
     message:
         "Recalibrating Austrian household and service heat demand against NEA data"
     script:

@@ -42,6 +42,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - New `loss` statistic, residual load views, and duration curve support in evals ([#161](https://github.com/AGGM-AG/pypsa-at/pull/161))
 - Data retrieval and preparation for Statistik Austria Nutzenergieanalyse ([#174](https://github.com/AGGM-AG/pypsa-at/pull/174))
 - EAG limits for solar, wind, hydro and bioass added ([#179](https://github.com/AGGM-AG/pypsa-at/pull/179))
+- Heat demand totals based on NEA data and spatial disaggregation based on austrian heatmap ([#182](https://github.com/AGGM-AG/pypsa-at/pull/182))
 
 ### Changed
 - Blocked imports of Russian methane via Ukraine and TurkStream ([#129](https://github.com/AGGM-AG/pypsa-at/pull/129))
