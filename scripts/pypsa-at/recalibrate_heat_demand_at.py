@@ -290,10 +290,16 @@ def main(snakemake: Snakemake) -> None:
     """
     shapes = gpd.read_file(snakemake.input.nuts3_shapes)
     modify_nuts3_shapes = snakemake.params.modify_nuts3_shapes
-    region_to_nuts2 = shapes.loc[shapes["country"].eq("AT")].set_index("level3" if modify_nuts3_shapes.startswith("AT35") else "level2", drop=False)[
-        "level2"
-    ].drop_duplicates()
-    region_to_nuts2.index = region_to_nuts2.index.map(lambda x: "AT333" if x == "AT33" else x)
+    region_to_nuts2 = (
+        shapes.loc[shapes["country"].eq("AT")]
+        .set_index(
+            "level3" if modify_nuts3_shapes.startswith("AT35") else "level2", drop=False
+        )["level2"]
+        .drop_duplicates()
+    )
+    region_to_nuts2.index = region_to_nuts2.index.map(
+        lambda x: "AT333" if x == "AT33" else x
+    )
 
     result = recalibrate_heat_demand(
         pd.read_csv(snakemake.input.nea_at),

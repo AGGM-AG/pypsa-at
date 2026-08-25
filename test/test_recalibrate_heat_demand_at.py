@@ -32,7 +32,7 @@ def test_recalibrate_heat_demand_matches_nea_by_nuts2():
         heat_demand,
         pd.Series({"AT111": "AT11", "AT112": "AT11"}),
         {2025: 2024},
-        2025
+        2025,
     )
 
     expected = pd.DataFrame(
