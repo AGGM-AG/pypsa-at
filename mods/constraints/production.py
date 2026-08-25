@@ -24,12 +24,7 @@ LINK_CARRIERS = {
         ["AC", "low voltage"],
     )
 }
-LINK_EAG_ADDITIONS = {
-    "biomass": (
-        ["gas"],
-        []
-    )
-}
+LINK_EAG_ADDITIONS = {"biomass": (["gas"], [])}
 
 
 def _production_expression(n: pypsa.Network, source: str, region: str):
@@ -88,6 +83,7 @@ def _production_expression(n: pypsa.Network, source: str, region: str):
     else:
         return None
 
+
 def _add_eag_entries(eag_enabled: bool) -> None:
     """
     Modify LINK_CARRIERS to contain eag relevant carriers if applicable
@@ -105,7 +101,11 @@ def _add_eag_entries(eag_enabled: bool) -> None:
     if eag_enabled:
         for eag_key, eag_tuple in LINK_EAG_ADDITIONS.items():
             link_tuple = LINK_CARRIERS[eag_key]
-            LINK_CARRIERS[eag_key] = ([*link_tuple[0], *eag_tuple[0]], [*link_tuple[1], *eag_tuple[1]])
+            LINK_CARRIERS[eag_key] = (
+                [*link_tuple[0], *eag_tuple[0]],
+                [*link_tuple[1], *eag_tuple[1]],
+            )
+
 
 def constraint_production_targets(
     n: pypsa.Network, snakemake, investment_year: int
