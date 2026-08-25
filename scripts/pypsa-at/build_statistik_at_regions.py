@@ -20,6 +20,7 @@ OUTPUT_COLUMNS = [
     "nuts3_name",
     "district_code",
     "district_name",
+    "district_name_judicial",
     "municipality_code",
     "municipality_name",
     "postal_code",
@@ -42,10 +43,12 @@ def read_municipalities(path: str | Path) -> pd.DataFrame:
         Municipality records with English, machine-readable column names.
     """
     source = pd.read_excel(path, sheet_name="Gemeinden", engine="odf")
-    source = source.loc[
-        pd.to_numeric(source["Gemeinde kennziffer"], errors="coerce").notna()
-        & source["NUTS3-Code"].notna()
-    ].copy()
+    source = source.ffill()[
+        ~(
+            source["Gerichtsbezirks kennziffer"].isna()
+            | source["Gerichtsbezirks kennziffer"].str.contains(",")
+        )
+    ]
     source = source.rename(
         columns={
             "Bundeslandkennziffer": "federal_state_code",
@@ -54,25 +57,13 @@ def read_municipalities(path: str | Path) -> pd.DataFrame:
             "NUTS3": "nuts3_name",
             "Kennziffer Bezirk": "district_code",
             "Name Bezirk": "district_name",
+            "Gerichtsbezirksname": "district_name_judicial",
             "Gemeinde kennziffer": "municipality_code",
             "Gemeindename": "municipality_name",
             "PLZ Gemeindeamt": "postal_code",
             "Bevölkerungszahl 01.01.2025": "population",
         }
     )
-
-    for column, width in [
-        ("federal_state_code", 1),
-        ("district_code", 3),
-        ("municipality_code", 5),
-        ("postal_code", 4),
-    ]:
-        source[column] = (
-            pd.to_numeric(source[column], errors="coerce")
-            .astype("Int64")
-            .astype("string")
-            .str.zfill(width)
-        )
     source["population"] = pd.to_numeric(source["population"], errors="raise")
     return source
 
