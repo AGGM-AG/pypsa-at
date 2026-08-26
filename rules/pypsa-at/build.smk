@@ -241,3 +241,27 @@ use rule build_transport_demand as build_transport_demand_at with:
 
 
 ruleorder: build_transport_demand_at > build_transport_demand
+
+
+rule patch_transport_demand_at:
+    input:
+        transport_demand=resources("transport_demand_s_{clusters}.csv"),
+        nea_at=resources("nea_at.csv"),
+        temp_air_total=resources("temp_air_total_base_s_{clusters}.nc"),
+        clustered_pop_layout=resources("pop_layout_base_s_{clusters}.csv"),
+    output:
+        transport_demand_patched=resources("transport_demand_s_{clusters}_at.csv"),
+    log:
+        logs("patch_transport_demand_at_{clusters}.log"),
+    benchmark:
+        benchmarks("patch_transport_demand_at_{clusters}")
+    threads: 1
+    resources:
+        mem_mb=2000,
+    params:
+        planning_horizons=config_provider("scenario", "planning_horizons"),
+        sector=config_provider("sector"),
+    message:
+        "Patching transport demand using Statistik Austria Nutzenergieanalyse"
+    script:
+        scripts("pypsa-at/patch_transport_demand_at.py")
