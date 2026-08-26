@@ -41,14 +41,19 @@ jobs:
         # Allows Claude to read CI results on PRs
         additional_permissions: |
           actions: read
+        # Do not load the in-repo .claude/settings.json: it enables plugins
+        # from marketplaces that are not installed on the runner, which makes
+        # the CLI abort at startup. CLAUDE.md is still read as a file.
+        claude_args: |
+          --setting-sources user
         prompt: |
           REPO: ${{ github.repository }}
           PR NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
 
           Review the pull request above for the PyPSA-AT energy system model.
 
-          Follow the repository guidelines in CLAUDE.md. Pay particular
-          attention to:
+          Read the repository's root CLAUDE.md first and follow its
+          guidelines. Pay particular attention to:
           - Correctness and clear, actionable bug reports
           - Changes to upstream files (scripts/*.py outside scripts/pypsa-at/,
             rules/ outside rules/pypsa-at/, config/config.default.yaml,
