@@ -1,3 +1,5 @@
+from frozendict import frozendict
+
 TYNDP_TO_PYPSA_LOCATION: dict[str, str] = {
     # Albania
     "AL00": "AL",
@@ -158,3 +160,28 @@ NUTS2_CODES = {
     "Vorarlberg": "AT34",
 }
 TJ_PER_TWH = 3600.0
+
+UNITS: frozendict = frozendict(
+    {
+        "W": 1e-6,
+        "Wh": 1e-6,
+        "KW": 1e-3,
+        "kW": 1e-3,  # alias
+        "KWh": 1e-3,
+        "kWh": 1e-3,  # alias
+        "MW": 1,  # model base unit
+        "MWh": 1,  # model base unit
+        "GW": 1e3,
+        "GWh": 1e3,
+        "TW": 1e6,
+        "TWh": 1e6,
+        "PW": 1e9,
+        "PWh": 1e9,
+        "currency": 1,
+        "EUR": 1,  # base currency
+        "t_co2": 1,
+        "t": 1,  # alias
+        "kt_co2": 1e3,
+        "Mt_co2": 1e6,
+    }
+)

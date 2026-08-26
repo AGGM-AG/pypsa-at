@@ -11,9 +11,11 @@ nav:
 - How-to-Guides:
   - how-to-guides/index.md
   - Working with Evaluations: how-to-guides/evals.md
+  - Production Targets: how-to-guides/production-targets.md
 - Tutorials:
   - tutorials/index.md
   - tutorials/model-modifications.md
+- Data Sources: data_sources.md
 - Function Reference:
   - Modifications:
     - reference/mods/index.md
@@ -58,6 +60,9 @@ nav:
       - sankey.py: reference/evals/views/sankey.md
 - Explanations:
   - explanations/index.md
+  - Data Flows:
+    - explanations/data-flows/index.md
+    - Industrial Demand: explanations/data-flows/industrial-demand.md
   - National CO2 Balance: explanations/co2-balancing.md
   - TYNDP H2 Import Infrastructure: explanations/h2-imports.md
   - Electricity Grid:
@@ -128,6 +133,7 @@ plugins:
 - autorefs
 - plotly
 - marimo
+- table-reader
 - mkdocstrings:
     default_handler: python
     handlers:
@@ -156,9 +162,7 @@ markdown_extensions:
 - codehilite
 - admonition
 - pymdownx.details
-- pymdownx.superfences
 - pymdownx.snippets
-- pymdownx.superfences
 - pymdownx.tabbed:
     alternate_style: true
 - pymdownx.superfences:
@@ -166,6 +170,9 @@ markdown_extensions:
     - name: plotly
       class: mkdocs-plotly
       format: !!python/name:mkdocs_plotly_plugin.fences.fence_plotly
+    - name: mermaid
+      class: mermaid
+      format: !!python/name:pymdownx.superfences.fence_code_format
 - tables
 - md_in_html
 - pymdownx.arithmatex:
@@ -173,6 +180,8 @@ markdown_extensions:
 
 extra_javascript:
 - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+- https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js
+- js/mermaid-theme.js
 
 extra_css:
 - assets/css/custom.css

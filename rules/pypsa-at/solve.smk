@@ -13,6 +13,12 @@ RESOURCE_META = {
     "open_tyndp_hydro": f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows",
     "powerplants": resources("powerplants_s_{clusters}.csv"),
     "aggm_gas_pipeline_data": resources("gas_network_base_s_{clusters}.csv"),
+    "industrial_demand_profiles": resources(
+        "industrial_demand_profiles_base_s_{clusters}_{opts}_{sector_opts}.csv"
+    ),
+    "industrial_demand_overrides": resources(
+        "industrial_demand_overrides_base_s_{clusters}.csv"
+    ),
 }
 INPUT_META = ["energy_totals", "trajectories"]
 

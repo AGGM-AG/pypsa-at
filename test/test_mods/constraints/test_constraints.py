@@ -12,10 +12,80 @@ from evals.utils import (
     filter_for_carrier_connected_to,
     get_energy_totals_domestic_share,
 )
+from mods.constants import UNITS
 from mods.constraints.eag import _compute_electricity_fraction
+from mods.constraints.production import (
+    GENERATOR_CARRIERS,
+    LINK_CARRIERS,
+    _add_eag_entries,
+)
 from mods.utils import get_relevant_links_and_lines
 from scripts.prepare_sector_network import determine_emission_sectors
 from test.conftest import require_config
+
+
+def test_production_targets(nc):
+    eag_enabled = require_config(nc, "mods", "net_zero_electricity", "enable")
+    for year, n in nc.networks.items():
+        constraints = n.meta["solving"]["constraints"]
+        year = int(year)
+        maximums = constraints.get("limits_volume_max", {})
+        minimums = constraints.get("limits_volume_min", {})
+
+        _add_eag_entries(eag_enabled)
+
+        for sense, limits, suffix in [
+            ("<=", maximums, "upper"),
+            (">=", minimums, "lower"),
+        ]:
+            for source, region_dict in limits.items():
+                for region, year_dict in region_dict.items():
+                    if source not in (*GENERATOR_CARRIERS, *LINK_CARRIERS):
+                        continue
+                    years = year_dict.keys()
+                    if year not in years:
+                        continue
+                    target = year_dict[year]
+                    target *= UNITS["TWh"]
+
+                    if source in LINK_CARRIERS:
+                        input_carriers, output_carriers = LINK_CARRIERS[source]
+                        supply = n.statistics.supply(
+                            groupby=["bus0"],
+                            components="Link",
+                            bus_carrier=output_carriers,
+                            nice_names=False,
+                        )
+                        bus0 = supply.index.get_level_values("bus0")
+                        production = supply[
+                            bus0.str.startswith(region)
+                            & n.buses.carrier.reindex(bus0)
+                            .isin(input_carriers)
+                            .to_numpy()
+                        ].sum()
+                    else:
+                        supply = n.statistics.supply(
+                            groupby=["bus", "carrier"],
+                            components="Generator",
+                            nice_names=False,
+                        )
+                        bus = supply.index.get_level_values("bus")
+                        production = supply[
+                            bus.str.startswith(region)
+                            & supply.index.get_level_values("carrier").isin(
+                                GENERATOR_CARRIERS[source]
+                            )
+                        ].sum()
+                    if sense == "<=":
+                        assert production <= target + 1e-3, (
+                            f"{year} {source} {region}: {production / 1e6:.6f} TWh/a above "
+                            f"maximum {target / 1e6}"
+                        )
+                    else:
+                        assert production >= target - 1e-3, (
+                            f"{year} {source} {region}: {production / 1e6:.6f} TWh/a below "
+                            f"minimum {target / 1e6}"
+                        )
 
 
 class TestComputeElectricityFraction:

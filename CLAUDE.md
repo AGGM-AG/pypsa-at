@@ -17,9 +17,11 @@ Grid Management AG).
 | `mods/`                                   | Model modification logic            |
 | `evals/`                                  | Postprocessing solved networks      |
 | `scripts/pypsa-at/`                       | AT-specific scripts                 |
-| `test/test_mods/`, `test/test_evals/`     | Tests for `mods/` and `evals/` code |
+| `test/`                                   | Tests (see *Writing Tests*)         |
+| `docs-at/`, `mkdocs.yml`                  | AT documentation                    |
+| `data/versions.csv`                       | Dataset version registry            |
 | `Snakefile`                               | Root entry point (ok to edit)       |
-| `.readthedocs.yaml` and other infra files | ok to edit                          |
+| `.readthedocs.yml` and other infra files  | ok to edit                          |
 
 **Upstream files — do NOT touch (except critical hotfixes):**
 
@@ -31,13 +33,30 @@ Grid Management AG).
 
 ## Configuration Stack (last wins)
 
-config.default.yaml   (PyPSA-Eur defaults)
+Loaded as `configfile:` directives at the top of `Snakefile`, in this order:
+
+```
+config.default.yaml    (PyPSA-Eur defaults)
 ↓
-config.de.yaml        (PyPSA-DE overrides)
+plotting.default.yaml  (PyPSA-Eur plotting defaults)
 ↓
-config.at.yaml ← work here
+config.de.yaml         (PyPSA-DE overrides)
 ↓
-scenarios.manual.yaml  (stakeholder overrides)
+config.at.yaml ← work here  (AT10 default configuration)
+↓
+plotting.at.yaml       (AT tech_colors overlay — last word on plotting)
+↓
+scenarios.manual.yaml  (stakeholder overrides, via run.scenarios.manual_file)
+```
+
+`config/config.sysgf.yaml` (+ `config/scenarios.sysgf.yaml`) is a standalone
+variant passed via `--configfile`; it is not part of the default stack.
+
+**Config options are schema-validated.** New or changed config keys must be
+reflected in `scripts/lib/validation/config/` (one module per config section).
+Regenerate the derived defaults/schema with `pixi run generate-config`, which
+writes `config/config.default.yaml` and `config/schema.default.json`.
+`test/test_config_schema.py` guards this.
 
 ## Workflow & DAG Phases
 
@@ -57,8 +76,14 @@ evals
 
 ### Key filenames not obvious from context
 
-- `rules/pypsa-at/modify.smk`  the single AT Snakemake rule file
-- `mods/__init__.py`, `mods/clustering.py`, `mods/constraints.py`, `mods/network_updates.py`
+- `rules/pypsa-at/` — AT rules, one file per DAG phase: `retrieve.smk`, `build.smk`,
+  `build_electricity.smk`, `build_sector.smk`, `modify.smk`, `solve.smk`, `collect.smk`
+- `rules/pypsa-at/collect.smk` — defines `rule all_at`, the `default_target` of the workflow
+- `mods/` is a package tree, not flat modules: `mods/__init__.py` (re-exports every
+  orchestrator), `mods/clustering/`, `mods/constraints/`, `mods/demand/`, `mods/network/`,
+  plus `mods/constants.py` and `mods/utils.py`
+- `evals/cli.py` — entry point behind `pixi run evals`
+- `data/versions.csv` — dataset version registry (see *Data Versions*)
 
 ### Wildcard Constraints
 
@@ -72,31 +97,45 @@ wildcard_constraints:
     planning_horizons=r"[0-9]{4}",       # e.g. 2030, 2040, 2050
 ```
 
-Default values come from `config/config.default.yaml` under `scenario:`:
+`config/config.default.yaml` carries the PyPSA-Eur defaults (`clusters: [50]`,
+`sector_opts: [""]`, `planning_horizons: [2050]`). The values that actually apply
+come from `config/config.at.yaml` under `scenario:`:
+
 ```yaml
 scenario:
-  clusters: "adm"
-  opts: ""
-  sector_opts: "none"
-  planning_horizons: 
-  - 2050
+  ll:
+  - v1.25
+  clusters:
+  - adm
+  opts:
+  - ''
+  sector_opts:
+  - none
+  planning_horizons:
+  - 2025
+  - 2030
+  - 2040
+  ...
 ```
 
 **Adding new wildcards is strongly discouraged — it is rarely needed.** If you think you need one, you probably don't. Exhaust all alternatives first and discuss with the team before introducing any new wildcard.
 
 ### Snakemake
 
-Use helper functions from `scripts/_helpers.py`:
+Path providers — module-level globals bound in `Snakefile` from `path_provider()` /
+`script_path_provider()` in `scripts/_helpers.py`. Call them in rules, do not import them:
 
-- `resources()` - Path to resources/ directory (scenario-aware)
-- `logs()` - resolves Path to logs/
-- `benchmarks()` - resolves Path to benchmarks/
-- `scripts()` - resolves Path to scripts/
-- `config_provider()` - fetch items from the config 
+- `resources(...)` - path under `resources/` (scenario-aware)
+- `logs(...)` - path under `logs/`
+- `benchmarks(...)` - path under `benchmarks/`
+- `scripts(...)` - path under `scripts/`
 
 Rule functions from `rules/common.smk`:
 
-- `config_provider()` - to access configuration in Snakemake rules
+- `config_provider(*keys, default=None)` - access configuration in Snakemake rules
+- `dataset_version(name, ...)` - resolve a dataset URL/version from `data/versions.csv`
+- `solver_threads(w)`, `memory(w)` - resource callables for `solve` rules
+- `input_cutout(wildcards, cutout_names="default")` - resolve cutout inputs
 
 Additional relevant Snakemake rule functions:
 
@@ -138,10 +177,17 @@ pixi run pytest --result-path="results/{prefix}/{scenario}"  # all tests
 pixi run pytest -m "AT" --result-path="results/{prefix}/{scenario}"  # PyPSA-AT modifications 
 
 # Generate workflow DAGs (Rules and Files)
-pixi run snakemake rulegraph --cores 1  
-pixi run snakemake filegraph --cores 1  
+pixi run snakemake rulegraph --cores 1
+pixi run snakemake filegraph --cores 1
+pixi run update-dags                   # regenerate all_at-{rule,file}graph.png
 
-# Docs 
+# Regenerate config defaults + JSON schema after touching scripts/lib/validation
+pixi run generate-config
+
+# Wipe logs/, resources/, benchmarks/, results/, .snakemake/ (interactive confirm)
+pixi run reset
+
+# Docs
 pixi run -e doc mkdocs build --strict
 ```
 
@@ -161,7 +207,8 @@ When adding Austrian-specific network modifications:
 1. Add business logic to `mods/`. Separate complex logic in functions and collect them in one orchestrator.
 2. Register orchestrator in `mods/__init__.py`
 3. Call from relevant Snakemake script
-4. Add tests to `test/test_mods.py`
+4. Add tests under `test/test_mods/` — mirror the `mods/` package layout
+   (`test/test_mods/network/`, `.../constraints/`, `.../demand/`, `.../clustering/`)
 
 ### Adding Evaluation Views
 
@@ -194,7 +241,20 @@ buttons, Plotly charts, Marimo notebooks, footnotes, cross-references via `[text
 
 ### Writing Tests
 
-Tests live in `test/test_mods/` and `test/test_evals/`. Shared fixtures are in `test/conftest.py`.
+Tests live in `test/`. Shared fixtures and `--result-path` are defined in `test/conftest.py`.
+
+| Location            | Covers                                                          |
+|---------------------|-----------------------------------------------------------------|
+| `test/test_mods/`   | `mods/` — mirrors the package layout, plus its own `conftest.py` |
+| `test/test_evals/`  | `evals/*.py` modules (not views or plots)                        |
+| `test/test_*.py`    | `scripts/pypsa-at/` scripts, config schema, data versions layer  |
+| `test/test_data/`   | Test fixtures data                                               |
+
+A few top-level files (`test_base_network.py`, `test_build_shapes.py`,
+`test_build_powerplants.py`) come from upstream — treat them like other upstream code.
+
+`pytest.ini` puts `.`, `scripts`, `scripts/pypsa-at` and `scripts/open-tyndp` on
+`pythonpath`, so import script modules directly — no `sys.path` juggling in test files.
 
 **Unit tests** — test small isolated logic
 **Integration tests** — validate business logic (`mods/`) or end-to-end results
@@ -215,7 +275,13 @@ pixi run pytest test/test_mods/ --result-path=results/{prefix}/{scenario}
 
 - Branch naming: feat/, fix/, chore/, docs/
 - All changes to main via Pull Request + human review — no direct pushes
-- gh pr view <nr> --comments # check review comments
+  (`pre-commit` enforces this with `no-commit-to-branch`)
+- `gh pr view <nr> --comments` — check review comments
+- Add a short entry to `CHANGELOG.AT.md` (Keep a Changelog format) for user-visible changes
+- Fill in `.github/pull_request_template.md`; its checklist is the source of truth:
+  tests pass, docs updated, changelog entry, Sourcery Bot suggestions addressed,
+  config changes reflected in `scripts/lib/validation`, new rules documented in `docs-at/`
+- `pre-commit` runs ruff, ruff-format, codespell, snakefmt, and yaml formatting
 
 ## Conventions & Key Patterns
 
@@ -226,9 +292,24 @@ pixi run pytest test/test_mods/ --result-path=results/{prefix}/{scenario}
 - Prefer f-strings over %s whenever possible, especially during logging
 - Keep Snakemake simple: implement guard logic in Python scripts (The DAG should not depend on the config). 
 
+## Data Versions
+
+External datasets are pinned in `data/versions.csv` (columns: `dataset`, `version`,
+`source`, `tags`, `added`, `note`, `url`). Rules resolve them via `dataset_version()`
+from `rules/common.smk`; `Snakefile` binds the common ones as constants
+(`OSM_DATASET`, `KLIEN_POTENTIALS`, ...).
+
+To add or bump a dataset: add a row to `data/versions.csv` (both `primary` and
+`archive` sources where available), then reference it via `dataset_version()`.
+`test/test_data_versions_layer.py` guards the layer.
+
 ## Common Gotchas
 
 - Tests marked with `AT` require the ``--result-path`` argument to load solved networks
+- `mods` subpackages are imported through `mods/__init__.py` re-exports — a new
+  orchestrator is invisible to `scripts/` until it is added to `__all__` there
+- Scripts under `scripts/pypsa-at/` live in a hyphenated directory (not a valid Python
+  package name); `pytest.ini`'s `pythonpath` is what makes them importable in tests
 
 ## Agent Routing
 

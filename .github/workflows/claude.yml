@@ -11,20 +11,76 @@ on:
     types: [submitted]
 
 jobs:
+  # Reviews a pull request on demand, when a trusted user comments
+  # "@claude review" on the PR (or in a review / review comment).
+  claude-review:
+    if: |
+      contains(fromJson('["pworschischek-aggmag", "nicolezechneraggm"]'), github.actor) &&
+      (
+        (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude review')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude review')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude review'))
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read # Required for Claude to read CI results on PRs
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Run Claude Code review
+      uses: anthropics/claude-code-action@v1
+      with:
+        claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        # Allows Claude to read CI results on PRs
+        additional_permissions: |
+          actions: read
+        # Do not load the in-repo .claude/settings.json: it enables plugins
+        # from marketplaces that are not installed on the runner, which makes
+        # the CLI abort at startup. CLAUDE.md is still read as a file.
+        claude_args: |
+          --setting-sources user
+        prompt: |
+          REPO: ${{ github.repository }}
+          PR NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+
+          Review the pull request above for the PyPSA-AT energy system model.
+
+          Read the repository's root CLAUDE.md first and follow its
+          guidelines. Pay particular attention to:
+          - Correctness and clear, actionable bug reports
+          - Changes to upstream files (scripts/*.py outside scripts/pypsa-at/,
+            rules/ outside rules/pypsa-at/, config/config.default.yaml,
+            config/config.de.yaml) which should only be touched for critical hotfixes
+          - Missing or insufficient tests in test/test_mods/ and test/test_evals/
+          - Snakemake rule/script conventions (1:1 rule-to-script mapping,
+            no new wildcards, guard logic in Python not in the DAG)
+
+          Post a concise review as a comment on the pull request.
+          Skip nitpicks that a linter already covers.
+
+  # Responds to any other @claude mention in an issue, PR comment or review.
+  # Excludes "@claude review", which is handled by the claude-review job above.
   claude:
     if: |
       contains(fromJson('["pworschischek-aggmag", "nicolezechneraggm"]'), github.actor) &&
       (
-        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && !contains(github.event.comment.body, '@claude review')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && !contains(github.event.comment.body, '@claude review')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && !contains(github.event.review.body, '@claude review')) ||
         (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
       )
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
+      pull-requests: write
+      issues: write
       id-token: write
       actions: read # Required for Claude to read CI results on PRs
     steps:
@@ -38,16 +94,6 @@ jobs:
       uses: anthropics/claude-code-action@v1
       with:
         claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
-          # This is an optional setting that allows Claude to read CI results on PRs
+        # Allows Claude to read CI results on PRs
         additional_permissions: |
           actions: read
-
-          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
-
-          # Optional: Add claude_args to customize behavior and configuration
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
-          # claude_args: '--allowed-tools Bash(gh pr:*)'
-

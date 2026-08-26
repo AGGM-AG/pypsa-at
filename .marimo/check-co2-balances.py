@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.17.6"
+__generated_with = "0.23.13"
 app = marimo.App(width="medium")
 
 
@@ -86,7 +86,7 @@ def _():
 
 @app.cell
 def _(mo, networks):
-    selected_year = mo.ui.radio(options=networks.keys(), value="2040", label="Year")
+    selected_year = mo.ui.radio(options=networks.index, value="2040", label="Year")
     selected_year
     return (selected_year,)
 
