@@ -32,6 +32,10 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
+        # On an issue_comment event the default ref is the default branch, so
+        # without this the workspace holds main and the review sees none of
+        # the pull request's changes.
+        ref: refs/pull/${{ github.event.issue.number || github.event.pull_request.number }}/head
         fetch-depth: 0
 
     - name: Run Claude Code review
