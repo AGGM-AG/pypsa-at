@@ -45,29 +45,50 @@ jobs:
         # Allows Claude to read CI results on PRs
         additional_permissions: |
           actions: read
-        plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
-        plugins: "code-review@claude-code-plugins"
-        prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.issue.number || github.event.pull_request.number }}"
+        prompt: |
+          REPO: ${{ github.repository }}
+          PR NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+
+          Review the pull request above for the PyPSA-AT energy system model.
+          Read its description and diff with `gh pr view` and `gh pr diff`,
+          passing --repo. Read the repository's root CLAUDE.md and follow it.
+
+          Report only high-signal problems:
+          - Bugs: wrong results, unhandled cases, broken imports or references
+          - Edits to upstream files (scripts/*.py outside scripts/pypsa-at/,
+            rules/ outside rules/pypsa-at/, config/config.default.yaml,
+            config/config.de.yaml), which are for critical hotfixes only
+          - Missing tests for new logic in mods/ or scripts/pypsa-at/
+          - Snakemake conventions: one rule per script, no new wildcards,
+            guard logic in Python rather than in the DAG
+
+          Skip style and anything ruff already covers. Do not raise anything
+          you cannot confirm from the diff.
+
+          Finish by posting the review to the pull request with
+          `gh pr comment <number> --repo <repo> --body '<review>'`. Post it
+          even when you find nothing, saying so briefly. Posting the comment
+          is the deliverable: an unposted review is discarded with the runner.
+
         # --setting-sources user: do not load the in-repo .claude/settings.json,
         # which enables plugins from marketplaces the runner never installs and
         # so aborts the CLI at startup.
         # Bash rules use a * wildcard, not the :* form - Bash(gh:*) is read as
         # a parameter match and never matches a command. Rules must also match
-        # every subcommand of a compound command, hence the mkdir rule for the
-        # 'mkdir ... && gh pr diff ...' the review runs. The action merges this
-        # into ~/.claude/settings.json, which --setting-sources user loads.
+        # every subcommand of a compound command. The action merges this into
+        # ~/.claude/settings.json, which --setting-sources user loads.
         settings: |
           {
             "permissions": {
-              "allow": ["Bash(gh *)", "Bash(mkdir *)"]
+              "allow": ["Bash(gh *)"]
             }
           }
-        # Names only here. Skill is what runs the /code-review command, and
-        # the action starts the inline-comment MCP server only when its tool
-        # is named in allowedTools.
+        # Names only here - argument-scoped rules go in settings above, and
+        # permissions.allow is what authorises Bash, so Bash is deliberately
+        # not named (naming it would auto-allow every shell command).
         claude_args: |
           --setting-sources user
-          --allowedTools "Task,Read,Glob,Grep,TodoWrite,Skill,mcp__github_inline_comment__create_inline_comment"
+          --allowedTools "Task,Read,Glob,Grep,TodoWrite"
 
     # Temporary: the review keeps finishing with denied tool calls and no
     # comment, and the action hides which tools were denied. Print only the
