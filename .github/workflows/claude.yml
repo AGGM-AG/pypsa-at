@@ -59,7 +59,41 @@ jobs:
         # allowed-tools frontmatter all have to be listed here.
         claude_args: |
           --setting-sources user
-          --allowedTools "Task,Read,Glob,Grep,Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),mcp__github_inline_comment__create_inline_comment"
+          --allowedTools "Task,Read,Glob,Grep,TodoWrite,Bash(gh:*),mcp__github_inline_comment__create_inline_comment"
+
+    # Temporary: the review keeps finishing with denied tool calls and no
+    # comment, and the action hides which tools were denied. Print only the
+    # denied tool names - not the transcript, and not any tool input except
+    # the leading words of a shell command. Remove once a review posts.
+    - name: Show denied tools
+      if: always()
+      run: |
+        f="${RUNNER_TEMP}/claude-execution-output.json"
+        [ -f "$f" ] || { echo "No execution log at $f"; exit 0; }
+        python3 - "$f" <<'PY'
+        import json, sys
+
+        with open(sys.argv[1]) as fh:
+            messages = json.load(fh)
+
+        denials = []
+        for message in messages:
+            if message.get("type") == "result":
+                denials = message.get("permission_denials") or denials
+
+        if not denials:
+            print("No denied tool calls recorded")
+            sys.exit(0)
+
+        print(f"{len(denials)} denied tool call(s):")
+        for denial in denials:
+            name = denial.get("tool_name", "?")
+            command = (denial.get("tool_input") or {}).get("command")
+            if name == "Bash" and isinstance(command, str):
+                print(f"  {name}: {' '.join(command.split()[:6])}")
+            else:
+                print(f"  {name}")
+        PY
 
   # Responds to any other @claude mention in an issue, PR comment or review.
   # Excludes "@claude review", which is handled by the claude-review job above.
