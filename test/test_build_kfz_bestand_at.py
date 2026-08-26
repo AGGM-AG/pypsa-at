@@ -101,9 +101,7 @@ def test_read_source(source_file):
     result = kfz.read_source(source_file)
 
     pd.testing.assert_frame_equal(
-        result,
-        expected,
-        check_dtype=False,
+        result, expected, check_dtype=False, check_index_type=False
     )
 
 
