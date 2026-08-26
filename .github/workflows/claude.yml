@@ -54,39 +54,6 @@ jobs:
           --setting-sources user
           --allowedTools "mcp__github_inline_comment__create_inline_comment"
 
-    # The action sanitises Claude's own error text out of the run log, which
-    # makes a failed review undiagnosable. Print just the final result
-    # message's error string - not the transcript, which on this public
-    # repository would expose tool output in world-readable logs.
-    # Remove once the review job is working.
-    - name: Show Claude error on failure
-      if: failure()
-      run: |
-        f="${RUNNER_TEMP}/claude-execution-output.json"
-        if [ ! -f "$f" ]; then
-          echo "No execution log at $f"
-          exit 0
-        fi
-        python3 - "$f" <<'PY'
-        import json, sys
-
-        with open(sys.argv[1]) as fh:
-            messages = json.load(fh)
-
-        results = [m for m in messages if m.get("type") == "result"]
-        if not results:
-            print("No result message in execution log")
-            sys.exit(0)
-
-        last = results[-1]
-        for key in ("subtype", "is_error", "num_turns"):
-            print(f"{key}: {last.get(key)}")
-        for key in ("result", "error"):
-            value = last.get(key)
-            if value:
-                print(f"{key}: {str(value)[:2000]}")
-        PY
-
   # Responds to any other @claude mention in an issue, PR comment or review.
   # Excludes "@claude review", which is handled by the claude-review job above.
   claude:
