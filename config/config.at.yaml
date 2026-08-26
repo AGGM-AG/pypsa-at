@@ -202,6 +202,8 @@ demand:
       coke: coal for industry
       methanol: industry methanol
       ammonia: NH3
+  transport:
+    use_nea_demand: true
 
 data:
   osm:

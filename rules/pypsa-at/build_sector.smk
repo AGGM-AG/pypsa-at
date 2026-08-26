@@ -11,7 +11,11 @@ use rule prepare_sector_network as prepare_sector_network_at with:
     input:
         **{
             **rules.prepare_sector_network.input,
-            "transport_demand": resources("transport_demand_s_{clusters}_at.csv"),
+            "transport_demand": branch(
+                config_provider("demand", "transport", "use_nea_demand"),
+                resources("transport_demand_s_{clusters}_at.csv"),
+                resources("transport_demand_s_{clusters}.csv"),
+            ),
         },
         powerplants=resources("powerplants_s_{clusters}.csv"),
         inflow=resources("inflow_per_region_{clusters}.nc"),
