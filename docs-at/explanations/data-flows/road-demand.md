@@ -50,7 +50,7 @@ flowchart TD
     MOBILITY --> NEATARGET
     ANNUAL --> PATCH
     BASE --> PATCH
-    ATCARS --> PATCH
+    ATCARS --> BASE
     NEATARGET --> PATCH
     PATCH --> DRIVETRAINS
     PATCH --> FLEX

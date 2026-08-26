@@ -45,13 +45,8 @@ data-at-rest (sources and final output), **rounded rectangles** (`["..."]` with 
 the `classDef`) mark transformations in between. So at a glance: slate pill → blue/amber/
 violet rounded boxes → green pill.
 
-Start every diagram with a `%%{init: ...}%%` directive to set a modern sans-serif font,
-generous node/rank spacing, and smooth (`basis`) edge curves, then declare the five
-`classDef`s exactly as shown below (copy verbatim; only the node content changes between
-diagrams):
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontFamily': 'Inter, -apple-system, Segoe UI, sans-serif', 'fontSize': '15px', 'lineColor': '#cbd5e1', 'primaryTextColor': '#1e293b', 'edgeLabelBackground': '#ffffff'}, 'flowchart': {'curve': 'basis', 'nodeSpacing': 45, 'rankSpacing': 55, 'padding': 20}}}%%
 flowchart TD
     classDef source fill:#f8fafc,stroke:#cbd5e1,stroke-width:1px,color:#1e293b,rx:10,ry:10
     classDef step fill:#f0f9ff,stroke:#7dd3fc,stroke-width:1px,color:#0c4a6e,rx:10,ry:10
