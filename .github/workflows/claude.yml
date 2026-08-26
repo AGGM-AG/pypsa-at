@@ -52,6 +52,12 @@ jobs:
       uses: anthropics/claude-code-action@v1
       with:
         claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        # A manual run is for testing this file before it is merged, and the
+        # Claude GitHub App refuses to mint a token for a workflow whose
+        # content differs from the default branch. Supplying a token skips
+        # that exchange, so a dispatched run can exercise a branch. Comment
+        # triggers keep the app token and its claude[bot] identity.
+        github_token: ${{ github.event_name == 'workflow_dispatch' && secrets.GITHUB_TOKEN || '' }}
         # Allows Claude to read CI results on PRs
         additional_permissions: |
           actions: read
