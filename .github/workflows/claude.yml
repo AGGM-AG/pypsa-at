@@ -51,15 +51,15 @@ jobs:
         # --setting-sources user: do not load the in-repo .claude/settings.json,
         # which enables plugins from marketplaces the runner never installs and
         # so aborts the CLI at startup.
-        # allowedTools matches plain tool NAMES, so a scoped rule like
-        # Bash(gh:*) never matches the tool named Bash and leaves the shell
-        # unapproved. Argument-scoped rules belong in permissions.allow
-        # instead; the action merges this into ~/.claude/settings.json, which
-        # --setting-sources user loads.
+        # Bash rules use a * wildcard, not the :* form - Bash(gh:*) is read as
+        # a parameter match and never matches a command. Rules must also match
+        # every subcommand of a compound command, hence the mkdir rule for the
+        # 'mkdir ... && gh pr diff ...' the review runs. The action merges this
+        # into ~/.claude/settings.json, which --setting-sources user loads.
         settings: |
           {
             "permissions": {
-              "allow": ["Bash(gh:*)"]
+              "allow": ["Bash(gh *)", "Bash(mkdir *)"]
             }
           }
         # Names only here. Skill is what runs the /code-review command, and
