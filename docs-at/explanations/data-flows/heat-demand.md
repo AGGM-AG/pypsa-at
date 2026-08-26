@@ -5,8 +5,8 @@ Austrian heat-demand datasets to the heat Loads used by the model. Violet nodes 
 Austrian-specific; blue and amber nodes are inherited or shared workflow steps. See
 [Data Flow Diagrams](index.md) for the diagramming convention.
 
+
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontFamily': 'Inter, -apple-system, Segoe UI, sans-serif', 'fontSize': '15px', 'lineColor': '#cbd5e1', 'primaryTextColor': '#1e293b', 'edgeLabelBackground': '#ffffff'}, 'flowchart': {'curve': 'basis', 'nodeSpacing': 45, 'rankSpacing': 55, 'padding': 20}}}%%
 flowchart TD
     classDef source fill:#f8fafc,stroke:#cbd5e1,stroke-width:1px,color:#1e293b,rx:10,ry:10
     classDef step fill:#f0f9ff,stroke:#7dd3fc,stroke-width:1px,color:#0c4a6e,rx:10,ry:10
