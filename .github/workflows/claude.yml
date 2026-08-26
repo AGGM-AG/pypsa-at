@@ -42,7 +42,10 @@ jobs:
         additional_permissions: |
           actions: read
         prompt: |
-          Review this pull request for the PyPSA-AT energy system model.
+          REPO: ${{ github.repository }}
+          PR NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+
+          Review the pull request above for the PyPSA-AT energy system model.
 
           Follow the repository guidelines in CLAUDE.md. Pay particular
           attention to:
@@ -54,7 +57,8 @@ jobs:
           - Snakemake rule/script conventions (1:1 rule-to-script mapping,
             no new wildcards, guard logic in Python not in the DAG)
 
-          Post a concise review. Skip nitpicks that a linter already covers.
+          Post a concise review as a comment on the pull request.
+          Skip nitpicks that a linter already covers.
 
   # Responds to any other @claude mention in an issue, PR comment or review.
   # Excludes "@claude review", which is handled by the claude-review job above.
