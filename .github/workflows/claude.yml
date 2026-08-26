@@ -1,6 +1,15 @@
 name: Claude Code
 
 on:
+  # Lets the review be run from a branch, so changes to this file can be
+  # tested without merging them to main first. The comment triggers below
+  # always run the copy of this workflow on the default branch.
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Number of the pull request to review
+        required: true
+        type: string
   issue_comment:
     types: [created]
   pull_request_review_comment:
@@ -17,6 +26,7 @@ jobs:
     if: |
       contains(fromJson('["pworschischek-aggmag", "nicolezechneraggm"]'), github.actor) &&
       (
+        github.event_name == 'workflow_dispatch' ||
         (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude review')) ||
         (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude review')) ||
         (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude review'))
@@ -35,7 +45,7 @@ jobs:
         # On an issue_comment event the default ref is the default branch, so
         # without this the workspace holds main and the review sees none of
         # the pull request's changes.
-        ref: refs/pull/${{ github.event.issue.number || github.event.pull_request.number }}/head
+        ref: refs/pull/${{ inputs.pr_number || github.event.issue.number || github.event.pull_request.number }}/head
         fetch-depth: 0
 
     - name: Run Claude Code review
@@ -47,7 +57,7 @@ jobs:
           actions: read
         plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
         plugins: "code-review@claude-code-plugins"
-        prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.issue.number || github.event.pull_request.number }}"
+        prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ inputs.pr_number || github.event.issue.number || github.event.pull_request.number }}"
         # --setting-sources user: do not load the in-repo .claude/settings.json,
         # which enables plugins from marketplaces the runner never installs and
         # so aborts the CLI at startup.
