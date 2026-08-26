@@ -176,9 +176,6 @@ industry:
     2040: 0.7751
     2045: 1.0
     2050: 1.0
-demand:
-  source_years:
-    2025: 2024  # mapping from target years to years in NEA data
 
   # AT-owned normalized temporal demand profiles (see mods/demand/industrial_demand.py).
   demand_profiles:
@@ -194,6 +191,8 @@ demand:
     source_category: Produzierender Bereich # include only industrial production for now
 
 demand:
+  source_years:
+    2025: 2024  # mapping from target years to years in NEA data
   carrier_to_load_mapping:
     industry:
       electricity: industry electricity
