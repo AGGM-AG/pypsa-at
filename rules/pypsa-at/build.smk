@@ -183,7 +183,7 @@ if NEA_AT["source"] == "primary":
         message:
             "Building stacked Statistik Austria NEA .csv"
         script:
-            "scripts/pypsa-at/build_nea_at.py"
+            scripts("pypsa-at/build_nea_at.py")
 
 
 if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
@@ -205,3 +205,39 @@ if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
             "Building general Statistik Austria regional data CSV"
         script:
             scripts("pypsa-at/build_statistik_at_regions.py")
+
+
+if KFZ_BESTAND_AT["source"] in ["primary", "archive"]:
+
+    rule build_kfz_bestand_at:
+        input:
+            ods=rules.retrieve_kfz_bestand_at.output["ods"],
+            regional_data=rules.build_statistik_at_regions.output["regional_data"],
+            transport_data_in=resources("transport_data.csv"),
+        output:
+            transport_data_out=resources("transport_data_{clusters}_at.csv"),
+        log:
+            logs("build_kfz_bestand_{clusters}.log"),
+        benchmark:
+            benchmarks("build_kfz_bestand_{clusters}")
+        threads: 1
+        resources:
+            mem_mb=2000,
+        params:
+            clustering=config_provider("mods", "modify_nuts3_shapes"),
+            energy_totals_year=config_provider("energy", "energy_totals_year"),
+        message:
+            "Building regional Statistik Austria vehicle stock data"
+        script:
+            scripts("pypsa-at/build_kfz_bestand_at.py")
+
+
+use rule build_transport_demand as build_transport_demand_at with:
+    input:
+        **{
+            **rules.build_transport_demand.input,
+            "transport_data": resources("transport_data_{clusters}_at.csv"),
+        },
+
+
+ruleorder: build_transport_demand_at > build_transport_demand

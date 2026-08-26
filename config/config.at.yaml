@@ -4,7 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 
 run:
-  prefix: eag-production-after
+  prefix: road-transport-demand
   name:
   - AT_KN2040
   scenarios:
