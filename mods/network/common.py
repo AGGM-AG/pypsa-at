@@ -11,8 +11,8 @@ from snakemake.script import Snakemake
 
 from mods.demand.annual import apply_annual_demand_overrides
 from mods.demand.electricity import BASE_LOAD_CARRIERS, base_load_load_splitting
-from mods.demand.industrial_demand import apply_industrial_demand_profiles
 from mods.demand.heat_demand import apply_heat_demand
+from mods.demand.industrial_demand import apply_industrial_demand_profiles
 from mods.network.electricity import apply_tyndp_transmission_lower_bounds
 from mods.network.gas import (
     block_russian_gas_imports,
