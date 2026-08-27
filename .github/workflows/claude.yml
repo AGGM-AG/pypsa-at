@@ -6,132 +6,45 @@ on:
   pull_request_review_comment:
     types: [created]
   issues:
-    types: [opened, assigned, edited, labeled]
+    types: [opened, assigned]
   pull_request_review:
     types: [submitted]
 
 jobs:
-  # Reviews a pull request on demand, when a trusted user comments
-  # "@claude review" on the PR (or in a review / review comment).
-  claude-review:
-    if: |
-      contains(fromJson('["pworschischek-aggmag", "nicolezechneraggm"]'), github.actor) &&
-      (
-        (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude review')) ||
-        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude review')) ||
-        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude review'))
-      )
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
-      id-token: write
-      actions: read # Required for Claude to read CI results on PRs
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        # On an issue_comment event the default ref is the default branch, so
-        # without this the workspace holds main and the review sees none of
-        # the pull request's changes.
-        ref: refs/pull/${{ github.event.issue.number || github.event.pull_request.number }}/head
-        fetch-depth: 0
-
-    - name: Run Claude Code review
-      uses: anthropics/claude-code-action@v1
-      with:
-        claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        # Allows Claude to read CI results on PRs
-        additional_permissions: |
-          actions: read
-        plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
-        plugins: "code-review@claude-code-plugins"
-        prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.issue.number || github.event.pull_request.number }}"
-        # --setting-sources user: do not load the in-repo .claude/settings.json,
-        # which enables plugins from marketplaces the runner never installs and
-        # so aborts the CLI at startup.
-        # Bash rules use a * wildcard, not the :* form - Bash(gh:*) is read as
-        # a parameter match and never matches a command. Rules must also match
-        # every subcommand of a compound command, hence the mkdir rule for the
-        # 'mkdir ... && gh pr diff ...' the review runs. The action merges this
-        # into ~/.claude/settings.json, which --setting-sources user loads.
-        settings: |
-          {
-            "permissions": {
-              "allow": ["Bash(gh *)", "Bash(mkdir *)"]
-            }
-          }
-        # Names only here. Skill is what runs the /code-review command, and
-        # the action starts the inline-comment MCP server only when its tool
-        # is named in allowedTools.
-        claude_args: |
-          --setting-sources user
-          --allowedTools "Task,Read,Glob,Grep,TodoWrite,Skill,mcp__github_inline_comment__create_inline_comment"
-
-    # Temporary: the review keeps finishing with denied tool calls and no
-    # comment, and the action hides which tools were denied. Print only the
-    # denied tool names - not the transcript, and not any tool input except
-    # the leading words of a shell command. Remove once a review posts.
-    - name: Show denied tools
-      if: always()
-      run: |
-        f="${RUNNER_TEMP}/claude-execution-output.json"
-        [ -f "$f" ] || { echo "No execution log at $f"; exit 0; }
-        python3 - "$f" <<'PY'
-        import json, sys
-
-        with open(sys.argv[1]) as fh:
-            messages = json.load(fh)
-
-        denials = []
-        for message in messages:
-            if message.get("type") == "result":
-                denials = message.get("permission_denials") or denials
-
-        if not denials:
-            print("No denied tool calls recorded")
-            sys.exit(0)
-
-        print(f"{len(denials)} denied tool call(s):")
-        for denial in denials:
-            name = denial.get("tool_name", "?")
-            command = (denial.get("tool_input") or {}).get("command")
-            if name == "Bash" and isinstance(command, str):
-                print(f"  {name}: {' '.join(command.split()[:6])}")
-            else:
-                print(f"  {name}")
-        PY
-
-  # Responds to any other @claude mention in an issue, PR comment or review.
-  # Excludes "@claude review", which is handled by the claude-review job above.
   claude:
     if: |
-      contains(fromJson('["pworschischek-aggmag", "nicolezechneraggm"]'), github.actor) &&
-      (
-        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && !contains(github.event.comment.body, '@claude review')) ||
-        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && !contains(github.event.comment.body, '@claude review')) ||
-        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && !contains(github.event.review.body, '@claude review')) ||
-        (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
-      )
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
-      issues: write
+      pull-requests: read
+      issues: read
       id-token: write
       actions: read # Required for Claude to read CI results on PRs
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 1
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-    - name: Run Claude Code
-      id: claude
-      uses: anthropics/claude-code-action@v1
-      with:
-        claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        # Allows Claude to read CI results on PRs
-        additional_permissions: |
-          actions: read
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # This is an optional setting that allows Claude to read CI results on PRs
+          additional_permissions: |
+            actions: read
+
+          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
+          # prompt: 'Update the pull request description to include a summary of changes.'
+
+          # Optional: Add claude_args to customize behavior and configuration
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://code.claude.com/docs/en/cli-reference for available options
+          # claude_args: '--allowed-tools Bash(gh pr *)'
+
