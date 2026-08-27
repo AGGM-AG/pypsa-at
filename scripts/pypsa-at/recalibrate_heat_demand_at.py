@@ -58,7 +58,7 @@ def recalibrate_heat_demand(
         nea["year"].eq(source_years[base_year])
         & nea["Bereich"].isin(SECTORS.keys())
         & nea["Nutzenergiekategorie"].isin(USES)
-    ]
+    ].copy()
     nea["heating"] = (
         nea["Energieträger"].eq("Fernwärme").map({True: "central", False: "decentral"})
     )
@@ -154,11 +154,10 @@ def redistribute_central_heat(
             ]
         ],
         on=["year", "sector", "NUTS-2 Code"],
-        validate="many_to_many",
     )
     central_totals["nuts2_urban_fraction"] = central_totals.groupby(
         ["year", "NUTS-2 Code", "sector"]
-    )["urban_fraction"].transform(sum)
+    )["urban_fraction"].transform("sum")
     central_totals.loc[
         central_totals["nuts2_urban_fraction"] == 0, "urban_fraction"
     ] = (
@@ -175,7 +174,7 @@ def redistribute_central_heat(
     )
     central_totals["weight"] /= central_totals.groupby(
         ["year", "NUTS-2 Code", "sector"]
-    )["weight"].transform(sum)
+    )["weight"].transform("sum")
 
     central_totals["target_central"] = (
         central_totals["central_total"] * central_totals["weight"]
@@ -191,6 +190,8 @@ def redistribute_central_heat(
     target_decentral = regional_sector_totals - target_central.reindex(
         regional_sector_totals.index, fill_value=0
     )
+    if (target_decentral<0).any():
+        logger.warning("Clipping below zero decentral heating values resulting in inconsistent demand.")
     target_decentral = target_decentral.clip(lower=0)
 
     decentral_mask = result["heating"].eq("decentral")
@@ -290,12 +291,13 @@ def main(snakemake: Snakemake) -> None:
     """
     shapes = gpd.read_file(snakemake.input.nuts3_shapes)
     modify_nuts3_shapes = snakemake.params.modify_nuts3_shapes
+    region_idx = "level3" if modify_nuts3_shapes.startswith("AT35") else "level2"
+    shapes["level2_values"] = shapes["level2"].copy()
     region_to_nuts2 = (
-        shapes.loc[shapes["country"].eq("AT")]
-        .set_index(
-            "level3" if modify_nuts3_shapes.startswith("AT35") else "level2", drop=False
-        )["level2"]
+        shapes.loc[shapes["country"].eq("AT"), [region_idx, "level2_values"]]
         .drop_duplicates()
+        .set_index(region_idx)
+        ["level2_values"]
     )
     region_to_nuts2.index = region_to_nuts2.index.map(
         lambda x: "AT333" if x == "AT33" else x
@@ -343,7 +345,7 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "recalibrate_heat_demand_at",
             run="AT_KN2040",
-            cluster="adm",
+            clusters="adm",
         )
     configure_logging(snakemake)
     main(snakemake)

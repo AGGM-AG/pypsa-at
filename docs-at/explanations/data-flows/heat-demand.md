@@ -79,3 +79,6 @@ flowchart TD
   Loads. During the modify phase, the AT carrier totals replace the initial annual totals;
   dynamic Loads keep their hourly shape while static Loads are set directly from the annual
   target.
+- **Limitations** Since Austrian Heatmaps provides overall data for austria including industry,
+  transporations, households and services, this code assumes a correlated future development of 
+  those demands.

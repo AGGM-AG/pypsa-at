@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
 """Apply recalibrated heat-demand totals to network Loads."""
-
+import numpy as np
 import pandas as pd
 import pypsa
 from snakemake.script import Snakemake
@@ -34,9 +34,13 @@ def apply_heat_demand(n: pypsa.Network, snakemake: Snakemake) -> None:
     targets = targets.loc[names]
 
     dynamic = names.intersection(n.loads_t.p_set.columns)
+    factors = n.loads_t.p_set.copy()
+    factors = pd.DataFrame(
+        np.where(n.loads_t.p_set.loc[:, dynamic] > 0, targets.loc[dynamic] / n.loads_t.p_set.loc[:, dynamic], 0),
+        columns=dynamic,
+        index=factors.index)
     factor = (
-        targets.loc[dynamic]
-        / n.loads_t.p_set.loc[:, dynamic]
+        factors
         .mul(n.snapshot_weightings.generators, axis=0)
         .sum()
     )

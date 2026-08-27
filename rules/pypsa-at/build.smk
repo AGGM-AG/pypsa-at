@@ -29,11 +29,11 @@ rule build_heat_demand_at:
         nuts3_shapes=resources("nuts3_shapes.geojson"),
         heatmaps=heat_demand_at_inputs,
     output:
-        heat_demand=resources("heat_demand_at_{cluster}.csv"),
+        heat_demand=resources("heat_demand_at_{clusters}.csv"),
     log:
-        logs("build_heat_demand_at_{cluster}.log"),
+        logs("build_heat_demand_at_{clusters}.log"),
     benchmark:
-        benchmarks("build_heat_demand_at_{cluster}")
+        benchmarks("build_heat_demand_at_{clusters}")
     threads: 1
     resources:
         mem_mb=4000,
@@ -48,22 +48,22 @@ rule build_heat_demand_at:
 
 rule recalibrate_heat_demand_at:
     input:
-        heat_demand=resources("heat_demand_at_{cluster}.csv"),
+        heat_demand=resources("heat_demand_at_{clusters}.csv"),
         nea_at=resources("nea_at.csv"),
         nuts3_shapes=resources("nuts3_shapes-raw.geojson"),
         urban_fraction=lambda w: [
             resources(
                 "district_heat_share_base_s_{clusters}_{planning_horizons}-modified.csv"
-            ).format(run=w.run, clusters=w.cluster, planning_horizons=year)
-            for year in config["scenario"]["planning_horizons"]
+            ).format(run=w.run, clusters=w.clusters, planning_horizons=year)
+            for year in config_provider("scenario", "planning_horizons")(w)
         ],
     output:
-        heat_demand=resources("heat_demand_nea_at_{cluster}.csv"),
-        urban_fraction_at=resources("urban_fraction_at_{cluster}.csv"),
+        heat_demand=resources("heat_demand_nea_at_{clusters}.csv"),
+        urban_fraction_at=resources("urban_fraction_at_{clusters}.csv"),
     log:
-        logs("recalibrate_heat_demand_at_{cluster}.log"),
+        logs("recalibrate_heat_demand_at_{clusters}.log"),
     benchmark:
-        benchmarks("recalibrate_heat_demand_at_{cluster}")
+        benchmarks("recalibrate_heat_demand_at_{clusters}")
     threads: 1
     resources:
         mem_mb=2000,
@@ -95,6 +95,8 @@ rule modify_district_heat_share_at:
     threads: 1
     resources:
         mem_mb=1000,
+    message:
+        "Replacing Austrian urban fractions for one planning horizon."
     script:
         scripts("pypsa-at/modify_district_heat_share_at.py")
 
