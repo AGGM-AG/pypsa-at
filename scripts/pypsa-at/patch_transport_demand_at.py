@@ -54,6 +54,10 @@ def transform_nea_to_km(
     nea_filtered["technology"] = nea_filtered["Energieträger"].map(
         NEA_TO_TECHNOLOGY_MAPPING
     )
+    if nea_filtered["technology"].isna().any():
+        raise ValueError(
+            f"Unsupported NEA carriers: {nea_filtered.loc[nea_filtered['technology'].isna(), 'Energieträger'].unique().tolist()}"
+        )
 
     efficiencies = []
     for technology in set(NEA_TO_TECHNOLOGY_MAPPING.values()):

@@ -156,6 +156,8 @@ def build_kfz_data(
     :
         Number of registered cars per model region
     """
+    if missing := sorted(set(car_stock["district"]) - set(weights["district"])):
+        raise ValueError(f"Unmapped vehicle districts: {missing}")
     car_stock = car_stock.merge(weights, on="district", how="inner")
     car_stock = car_stock.drop(columns=["district"]).set_index("region")
     car_stock = car_stock.mul(car_stock["weight"], axis=0)

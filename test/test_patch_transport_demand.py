@@ -15,8 +15,8 @@ def sector_options():
     """Minimal options required by transform_nea_to_km and define_spatial."""
     return {
         # Required by transform_nea_to_km
-        "transport_ice_efficiency": 1.0,
-        "transport_electric_efficiency": 1.0,
+        "transport_ice_efficiency": 16.0712,
+        "transport_electric_efficiency": 53.19,
         "transport_heating_deadband_lower": 15.0,
         "transport_heating_deadband_upper": 20.0,
         "ICE_lower_degree_factor": 0.0,
@@ -286,7 +286,10 @@ def test_transform_nea_to_km(snakemake_for_transformation):
     expected = pd.DataFrame(
         {
             "NUTS-2 Code": ["AT11", "AT12"],
-            "value": [100.0, 110.0],
+            "value": [
+                60.0 * 16.0712 + 40.0 * 53.19,
+                110.0 * 16.0712,
+            ],
         }
     )
 
@@ -407,8 +410,8 @@ def test_main(
     # AT12 already has the requested total of 60.
     expected = pd.DataFrame(
         {
-            "AT111": [25.0, 75.0],
-            "AT121": [20.0, 40.0],
+            "AT111": [401.78, 1205.34],
+            "AT121": [1063.79, 2127.59],
         },
         index=pd.DatetimeIndex(
             [
