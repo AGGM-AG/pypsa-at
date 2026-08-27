@@ -63,7 +63,7 @@ electricity:
 
 demand:
   transport:
-    use_nea_demand: falsse
+    use_nea_demand: false
 
 solving:
   solver:
