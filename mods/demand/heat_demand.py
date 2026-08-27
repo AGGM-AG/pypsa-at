@@ -26,6 +26,8 @@ def apply_heat_demand(n: pypsa.Network, snakemake: Snakemake) -> None:
     :
         Modifies the network in place.
     """
+    if not snakemake.params.apply_at_heat_demand:
+        return
     year = int(snakemake.wildcards.planning_horizons)
     demand = pd.read_csv(snakemake.input.heat_demand_nea_at)
     demand = demand[demand["year"].eq(year)]

@@ -205,6 +205,8 @@ demand:
       coke: coal for industry
       methanol: industry methanol
       ammonia: NH3
+  heat:
+    apply_at_demand: true
 
 data:
   osm:
