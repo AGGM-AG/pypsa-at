@@ -190,8 +190,10 @@ def redistribute_central_heat(
     target_decentral = regional_sector_totals - target_central.reindex(
         regional_sector_totals.index, fill_value=0
     )
-    if (target_decentral<0).any():
-        logger.warning("Clipping below zero decentral heating values resulting in inconsistent demand.")
+    if (target_decentral < 0).any():
+        logger.warning(
+            "Clipping below zero decentral heating values resulting in inconsistent demand."
+        )
     target_decentral = target_decentral.clip(lower=0)
 
     decentral_mask = result["heating"].eq("decentral")
@@ -296,8 +298,7 @@ def main(snakemake: Snakemake) -> None:
     region_to_nuts2 = (
         shapes.loc[shapes["country"].eq("AT"), [region_idx, "level2_values"]]
         .drop_duplicates()
-        .set_index(region_idx)
-        ["level2_values"]
+        .set_index(region_idx)["level2_values"]
     )
     region_to_nuts2.index = region_to_nuts2.index.map(
         lambda x: "AT333" if x == "AT33" else x
