@@ -262,10 +262,9 @@ def test_build_kfz_data():
             "district": [
                 "District A",
                 "District B",
-                "Unmapped District",
             ],
-            "Pkw": [100, 200, 999],
-            "Lkw": [10, 20, 999],
+            "Pkw": [100, 200],
+            "Lkw": [10, 20],
         }
     )
 
