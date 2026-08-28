@@ -1,77 +1,84 @@
-# Retrieve and update the E-Control Anlagenregister
+# E-Control Anlagenregister
 
-The [E-Control Anlagenregister](https://anlagenregister.at) lists all electricity
-(*Strom*) and gas (*Gas*) generation plants in Austria with postal code,
-technology, bottleneck capacity (*Engpassleistung*) and annual feed-in for the
-last six years. PyPSA-AT ships it as the `anlagenregister` dataset in
-`data/versions.csv` with two sources:
+The [Anlagenregister](https://anlagenregister.at) of the Austrian regulator
+E-Control lists every electricity generation plant and every biomethane
+injection plant in Austria. PyPSA-AT uses it as a regional inventory of
+existing generation capacity: how much is installed, of which technology,
+in which region, and — for recent plants — since when.
 
-| Source    | What happens                                                                                                           |
-|-----------|------------------------------------------------------------------------------------------------------------------------|
-| `build`   | `retrieve_anlagenregister_at` scrapes the website, `build_anlagenregister_at` aggregates the plants to NUTS3 regions. |
-| `archive` | `retrieve_anlagenregister_at` downloads the NUTS3-aggregated CSV from Zenodo.                                          |
+## What the dataset contains
 
-Both sources end at `data/anlagenregister/<source>/<version>/anlagenregister_nuts3.csv`.
+For each plant the register publishes:
 
-## How the scraping works
+| Field                    | Meaning                                                                          |
+|--------------------------|----------------------------------------------------------------------------------|
+| Postal code, town        | Location. PyPSA-AT maps the postal code to a NUTS3 region.                      |
+| Bundesland               | Federal state.                                                                   |
+| Technology               | For electricity: e.g. *Photovoltaik*, *Windenergie*, *Kleinwasserkraft bis 10 MW*, *Erdgas*. For gas: the injected energy carrier (*Erneuerbare Gase*). |
+| Bottleneck capacity      | *Engpassleistung* — the maximum continuous output of the plant.                  |
+| Annual feed-in           | Energy fed into the grid in each of the last six calendar years.                 |
 
-The website is a single page application. The *Export als Excel* button
-exports the data grid in the browser; there is no download endpoint. The grid
-is filled by a POST to `/Home/SearchAnlagenregisterUebersicht` with the search
-form values (`Anlagentyp`: 1 = Strom, 2 = Gas; `Bundesland`: `B`, `K`, `NO`,
-`OO`, `S`, `ST`, `T`, `V`, `W`). `scripts/pypsa-at/retrieve_anlagenregister_at.py`
-replays this request once per Bundesland for *Strom* and once for all of
-Austria for *Gas* (empty `Bundesland`, only a few dozen plants) and writes one
-plant-level CSV (`anlagenregister_plants.csv`, several hundred thousand rows,
-mostly photovoltaics).
+Plant names, operators and commissioning dates are **not** published.
 
-The feed-in columns are relative (`Jahressumme_Minus_1` … `_6`); the
-reference year is parsed from the landing page and the columns are renamed to
-`feedin_kwh_<year>`.
+The register is split into an electricity part (*Strom*, roughly 600,000 plants,
+almost all of them rooftop photovoltaics) and a gas part (*Gas*, a few dozen
+biomethane plants). PyPSA-AT downloads both.
 
-!!! warning "Slow queries"
-    A *Strom* query for a large Bundesland takes several minutes on the
-    server side. The full retrieval takes roughly 10–30 minutes.
+!!! note "Units"
+    Bottleneck capacity is electrical output for *Strom* plants and gas
+    injection capacity for *Gas* plants. The aggregated file carries the unit
+    in a separate column (`MW_el` and `MW_HHV`, the latter on a gross calorific
+    value basis as customary in the Austrian gas market). Do not sum the two
+    parts.
 
-## Aggregation
+## What PyPSA-AT does with it
 
-`scripts/pypsa-at/build_anlagenregister_at.py` maps plants from postal code to
-NUTS3 via `data/pypsa-at/AT-Postal-to-NUTS.csv`. Postal codes are cleaned
-(whitespace, trailing commas, appended town names); plants whose code is still
-invalid are dropped with a warning as long as they are below 0.1 % of total
-capacity (about 0.01 % in practice), otherwise the rule fails. It then
-aggregates to
+1. **Download.** All plants are downloaded from the website. This takes
+   roughly 15 minutes because the electricity part is large.
+2. **Map to regions.** Each plant is assigned to its NUTS3 region by postal
+   code. A few hundred plants (about 0.01 % of the capacity) have unreadable
+   postal codes and are left out; a warning in the log tells how many. If the
+   unreadable share ever exceeded 0.1 % of the capacity, the workflow would
+   stop so the cause can be investigated.
+3. **Aggregate.** Plants are summed per *typ* (Strom/Gas), NUTS3 region,
+   technology and first feed-in year (see below). The result is a small table
+   with the number of plants, the capacity, and the annual feed-in per group.
 
-`typ` × `nuts3` × `technology` × `first_feedin_year`
-
-with `n_plants`, `capacity_mw` and `feedin_gwh_<year>`. `technology` is the
-`TechCode` for Strom (e.g. *Photovoltaik*, *Kleinwasserkraft bis 10 MW*) and the
-`Energieträger` for Gas.
+The aggregated table is the file used by the model and the one archived on
+Zenodo. The plant-level download is kept only as an intermediate file.
 
 ### Build years
 
-The register does **not** publish commissioning dates (`Inbetriebnahme` is
-empty in the API). As a proxy, `first_feedin_year` is the first year with
-feed-in > 0 within the published six-year window:
+The register does not publish commissioning dates. As a substitute, PyPSA-AT
+records for each plant the **first year with feed-in greater than zero** within
+the six published years:
 
-- plants commissioned inside the window get their actual first operating year,
-- older plants get the earliest published year (a lower bound only),
-- plants without any feed-in get `NA`.
+- A plant commissioned within the last six years gets its actual first
+  operating year.
+- An older plant gets the earliest published year. This is only a lower bound —
+  the plant may be decades older.
+- A plant without any feed-in in the six years gets no year.
 
-For decommissioning of brownfield assets in the myopic workflow this proxy is
-only usable for recent additions; older vintages need another source (e.g.
-powerplantmatching `DateIn` for large plants, or statistical vintage
-assumptions per technology).
+For decommissioning of existing assets in the myopic workflow this substitute
+is therefore only reliable for recent additions, which covers most of the
+photovoltaic and wind capacity built during the recent expansion. Older
+vintages (large hydro, thermal plants) need another source such as the
+powerplantmatching database or per-technology age assumptions.
 
-## Updating the archived dataset
+## Data versions and updating
 
-1. Set `data.anlagenregister.source: build` in `config/config.at.yaml` and run
+The dataset is registered as `anlagenregister` in `data/versions.csv` and
+selected through the `data` section of `config/config.at.yaml`:
 
-    ```bash
-    pixi run snakemake -c1 data/anlagenregister/build/<version>/anlagenregister_nuts3.csv
-    ```
+| Source    | Behaviour                                                                                   |
+|-----------|---------------------------------------------------------------------------------------------|
+| `archive` | Download the ready-made aggregated table from Zenodo. Fast and reproducible — the default. |
+| `build`   | Scrape the website and aggregate. Use this only to create a new version.                   |
 
-2. Upload `anlagenregister_nuts3.csv` to Zenodo.
-3. Add an `archive` row for the same version to `data/versions.csv` with the
-   Zenodo `.../files` base URL and run `pixi run python test/test_data_versions_layer.py`.
-4. Switch `source` back to `archive`.
+Creating and publishing a new version is a developer task; the procedure is
+described in the docstring of `scripts/pypsa-at/retrieve_anlagenregister_at.py`.
+
+!!! info "Permission"
+    The website states no license. E-Control granted AGGM permission by e-mail
+    to use the register and to publish the derived data on Zenodo (see the
+    [data inventory](../data_sources.md)).

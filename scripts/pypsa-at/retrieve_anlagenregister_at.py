@@ -20,6 +20,19 @@ are relative to a reference year that is only known from the landing page
 (``sum2021Strom: "..." + " " + 2026``). The reference year is parsed from the
 landing page so the columns can be renamed to absolute years.
 
+Publishing a new dataset version
+--------------------------------
+1. Add a ``build`` row for the new version to ``data/versions.csv`` and set
+   ``data.anlagenregister`` to ``source: build`` and that version in
+   ``config/config.at.yaml``.
+2. Run ``pixi run snakemake -c1 data/anlagenregister/build/<version>/anlagenregister_nuts3.csv``
+   (roughly 15 minutes).
+3. Upload ``anlagenregister_nuts3.csv`` to Zenodo.
+4. Add an ``archive`` row for the same version with the Zenodo ``.../files``
+   base URL to ``data/versions.csv`` and run
+   ``pixi run python test/test_data_versions_layer.py`` to sort and validate.
+5. Set ``source`` back to ``archive``.
+
 Notes
 -----
 ``Inbetriebnahme`` (commissioning date) is part of the API response but is
@@ -35,6 +48,7 @@ import pandas as pd
 import requests
 from snakemake.script import Snakemake
 
+from mods.constants import NUTS2_CODES
 from scripts._helpers import configure_logging
 
 logger = logging.getLogger(__name__)
@@ -45,7 +59,7 @@ logger = logging.getLogger(__name__)
 
 ANLAGENTYP = {"Strom": 1, "Gas": 2}
 
-# Keys of the Bundesland drop-down on anlagenregister.at
+# Keys of the Bundesland drop-down on anlagenregister.at -> keys of NUTS2_CODES
 BUNDESLAND_CODES = {
     "B": "Burgenland",
     "K": "Kaernten",
@@ -57,6 +71,9 @@ BUNDESLAND_CODES = {
     "V": "Vorarlberg",
     "W": "Wien",
 }
+assert set(BUNDESLAND_CODES.values()) == set(NUTS2_CODES), (
+    "Bundesland names out of sync"
+)
 
 # Bundesland filters per Anlagentyp; "" = all of Austria in one query.
 QUERIES = {"Strom": list(BUNDESLAND_CODES), "Gas": [""]}
@@ -152,6 +169,38 @@ def rename_feedin_columns(df: pd.DataFrame, reference_year: int) -> pd.DataFrame
     return df.rename(columns={**OUTPUT_COLUMNS, **feedin})
 
 
+def fetch_landing_page(session: requests.Session, base_url: str, retries: int) -> str:
+    """
+    Fetch the landing page HTML (session cookie + feed-in reference year).
+
+    Parameters
+    ----------
+    session
+        Requests session.
+    base_url
+        Website root.
+    retries
+        Number of additional attempts on failure.
+
+    Returns
+    -------
+    HTML of the landing page.
+    """
+    for attempt in range(1, retries + 2):
+        try:
+            response = session.get(base_url, timeout=60)
+            response.raise_for_status()
+            return response.text
+        except requests.RequestException as e:
+            logger.warning(
+                f"Attempt {attempt}/{retries + 1} for {base_url} failed: {e}"
+            )
+            if attempt > retries:
+                raise
+            time.sleep(5 * attempt)
+    raise AssertionError("unreachable")
+
+
 def fetch_search_result(
     session: requests.Session,
     base_url: str,
@@ -215,7 +264,8 @@ def fetch_search_result(
                 f"Attempt {attempt}/{retries + 1} for Anlagentyp={anlagentyp}, "
                 f"Bundesland={bundesland} failed: {e}"
             )
-            time.sleep(5 * attempt)
+            if attempt <= retries:
+                time.sleep(5 * attempt)
 
     raise RuntimeError(
         f"Failed to fetch Anlagentyp={anlagentyp}, Bundesland={bundesland} "
@@ -239,13 +289,15 @@ def rows_to_frame(rows: list[dict], typ: str, bundesland: str) -> pd.DataFrame:
 
     Returns
     -------
-    Table with ``RAW_COLUMNS`` plus a leading ``typ`` column. The API ``ID``
+    Table with ``RAW_COLUMNS`` plus a leading ``typ`` and a trailing ``nuts2``
+    column (Bundesland mapped via ``NUTS2_CODES``). The API ``ID``
     restarts at 0 per query, so it is only unique in combination with
     ``typ`` and the queried ``bundesland``.
     """
     df = pd.DataFrame(rows, columns=RAW_COLUMNS)
     if bundesland:
         df["Bundesland"] = bundesland
+    df["nuts2"] = df["Bundesland"].map(BUNDESLAND_CODES).map(NUTS2_CODES)
     df.insert(0, "typ", typ)
     return df
 
@@ -272,9 +324,9 @@ def retrieve_anlagenregister(
     Plant-level table with absolute feed-in year columns.
     """
     session = requests.Session()
-    landing = session.get(base_url, timeout=60)
-    landing.raise_for_status()
-    reference_year = parse_reference_year(landing.text)
+    reference_year = parse_reference_year(
+        fetch_landing_page(session, base_url, retries)
+    )
     logger.info(f"Feed-in reference year on anlagenregister.at: {reference_year}")
 
     frames = []

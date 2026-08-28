@@ -31,6 +31,15 @@ logger = logging.getLogger(__name__)
 
 GROUP_COLUMNS = ["typ", "nuts3", "technology", "first_feedin_year"]
 
+# Unit of ``Engpassleistung`` per Anlagentyp. Strom is electrical output; the
+# Anlagenregister does not state the heating value basis for gas injection
+# capacity. Austrian gas market rules account energy on a gross calorific
+# (Brennwert, HHV) basis, hence MW_HHV. Confirm with E-Control if in doubt.
+CAPACITY_UNIT = {"Strom": "MW_el", "Gas": "MW_HHV"}
+
+# Tolerated share of total capacity without a valid postal code (typos).
+MAX_UNMAPPED_CAPACITY_SHARE = 1e-3
+
 
 def load_postal_to_nuts(path: str) -> pd.Series:
     """
@@ -82,9 +91,6 @@ def add_first_feedin_year(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     out["first_feedin_year"] = first_year
     return out
-
-
-MAX_UNMAPPED_CAPACITY_SHARE = 1e-3
 
 
 def clean_plz(plz: pd.Series) -> pd.Series:
@@ -159,8 +165,9 @@ def aggregate_to_nuts3(df: pd.DataFrame) -> pd.DataFrame:
 
     Returns
     -------
-    Table with ``n_plants``, ``capacity_mw`` and ``feedin_gwh_{year}`` per group.
-    ``technology`` is ``techcode`` for Strom and ``energietraeger`` for Gas.
+    Table with ``n_plants``, ``capacity_mw``, ``capacity_unit`` and
+    ``feedin_gwh_{year}`` per group. ``technology`` is ``techcode`` for Strom
+    and ``energietraeger`` for Gas; ``capacity_unit`` is ``CAPACITY_UNIT[typ]``.
     """
     out = df.copy()
     out["technology"] = (
@@ -184,6 +191,11 @@ def aggregate_to_nuts3(df: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
     )
     agg["capacity_mw"] = agg["capacity_mw"] / 1e3
+    agg.insert(
+        agg.columns.get_loc("capacity_mw") + 1,
+        "capacity_unit",
+        agg["typ"].map(CAPACITY_UNIT),
+    )
     for c in cols:
         agg[c.replace("feedin_kwh_", "feedin_gwh_")] = agg.pop(c) / 1e6
     return agg

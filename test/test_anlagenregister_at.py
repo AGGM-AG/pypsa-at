@@ -66,16 +66,18 @@ def test_parse_reference_year_missing():
 
 def test_rows_to_frame_keeps_raw_columns_and_labels():
     df = rows_to_frame([API_ROW], "Gas", "V")
-    assert list(df.columns) == ["typ", *RAW_COLUMNS]
+    assert list(df.columns) == ["typ", *RAW_COLUMNS, "nuts2"]
     assert "Kontaktdaten" not in df.columns
     assert df.loc[0, "typ"] == "Gas"
     assert df.loc[0, "Bundesland"] == "V"
+    assert df.loc[0, "nuts2"] == "AT34"
 
 
 def test_rows_to_frame_keeps_api_bundesland_for_all_austria_query():
     rows = [{**API_ROW, "Bundesland": "NO"}, {**API_ROW, "Bundesland": "T"}]
     df = rows_to_frame(rows, "Gas", "")
     assert df["Bundesland"].tolist() == ["NO", "T"]
+    assert df["nuts2"].tolist() == ["AT12", "AT33"]
 
 
 def test_queries_cover_strom_per_bundesland_and_gas_once():
@@ -86,7 +88,7 @@ def test_queries_cover_strom_per_bundesland_and_gas_once():
 def test_rows_to_frame_empty():
     df = rows_to_frame([], "Strom", "W")
     assert df.empty
-    assert list(df.columns) == ["typ", *RAW_COLUMNS]
+    assert list(df.columns) == ["typ", *RAW_COLUMNS, "nuts2"]
 
 
 def test_rename_feedin_columns():
@@ -212,6 +214,12 @@ def test_aggregate_to_nuts3(plants, postal_to_nuts):
     gas = agg[agg["typ"] == "Gas"]
     assert gas["technology"].item() == "Erneuerbare Gase"
     assert gas["capacity_mw"].item() == pytest.approx(5.0)
+    assert gas["capacity_unit"].item() == "MW_HHV"
+    assert (agg.loc[agg["typ"] == "Strom", "capacity_unit"] == "MW_el").all()
+    assert (
+        list(agg.columns).index("capacity_unit")
+        == list(agg.columns).index("capacity_mw") + 1
+    )
 
     assert not any(c.startswith("feedin_kwh_") for c in agg.columns)
     assert agg["capacity_mw"].sum() == pytest.approx(5.53)
