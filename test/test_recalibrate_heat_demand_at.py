@@ -1,4 +1,6 @@
 import importlib
+import json
+from types import SimpleNamespace
 
 import pandas as pd
 
@@ -6,6 +8,7 @@ module = importlib.import_module("scripts.pypsa-at.recalibrate_heat_demand_at")
 recalibrate = module.recalibrate_heat_demand
 allocate = module.allocate_heat_demand
 redistribute = module.redistribute_central_heat
+main = module.main
 
 
 def test_recalibrate_heat_demand_matches_nea_by_nuts2():
@@ -159,3 +162,125 @@ def test_redistribute_central_heat_by_urban_weighted_demand():
         ("AT121", "households"): 100.0,
         ("AT122", "households"): 200.0,
     }
+
+
+def test_main_writes_recalibrated_heat_demand(tmp_path):
+    shapes_path = tmp_path / "nuts3_shapes.geojson"
+    nea_path = tmp_path / "nea.csv"
+    heat_demand_path = tmp_path / "heat_demand.csv"
+    urban_fraction_path = tmp_path / "urban_fraction.csv"
+    output_heat_demand_path = tmp_path / "recalibrated_heat_demand.csv"
+    output_urban_fraction_path = tmp_path / "urban_fraction_at.csv"
+
+    shapes_path.write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "country": "AT",
+                            "level3": "AT111",
+                        },
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [16.0, 48.0],
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    pd.DataFrame(
+        {
+            "NUTS-2 Code": ["AT11"] * 4,
+            "year": [2024] * 4,
+            "Bereich": [
+                "Private Haushalte",
+                "Private Haushalte",
+                "Offentliche und Private Dienstleistungen",
+                "Offentliche und Private Dienstleistungen",
+            ],
+            "Nutzenergiekategorie": ["Raumklima und Warmwasser"] * 4,
+            "Energieträger": [
+                "Fernwärme",
+                "Erdgas",
+                "Fernwärme",
+                "Erdgas",
+            ],
+            "value_TWh": [0.04, 0.12, 0.06, 0.18],
+        }
+    ).to_csv(nea_path, index=False)
+
+    pd.DataFrame(
+        {
+            "region": ["AT111"],
+            "year": [2025],
+            "value": [400.0],
+        }
+    ).to_csv(heat_demand_path, index=False)
+
+    pd.DataFrame(
+        {"urban fraction": [0.5]},
+        index=pd.Index(["AT111"], name="region"),
+    ).to_csv(urban_fraction_path)
+
+    snakemake = SimpleNamespace(
+        input=SimpleNamespace(
+            nuts3_shapes=shapes_path,
+            nea_at=nea_path,
+            heat_demand=heat_demand_path,
+            urban_fraction=[urban_fraction_path],
+        ),
+        output=SimpleNamespace(
+            heat_demand=output_heat_demand_path,
+            urban_fraction_at=output_urban_fraction_path,
+        ),
+        params=SimpleNamespace(
+            modify_nuts3_shapes="AT35DE5",
+            source_years={2025: 2024},
+            planning_horizons=[2025],
+            cluster_heat_buses=False,
+        ),
+    )
+
+    main(snakemake)
+
+    result = pd.read_csv(output_heat_demand_path)
+    expected = pd.DataFrame(
+        {
+            "year": [2025] * 5,
+            "region": ["AT111"] * 5,
+            "carrier": [
+                "residential rural heat",
+                "residential urban decentral heat",
+                "services rural heat",
+                "services urban decentral heat",
+                "urban central heat",
+            ],
+            "value": [
+                60_000.0,
+                60_000.0,
+                90_000.0,
+                90_000.0,
+                100_000.0,
+            ],
+        }
+    )
+    pd.testing.assert_frame_equal(result, expected)
+
+    result_urban_fraction = pd.read_csv(
+        output_urban_fraction_path,
+        index_col=0,
+    )
+    expected_urban_fraction = pd.DataFrame(
+        {"2025": [0.5]},
+        index=pd.Index(["AT111"], name="region"),
+    )
+    pd.testing.assert_frame_equal(
+        result_urban_fraction,
+        expected_urban_fraction,
+    )

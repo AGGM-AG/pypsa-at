@@ -9,6 +9,8 @@ import pandas as pd
 import pypsa
 from snakemake.script import Snakemake
 
+from mods.demand.annual import region_by_load
+
 
 def apply_heat_demand(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
@@ -30,24 +32,28 @@ def apply_heat_demand(n: pypsa.Network, snakemake: Snakemake) -> None:
         return
     year = int(snakemake.wildcards.planning_horizons)
     demand = pd.read_csv(snakemake.input.heat_demand_nea_at)
-    demand = demand[demand["year"].eq(year)]
-    demand["name"] = demand["region"] + " " + demand["carrier"]
-    targets = demand.groupby(["name"]).value.sum()
-    names = targets[targets.index.isin(n.loads.index) | (targets > 0)].index
+    load_regions = region_by_load(n)
+    names = n.loads.loc[
+        load_regions.isin(demand.region) & n.loads.carrier.isin(demand.carrier),
+        ["carrier"]
+    ]
+    names["region"] = load_regions
+    demand = demand[demand["year"].eq(year)].copy()
+    demand = demand.merge(names.reset_index(), on=["carrier", "region"], how="left", validate="one_to_many")
+    missing = demand[(demand["value"]> 0) & demand["name"].isna()]
+    if not missing.empty:
+        raise ValueError(f"Non zero heat nodes {missing} missing from network")
+    targets = demand.groupby(["name"]).value.sum().fillna(0)
+    names = names.index
     targets = targets.loc[names]
 
     dynamic = names.intersection(n.loads_t.p_set.columns)
-    factors = n.loads_t.p_set.copy()
-    factors = pd.DataFrame(
-        np.where(
-            n.loads_t.p_set.loc[:, dynamic] > 0,
-            targets.loc[dynamic] / n.loads_t.p_set.loc[:, dynamic],
-            0,
-        ),
-        columns=dynamic,
-        index=factors.index,
+    annual = (
+        n.loads_t.p_set.loc[:, dynamic]
+        .mul(n.snapshot_weightings.generators, axis=0)
+        .sum()
     )
-    factor = factors.mul(n.snapshot_weightings.generators, axis=0).sum()
+    factor = np.where(annual > 0, targets.loc[dynamic] / annual, 0)
     n.loads_t.p_set.loc[:, dynamic] *= factor
     n.loads.loc[dynamic, "p_set"] = 0.0
 

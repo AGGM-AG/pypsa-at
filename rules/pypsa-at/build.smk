@@ -50,7 +50,7 @@ rule recalibrate_heat_demand_at:
     input:
         heat_demand=resources("heat_demand_at_{clusters}.csv"),
         nea_at=resources("nea_at.csv"),
-        nuts3_shapes=resources("nuts3_shapes-raw.geojson"),
+        nuts3_shapes=resources("nuts3_shapes.geojson"),
         urban_fraction=lambda w: [
             resources(
                 "district_heat_share_base_s_{clusters}_{planning_horizons}-modified.csv"
