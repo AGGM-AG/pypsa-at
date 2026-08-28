@@ -35,12 +35,17 @@ def apply_heat_demand(n: pypsa.Network, snakemake: Snakemake) -> None:
     load_regions = region_by_load(n)
     names = n.loads.loc[
         load_regions.isin(demand.region) & n.loads.carrier.isin(demand.carrier),
-        ["carrier"]
+        ["carrier"],
     ]
     names["region"] = load_regions
     demand = demand[demand["year"].eq(year)].copy()
-    demand = demand.merge(names.reset_index(), on=["carrier", "region"], how="left", validate="one_to_many")
-    missing = demand[(demand["value"]> 0) & demand["name"].isna()]
+    demand = demand.merge(
+        names.reset_index(),
+        on=["carrier", "region"],
+        how="left",
+        validate="one_to_many",
+    )
+    missing = demand[(demand["value"] > 0) & demand["name"].isna()]
     if not missing.empty:
         raise ValueError(f"Non zero heat nodes {missing} missing from network")
     targets = demand.groupby(["name"]).value.sum().fillna(0)
