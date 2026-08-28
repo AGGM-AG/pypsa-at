@@ -19,15 +19,15 @@
     },
     "postCreateCommand": "git fetch --unshallow && pixi run pre-commit install",
     "postAttachCommand": "",
-    "postStartCommand": "nohup python3 /IdeaProjects/pypsa-at/.devcontainer/relay5991.py >/tmp/relay5991.log 2>&1 &",
+    "postStartCommand": "nohup python3 /IdeaProjects/pypsa-at/.devcontainer/relay.py >/tmp/relay.log 2>&1 &",
     "customizations": {
       "jetbrains": {
         "backend": "PyCharm"
       }
     },
+    "runArgs": ["--env-file", "/mnt/storage/pypsa-at-devcontainer.env"],
     "containerEnv": {
-      "SHELL": "/bin/zsh",
-      "CWM_HOST_PASSWORD": "random horse battery staple"
+      "SHELL": "/bin/zsh"
     },
     "remoteUser": "root"
   }
