@@ -12,6 +12,7 @@ nav:
   - how-to-guides/index.md
   - Working with Evaluations: how-to-guides/evals.md
   - Production Targets: how-to-guides/production-targets.md
+  - Anlagenregister: how-to-guides/anlagenregister.md
 - Tutorials:
   - tutorials/index.md
   - tutorials/model-modifications.md

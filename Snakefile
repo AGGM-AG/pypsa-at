@@ -81,6 +81,7 @@ include: "rules/common.smk"
 OSM_DATASET = dataset_version("osm")
 KLIEN_POTENTIALS = dataset_version("klien_potentials")
 NEA_AT = dataset_version("nea-at")
+ANLAGENREGISTER = dataset_version("anlagenregister")
 
 
 include: "rules/collect.smk"
