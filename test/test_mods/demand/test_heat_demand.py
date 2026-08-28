@@ -5,9 +5,15 @@
 """Integration test for recalibrated heat demand loads."""
 
 import pandas as pd
+import pytest
+
+from test.conftest import require_config
 
 
 def test_heat_loads_match_recalibrated_input(nc):
+    apply_at_demand = require_config(nc, "demand", "heat", "apply_at_demand")
+    if not apply_at_demand:
+        pytest.skip("No at heat demand applied.")
     for year, network in nc.networks.items():
         demand = pd.DataFrame.from_dict(network.meta["resources"]["heat_demand_nea_at"])
         expected = (
