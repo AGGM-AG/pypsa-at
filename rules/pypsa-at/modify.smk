@@ -229,7 +229,7 @@ use rule modify_prenetwork as modify_prenetwork_at with:
             config_provider("demand", "heat", "apply_at_demand"),
             resources("heat_demand_nea_at_{clusters}.csv"),
             [],
-           ),
+        ),
     params:
         **rules.modify_prenetwork.params,
         klien_potential_limits_technologies=config_provider(
