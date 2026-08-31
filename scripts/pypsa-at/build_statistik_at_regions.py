@@ -28,7 +28,7 @@ OUTPUT_COLUMNS = [
 ]
 
 
-def read_municipalities(path: str | Path, population_year: int) -> pd.DataFrame:
+def read_municipalities(path: str | Path) -> pd.DataFrame:
     """
     Read municipality-level records from a Statistik Austria register.
 
@@ -36,29 +36,13 @@ def read_municipalities(path: str | Path, population_year: int) -> pd.DataFrame:
     ----------
     path
         Path to a ``RegGemVz`` ODS workbook.
-    population_year
-        Reference year of the population census column, i.e. the year
-        following the configured NEA source year.
 
     Returns
     -------
     :
         Municipality records with English, machine-readable column names.
-
-    Raises
-    ------
-    ValueError
-        If the workbook has no population column for ``population_year``.
     """
     source = pd.read_excel(path, sheet_name="Gemeinden", engine="odf")
-    population_column = f"Bevölkerungszahl 01.01.{population_year}"
-    if population_column not in source.columns:
-        available = [c for c in source.columns if c.startswith("Bevölkerungszahl")]
-        raise ValueError(
-            f"Column '{population_column}' not found in {path}. Available "
-            f"population columns: {available}. Check the 'statistik-at-regions' "
-            "dataset version against the 'demand: source_years:' configuration."
-        )
     source = source.ffill()[
         ~(
             source["Gerichtsbezirks kennziffer"].isna()
@@ -77,7 +61,7 @@ def read_municipalities(path: str | Path, population_year: int) -> pd.DataFrame:
             "Gemeinde kennziffer": "municipality_code",
             "Gemeindename": "municipality_name",
             "PLZ Gemeindeamt": "postal_code",
-            population_column: "population",
+            "Bevölkerungszahl 01.01.2025": "population",
         }
     )
     source["population"] = pd.to_numeric(source["population"], errors="raise")
@@ -132,17 +116,14 @@ def main(snakemake: Snakemake) -> None:
         Result is written to the snakemake output
     """
     base_year = snakemake.params.planning_horizons[0]
-    source_years = snakemake.params.source_years
-    try:
-        nea_year = source_years[base_year]
-    except KeyError as err:
-        raise ValueError(
-            f"No NEA source year configured for base year {base_year}. "
-            f"Add it to 'demand: source_years:' (configured: {source_years})."
-        ) from err
-    # Population reported on 1 January reflects the end of the previous
-    # (NEA energy) year.
-    municipalities = read_municipalities(snakemake.input.ods, nea_year + 1)
+    if base_year != 2025:
+        raise NotImplementedError(
+            f"Base year {base_year} is not supported: the Statistik Austria "
+            "register is read with the hardcoded population column "
+            "'Bevölkerungszahl 01.01.2025', which is only valid for base "
+            "year 2025."
+        )
+    municipalities = read_municipalities(snakemake.input.ods)
     result = add_nuts2_code(municipalities, snakemake.input.nuts3_shapes)
     result[OUTPUT_COLUMNS].to_csv(snakemake.output.regional_data, index=False)
 

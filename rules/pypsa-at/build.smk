@@ -293,7 +293,6 @@ if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
             mem_mb=2000,
         params:
             planning_horizons=config_provider("scenario", "planning_horizons"),
-            source_years=config_provider("demand", "source_years"),
         message:
             "Building general Statistik Austria regional data CSV"
         script:

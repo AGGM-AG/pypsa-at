@@ -1,4 +1,5 @@
 import importlib
+from types import SimpleNamespace
 
 import geopandas as gpd
 import pandas as pd
@@ -125,12 +126,16 @@ def municipality_file(tmp_path, municipality_input):
 
 @pytest.fixture
 def municipalities(municipality_file):
-    return regions.read_municipalities(municipality_file, population_year=2025)
+    return regions.read_municipalities(municipality_file)
 
 
-def test_read_municipalities_missing_population_column(municipality_file):
-    with pytest.raises(ValueError, match="Bevölkerungszahl 01.01.2030"):
-        regions.read_municipalities(municipality_file, population_year=2030)
+def test_main_rejects_unsupported_base_year():
+    snakemake = SimpleNamespace(
+        params=SimpleNamespace(planning_horizons=[2030]),
+    )
+
+    with pytest.raises(NotImplementedError, match="2030"):
+        regions.main(snakemake)
 
 
 def test_read_municipalities(
