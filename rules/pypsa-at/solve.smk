@@ -19,6 +19,7 @@ RESOURCE_META = {
     "industrial_demand_overrides": resources(
         "industrial_demand_overrides_base_s_{clusters}.csv"
     ),
+    "heat_demand_nea_at": resources("heat_demand_nea_at_{clusters}.csv"),
 }
 INPUT_META = ["energy_totals", "trajectories"]
 

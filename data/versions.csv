@@ -82,6 +82,7 @@ ghg_emissions,v23,primary,latest supported,2025-12-02,,https://web.archive.org/w
 ghg_emissions,v23,archive,latest supported,2026-01-13,earlier part of databundle,https://data.pypsa.org/workflows/eur/ghg_emissions/v23/UNFCCC_v23.csv
 h2_salt_caverns,16-10-2019,primary,latest supported,2025-12-02,,https://zenodo.org/records/16899309/files/h2_salt_caverns_GWh_per_sqkm.geojson
 h2_salt_caverns,16-10-2019,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/h2_salt_caverns/16-10-2019/h2_salt_caverns_GWh_per_sqkm.geojson
+heat_demand_at,v1,primary,latest supported,2026-08-11,,https://austrian-heatmap.gv.at/data/raster
 hotmaps_industrial_sites,version-1.1,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/hotmaps_industrial_sites/version-1.1/Industrial_Database.csv
 hotmaps_industrial_sites,version-1.0,primary,not-supported,2025-12-02,Required renaming of country names to work with PyPSA-Eur. This was fixed in the latest version.,https://gitlab.com/hotmaps/industrial_sites/industrial_sites_Industrial_Database/-/raw/1.0/data/Industrial_Database.csv
 hotmaps_industrial_sites,unknown,primary,latest supported,2025-12-02,,https://gitlab.com/hotmaps/industrial_sites/industrial_sites_Industrial_Database/-/raw/master/data/Industrial_Database.csv
