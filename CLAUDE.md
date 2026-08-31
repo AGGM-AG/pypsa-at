@@ -275,15 +275,15 @@ pixi run pytest test/test_mods/ --result-path=results/{prefix}/{scenario}
 
 ## Git & PR Process
 
+- Code reviews follow the criteria in REVIEW.md
 - Branch naming: feat/, fix/, chore/, docs/
 - All changes to main via Pull Request + human review — no direct pushes
-  (`pre-commit` enforces this with `no-commit-to-branch`)
 - `gh pr view <nr> --comments` — check review comments
 - Add a short entry to `CHANGELOG.AT.md` (Keep a Changelog format) for user-visible changes
 - Fill in `.github/pull_request_template.md`; its checklist is the source of truth:
   tests pass, docs updated, changelog entry, Sourcery Bot suggestions addressed,
   config changes reflected in `scripts/lib/validation`, new rules documented in `docs-at/`
-- `pre-commit` runs ruff, ruff-format, codespell, snakefmt, and yaml formatting
+- `pre-commit` runs ruff, ruff-format, codespell, snakefmt, yaml formatting, and no commits to main branch
 
 ## Conventions & Key Patterns
 
