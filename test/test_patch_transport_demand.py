@@ -245,9 +245,42 @@ def test_filter_nea():
     result = transport.filter_nea(
         nea_input,
         base_year=2020,
+        source_years={2020: 2020},
     )
 
     pd.testing.assert_frame_equal(result, expected)
+
+
+def test_filter_nea_missing_source_year():
+    nea_input = pd.DataFrame(
+        {
+            "year": [2020],
+            "Bereich": ["Sonstiger Landverkehr"],
+            "Nutzenergiekategorie": ["Verkehr"],
+            "NUTS-2 Code": ["AT11"],
+            "Energieträger": ["Benzin"],
+            "value_TWh": [1.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="No NEA source year configured"):
+        transport.filter_nea(nea_input, base_year=2030, source_years={2020: 2020})
+
+
+def test_filter_nea_no_data_for_source_year():
+    nea_input = pd.DataFrame(
+        {
+            "year": [2020],
+            "Bereich": ["Sonstiger Landverkehr"],
+            "Nutzenergiekategorie": ["Verkehr"],
+            "NUTS-2 Code": ["AT11"],
+            "Energieträger": ["Benzin"],
+            "value_TWh": [1.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="no road transport demand"):
+        transport.filter_nea(nea_input, base_year=2020, source_years={2020: 2018})
 
 
 def test_transform_nea_to_km(snakemake_for_transformation):
@@ -301,6 +334,22 @@ def test_transform_nea_to_km(snakemake_for_transformation):
     pd.testing.assert_frame_equal(result, expected)
 
 
+def test_transform_nea_to_km_unmatched_region(snakemake_for_transformation):
+    nea_input = pd.DataFrame(
+        {
+            "NUTS-2 Code": ["AT99"],
+            "Energieträger": ["Benzin"],
+            "value": [10.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="AT99"):
+        transport.transform_nea_to_km(
+            snakemake_for_transformation,
+            nea_input.copy(),
+        )
+
+
 def test_apply_nea(transport_demand_long):
     nea_input = pd.DataFrame(
         {
@@ -336,6 +385,28 @@ def test_apply_nea(transport_demand_long):
     )
 
     pd.testing.assert_frame_equal(result, expected)
+
+
+def test_apply_nea_zero_baseline():
+    zero_demand = pd.DataFrame(
+        {
+            "AT111": [0.0, 0.0],
+        },
+        index=pd.DatetimeIndex(
+            ["2020-01-01 00:00", "2020-01-01 01:00"],
+            name="timestamp",
+        ),
+    )
+    transport_demand_long = transport.transform_timeseries_to_long(zero_demand)
+    nea_input = pd.DataFrame(
+        {
+            "NUTS-2 Code": ["AT11"],
+            "value": [200.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="zero"):
+        transport.apply_nea(transport_demand_long, nea_input)
 
 
 def test_main(
@@ -397,6 +468,7 @@ def test_main(
         ),
         params=SimpleNamespace(
             planning_horizons=[2020],
+            source_years={2020: 2020},
             sector=sector_options,
         ),
         output=SimpleNamespace(

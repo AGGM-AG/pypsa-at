@@ -52,12 +52,12 @@ scenarios.manual.yaml  (stakeholder overrides, via run.scenarios.manual_file)
 `config/config.sysgf.yaml` (+ `config/scenarios.sysgf.yaml`) is a standalone
 variant passed via `--configfile`; it is not part of the default stack.
 
-### Feature toggles                                                                                                                                                                                                                                                                                               
-                                                                                                                                                                                                                                                                                                                  
-Every new feature section in `config/config.at.yaml` (e.g. a block under `mods:`) carries                                                                                                                                                                                                                         
-a boolean `enable` key as its first entry. The Python orchestrator in `mods/` guards on it                                                                                                                                                                                                                        
-and returns early when `false` — the Snakemake DAG must not depend on it. New features                                                                                                                                                                                                                            
-default to `enable: true`. Declare the key as `enable: bool` in the matching                                                                                                                                                                                                                                      
+### Feature toggles
+
+Every new feature section in `config/config.at.yaml` (e.g. a block under `mods:`) carries
+a boolean `enable` key as its first entry. The Python orchestrator in `mods/` guards on it
+and returns early when `false` — the Snakemake DAG must not depend on it. New features
+default to `enable: true`. Declare the key as `enable: bool` in the matching
 `scripts/lib/validation/config/*.py` model and run `pixi run generate-config`.
 
 ## Workflow & DAG Phases
@@ -72,7 +72,7 @@ modify ← most Austria-specific model changes happen here
 ↓
 solve
 ↓
-postprocess 
+postprocess
 ↓
 evals
 
@@ -175,8 +175,8 @@ pixi run ruff check .
 pixi run ruff format .
 
 # Testing
-pixi run pytest --result-path="results/{prefix}/{scenario}"  # all tests 
-pixi run pytest -m "AT" --result-path="results/{prefix}/{scenario}"  # PyPSA-AT modifications 
+pixi run pytest --result-path="results/{prefix}/{scenario}"  # all tests
+pixi run pytest -m "AT" --result-path="results/{prefix}/{scenario}"  # PyPSA-AT modifications
 
 # Generate workflow DAGs (Rules and Files)
 pixi run snakemake rulegraph --cores 1
@@ -292,7 +292,7 @@ pixi run pytest test/test_mods/ --result-path=results/{prefix}/{scenario}
 - Import one orchestrator function from `mods/` per Python script in `scripts/`
 - Let the Snakemake workflow fail early on missing input (do not catch exceptions to raise warnings, just fail)
 - Prefer f-strings over %s whenever possible, especially during logging
-- Keep Snakemake simple: implement guard logic in Python scripts (The DAG should not depend on the config). 
+- Keep Snakemake simple: implement guard logic in Python scripts (The DAG should not depend on the config).
 
 ## Data Versions
 

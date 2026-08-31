@@ -125,7 +125,12 @@ def municipality_file(tmp_path, municipality_input):
 
 @pytest.fixture
 def municipalities(municipality_file):
-    return regions.read_municipalities(municipality_file)
+    return regions.read_municipalities(municipality_file, population_year=2025)
+
+
+def test_read_municipalities_missing_population_column(municipality_file):
+    with pytest.raises(ValueError, match="Bevölkerungszahl 01.01.2030"):
+        regions.read_municipalities(municipality_file, population_year=2030)
 
 
 def test_read_municipalities(

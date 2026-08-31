@@ -1,11 +1,10 @@
 # Data Flow Diagrams
 
-: This section documents how data moves from its original raw source through the 
-PyPSA-Eur / PyPSA-DE / PyPSA-AT workflow phases. The phases follow the rules 
+This section documents how data moves from its original raw source through the
+PyPSA-Eur / PyPSA-DE / PyPSA-AT workflow phases. The phases follow the rules
 retrieve → build_electricity / build_sector → modify → solve to the final network
-component that is used in the optimization. To help illustrate the data workflow 
-diagrams using mermaid are created.
-
+component that is used in the optimization. Each data flow is illustrated with a
+Mermaid diagram.
 
 
 ## Convention
@@ -113,3 +112,4 @@ than rectangular ones. Use `padding:12px 26px` for pill nodes (`source`/`final`)
 
 - [Industrial Demand](industrial-demand.md)
 - [Heat Demand](heat-demand.md)
+- [Road Mobility Demand](road-demand.md)

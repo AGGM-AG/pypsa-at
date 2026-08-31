@@ -291,6 +291,9 @@ if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
         threads: 1
         resources:
             mem_mb=2000,
+        params:
+            planning_horizons=config_provider("scenario", "planning_horizons"),
+            source_years=config_provider("demand", "source_years"),
         message:
             "Building general Statistik Austria regional data CSV"
         script:
@@ -322,15 +325,16 @@ if KFZ_BESTAND_AT["source"] in ["primary", "archive"]:
             scripts("pypsa-at/build_kfz_bestand_at.py")
 
 
-use rule build_transport_demand as build_transport_demand_at with:
-    input:
-        **{
-            **rules.build_transport_demand.input,
-            "transport_data": resources("transport_data_{clusters}_at.csv"),
-        },
+if config["demand"]["transport"]["use_nea_demand"]:
 
+    use rule build_transport_demand as build_transport_demand_at with:
+        input:
+            **{
+                **rules.build_transport_demand.input,
+                "transport_data": resources("transport_data_{clusters}_at.csv"),
+            },
 
-ruleorder: build_transport_demand_at > build_transport_demand
+    ruleorder: build_transport_demand_at > build_transport_demand
 
 
 rule patch_transport_demand_at:
@@ -350,6 +354,7 @@ rule patch_transport_demand_at:
         mem_mb=2000,
     params:
         planning_horizons=config_provider("scenario", "planning_horizons"),
+        source_years=config_provider("demand", "source_years"),
         sector=config_provider("sector"),
     message:
         "Patching transport demand using Statistik Austria Nutzenergieanalyse"
