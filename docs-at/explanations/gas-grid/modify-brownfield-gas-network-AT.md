@@ -5,10 +5,10 @@ The values for capacities given for transport corridors between Austrian regions
 
 
 
-<p float="left">
-  <img src="../assets/with%20label%20-%20pypsa-eur-pipeline-through-tyrol.png" alt="Map of PyPSA-Eur default gas pipelines in Austria in 2025 with NUTS3 clustering" height="500" />
-<img src="../assets/with%20label%20-%20pypsa-at-turned-off-building-gas-pipelines.png" alt="Map of PyPSA-AT gas pipelines in Austria in 2025 with NUTS3 clustering after all proposed changes were applied" height="500" />
-</p>
+![Map of PyPSA-Eur default gas pipelines in Austria in 2025 with NUTS3 clustering](../../assets/with-label_pypsa-eur-pipeline-through-tyrol.png){ height="500" }
+
+![Map of PyPSA-AT gas pipelines in Austria in 2025 with NUTS3 clustering after all proposed changes were applied](../../assets/with-label_pypsa-at-turned-off-building-gas-pipelines.png){ height="500" }
+
 
 
 ## In PyPSA-AT 
