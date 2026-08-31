@@ -52,11 +52,13 @@ scenarios.manual.yaml  (stakeholder overrides, via run.scenarios.manual_file)
 `config/config.sysgf.yaml` (+ `config/scenarios.sysgf.yaml`) is a standalone
 variant passed via `--configfile`; it is not part of the default stack.
 
-**Config options are schema-validated.** New or changed config keys must be
-reflected in `scripts/lib/validation/config/` (one module per config section).
-Regenerate the derived defaults/schema with `pixi run generate-config`, which
-writes `config/config.default.yaml` and `config/schema.default.json`.
-`test/test_config_schema.py` guards this.
+### Feature toggles                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                  
+Every new feature section in `config/config.at.yaml` (e.g. a block under `mods:`) carries                                                                                                                                                                                                                         
+a boolean `enable` key as its first entry. The Python orchestrator in `mods/` guards on it                                                                                                                                                                                                                        
+and returns early when `false` — the Snakemake DAG must not depend on it. New features                                                                                                                                                                                                                            
+default to `enable: true`. Declare the key as `enable: bool` in the matching                                                                                                                                                                                                                                      
+`scripts/lib/validation/config/*.py` model and run `pixi run generate-config`.
 
 ## Workflow & DAG Phases
 
