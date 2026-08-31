@@ -312,10 +312,3 @@ To add or bump a dataset: add a row to `data/versions.csv` (both `primary` and
   orchestrator is invisible to `scripts/` until it is added to `__all__` there
 - Scripts under `scripts/pypsa-at/` live in a hyphenated directory (not a valid Python
   package name); `pytest.ini`'s `pythonpath` is what makes them importable in tests
-
-## Agent Routing
-
-Adopt the appropriate role based on task type:
-
-- **Product Owner** (`.claude/agents/product-owner.md`): GitHub issue management, backlog prioritisation, feature planning, stakeholder questions, upstream research
-- **Developer** (`.claude/agents/developer.md`): Code implementation, bugfixes, tests, Snakemake rules, refactoring  
