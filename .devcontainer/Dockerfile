@@ -16,7 +16,8 @@ RUN apt-get update \
     nano  \
     nodejs  \
     npm  \
-    git-delta\
+    git-delta \
+    gh \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
