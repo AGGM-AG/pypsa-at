@@ -52,12 +52,6 @@ scenarios.manual.yaml  (stakeholder overrides, via run.scenarios.manual_file)
 `config/config.sysgf.yaml` (+ `config/scenarios.sysgf.yaml`) is a standalone
 variant passed via `--configfile`; it is not part of the default stack.
 
-**Config options are schema-validated.** New or changed config keys must be
-reflected in `scripts/lib/validation/config/` (one module per config section).
-Regenerate the derived defaults/schema with `pixi run generate-config`, which
-writes `config/config.default.yaml` and `config/schema.default.json`.
-`test/test_config_schema.py` guards this.
-
 ## Workflow & DAG Phases
 
 retrieve
