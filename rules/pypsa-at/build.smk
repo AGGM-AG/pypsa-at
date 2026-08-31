@@ -324,21 +324,26 @@ if KFZ_BESTAND_AT["source"] in ["primary", "archive"]:
             scripts("pypsa-at/build_kfz_bestand_at.py")
 
 
-if config["demand"]["transport"]["use_nea_demand"]:
-
-    use rule build_transport_demand as build_transport_demand_at with:
-        input:
-            **{
-                **rules.build_transport_demand.input,
-                "transport_data": resources("transport_data_{clusters}_at.csv"),
-            },
-
-    ruleorder: build_transport_demand_at > build_transport_demand
+use rule build_transport_demand as build_transport_demand_at with:
+    input:
+        **{
+            **rules.build_transport_demand.input,
+            "transport_data": resources("transport_data_{clusters}_at.csv"),
+        },
+    output:
+        transport_demand=resources("transport_demand_s_{clusters}_at_unpatched.csv"),
+        transport_data=resources("transport_data_s_{clusters}_at.csv"),
+        avail_profile=resources("avail_profile_s_{clusters}_at.csv"),
+        dsm_profile=resources("dsm_profile_s_{clusters}_at.csv"),
+    log:
+        logs("build_transport_demand_s_{clusters}_at.log"),
+    benchmark:
+        benchmarks("build_transport_demand/s_{clusters}_at")
 
 
 rule patch_transport_demand_at:
     input:
-        transport_demand=resources("transport_demand_s_{clusters}.csv"),
+        transport_demand=resources("transport_demand_s_{clusters}_at_unpatched.csv"),
         nea_at=resources("nea_at.csv"),
         temp_air_total=resources("temp_air_total_base_s_{clusters}.nc"),
         clustered_pop_layout=resources("pop_layout_base_s_{clusters}.csv"),

@@ -82,7 +82,7 @@ flowchart TD
   merged into the shared transport table for the configured energy-totals year. The
   downstream Austrian override uses `Pkw`; the other vehicle categories remain available
   during source processing but do not determine EV charger or battery sizing.
-- **NEA calibration.** The latest NEA year not later than the model base year is selected,
+- **NEA calibration.** The NEA source year configured for the base year 2025 is used,
   restricted to `Sonstiger Landverkehr` and the useful-energy category `Verkehr`, and
   converted from TWh to MWh. Electricity is mapped to BEV demand; petrol, diesel, gas,
   LPG, and biogenic fuels are mapped to ICE demand. No NEA carrier is currently mapped to

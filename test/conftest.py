@@ -301,10 +301,6 @@ def pytest_configure(config):
         "AT: integration test that loads solved networks via --result-path "
         "(auto-applied to any test using the `nc` fixture)",
     )
-    config.addinivalue_line(
-        "markers",
-        "smoke: slow smoke test that dry-runs the Snakemake workflow",
-    )
 
 
 def pytest_collection_modifyitems(config, items):

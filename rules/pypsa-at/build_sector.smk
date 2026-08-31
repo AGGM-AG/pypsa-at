@@ -16,6 +16,21 @@ use rule prepare_sector_network as prepare_sector_network_at with:
                 resources("transport_demand_s_{clusters}_at.csv"),
                 resources("transport_demand_s_{clusters}.csv"),
             ),
+            "transport_data": branch(
+                config_provider("demand", "transport", "use_nea_demand"),
+                resources("transport_data_s_{clusters}_at.csv"),
+                resources("transport_data_s_{clusters}.csv"),
+            ),
+            "avail_profile": branch(
+                config_provider("demand", "transport", "use_nea_demand"),
+                resources("avail_profile_s_{clusters}_at.csv"),
+                resources("avail_profile_s_{clusters}.csv"),
+            ),
+            "dsm_profile": branch(
+                config_provider("demand", "transport", "use_nea_demand"),
+                resources("dsm_profile_s_{clusters}_at.csv"),
+                resources("dsm_profile_s_{clusters}.csv"),
+            ),
             "district_heat_share": branch(
                 config_provider("demand", "heat", "apply_at_demand"),
                 resources(
