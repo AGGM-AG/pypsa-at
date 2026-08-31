@@ -81,6 +81,11 @@ include: "rules/common.smk"
 OSM_DATASET = dataset_version("osm")
 KLIEN_POTENTIALS = dataset_version("klien_potentials")
 NEA_AT = dataset_version("nea-at")
+HEAT_DEMAND_DATASET = dataset_version("heat_demand_at")
+HEAT_DEMAND_DATASETS = {
+    "WEM": {year: f"WEM_{year}.tif" for year in (2021, 2030, 2050)},
+    "Transition": {year: f"Transition_{year}.tif" for year in (2030, 2050)},
+}
 
 
 include: "rules/collect.smk"
