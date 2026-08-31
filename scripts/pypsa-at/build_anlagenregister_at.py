@@ -16,8 +16,9 @@ only meaningful for plants commissioned inside that window; plants with feed-in
 in the earliest published year are older and get ``first_feedin_year`` set to
 that year (lower bound). Plants without any feed-in get ``NA``.
 
-The aggregated file is the artefact that is uploaded to Zenodo (``archive``
-source in ``data/versions.csv``).
+This aggregation runs for both dataset sources: with ``build`` the plant-level
+CSV is scraped from the website, with ``archive`` it is the CC-BY-4.0 mirror
+retrieved from Zenodo (``data/versions.csv``).
 """
 
 import logging

@@ -20,6 +20,11 @@ are relative to a reference year that is only known from the landing page
 (``sum2021Strom: "..." + " " + 2026``). The reference year is parsed from the
 landing page so the columns can be renamed to absolute years.
 
+The Anlagenregister is published under CC-BY-4.0, which permits mirroring
+the plant-level dataset on Zenodo. The ``archive`` source retrieves that
+mirror instead of scraping the website; the NUTS3 aggregation always runs
+locally (see ``build_anlagenregister_at.py``).
+
 Publishing a new dataset version
 --------------------------------
 1. Add a ``build`` row for the new version to ``data/versions.csv`` and set
@@ -27,9 +32,10 @@ Publishing a new dataset version
    ``config/config.at.yaml``.
 2. Run ``pixi run snakemake -c1 data/anlagenregister/build/<version>/anlagenregister_nuts3.csv``
    (roughly 15 minutes).
-3. Upload ``anlagenregister_nuts3.csv`` to Zenodo.
+3. Upload ``anlagenregister_plants.csv`` to Zenodo with a CC-BY-4.0 license
+   and attribution to E-Control.
 4. Add an ``archive`` row for the same version with the Zenodo ``.../files``
-   base URL to ``data/versions.csv`` and run
+   base URL and the tag ``latest supported`` to ``data/versions.csv`` and run
    ``pixi run python test/test_data_versions_layer.py`` to sort and validate.
 5. Set ``source`` back to ``archive``.
 

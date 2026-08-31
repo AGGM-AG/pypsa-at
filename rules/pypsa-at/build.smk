@@ -276,7 +276,7 @@ if NEA_AT["source"] == "primary":
             scripts("pypsa-at/build_nea_at.py")
 
 
-if ANLAGENREGISTER["source"] == "build":
+if ANLAGENREGISTER["source"] in ("build", "archive"):
 
     rule build_anlagenregister_at:
         input:

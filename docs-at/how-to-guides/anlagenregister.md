@@ -44,8 +44,9 @@ biomethane plants). PyPSA-AT downloads both.
    technology and first feed-in year (see below). The result is a small table
    with the number of plants, the capacity, and the annual feed-in per group.
 
-The aggregated table is the file used by the model and the one archived on
-Zenodo. The plant-level download is kept only as an intermediate file.
+The aggregated table is the file used by the model. The plant-level CSV is
+the artifact mirrored on Zenodo; the aggregation always runs locally, for both 
+dataset sources.
 
 ### Build years
 
@@ -70,15 +71,10 @@ powerplantmatching database or per-technology age assumptions.
 The dataset is registered as `anlagenregister` in `data/versions.csv` and
 selected through the `data` section of `config/config.at.yaml`:
 
-| Source    | Behaviour                                                                                   |
-|-----------|---------------------------------------------------------------------------------------------|
-| `archive` | Download the ready-made aggregated table from Zenodo. Fast and reproducible — the default. |
-| `build`   | Scrape the website and aggregate. Use this only to create a new version.                   |
+| Source    | Behaviour                                                                                            |
+|-----------|------------------------------------------------------------------------------------------------------|
+| `archive` | Download the mirrored plant-level CSV from Zenodo and aggregate locally. Fast and reproducible — the default once a mirrored version is published. |
+| `build`   | Scrape the website and aggregate. Use this only to create a new version.                             |
 
 Creating and publishing a new version is a developer task; the procedure is
 described in the docstring of `scripts/pypsa-at/retrieve_anlagenregister_at.py`.
-
-!!! info "Permission"
-    The website states no license. E-Control granted AGGM permission by e-mail
-    to use the register and to publish the derived data on Zenodo (see the
-    [data inventory](../data_sources.md)).

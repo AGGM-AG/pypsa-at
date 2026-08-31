@@ -1,5 +1,6 @@
 dataset,version,source,tags,added,note,url
-anlagenregister,2026-08,build,latest supported,2026-08-28,E-Control Anlagenregister scraped via the search JSON endpoint (Strom per Bundesland + Gas in one query) and aggregated to NUTS3; upload the aggregated CSV to Zenodo and add an archive row,https://anlagenregister.at
+anlagenregister,2026-08,archive,latest supported,2026-08-31,CC-BY-4.0 mirror of the plant-level CSV on Zenodo; replace the placeholder record ID after the first upload and switch not-tested to supported,https://zenodo.org/records/0000000/files
+anlagenregister,2026-08,build,latest supported,2026-08-28,E-Control Anlagenregister scraped via the search JSON endpoint (Strom per Bundesland + Gas in one query),https://anlagenregister.at
 aquifer_data,v1.2,primary,latest supported,2025-12-02,,https://download.bgr.de/bgr/grundwasser/IHME1500/v12/shp/IHME1500_v12.zip
 aquifer_data,v1.2,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/aquifer_data/v1.2/IHME1500_v12.zip
 ariadne_database,v1.0,primary,latest supported,2026-01-15,Public facing database of the second Ariadne Szenarienbericht,https://zenodo.org/records/15174592/files/250505_Ariadne2_Data_v1.0.xlsx

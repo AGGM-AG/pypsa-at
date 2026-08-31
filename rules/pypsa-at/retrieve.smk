@@ -114,12 +114,6 @@ rule retrieve_ffe_industry_load_profiles:
             json.dump(data, f)
 
 
-# E-Control Anlagenregister (https://anlagenregister.at). ANLAGENREGISTER is defined
-# in Snakefile (dataset_version("anlagenregister")). With source "build" the plant
-# register is scraped from the website's search JSON endpoint and aggregated to
-# NUTS3 by build_anlagenregister_at (rules/pypsa-at/build.smk); with source
-# "archive" the aggregated CSV is fetched from Zenodo. Both end at the same file.
-
 if ANLAGENREGISTER["source"] == "build":
 
     rule retrieve_anlagenregister_at:
@@ -144,15 +138,15 @@ elif ANLAGENREGISTER["source"] == "archive":
 
     rule retrieve_anlagenregister_at:
         input:
-            nuts3=storage(f"{ANLAGENREGISTER['url']}/anlagenregister_nuts3.csv"),
+            plants=storage(f"{ANLAGENREGISTER['url']}/anlagenregister_plants.csv"),
         output:
-            nuts3=f"{ANLAGENREGISTER['folder']}/anlagenregister_nuts3.csv",
+            plants=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
         log:
             logs("retrieve_anlagenregister_at.log"),
         message:
-            "Retrieving pre-aggregated E-Control Anlagenregister (NUTS3) from archive"
+            "Retrieving the mirrored E-Control Anlagenregister (plant-level CSV) from Zenodo"
         run:
-            copy2(input.nuts3, output.nuts3)
+            copy2(input.plants, output.plants)
 
 
 if KFZ_BESTAND_AT["source"] in ["primary", "archive"]:
