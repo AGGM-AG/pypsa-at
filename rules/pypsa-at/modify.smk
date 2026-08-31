@@ -225,6 +225,11 @@ use rule modify_prenetwork as modify_prenetwork_at with:
             resources("h2_import_potentials_{clusters}_{planning_horizons}.csv"),
             [],
         ),
+        heat_demand_nea_at=branch(
+            config_provider("demand", "heat", "apply_at_demand"),
+            resources("heat_demand_nea_at_{clusters}.csv"),
+            [],
+        ),
     params:
         **rules.modify_prenetwork.params,
         klien_potential_limits_technologies=config_provider(
@@ -246,6 +251,7 @@ use rule modify_prenetwork as modify_prenetwork_at with:
         sector=config_provider("sector"),
         admin_levels=config_provider("clustering", "administrative"),
         custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
+        apply_at_heat_demand=config_provider("demand", "heat", "apply_at_demand"),
 
 
 ruleorder: modify_prenetwork_at > modify_prenetwork  # AT wins for the final .nc

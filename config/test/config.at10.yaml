@@ -61,6 +61,10 @@ renewable:
 electricity:
   renewable_carriers: [solar, solar-hsat, onwind, offwind-ac, offwind-dc] # removed hydro, offwind-float
 
+demand:
+  heat:
+    apply_at_demand: false
+
 solving:
   solver:
     name: highs
