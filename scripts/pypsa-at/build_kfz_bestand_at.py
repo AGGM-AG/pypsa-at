@@ -57,6 +57,7 @@ def _map_special_districts(district_mapping: pd.DataFrame) -> pd.DataFrame:
 
     Returns
     -------
+    :
         District mapping with extra district_vehicles column to represent vehicle registration districts.
     """
     district_mapping["district_vehicles"] = district_mapping["district_name"]
@@ -158,12 +159,13 @@ def build_kfz_data(
     """
     if missing := sorted(set(car_stock["district"]) - set(weights["district"])):
         raise ValueError(f"Unmapped vehicle districts: {missing}")
-    car_stock = car_stock.merge(weights, on="district", how="inner")
-    car_stock = car_stock.drop(columns=["district"]).set_index("region")
-    car_stock = car_stock.mul(car_stock["weight"], axis=0)
-    car_stock = car_stock.drop(columns="weight")
-    result = car_stock.groupby(car_stock.index).sum()
-    return result
+    merged = car_stock.merge(weights, on="district", how="inner").set_index("region")
+    return (
+        merged.drop(columns=["district", "weight"])
+        .mul(merged["weight"], axis=0)
+        .groupby(level="region")
+        .sum()
+    )
 
 
 def transform_transport_data(
@@ -183,6 +185,7 @@ def transform_transport_data(
 
     Returns
     -------
+    :
         Modified transport data
     """
     transport_data = pd.read_csv(transport_data_in)

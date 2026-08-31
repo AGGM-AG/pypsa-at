@@ -54,9 +54,9 @@ def transform_nea_to_km(
     nea_filtered["technology"] = nea_filtered["Energieträger"].map(
         NEA_TO_TECHNOLOGY_MAPPING
     )
-    if nea_filtered["technology"].isna().any():
+    if (missing_technology := nea_filtered["technology"].isna()).any():
         raise ValueError(
-            f"Unsupported NEA carriers: {nea_filtered.loc[nea_filtered['technology'].isna(), 'Energieträger'].unique().tolist()}"
+            f"Unsupported NEA carriers: {nea_filtered.loc[missing_technology, 'Energieträger'].unique().tolist()}"
         )
 
     efficiencies = []
@@ -98,10 +98,8 @@ def transform_nea_to_km(
     nea_filtered = nea_filtered.merge(
         efficiency, on=["NUTS-2 Code", "technology"], how="left"
     )
-    if nea_filtered["eff"].isna().any():
-        missing = sorted(
-            nea_filtered.loc[nea_filtered["eff"].isna(), "NUTS-2 Code"].unique()
-        )
+    if (missing_eff := nea_filtered["eff"].isna()).any():
+        missing = sorted(nea_filtered.loc[missing_eff, "NUTS-2 Code"].unique())
         raise ValueError(
             f"No model region matches the NEA NUTS2 regions {missing}. Their NEA "
             "demand cannot be applied. Check the clustering configuration and the "
@@ -196,6 +194,7 @@ def apply_nea(transport_demand_long, nea_transformed):
 
     Returns
     -------
+    :
         Updated total road demand dataset.
     """
     transport_demand_long["NUTS-2 sum"] = transport_demand_long.groupby("NUTS-2 Code")[
