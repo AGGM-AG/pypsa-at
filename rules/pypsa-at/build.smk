@@ -274,3 +274,93 @@ if NEA_AT["source"] == "primary":
             "Building stacked Statistik Austria NEA .csv"
         script:
             scripts("pypsa-at/build_nea_at.py")
+
+
+if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
+
+    rule build_statistik_at_regions:
+        input:
+            ods=rules.retrieve_statistik_at_regions.output["ods"],
+            nuts3_shapes=resources("nuts3_shapes.geojson"),
+        output:
+            regional_data=resources("statistik_at_regions.csv"),
+        log:
+            logs("build_statistik_at_regions.log"),
+        benchmark:
+            benchmarks("build_statistik_at_regions")
+        threads: 1
+        resources:
+            mem_mb=2000,
+        params:
+            planning_horizons=config_provider("scenario", "planning_horizons"),
+        message:
+            "Building general Statistik Austria regional data CSV"
+        script:
+            scripts("pypsa-at/build_statistik_at_regions.py")
+
+
+if KFZ_BESTAND_AT["source"] in ["primary", "archive"]:
+
+    rule build_kfz_bestand_at:
+        input:
+            ods=rules.retrieve_kfz_bestand_at.output["ods"],
+            regional_data=rules.build_statistik_at_regions.output["regional_data"],
+            transport_data_in=resources("transport_data.csv"),
+        output:
+            transport_data_out=resources("transport_data_{clusters}_at.csv"),
+        log:
+            logs("build_kfz_bestand_{clusters}.log"),
+        benchmark:
+            benchmarks("build_kfz_bestand_{clusters}")
+        threads: 1
+        resources:
+            mem_mb=2000,
+        params:
+            clustering=config_provider("mods", "modify_nuts3_shapes"),
+            energy_totals_year=config_provider("energy", "energy_totals_year"),
+        message:
+            "Building regional Statistik Austria vehicle stock data"
+        script:
+            scripts("pypsa-at/build_kfz_bestand_at.py")
+
+
+use rule build_transport_demand as build_transport_demand_at with:
+    input:
+        **{
+            **rules.build_transport_demand.input,
+            "transport_data": resources("transport_data_{clusters}_at.csv"),
+        },
+    output:
+        transport_demand=resources("transport_demand_s_{clusters}_at_unpatched.csv"),
+        transport_data=resources("transport_data_s_{clusters}_at.csv"),
+        avail_profile=resources("avail_profile_s_{clusters}_at.csv"),
+        dsm_profile=resources("dsm_profile_s_{clusters}_at.csv"),
+    log:
+        logs("build_transport_demand_s_{clusters}_at.log"),
+    benchmark:
+        benchmarks("build_transport_demand/s_{clusters}_at")
+
+
+rule patch_transport_demand_at:
+    input:
+        transport_demand=resources("transport_demand_s_{clusters}_at_unpatched.csv"),
+        nea_at=resources("nea_at.csv"),
+        temp_air_total=resources("temp_air_total_base_s_{clusters}.nc"),
+        clustered_pop_layout=resources("pop_layout_base_s_{clusters}.csv"),
+    output:
+        transport_demand_patched=resources("transport_demand_s_{clusters}_at.csv"),
+    log:
+        logs("patch_transport_demand_at_{clusters}.log"),
+    benchmark:
+        benchmarks("patch_transport_demand_at_{clusters}")
+    threads: 1
+    resources:
+        mem_mb=2000,
+    params:
+        planning_horizons=config_provider("scenario", "planning_horizons"),
+        source_years=config_provider("demand", "source_years"),
+        sector=config_provider("sector"),
+    message:
+        "Patching transport demand using Statistik Austria Nutzenergieanalyse"
+    script:
+        scripts("pypsa-at/patch_transport_demand_at.py")

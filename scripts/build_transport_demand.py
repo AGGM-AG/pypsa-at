@@ -29,6 +29,13 @@ def build_nodal_transport_data(fn, pop_layout, year):
     transport_data = pd.read_csv(fn, index_col=[0, 1])
     transport_data = transport_data.xs(year, level="year")
 
+    # Change from PyPSA-AT to support region car stock numbers
+    pop_layout = pop_layout.copy()
+    mask = pop_layout.index.isin(transport_data.index)
+    pop_layout.ct = np.where(mask, pop_layout.index, pop_layout.ct)
+    pop_layout.loc[mask, "fraction"] = 1
+    # End of PyPSA-AT change
+
     # break number of cars down to nodal level based on population density
     nodal_transport_data = transport_data.loc[pop_layout.ct].fillna(0.0)
     nodal_transport_data.index = pop_layout.index

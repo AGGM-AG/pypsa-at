@@ -114,6 +114,32 @@ rule retrieve_ffe_industry_load_profiles:
             json.dump(data, f)
 
 
+if KFZ_BESTAND_AT["source"] in ["primary", "archive"]:
+
+    rule retrieve_kfz_bestand_at:
+        input:
+            ods=storage(KFZ_BESTAND_AT["url"]),
+        output:
+            ods=f"{KFZ_BESTAND_AT['folder']}/kfz-bestand_{KFZ_BESTAND_AT['version']}.ods",
+        message:
+            "Retrieving Statistik Austria vehicle stock data"
+        run:
+            copy2(input["ods"], output["ods"])
+
+
+if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
+
+    rule retrieve_statistik_at_regions:
+        input:
+            ods=storage(STATISTIK_AT_REGIONS["url"]),
+        output:
+            ods=f"{STATISTIK_AT_REGIONS['folder']}/RegGemVz{STATISTIK_AT_REGIONS['version']}.ods",
+        message:
+            "Retrieving Statistik Austria municipality register"
+        run:
+            copy2(input["ods"], output["ods"])
+
+
 rule retrieve_heat_demand_at:
     input:
         tif=storage(f"{HEAT_DEMAND_DATASET['url']}/{{heatmap_file}}"),
