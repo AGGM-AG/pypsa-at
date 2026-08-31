@@ -6,7 +6,8 @@ Biogas Generator components are added via conversion of input data for "wet biom
 
 From the **biogas Bus**, two conversion pathways are possible. They are also depicted in the below figure. 
 
-<img src="../assets/figure-biogas-to-gas-to-power-costs.png" width="600">
+![Biogas-to-gas and biogas-to-power cost pathways](../assets/figure-biogas-to-gas-to-power-costs.png){ width="600" }
+
 
 ### 1) Biogas-to-gas --> gas-to-power 
 - Component: Link (biogas Bus -> gas Bus) 

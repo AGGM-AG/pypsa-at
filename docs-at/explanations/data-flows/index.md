@@ -112,3 +112,4 @@ than rectangular ones. Use `padding:12px 26px` for pill nodes (`source`/`final`)
 ## Available diagrams
 
 - [Industrial Demand](industrial-demand.md)
+- [Heat Demand](heat-demand.md)

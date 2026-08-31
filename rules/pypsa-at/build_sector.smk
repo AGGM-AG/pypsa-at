@@ -16,6 +16,15 @@ use rule prepare_sector_network as prepare_sector_network_at with:
                 resources("transport_demand_s_{clusters}_at.csv"),
                 resources("transport_demand_s_{clusters}.csv"),
             ),
+            "district_heat_share": branch(
+                config_provider("demand", "heat", "apply_at_demand"),
+                resources(
+                    "district_heat_share_base_s_{clusters}_{planning_horizons}-modified_at.csv"
+                ),
+                resources(
+                    "district_heat_share_base_s_{clusters}_{planning_horizons}-modified.csv"
+                ),
+            ),
         },
         powerplants=resources("powerplants_s_{clusters}.csv"),
         inflow=resources("inflow_per_region_{clusters}.nc"),

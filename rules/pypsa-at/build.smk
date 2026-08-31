@@ -11,6 +11,96 @@ from mods.constants import NUTS2_CODES
 BUNDESLAENDER = list(NUTS2_CODES.keys())
 
 
+def heat_demand_at_raster_path(scenario, year):
+    return f"{HEAT_DEMAND_DATASET['folder']}/{HEAT_DEMAND_DATASETS[scenario][year]}"
+
+
+def heat_demand_at_inputs(w):
+    scenario = config_provider("sector", "heat_demand_scenario")(w)
+    return [
+        heat_demand_at_raster_path("WEM", 2021),
+        heat_demand_at_raster_path(scenario, 2030),
+        heat_demand_at_raster_path(scenario, 2050),
+    ]
+
+
+rule build_heat_demand_at:
+    input:
+        nuts3_shapes=resources("nuts3_shapes.geojson"),
+        heatmaps=heat_demand_at_inputs,
+    output:
+        heat_demand=resources("heat_demand_at_{clusters}.csv"),
+    log:
+        logs("build_heat_demand_at_{clusters}.log"),
+    benchmark:
+        benchmarks("build_heat_demand_at_{clusters}")
+    threads: 1
+    resources:
+        mem_mb=4000,
+    params:
+        planning_horizons=config_provider("scenario", "planning_horizons"),
+        clustering=config_provider("mods", "modify_nuts3_shapes"),
+    message:
+        "Building Austrian NUTS3 heat demand from heatmaps"
+    script:
+        scripts("pypsa-at/build_heat_demand_at.py")
+
+
+rule recalibrate_heat_demand_at:
+    input:
+        heat_demand=resources("heat_demand_at_{clusters}.csv"),
+        nea_at=resources("nea_at.csv"),
+        nuts3_shapes=resources("nuts3_shapes.geojson"),
+        urban_fraction=lambda w: [
+            resources(
+                "district_heat_share_base_s_{clusters}_{planning_horizons}-modified.csv"
+            ).format(run=w.run, clusters=w.clusters, planning_horizons=year)
+            for year in config_provider("scenario", "planning_horizons")(w)
+        ],
+    output:
+        heat_demand=resources("heat_demand_nea_at_{clusters}.csv"),
+        urban_fraction_at=resources("urban_fraction_at_{clusters}.csv"),
+    log:
+        logs("recalibrate_heat_demand_at_{clusters}.log"),
+    benchmark:
+        benchmarks("recalibrate_heat_demand_at_{clusters}")
+    threads: 1
+    resources:
+        mem_mb=2000,
+    params:
+        source_years=config_provider("demand", "source_years"),
+        planning_horizons=config_provider("scenario", "planning_horizons"),
+        cluster_heat_buses=config_provider("sector", "cluster_heat_buses"),
+        modify_nuts3_shapes=config_provider("mods", "modify_nuts3_shapes"),
+    message:
+        "Recalibrating Austrian household and service heat demand against NEA data"
+    script:
+        scripts("pypsa-at/recalibrate_heat_demand_at.py")
+
+
+rule modify_district_heat_share_at:
+    input:
+        urban_fraction_at=resources("urban_fraction_at_{clusters}.csv"),
+        district_heat_share=resources(
+            "district_heat_share_base_s_{clusters}_{planning_horizons}-modified.csv"
+        ),
+    output:
+        district_heat_share=resources(
+            "district_heat_share_base_s_{clusters}_{planning_horizons}-modified_at.csv"
+        ),
+    log:
+        logs("modify_district_heat_share_at_{clusters}_{planning_horizons}.log"),
+    benchmark:
+        benchmarks("modify_district_heat_share_at_{clusters}_{planning_horizons}")
+    threads: 1
+    resources:
+        mem_mb=1000,
+    message:
+        "Replacing Austrian urban fractions for one planning horizon."
+    script:
+        scripts("pypsa-at/modify_district_heat_share_at.py")
+
+
 rule build_custom_cost_at:
     input:
         custom_cost_files=branch(

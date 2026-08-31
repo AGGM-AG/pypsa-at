@@ -138,3 +138,15 @@ if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
             "Retrieving Statistik Austria municipality register"
         run:
             copy2(input["ods"], output["ods"])
+
+
+rule retrieve_heat_demand_at:
+    input:
+        tif=storage(f"{HEAT_DEMAND_DATASET['url']}/{{heatmap_file}}"),
+    output:
+        tif=f"{HEAT_DEMAND_DATASET['folder']}/{{heatmap_file}}",
+    retries: 2
+    message:
+        "Retrieving Austrian heat demand heatmap {wildcards.heatmap_file}"
+    run:
+        copy2(input.tif, output.tif)

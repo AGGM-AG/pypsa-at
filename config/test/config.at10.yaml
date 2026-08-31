@@ -64,6 +64,8 @@ electricity:
 demand:
   transport:
     use_nea_demand: false
+  heat:
+    apply_at_demand: false
 
 solving:
   solver:

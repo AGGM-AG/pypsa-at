@@ -87,6 +87,7 @@ sector:
   municipal_solid_waste: true
   cluster_heat_buses: true
   hydrogen_turbines: false  # PyPSA-AT uses the PyPSA-DE implementation in electricity.H2_plants instead
+  heat_demand_scenario: WEM  # WEM or Transition Austrian heat demand heatmaps
   methanol:
     regional_methanol_demand: true
     methanol_reforming: true
@@ -190,6 +191,8 @@ industry:
     source_category: Produzierender Bereich # include only industrial production for now
 
 demand:
+  source_years:
+    2025: 2024  # mapping from target years to years in NEA data
   carrier_to_load_mapping:
     industry:
       electricity: industry electricity
@@ -204,6 +207,8 @@ demand:
       ammonia: NH3
   transport:
     use_nea_demand: true
+  heat:
+    apply_at_demand: true
 
 data:
   osm:
@@ -221,6 +226,9 @@ data:
   statistik-at-regions:
     source: primary
     version: "2025"
+  heat_demand_at:
+    source: primary
+    version: v1
 
 pypsa_eur:
   StorageUnit: []

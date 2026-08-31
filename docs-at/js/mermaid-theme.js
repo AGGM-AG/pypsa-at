@@ -71,7 +71,7 @@
       }
 
       diagram.removeAttribute("data-processed");
-      diagram.innerHTML = diagram.dataset.mermaidSource;
+      diagram.textContent = diagram.dataset.mermaidSource;
     });
 
     mermaid.initialize({
