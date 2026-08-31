@@ -63,6 +63,8 @@ nav:
   - Data Flows:
     - explanations/data-flows/index.md
     - Industrial Demand: explanations/data-flows/industrial-demand.md
+    - Heat Demand: explanations/data-flows/heat-demand.md
+    - Road Mobility Demand: explanations/data-flows/road-demand.md
   - National CO2 Balance: explanations/co2-balancing.md
   - TYNDP H2 Import Infrastructure: explanations/h2-imports.md
   - Electricity Grid:

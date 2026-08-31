@@ -9,7 +9,38 @@ PyPSA-AT patch to prepare_sector_network rule.
 
 use rule prepare_sector_network as prepare_sector_network_at with:
     input:
-        **rules.prepare_sector_network.input,
+        **{
+            **rules.prepare_sector_network.input,
+            "transport_demand": branch(
+                config_provider("demand", "transport", "use_nea_demand"),
+                resources("transport_demand_s_{clusters}_at.csv"),
+                resources("transport_demand_s_{clusters}.csv"),
+            ),
+            "transport_data": branch(
+                config_provider("demand", "transport", "use_nea_demand"),
+                resources("transport_data_s_{clusters}_at.csv"),
+                resources("transport_data_s_{clusters}.csv"),
+            ),
+            "avail_profile": branch(
+                config_provider("demand", "transport", "use_nea_demand"),
+                resources("avail_profile_s_{clusters}_at.csv"),
+                resources("avail_profile_s_{clusters}.csv"),
+            ),
+            "dsm_profile": branch(
+                config_provider("demand", "transport", "use_nea_demand"),
+                resources("dsm_profile_s_{clusters}_at.csv"),
+                resources("dsm_profile_s_{clusters}.csv"),
+            ),
+            "district_heat_share": branch(
+                config_provider("demand", "heat", "apply_at_demand"),
+                resources(
+                    "district_heat_share_base_s_{clusters}_{planning_horizons}-modified_at.csv"
+                ),
+                resources(
+                    "district_heat_share_base_s_{clusters}_{planning_horizons}-modified.csv"
+                ),
+            ),
+        },
         powerplants=resources("powerplants_s_{clusters}.csv"),
         inflow=resources("inflow_per_region_{clusters}.nc"),
         hydro_capacities=ancient("data/hydro_capacities.csv"),

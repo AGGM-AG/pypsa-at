@@ -52,11 +52,13 @@ scenarios.manual.yaml  (stakeholder overrides, via run.scenarios.manual_file)
 `config/config.sysgf.yaml` (+ `config/scenarios.sysgf.yaml`) is a standalone
 variant passed via `--configfile`; it is not part of the default stack.
 
-**Config options are schema-validated.** New or changed config keys must be
-reflected in `scripts/lib/validation/config/` (one module per config section).
-Regenerate the derived defaults/schema with `pixi run generate-config`, which
-writes `config/config.default.yaml` and `config/schema.default.json`.
-`test/test_config_schema.py` guards this.
+### Feature toggles
+
+Every new feature section in `config/config.at.yaml` (e.g. a block under `mods:`) carries
+a boolean `enable` key as its first entry. The Python orchestrator in `mods/` guards on it
+and returns early when `false` — the Snakemake DAG must not depend on it. New features
+default to `enable: true`. Declare the key as `enable: bool` in the matching
+`scripts/lib/validation/config/*.py` model and run `pixi run generate-config`.
 
 ## Workflow & DAG Phases
 
@@ -70,7 +72,7 @@ modify ← most Austria-specific model changes happen here
 ↓
 solve
 ↓
-postprocess 
+postprocess
 ↓
 evals
 
@@ -173,8 +175,8 @@ pixi run ruff check .
 pixi run ruff format .
 
 # Testing
-pixi run pytest --result-path="results/{prefix}/{scenario}"  # all tests 
-pixi run pytest -m "AT" --result-path="results/{prefix}/{scenario}"  # PyPSA-AT modifications 
+pixi run pytest --result-path="results/{prefix}/{scenario}"  # all tests
+pixi run pytest -m "AT" --result-path="results/{prefix}/{scenario}"  # PyPSA-AT modifications
 
 # Generate workflow DAGs (Rules and Files)
 pixi run snakemake rulegraph --cores 1
@@ -273,15 +275,15 @@ pixi run pytest test/test_mods/ --result-path=results/{prefix}/{scenario}
 
 ## Git & PR Process
 
+- Code reviews follow the criteria in REVIEW.md
 - Branch naming: feat/, fix/, chore/, docs/
 - All changes to main via Pull Request + human review — no direct pushes
-  (`pre-commit` enforces this with `no-commit-to-branch`)
 - `gh pr view <nr> --comments` — check review comments
 - Add a short entry to `CHANGELOG.AT.md` (Keep a Changelog format) for user-visible changes
 - Fill in `.github/pull_request_template.md`; its checklist is the source of truth:
   tests pass, docs updated, changelog entry, Sourcery Bot suggestions addressed,
   config changes reflected in `scripts/lib/validation`, new rules documented in `docs-at/`
-- `pre-commit` runs ruff, ruff-format, codespell, snakefmt, and yaml formatting
+- `pre-commit` runs ruff, ruff-format, codespell, snakefmt, yaml formatting, and no commits to main branch
 
 ## Conventions & Key Patterns
 
@@ -290,7 +292,7 @@ pixi run pytest test/test_mods/ --result-path=results/{prefix}/{scenario}
 - Import one orchestrator function from `mods/` per Python script in `scripts/`
 - Let the Snakemake workflow fail early on missing input (do not catch exceptions to raise warnings, just fail)
 - Prefer f-strings over %s whenever possible, especially during logging
-- Keep Snakemake simple: implement guard logic in Python scripts (The DAG should not depend on the config). 
+- Keep Snakemake simple: implement guard logic in Python scripts (The DAG should not depend on the config).
 
 ## Data Versions
 
@@ -310,10 +312,3 @@ To add or bump a dataset: add a row to `data/versions.csv` (both `primary` and
   orchestrator is invisible to `scripts/` until it is added to `__all__` there
 - Scripts under `scripts/pypsa-at/` live in a hyphenated directory (not a valid Python
   package name); `pytest.ini`'s `pythonpath` is what makes them importable in tests
-
-## Agent Routing
-
-Adopt the appropriate role based on task type:
-
-- **Product Owner** (`.claude/agents/product-owner.md`): GitHub issue management, backlog prioritisation, feature planning, stakeholder questions, upstream research
-- **Developer** (`.claude/agents/developer.md`): Code implementation, bugfixes, tests, Snakemake rules, refactoring  

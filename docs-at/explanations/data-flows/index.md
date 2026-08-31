@@ -1,11 +1,10 @@
 # Data Flow Diagrams
 
-: This section documents how data moves from its original raw source through the 
-PyPSA-Eur / PyPSA-DE / PyPSA-AT workflow phases. The phases follow the rules 
+This section documents how data moves from its original raw source through the
+PyPSA-Eur / PyPSA-DE / PyPSA-AT workflow phases. The phases follow the rules
 retrieve → build_electricity / build_sector → modify → solve to the final network
-component that is used in the optimization. To help illustrate the data workflow 
-diagrams using mermaid are created.
-
+component that is used in the optimization. Each data flow is illustrated with a
+Mermaid diagram.
 
 
 ## Convention
@@ -45,13 +44,8 @@ data-at-rest (sources and final output), **rounded rectangles** (`["..."]` with 
 the `classDef`) mark transformations in between. So at a glance: slate pill → blue/amber/
 violet rounded boxes → green pill.
 
-Start every diagram with a `%%{init: ...}%%` directive to set a modern sans-serif font,
-generous node/rank spacing, and smooth (`basis`) edge curves, then declare the five
-`classDef`s exactly as shown below (copy verbatim; only the node content changes between
-diagrams):
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontFamily': 'Inter, -apple-system, Segoe UI, sans-serif', 'fontSize': '15px', 'lineColor': '#cbd5e1', 'primaryTextColor': '#1e293b', 'edgeLabelBackground': '#ffffff'}, 'flowchart': {'curve': 'basis', 'nodeSpacing': 45, 'rankSpacing': 55, 'padding': 20}}}%%
 flowchart TD
     classDef source fill:#f8fafc,stroke:#cbd5e1,stroke-width:1px,color:#1e293b,rx:10,ry:10
     classDef step fill:#f0f9ff,stroke:#7dd3fc,stroke-width:1px,color:#0c4a6e,rx:10,ry:10
@@ -117,3 +111,5 @@ than rectangular ones. Use `padding:12px 26px` for pill nodes (`source`/`final`)
 ## Available diagrams
 
 - [Industrial Demand](industrial-demand.md)
+- [Heat Demand](heat-demand.md)
+- [Road Mobility Demand](road-demand.md)

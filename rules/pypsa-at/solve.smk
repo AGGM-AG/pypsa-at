@@ -19,6 +19,12 @@ RESOURCE_META = {
     "industrial_demand_overrides": resources(
         "industrial_demand_overrides_base_s_{clusters}.csv"
     ),
+    "heat_demand_nea_at": resources("heat_demand_nea_at_{clusters}.csv"),
+    "transport_data_at": branch(
+        config_provider("demand", "transport", "use_nea_demand"),
+        resources("transport_data_{clusters}_at.csv"),
+        [],
+    ),
 }
 INPUT_META = ["energy_totals", "trajectories"]
 
@@ -48,7 +54,7 @@ if config["foresight"] == "overnight":
             resource_meta=lambda wildcards, input: {
                 key: value
                 for key, value in input.items()
-                if (key in RESOURCE_META or key in INPUT_META)
+                if (key in RESOURCE_META or key in INPUT_META) and value
             },
             consider_efficiency_classes=config_provider(
                 "clustering", "consider_efficiency_classes"
@@ -89,7 +95,7 @@ if config["foresight"] == "myopic":
             resource_meta=lambda wildcards, input: {
                 key: value
                 for key, value in input.items()
-                if (key in RESOURCE_META or key in INPUT_META)
+                if (key in RESOURCE_META or key in INPUT_META) and value
             },
             consider_efficiency_classes=config_provider(
                 "clustering", "consider_efficiency_classes"
@@ -130,7 +136,7 @@ if config["foresight"] == "perfect":
             resource_meta=lambda wildcards, input: {
                 key: value
                 for key, value in input.items()
-                if (key in RESOURCE_META or key in INPUT_META)
+                if (key in RESOURCE_META or key in INPUT_META) and value
             },
             consider_efficiency_classes=config_provider(
                 "clustering", "consider_efficiency_classes"

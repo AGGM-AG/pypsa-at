@@ -10,7 +10,7 @@ import pypsa
 from snakemake.script import Snakemake
 
 
-def _region_by_load(n: pypsa.Network) -> pd.Series:
+def region_by_load(n: pypsa.Network) -> pd.Series:
     """
     Return the model region belonging to each Load.
 
@@ -68,7 +68,7 @@ def apply_annual_demand_overrides(n: pypsa.Network, snakemake: Snakemake) -> Non
         as_index=False,
     )["value_TWh"].sum()
 
-    load_regions = _region_by_load(n)
+    load_regions = region_by_load(n)
     total_weight = n.snapshot_weightings["generators"].sum()
     for row in targets.itertuples(index=False):
         names = n.loads.index[
