@@ -6,7 +6,8 @@
     },
     "mounts": [
       "source=/mnt/storage,target=/mnt/storage,type=bind",
-      "source=cutouts,target=/IdeaProjects/pypsa-at/cutouts,type=volume"
+      "source=cutouts,target=/IdeaProjects/pypsa-at/cutouts,type=volume",
+      "source=claude-home,target=/root/.claude,type=volume"
     ],
     "forwardPorts": [
       8000,
@@ -18,14 +19,15 @@
     },
     "postCreateCommand": "git fetch --unshallow && pixi run pre-commit install",
     "postAttachCommand": "",
-    "postStartCommand": "find /.jbdevcontainer/config/JetBrains -name '*.vmoptions' | xargs -I{} grep -lF 'Xmx' {} | xargs -I{} sh -c 'grep -qF \"rd.transport.ping.timeout\" \"{}\" || echo \"-Drd.transport.ping.timeout.ms=60000\" >> \"{}\"'",
+    "postStartCommand": "nohup python3 /IdeaProjects/pypsa-at/.devcontainer/relay.py >/tmp/relay.log 2>&1 &",
     "customizations": {
       "jetbrains": {
         "backend": "PyCharm"
       }
     },
+    "runArgs": ["--env-file", "/mnt/storage/pypsa-at-devcontainer.env"],
     "containerEnv": {
       "SHELL": "/bin/zsh"
     },
     "remoteUser": "root"
-  },
+  }
