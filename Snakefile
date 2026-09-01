@@ -84,6 +84,7 @@ NEA_AT = dataset_version("nea-at")
 ANLAGENREGISTER = dataset_version("anlagenregister")
 KFZ_BESTAND_AT = dataset_version("kfz-bestand-at")
 STATISTIK_AT_REGIONS = dataset_version("statistik-at-regions")
+ECONTROL_BESTANDSSTATISTIK = dataset_version("econtrol-bestandsstatistik")
 HEAT_DEMAND_DATASET = dataset_version("heat_demand_at")
 HEAT_DEMAND_DATASETS = {
     "WEM": {year: f"WEM_{year}.tif" for year in (2021, 2030, 2050)},

@@ -19,6 +19,12 @@ that year (lower bound). Plants without any feed-in get ``NA``.
 This aggregation runs for both dataset sources: with ``build`` the plant-level
 CSV is scraped from the website, with ``archive`` it is the CC-BY-4.0 mirror
 retrieved from Zenodo (``data/versions.csv``).
+
+Large water-powered plants are registered once per marketing contract, with
+the full capacity repeated on every entry and the reported feed-in split
+across them (e.g. Malta Hauptstufe: 4 x 730 MW at PLZ 9815 Kolbnitz). Those
+duplicate registrations are collapsed before aggregation, see
+``drop_duplicate_water_registrations``.
 """
 
 import logging
@@ -40,6 +46,30 @@ CAPACITY_UNIT = {"Strom": "MW_el", "Gas": "MW_HHV"}
 
 # Tolerated share of total capacity without a valid postal code (typos).
 MAX_UNMAPPED_CAPACITY_SHARE = 1e-3
+
+# Water-powered ``techcode`` values (whitespace-stripped) subject to the
+# duplicate-registration cleanup.
+WATER_TECHCODES = [
+    "Kleinwasserkraft bis 10 MW",
+    "Wasserkraft > 10 MW",
+    "Hydro power Run-of-river head installation",
+    "Hydro power Storage head installation",
+    "Hydro power Pure pumped storage head installation",
+    "Hydro power Mixed pumped storage head",
+    "Tidal Energy Onshore",
+]
+
+# Water plants above this capacity sharing (plz, engpassleistung_kw) are
+# assumed to be duplicate registrations of one physical plant; smaller
+# same-capacity plants within one postal code are plausible.
+DEDUP_MIN_KW = 50_000.0
+
+# (plz, engpassleistung_kw) groups verified as genuinely distinct plants
+# (research 2026-09, see pypsa-at-planning#312).
+DEDUP_KEEP = {
+    ("5710", 480_000.0),  # Kaprun: Limberg II (2011) + Limberg III (Sep 2025)
+    ("5620", 60_000.0),  # Speicherkraftwerk Schwarzach: 120 MW as 2 x 60 MW
+}
 
 
 def load_postal_to_nuts(path: str) -> pd.Series:
@@ -154,6 +184,58 @@ def map_plants_to_nuts3(
     return out[~unmapped]
 
 
+def drop_duplicate_water_registrations(
+    df: pd.DataFrame,
+    min_kw: float = DEDUP_MIN_KW,
+    keep: set[tuple[str, float]] = DEDUP_KEEP,
+) -> pd.DataFrame:
+    """
+    Drop duplicate register entries for large water-powered plants.
+
+    The register lists the same physical plant once per marketing contract,
+    repeating the full ``engpassleistung_kw`` on every entry while splitting
+    the reported feed-in across them. Among water-powered plants above
+    ``min_kw`` sharing ``(plz, engpassleistung_kw)``, only the entry with the
+    highest total feed-in is kept.
+
+    Parameters
+    ----------
+    df
+        Plant table with cleaned 4-digit ``plz`` (see ``map_plants_to_nuts3``),
+        ``typ``, ``techcode``, ``engpassleistung_kw`` and ``feedin_kwh_*``
+        columns.
+    min_kw
+        Deduplication threshold in kW.
+    keep
+        ``(plz, engpassleistung_kw)`` groups exempt from deduplication because
+        they are verified to be distinct physical plants.
+
+    Returns
+    -------
+    ``df`` without the lower-feed-in duplicate rows.
+    """
+    water = df["typ"].eq("Strom") & (
+        df["techcode"].fillna("").str.strip().isin(WATER_TECHCODES)
+    )
+    keys = pd.Series(list(zip(df["plz"], df["engpassleistung_kw"])), index=df.index)
+    feedin = df[feedin_columns(df)].fillna(0).sum(axis=1)
+    candidates = (
+        df[water & (df["engpassleistung_kw"] > min_kw) & ~keys.isin(keep)]
+        .assign(_feedin=feedin)
+        .sort_values("_feedin", ascending=False)
+    )
+    drop = candidates[
+        candidates.duplicated(subset=["plz", "engpassleistung_kw"], keep="first")
+    ]
+    if not drop.empty:
+        logger.warning(
+            f"Dropped {len(drop)} duplicate water plant registrations "
+            f"({drop['engpassleistung_kw'].sum() / 1e3:.0f} MW): "
+            f"register ids {sorted(drop['id'].astype(int))}."
+        )
+    return df.drop(index=drop.index)
+
+
 def aggregate_to_nuts3(df: pd.DataFrame) -> pd.DataFrame:
     """
     Aggregate plants to ``GROUP_COLUMNS``.
@@ -208,6 +290,7 @@ def main(snakemake: Snakemake) -> None:
     postal_to_nuts = load_postal_to_nuts(snakemake.input.postal_to_nuts)
 
     plants = map_plants_to_nuts3(plants, postal_to_nuts)
+    plants = drop_duplicate_water_registrations(plants)
     plants = add_first_feedin_year(plants)
     agg = aggregate_to_nuts3(plants)
     agg.insert(0, "reference_year", plants["reference_year"].iloc[0])

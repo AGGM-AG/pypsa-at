@@ -47,6 +47,8 @@ desnz_electricity_consumption,unknown,primary,latest supported,2026-02-02,,https
 desnz_electricity_consumption,2026-02-16,archive,latest supported,2026-02-16,,https://data.pypsa.org/workflows/eur/desnz_electricity_consumption/2026-02-16/Subnational_electricity_consumption_statistics_2005-2024.xlsx
 dh_areas,341.5,primary,latest supported,2025-12-02,,https://fordatis.fraunhofer.de/bitstream/fordatis/341.5/2/dh_areas.gpkg
 dh_areas,341.5,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/dh_areas/341.5/dh_areas.gpkg
+econtrol-bestandsstatistik,2025,archive,latest not-tested,2026-09-01,Zenodo mirror stub - record not yet created; upload the two xlsx files and replace the URL,https://zenodo.org/records/TODO/files
+econtrol-bestandsstatistik,2025,build,latest supported,2026-09-01,E-Control Bestandsstatistik Kraftwerkspark (Datenstand Mai 2026): Brutto-Engpassleistung by plant type incl. Pumpspeicher split; national totals; files BeStGes-2025_KW2EPLTyp.xlsx and BeStGes-JR_KWEPL.xlsx under this base URL,https://www.e-control.at/documents/1785851/1811756
 eez,v12_20231025,primary,latest supported,2025-12-02,API request used,https://www.marineregions.org/download_file.php
 eez,v12_20231025,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/eez/v12_20231025/World_EEZ_v12_20231025_LR.zip
 egon,2019-10-02,archive,latest supported,2026-02-23,,https://data.pypsa.org/workflows/de/egon/2019-10-02

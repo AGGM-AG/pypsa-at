@@ -175,6 +175,24 @@ if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
             copy2(input["ods"], output["ods"])
 
 
+if ECONTROL_BESTANDSSTATISTIK["source"] in ["build", "archive"]:
+
+    rule retrieve_econtrol_bestandsstatistik:
+        input:
+            typ=storage(
+                f"{ECONTROL_BESTANDSSTATISTIK['url']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx"
+            ),
+            jr=storage(f"{ECONTROL_BESTANDSSTATISTIK['url']}/BeStGes-JR_KWEPL.xlsx"),
+        output:
+            typ=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx",
+            jr=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-JR_KWEPL.xlsx",
+        message:
+            "Retrieving E-Control Bestandsstatistik Kraftwerkspark (capacity by plant type)"
+        run:
+            copy2(input["typ"], output["typ"])
+            copy2(input["jr"], output["jr"])
+
+
 rule retrieve_heat_demand_at:
     input:
         tif=storage(f"{HEAT_DEMAND_DATASET['url']}/{{heatmap_file}}"),
