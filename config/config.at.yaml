@@ -221,7 +221,7 @@ data:
     source: primary
     version: latest
   anlagenregister:
-    source: build
+    source: archive
     version: latest
   kfz-bestand-at:
     source: primary
