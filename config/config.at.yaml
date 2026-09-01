@@ -220,6 +220,9 @@ data:
   nea-at:
     source: primary
     version: latest
+  anlagenregister:
+    source: archive
+    version: latest
   kfz-bestand-at:
     source: primary
     version: "2025"

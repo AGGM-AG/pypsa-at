@@ -81,6 +81,7 @@ include: "rules/common.smk"
 OSM_DATASET = dataset_version("osm")
 KLIEN_POTENTIALS = dataset_version("klien_potentials")
 NEA_AT = dataset_version("nea-at")
+ANLAGENREGISTER = dataset_version("anlagenregister")
 KFZ_BESTAND_AT = dataset_version("kfz-bestand-at")
 STATISTIK_AT_REGIONS = dataset_version("statistik-at-regions")
 HEAT_DEMAND_DATASET = dataset_version("heat_demand_at")

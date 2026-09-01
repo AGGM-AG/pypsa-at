@@ -276,6 +276,27 @@ if NEA_AT["source"] == "primary":
             scripts("pypsa-at/build_nea_at.py")
 
 
+if ANLAGENREGISTER["source"] in ("build", "archive"):
+
+    rule build_anlagenregister_at:
+        input:
+            plants=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
+            postal_to_nuts="data/pypsa-at/AT-Postal-to-NUTS.csv",
+        output:
+            nuts3=f"{ANLAGENREGISTER['folder']}/anlagenregister_nuts3.csv",
+        log:
+            logs("build_anlagenregister_at.log"),
+        benchmark:
+            benchmarks("build_anlagenregister_at")
+        threads: 1
+        resources:
+            mem_mb=4000,
+        message:
+            "Aggregating E-Control Anlagenregister plants to NUTS3"
+        script:
+            scripts("pypsa-at/build_anlagenregister_at.py")
+
+
 if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
 
     rule build_statistik_at_regions:

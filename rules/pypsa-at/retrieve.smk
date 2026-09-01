@@ -114,6 +114,41 @@ rule retrieve_ffe_industry_load_profiles:
             json.dump(data, f)
 
 
+if ANLAGENREGISTER["source"] == "build":
+
+    rule retrieve_anlagenregister_at:
+        output:
+            plants=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
+        log:
+            logs("retrieve_anlagenregister_at.log"),
+        threads: 1
+        resources:
+            mem_mb=2000,
+        params:
+            base_url=ANLAGENREGISTER["url"],
+            timeout=900,  # seconds; Strom queries for large Bundesländer take minutes
+            retries=2,
+            pause=2,  # seconds between requests
+        message:
+            "Retrieving E-Control Anlagenregister (9 Strom + 1 Gas queries, this takes a while)"
+        script:
+            scripts("pypsa-at/retrieve_anlagenregister_at.py")
+
+elif ANLAGENREGISTER["source"] == "archive":
+
+    rule retrieve_anlagenregister_at:
+        input:
+            plants=storage(f"{ANLAGENREGISTER['url']}/anlagenregister_plants.csv"),
+        output:
+            plants=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
+        log:
+            logs("retrieve_anlagenregister_at.log"),
+        message:
+            "Retrieving the mirrored E-Control Anlagenregister (plant-level CSV) from Zenodo"
+        run:
+            copy2(input.plants, output.plants)
+
+
 if KFZ_BESTAND_AT["source"] in ["primary", "archive"]:
 
     rule retrieve_kfz_bestand_at:
