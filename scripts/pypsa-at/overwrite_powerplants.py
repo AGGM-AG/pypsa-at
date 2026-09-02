@@ -15,8 +15,15 @@ layer (``prepare_sector_network`` -> ``process_hydro``).
 import logging
 
 import pandas as pd
+from build_anlagenregister_at import (
+    MAX_UNMAPPED_CAPACITY_SHARE,
+    add_first_feedin_year,
+    clean_plz,
+    feedin_columns,
+    load_postal_to_nuts,
+)
 
-from mods.clustering.utils import _map_at_nuts3_to_nuts2
+from mods.clustering.utils import map_at_nuts3_to_nuts2
 from scripts._helpers import configure_logging
 
 logger = logging.getLogger(__name__)
@@ -28,6 +35,17 @@ CH_NUCLEAR_DATEOUT = {
     "Goesgen": 2035,  # operation to ~2040; dropped at 2040 horizon
     "Leibstadt": 2040,  # operation to ~2045
 }
+
+# Anlagenregister technology code (whitespace-stripped) of the small hydro
+# class added per plant; powerplantmatching run-of-river plants below the
+# class limit are replaced to avoid double counting.
+KLEINWASSERKRAFT_TECHCODE = "Kleinwasserkraft bis 10 MW"
+KLEINWASSERKRAFT_MAX_MW = 10.0
+
+# The register publishes no commissioning dates and feed-in only for a six
+# year window. Plants whose first feed-in year lies inside the window use it
+# as DateIn proxy; older plants get this assumed build year.
+KLEINWASSERKRAFT_DEFAULT_DATEIN = 2000
 
 
 def overwrite_nuclear_dateout(ppl: pd.DataFrame, dateout: dict) -> pd.DataFrame:
@@ -103,7 +121,7 @@ def overwrite_biogas_to_power_plants_AT(
         plants added here would be filtered out again.
     clustering
         clustering identifier, either AT10 (NUTS2) or AT35 (NUTS3). Needed for
-        AT10, maps powerplants accordingly using _map_at_nuts3_to_nuts2.
+        AT10, maps powerplants accordingly using map_at_nuts3_to_nuts2.
 
     Returns
     -------
@@ -152,7 +170,7 @@ def overwrite_biogas_to_power_plants_AT(
 
     # Relabel NUTS3 codes to NUTS2 if run has lower resolution
     if clustering.startswith("AT10"):
-        anlreg["nuts"] = anlreg["nuts"].map(_map_at_nuts3_to_nuts2)
+        anlreg["nuts"] = anlreg["nuts"].map(map_at_nuts3_to_nuts2)
 
     new_ppls = pd.DataFrame(
         {
@@ -169,6 +187,147 @@ def overwrite_biogas_to_power_plants_AT(
 
     logger.info(
         f"Added {len(new_ppls)} Austrian biogas plants with "
+        f"{new_ppls['Capacity'].sum():.1f} MW from Anlagenregister."
+    )
+    return pd.concat([ppl, new_ppls], ignore_index=True)
+
+
+def add_kleinwasserkraft_to_power_plants_at(
+    ppl: pd.DataFrame,
+    anlagenregister_plants_file: str,
+    postal_to_nuts_file: str,
+    threshold_capacity: float,
+    clustering: str,
+) -> pd.DataFrame:
+    """
+    Replace the small hydro fleet with Anlagenregister Kleinwasserkraft plants.
+
+    powerplantmatching covers only ~70 MW of Austrian run-of-river plants
+    below 10 MW, while the E-Control Anlagenregister lists the full
+    ``Kleinwasserkraft bis 10 MW`` class (~3600 plants, ~1.8 GW; E-Control
+    Bestandsstatistik: 1.4 GW Laufkraft below 10 MW). This function drops the
+    incidental powerplantmatching run-of-river plants below
+    ``KLEINWASSERKRAFT_MAX_MW`` and adds every register plant of the class
+    individually, mapped to its NUTS3 bus via postal code
+    (see pypsa-at-planning#312).
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table with ``Name``, ``Country``, ``Fueltype``,
+        ``Technology``, ``Capacity`` and ``bus`` columns
+        (as produced by ``build_powerplants``).
+    anlagenregister_plants_file
+        Plant-level Anlagenregister CSV (``anlagenregister_plants.csv``).
+    postal_to_nuts_file
+        file that maps all Austrian postal codes (PLZ) to NUTS3 region codes.
+    threshold_capacity
+        capacity threshold (MW) applied downstream when aggregating existing
+        plants per node. Must be <= 5 MW, otherwise the small hydro plants
+        added here would be filtered out again.
+    clustering
+        clustering identifier, either AT10 (NUTS2) or AT35 (NUTS3). Needed for
+        AT10, maps powerplants accordingly using map_at_nuts3_to_nuts2.
+
+    Returns
+    -------
+    :
+        A copy of ``ppl`` with the register small hydro fleet instead of the
+        powerplantmatching one.
+
+    Raises
+    ------
+    ValueError
+        If the register contains no Kleinwasserkraft plants, if too much
+        capacity has unmappable postal codes (both indicate changed source
+        data), or if ``threshold_capacity`` exceeds 5 MW.
+    """
+    if threshold_capacity > 5:
+        raise ValueError(
+            f"threshold_capacity for adding existing capacities per node is {threshold_capacity} MW,"
+            "but must be <= 5 MW to keep small Austrian hydro plants."
+            "Change config.at.yaml setting accordingly."
+        )
+
+    plants = pd.read_csv(
+        anlagenregister_plants_file, dtype={"plz": str}, low_memory=False
+    )
+    kwk = plants.assign(techcode=plants["techcode"].fillna("").str.strip()).query(
+        "typ == 'Strom' and techcode == @KLEINWASSERKRAFT_TECHCODE"
+    )
+    if kwk.empty:
+        raise ValueError(
+            f"No {KLEINWASSERKRAFT_TECHCODE!r} plants found in "
+            f"{anlagenregister_plants_file}. Has the register format changed?"
+        )
+
+    kwk["plz"] = clean_plz(kwk["plz"])
+    kwk["nuts"] = kwk["plz"].map(load_postal_to_nuts(postal_to_nuts_file))
+    unmapped = kwk["nuts"].isna()
+    unmapped_share = (
+        kwk.loc[unmapped, "engpassleistung_kw"].sum() / kwk["engpassleistung_kw"].sum()
+    )
+    if unmapped_share > MAX_UNMAPPED_CAPACITY_SHARE:
+        raise ValueError(
+            f"{unmapped.sum()} Kleinwasserkraft plants ({unmapped_share:.2%} of "
+            "class capacity) have no NUTS3 mapping. Update the postal-to-nuts "
+            "file or check the register data."
+        )
+    if unmapped.any():
+        logger.warning(
+            f"Dropped {unmapped.sum()} Kleinwasserkraft plants "
+            f"({unmapped_share:.3%} of class capacity) with unmappable postal codes."
+        )
+    kwk = kwk[~unmapped]
+
+    # DateIn proxy: first feed-in year, only meaningful for plants first
+    # feeding in after the earliest published year (older plants -> default).
+    kwk = add_first_feedin_year(kwk)
+    _earliest_year = min(int(c.rsplit("_", 1)[1]) for c in feedin_columns(kwk))
+    date_in = (
+        kwk["first_feedin_year"]
+        .where(kwk["first_feedin_year"] > _earliest_year)
+        .fillna(KLEINWASSERKRAFT_DEFAULT_DATEIN)
+        .astype(float)
+    )
+
+    # Relabel NUTS3 codes to NUTS2 if run has lower resolution
+    if clustering.startswith("AT10"):
+        kwk["nuts"] = kwk["nuts"].map(map_at_nuts3_to_nuts2)
+
+    small_ror = ppl.query(
+        "Country == 'AT' "
+        "and Fueltype == 'Hydro' "
+        "and Technology == 'Run-Of-River' "
+        "and Capacity < @KLEINWASSERKRAFT_MAX_MW"
+    )
+    logger.info(
+        f"Replaced {len(small_ror)} powerplantmatching run-of-river plants < "
+        f"{KLEINWASSERKRAFT_MAX_MW:.0f} MW ({small_ror['Capacity'].sum():.1f} MW) "
+        "with the Anlagenregister Kleinwasserkraft fleet."
+    )
+    ppl = ppl.drop(index=small_ror.index)
+
+    # register ids are only unique within (typ, bundesland)
+    new_ppls = pd.DataFrame(
+        {
+            "Name": (
+                "Kleinwasserkraft AT "
+                + kwk["bundesland"].astype(str)
+                + "-"
+                + kwk["id"].astype(int).astype(str)
+            ),
+            "Fueltype": "Hydro",
+            "Technology": "Run-Of-River",
+            "Set": "PP",
+            "Country": "AT",
+            "DateIn": date_in.values,
+            "Capacity": kwk["engpassleistung_kw"].values / 1e3,
+            "bus": kwk["nuts"].values,
+        }
+    )
+    logger.info(
+        f"Added {len(new_ppls)} Austrian Kleinwasserkraft plants with "
         f"{new_ppls['Capacity'].sum():.1f} MW from Anlagenregister."
     )
     return pd.concat([ppl, new_ppls], ignore_index=True)
@@ -212,14 +371,14 @@ def reclassify_hydro_technologies_at(
     """
     reclassification = pd.read_csv(reclassification_file)
     ppl = ppl.copy()
-    at_hydro = (ppl["Country"] == "AT") & (ppl["Fueltype"] == "Hydro")
 
     for row in reclassification.itertuples():
-        matches = ppl.index[
-            at_hydro
-            & (ppl["Name"] == row.Name)
-            & (ppl["Technology"] == row.technology_old)
-        ]
+        matches = ppl.query(
+            "Country == 'AT' "
+            "and Fueltype == 'Hydro' "
+            "and Name == @row.Name "
+            "and Technology == @row.technology_old"
+        ).index
         if len(matches) != 1:
             raise ValueError(
                 f"Expected exactly one AT hydro plant {row.Name!r} with "
@@ -275,6 +434,13 @@ def overwrite_powerplants(snakemake):
     if snakemake.params.update_hydro_capacities_AT:
         ppl_overwrite = reclassify_hydro_technologies_at(
             ppl_overwrite, snakemake.input.hydro_reclassification
+        )
+        ppl_overwrite = add_kleinwasserkraft_to_power_plants_at(
+            ppl_overwrite,
+            anlagenregister_plants_file=snakemake.input.anlagenregister_plants,
+            postal_to_nuts_file=snakemake.input.postal_to_nuts,
+            threshold_capacity=snakemake.params.threshold_capacity,
+            clustering=snakemake.params.clustering,
         )
     else:
         logger.info(

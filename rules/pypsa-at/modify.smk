@@ -317,6 +317,7 @@ rule overwrite_powerplants_at:
         anlagenregister="data/pypsa-at/Anlagenregister_electricity_from_renewable_gas_AT.csv",
         postal_to_nuts="data/pypsa-at/AT-Postal-to-NUTS.csv",
         hydro_reclassification="data/pypsa-at/hydro_technology_reclassification_AT.csv",
+        anlagenregister_plants=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
     output:
         powerplants=resources("powerplants_s_{clusters}-overwrite.csv"),
     log:

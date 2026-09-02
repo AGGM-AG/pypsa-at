@@ -166,7 +166,7 @@ def _(WATER_TECHCODES, ar_plants_path, bar, pd, postal_to_nuts_path):
     ar_water = ar_all.query("typ == 'Strom'").assign(
         techcode=lambda df: df["techcode"].str.strip()
     )
-    ar_water = ar_water[ar_water["techcode"].isin(WATER_TECHCODES)].copy()
+    ar_water = ar_water.query("techcode in @WATER_TECHCODES").copy()
     ar_water["category"] = ar_water["techcode"].map(WATER_TECHCODES)
     ar_water["capacity_mw"] = ar_water["engpassleistung_kw"] / 1e3
     ar_water["plz_clean"] = bar.clean_plz(ar_water["plz"])
