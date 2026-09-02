@@ -47,6 +47,16 @@ KLEINWASSERKRAFT_MAX_MW = 10.0
 # as DateIn proxy; older plants get this assumed build year.
 KLEINWASSERKRAFT_DEFAULT_DATEIN = 2000
 
+# Name prefix of the synthetic register plants; used by the rescaling step
+# to identify them.
+KLEINWASSERKRAFT_NAME_PREFIX = "Kleinwasserkraft AT "
+
+# Tolerated relative deviation between the register Kleinwasserkraft class
+# capacity and the E-Control Bestandsstatistik total below 10 MW. The known
+# class-definition gap is ~12.5 %; anything larger indicates changed or
+# broken source data.
+KLEINWASSERKRAFT_MAX_SCALE_DEVIATION = 0.15
+
 
 def overwrite_nuclear_dateout(ppl: pd.DataFrame, dateout: dict) -> pd.DataFrame:
     """
@@ -95,7 +105,7 @@ def overwrite_nuclear_dateout(ppl: pd.DataFrame, dateout: dict) -> pd.DataFrame:
     return ppl
 
 
-def overwrite_biogas_to_power_plants_AT(
+def overwrite_biogas_to_power_plants_at(
     ppl: pd.DataFrame,
     anlagenregister_file: str,
     postal_to_nuts_file: str,
@@ -125,7 +135,8 @@ def overwrite_biogas_to_power_plants_AT(
 
     Returns
     -------
-    A copy of ``ppl`` with added biogas powerplants for Austria from the Anlagenregister.
+    :
+        A copy of ``ppl`` with added biogas powerplants for Austria from the Anlagenregister.
 
     Raises
     ------
@@ -192,11 +203,29 @@ def overwrite_biogas_to_power_plants_AT(
     return pd.concat([ppl, new_ppls], ignore_index=True)
 
 
+def _read_small_hydro_anchor_mw(bestandsstatistik_typ_file: str) -> float:
+    """
+    Read the total hydro Engpassleistung below 10 MW from the Bestandsstatistik.
+
+    Sums the two ``bis 10 MW`` rows (Laufkraftwerke and Speicherkraftwerke) of
+    sheet ``EPL_KWTyp`` in E-Control's ``BeStGes-{year}_KW2EPLTyp.xlsx``.
+    """
+    epl = pd.read_excel(bestandsstatistik_typ_file, sheet_name="EPL_KWTyp", header=None)
+    below_10 = epl[epl.iloc[:, 2].astype(str).str.strip() == "bis 10 MW"]
+    anchor_mw = pd.to_numeric(below_10.iloc[:, 5], errors="coerce").sum()
+    if len(below_10) != 2 or not 500 < anchor_mw < 5000:
+        raise ValueError(
+            f"Unexpected layout in {bestandsstatistik_typ_file}: found "
+            f"{len(below_10)} 'bis 10 MW' rows summing to {anchor_mw:.0f} MW. "
+            "Has the E-Control file format changed?"
+        )
+    return float(anchor_mw)
+
+
 def add_kleinwasserkraft_to_power_plants_at(
     ppl: pd.DataFrame,
     anlagenregister_plants_file: str,
     postal_to_nuts_file: str,
-    threshold_capacity: float,
     clustering: str,
 ) -> pd.DataFrame:
     """
@@ -221,10 +250,6 @@ def add_kleinwasserkraft_to_power_plants_at(
         Plant-level Anlagenregister CSV (``anlagenregister_plants.csv``).
     postal_to_nuts_file
         file that maps all Austrian postal codes (PLZ) to NUTS3 region codes.
-    threshold_capacity
-        capacity threshold (MW) applied downstream when aggregating existing
-        plants per node. Must be <= 5 MW, otherwise the small hydro plants
-        added here would be filtered out again.
     clustering
         clustering identifier, either AT10 (NUTS2) or AT35 (NUTS3). Needed for
         AT10, maps powerplants accordingly using map_at_nuts3_to_nuts2.
@@ -238,17 +263,10 @@ def add_kleinwasserkraft_to_power_plants_at(
     Raises
     ------
     ValueError
-        If the register contains no Kleinwasserkraft plants, if too much
+        If the register contains no Kleinwasserkraft plants or too much
         capacity has unmappable postal codes (both indicate changed source
-        data), or if ``threshold_capacity`` exceeds 5 MW.
+        data).
     """
-    if threshold_capacity > 5:
-        raise ValueError(
-            f"threshold_capacity for adding existing capacities per node is {threshold_capacity} MW,"
-            "but must be <= 5 MW to keep small Austrian hydro plants."
-            "Change config.at.yaml setting accordingly."
-        )
-
     plants = pd.read_csv(
         anlagenregister_plants_file, dtype={"plz": str}, low_memory=False
     )
@@ -312,7 +330,7 @@ def add_kleinwasserkraft_to_power_plants_at(
     new_ppls = pd.DataFrame(
         {
             "Name": (
-                "Kleinwasserkraft AT "
+                KLEINWASSERKRAFT_NAME_PREFIX
                 + kwk["bundesland"].astype(str)
                 + "-"
                 + kwk["id"].astype(int).astype(str)
@@ -326,11 +344,148 @@ def add_kleinwasserkraft_to_power_plants_at(
             "bus": kwk["nuts"].values,
         }
     )
+
     logger.info(
         f"Added {len(new_ppls)} Austrian Kleinwasserkraft plants with "
         f"{new_ppls['Capacity'].sum():.1f} MW from Anlagenregister."
     )
     return pd.concat([ppl, new_ppls], ignore_index=True)
+
+
+def scale_kleinwasserkraft_to_bestandsstatistik_at(
+    ppl: pd.DataFrame, bestandsstatistik_typ_file: str
+) -> pd.DataFrame:
+    """
+    Scale the added Kleinwasserkraft fleet to the E-Control capacity total.
+
+    The E-Control Bestandsstatistik is used as ground truth for the
+    Austria-wide capacity per technology. The register Kleinwasserkraft
+    class and E-Control's size-class accounting differ by ~200 MW
+    (~12.5 %), so the plants added by
+    ``add_kleinwasserkraft_to_power_plants_at`` (identified by
+    ``KLEINWASSERKRAFT_NAME_PREFIX``) are scaled uniformly to the
+    Bestandsstatistik total below 10 MW, preserving the register's
+    regional distribution.
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table including the added Kleinwasserkraft plants.
+    bestandsstatistik_typ_file
+        E-Control Bestandsstatistik Kraftwerkstypen xlsx.
+
+    Returns
+    -------
+    A copy of ``ppl`` with scaled Kleinwasserkraft capacities.
+
+    Raises
+    ------
+    ValueError
+        If no Kleinwasserkraft plants are present, or if the scale factor
+        deviates by more than ``KLEINWASSERKRAFT_MAX_SCALE_DEVIATION`` from
+        1 (both indicate changed or broken source data).
+    """
+    ppl = ppl.copy()
+    kwk_rows = ppl["Name"].str.startswith(KLEINWASSERKRAFT_NAME_PREFIX, na=False)
+    if not kwk_rows.any():
+        raise ValueError(
+            f"No plants with name prefix {KLEINWASSERKRAFT_NAME_PREFIX!r} "
+            "found; run add_kleinwasserkraft_to_power_plants_at first."
+        )
+    class_mw = ppl.loc[kwk_rows, "Capacity"].sum()
+
+    anchor_mw = _read_small_hydro_anchor_mw(bestandsstatistik_typ_file)
+    scale = anchor_mw / class_mw
+    if abs(1 - scale) > KLEINWASSERKRAFT_MAX_SCALE_DEVIATION:
+        raise ValueError(
+            f"Kleinwasserkraft scale factor {scale:.3f} deviates more than "
+            f"{KLEINWASSERKRAFT_MAX_SCALE_DEVIATION:.0%} from 1: register class "
+            f"capacity {class_mw:.0f} MW vs. E-Control Bestandsstatistik "
+            f"anchor {anchor_mw:.0f} MW. Check both datasets for changed "
+            "content or format."
+        )
+    ppl.loc[kwk_rows, "Capacity"] *= scale
+    logger.info(
+        f"Scaled {int(kwk_rows.sum())} Kleinwasserkraft plants by {scale:.3f} "
+        f"to the E-Control Bestandsstatistik total below 10 MW of "
+        f"{anchor_mw:.0f} MW."
+    )
+    return ppl
+
+
+def apply_grenzkraftwerke_shares_at(
+    ppl: pd.DataFrame, grenzkraftwerke_file: str
+) -> pd.DataFrame:
+    """
+    Scale the AT/DE border hydro plants to their treaty shares.
+
+    The Inn and Danube Grenzkraftwerke are jointly owned 50/50 with Bavaria
+    (OeBK and Donaukraftwerk Jochenstein AG). powerplantmatching lists four
+    of them twice (once per country) and every entry at full capacity, so
+    both the Austrian and the German bus double count the same machines
+    (see pypsa-at-planning#92). Scaling each listed entry by its treaty
+    ``share`` assigns every country its energy-rights half.
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table with ``Name``, ``Country``, ``Fueltype``,
+        ``Capacity`` and ``bus`` columns.
+    grenzkraftwerke_file
+        CSV with columns ``Name``, ``country``, ``bus``, ``capacity_mw``,
+        ``share``, ``river`` and ``note``.
+
+    Returns
+    -------
+    :
+        A copy of ``ppl`` with border plant capacities scaled to treaty shares.
+
+    Raises
+    ------
+    ValueError
+        If a list entry does not match exactly one plant or the matched
+        capacity deviates by more than 1 MW (changed upstream dataset).
+    """
+    gkw = pd.read_csv(grenzkraftwerke_file)
+    ppl = ppl.copy()
+
+    for row in gkw.itertuples():
+        matches = ppl.query(
+            "Country == @row.country and Fueltype == 'Hydro' and Name == @row.Name"
+        ).index
+        if len(matches) != 1:
+            raise ValueError(
+                f"Expected exactly one {row.country} hydro plant {row.Name!r}, "
+                f"found {len(matches)}. Powerplants data changed upstream; "
+                f"re-check {grenzkraftwerke_file}."
+            )
+        idx = matches[0]
+        if abs(ppl.at[idx, "Capacity"] - row.capacity_mw) > 1.0:
+            raise ValueError(
+                f"Capacity mismatch for {row.Name!r} ({row.country}): "
+                f"powerplants table has {ppl.at[idx, 'Capacity']:.1f} MW, the "
+                f"Grenzkraftwerke list expects {row.capacity_mw:.1f} MW. "
+                f"Re-check {grenzkraftwerke_file}."
+            )
+        if ppl.at[idx, "bus"] != row.bus:
+            logger.warning(
+                f"{row.Name!r} sits at bus {ppl.at[idx, 'bus']!r} but the "
+                f"Grenzkraftwerke list expects {row.bus!r} (differing "
+                f"clustering?). Scaling anyway."
+            )
+        ppl.at[idx, "Capacity"] = row.capacity_mw * row.share
+
+    _removed = (
+        gkw.assign(removed=gkw["capacity_mw"] * (1 - gkw["share"]))
+        .groupby("country")["removed"]
+        .sum()
+    )
+    for country, mw in _removed.items():
+        logger.info(
+            f"Scaled {int((gkw['country'] == country).sum())} Grenzkraftwerke "
+            f"to treaty shares: removed {mw:.0f} MW from {country}."
+        )
+    return ppl
 
 
 def reclassify_hydro_technologies_at(
@@ -355,7 +510,9 @@ def reclassify_hydro_technologies_at(
         (as produced by ``build_powerplants``).
     reclassification_file
         CSV with columns ``Name``, ``bus``, ``capacity_mw``,
-        ``technology_old``, ``technology_new``, ``group`` and ``note``.
+        ``technology_old``, ``technology_new``, ``group``, ``note`` and
+        optionally ``capacity_new`` (corrected nameplate capacity in MW,
+        applied where set).
 
     Returns
     -------
@@ -401,6 +558,12 @@ def reclassify_hydro_technologies_at(
                 f"clustering?). Reclassifying anyway."
             )
         ppl.at[idx, "Technology"] = row.technology_new
+        if pd.notna(getattr(row, "capacity_new", None)):
+            logger.info(
+                f"Corrected nameplate capacity of {row.Name!r}: "
+                f"{ppl.at[idx, 'Capacity']:.1f} -> {row.capacity_new:.1f} MW."
+            )
+            ppl.at[idx, "Capacity"] = row.capacity_new
 
     summary = reclassification.groupby(["technology_old", "technology_new"])[
         "capacity_mw"
@@ -419,7 +582,7 @@ def overwrite_powerplants(snakemake):
     ppl_overwrite = overwrite_nuclear_dateout(_ppl, CH_NUCLEAR_DATEOUT)
 
     if snakemake.params.add_biogas_to_power_plants_AT:
-        ppl_overwrite = overwrite_biogas_to_power_plants_AT(
+        ppl_overwrite = overwrite_biogas_to_power_plants_at(
             ppl_overwrite,
             anlagenregister_file=snakemake.input.anlagenregister,
             postal_to_nuts_file=snakemake.input.postal_to_nuts,
@@ -435,12 +598,17 @@ def overwrite_powerplants(snakemake):
         ppl_overwrite = reclassify_hydro_technologies_at(
             ppl_overwrite, snakemake.input.hydro_reclassification
         )
+        ppl_overwrite = apply_grenzkraftwerke_shares_at(
+            ppl_overwrite, snakemake.input.grenzkraftwerke
+        )
         ppl_overwrite = add_kleinwasserkraft_to_power_plants_at(
             ppl_overwrite,
             anlagenregister_plants_file=snakemake.input.anlagenregister_plants,
             postal_to_nuts_file=snakemake.input.postal_to_nuts,
-            threshold_capacity=snakemake.params.threshold_capacity,
             clustering=snakemake.params.clustering,
+        )
+        ppl_overwrite = scale_kleinwasserkraft_to_bestandsstatistik_at(
+            ppl_overwrite, snakemake.input.bestandsstatistik_typ
         )
     else:
         logger.info(
