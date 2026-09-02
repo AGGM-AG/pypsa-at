@@ -3,14 +3,13 @@
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
 """
-Snakemake script: override DateOut on matched CH nuclear reactors.
+Snakemake script: overwrite attributes in the matched powerplants table.
 
-Reads the matched powerplants table, applies the CH nuclear DateOut
-override, and writes the patched table consumed (only) by ``add_existing_baseyear``.
-
-See Also
---------
-mods.network.powerplants.overwrite_nuclear_dateout : the underlying implementation.
+Applies the CH nuclear ``DateOut`` override, optionally adds Austrian biogas
+plants from the Anlagenregister and optionally corrects the ``Technology`` of
+misclassified Austrian hydro plants (``mods.update_hydro_capacities_AT``).
+The patched table is consumed by ``add_existing_baseyear`` and by the mods
+layer (``prepare_sector_network`` -> ``process_hydro``).
 """
 
 import logging
@@ -175,22 +174,112 @@ def overwrite_biogas_to_power_plants_AT(
     return pd.concat([ppl, new_ppls], ignore_index=True)
 
 
-def overwrite_powerplants():
+def reclassify_hydro_technologies_at(
+    ppl: pd.DataFrame, reclassification_file: str
+) -> pd.DataFrame:
+    """
+    Correct the ``Technology`` of misclassified Austrian hydro plants.
+
+    powerplantmatching labels the large Austrian river chains (Danube, Drau,
+    Mur, Inn, Salzach, Ill) as ``Reservoir`` although they are run-of-river
+    plants, which starves the ``ror`` carrier and inflates ``hydro`` in the
+    model. The curated plant list in
+    ``data/pypsa-at/hydro_technology_reclassification_AT.csv`` (verified
+    against operator data, see pypsa-at-planning#312) moves each plant to its
+    correct technology.
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table with ``Name``, ``Country``, ``Fueltype``,
+        ``Technology``, ``Capacity`` and ``bus`` columns
+        (as produced by ``build_powerplants``).
+    reclassification_file
+        CSV with columns ``Name``, ``bus``, ``capacity_mw``,
+        ``technology_old``, ``technology_new``, ``group`` and ``note``.
+
+    Returns
+    -------
+    :
+        A copy of ``ppl`` with corrected ``Technology`` values.
+
+    Raises
+    ------
+    ValueError
+        If a list entry does not match exactly one Austrian hydro plant, or
+        if the matched capacity deviates by more than 1 MW. Both indicate a
+        changed upstream dataset that warrants re-checking the list.
+    """
+    reclassification = pd.read_csv(reclassification_file)
+    ppl = ppl.copy()
+    at_hydro = (ppl["Country"] == "AT") & (ppl["Fueltype"] == "Hydro")
+
+    for row in reclassification.itertuples():
+        matches = ppl.index[
+            at_hydro
+            & (ppl["Name"] == row.Name)
+            & (ppl["Technology"] == row.technology_old)
+        ]
+        if len(matches) != 1:
+            raise ValueError(
+                f"Expected exactly one AT hydro plant {row.Name!r} with "
+                f"Technology {row.technology_old!r}, found {len(matches)}. "
+                f"Powerplants data changed upstream; re-check "
+                f"{reclassification_file}."
+            )
+        idx = matches[0]
+        if abs(ppl.at[idx, "Capacity"] - row.capacity_mw) > 1.0:
+            raise ValueError(
+                f"Capacity mismatch for {row.Name!r}: powerplants table has "
+                f"{ppl.at[idx, 'Capacity']:.1f} MW, the reclassification list "
+                f"expects {row.capacity_mw:.1f} MW. Re-check "
+                f"{reclassification_file}."
+            )
+        if ppl.at[idx, "bus"] != row.bus:
+            logger.warning(
+                f"{row.Name!r} sits at bus {ppl.at[idx, 'bus']!r} but the "
+                f"reclassification list expects {row.bus!r} (differing "
+                f"clustering?). Reclassifying anyway."
+            )
+        ppl.at[idx, "Technology"] = row.technology_new
+
+    summary = reclassification.groupby(["technology_old", "technology_new"])[
+        "capacity_mw"
+    ].agg(["size", "sum"])
+    for (old, new), r in summary.iterrows():
+        logger.info(
+            f"Reclassified {r['size']:.0f} Austrian hydro plants "
+            f"({r['sum']:.0f} MW) from {old} to {new}."
+        )
+    return ppl
+
+
+def overwrite_powerplants(snakemake):
     """Orchestrator function."""
     _ppl = pd.read_csv(snakemake.input.powerplants, index_col=0)
     ppl_overwrite = overwrite_nuclear_dateout(_ppl, CH_NUCLEAR_DATEOUT)
-    if not snakemake.params.add_biogas_to_power_plants_AT:
+
+    if snakemake.params.add_biogas_to_power_plants_AT:
+        ppl_overwrite = overwrite_biogas_to_power_plants_AT(
+            ppl_overwrite,
+            anlagenregister_file=snakemake.input.anlagenregister,
+            postal_to_nuts_file=snakemake.input.postal_to_nuts,
+            threshold_capacity=snakemake.params.threshold_capacity,
+            clustering=snakemake.params.clustering,
+        )
+    else:
         logger.info(
             "Skipping Austrian biogas plant addition. config option add_biogas_to_power_plants_AT is false."
         )
-        return ppl_overwrite
-    ppl_overwrite = overwrite_biogas_to_power_plants_AT(
-        ppl_overwrite,
-        anlagenregister_file=snakemake.input.anlagenregister,
-        postal_to_nuts_file=snakemake.input.postal_to_nuts,
-        threshold_capacity=snakemake.params.threshold_capacity,
-        clustering=snakemake.params.clustering,
-    )
+
+    if snakemake.params.update_hydro_capacities_AT:
+        ppl_overwrite = reclassify_hydro_technologies_at(
+            ppl_overwrite, snakemake.input.hydro_reclassification
+        )
+    else:
+        logger.info(
+            "Skipping Austrian hydro technology reclassification. config option mods.update_hydro_capacities_AT.enable is false."
+        )
     return ppl_overwrite
 
 
@@ -211,5 +300,5 @@ if __name__ == "__main__":
 
     configure_logging(snakemake)
 
-    result = overwrite_powerplants()
+    result = overwrite_powerplants(snakemake)
     result.to_csv(snakemake.output.powerplants)
