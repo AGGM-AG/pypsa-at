@@ -6,11 +6,61 @@
 
 import logging
 
+import geopandas as gpd
 import pandas as pd
+from pypsa.geo import haversine_pts
 
 from scripts._helpers import configure_logging
+from scripts.cluster_gas_network import load_bus_regions
 
 logger = logging.getLogger(__name__)
+
+# correction factor for pipeline length between region centroids; same value as cluster_gas_network default
+LENGTH_FACTOR = 1.25
+
+
+def calculate_corridor_lengths(
+    df: pd.DataFrame,
+    bus_regions: gpd.GeoDataFrame,
+    length_factor: float = LENGTH_FACTOR,
+) -> pd.Series:
+    """
+    Calculate region-center to node-center lengths of corridors for AGGM added gas pipelines.
+    This function mirrors the original ``cluster_gas_network.build_clustered_gas_network`` used for the rest of Europe.
+    It returns the haversine distance between the two bus regions' centroids, scaled by the LENGTH_FACTOR to approximate
+    real life routing distance.
+
+    Parameters
+    ----------
+    df
+        AGGM provided transport corridors with only the ``bus0`` and ``bus1`` columns.
+    bus_regions
+        region shapes as returned by ``cluster_gas_network.load_bus_regions``, indexed by region name
+    length_factor
+        factor applied to straight centroid distance to account for real-life routing distance
+
+    Returns
+    -------
+    :
+        Corridor lengths in km, indexed the same as ``df``.
+    """
+    centroids = bus_regions.to_crs(3035).centroid.to_crs(4326)
+    point0 = df["bus0"].map(centroids)
+    point1 = df["bus1"].map(centroids)
+
+    missing = df.index[point0.isna() | point1.isna()]
+    if not missing.empty:
+        raise ValueError(
+            f"No regional centroid found for corridor bus(es) of: {list(missing)}."
+        )
+    length = pd.Series(
+        [
+            length_factor * haversine_pts([p0.x, p0.y], [p1.x, p1.y])
+            for p0, p1 in zip(point0, point1)
+        ],
+        index=df.index,
+    )
+    return length
 
 
 def update_gas_transport_data(
@@ -101,6 +151,17 @@ if __name__ == "__main__":
         # update data in raw where AGGM data is supplied
         new_gas_network_df = update_gas_transport_data(
             gas_network_raw_df, gas_network_input_df
+        )
+
+        # calculate lengths for Austrian gas pipelines in the standard
+        # node-center to node-center distance calculation. Only for
+        # AGGM-originated rows added in update_gas_transport_data.
+        aggm_rows = new_gas_network_df.index.isin(gas_network_input_df.index)
+        bus_regions = load_bus_regions(
+            snakemake.input.regions_onshore, snakemake.input.regions_offshore
+        )
+        new_gas_network_df.loc[aggm_rows, "length"] = calculate_corridor_lengths(
+            new_gas_network_df.loc[aggm_rows], bus_regions
         )
 
         # return updated dataset

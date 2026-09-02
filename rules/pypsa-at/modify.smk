@@ -262,6 +262,8 @@ rule modify_brownfield_gas_network_AT:
         clustered_gas_network_raw=resources("gas_network_base_s_{clusters}_raw.csv"),
         brownfield_gas_network_AT10=("data/pypsa-at/AGGM_gas_network_base_AT10.csv"),
         brownfield_gas_network_AT35=("data/pypsa-at/AGGM_gas_network_base_AT35.csv"),
+        regions_onshore=resources("regions_onshore_base_s_{clusters}.geojson"),
+        regions_offshore=resources("regions_offshore_base_s_{clusters}.geojson"),
     output:
         clustered_gas_network=resources("gas_network_base_s_{clusters}.csv"),
     log:
