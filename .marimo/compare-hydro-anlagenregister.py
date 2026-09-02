@@ -533,6 +533,163 @@ def _(nuts3_names, ppm_located):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    ### 2.3 Effect of the AT hydro data update
+
+    Per-region hydro capacity in the model resource layer (attached
+    carriers, all technologies summed) **before** the
+    `mods.update_hydro_capacities_AT` pipeline (raw powerplantmatching,
+    bus-assigned `powerplants_s_adm.csv`) vs. **after**
+    (`powerplants_s_adm-overwrite.csv`: technology reclassification,
+    Grenzkraftwerke treaty shares, nameplate fixes, and the
+    Anlagenregister Kleinwasserkraft fleet scaled to the E-Control
+    Bestandsstatistik).
+    """)
+    return
+
+
+@app.cell
+def _(Path, nuts3_names, pd):
+    _tech_to_carrier = {
+        "Run-Of-River": "ror",
+        "Reservoir": "hydro",
+        "Pumped Storage": "PHS",
+    }
+
+    def _load_at_hydro(path):
+        return (
+            pd.read_csv(path, index_col=0)
+            .query("Country == 'AT' and Fueltype == 'Hydro'")
+            .assign(carrier=lambda df: df["Technology"].map(_tech_to_carrier))
+            .dropna(subset=["carrier"])
+        )
+
+    _before = sorted(Path(".").glob("resources/*/*/powerplants_s_adm.csv"))
+    _after = sorted(Path(".").glob("resources/*/*/powerplants_s_adm-overwrite.csv"))
+    if not (_before and _after):
+        raise FileNotFoundError(
+            "needs a workflow run providing powerplants_s_adm.csv and "
+            "powerplants_s_adm-overwrite.csv under resources/"
+        )
+    _before_df = _load_at_hydro(_before[-1])
+    _after_df = _load_at_hydro(_after[-1])
+
+    hydro_update_effect = (
+        pd.DataFrame(
+            {
+                "before_mw": _before_df.groupby("bus")["Capacity"].sum(),
+                "after_mw": _after_df.groupby("bus")["Capacity"].sum(),
+            }
+        )
+        .reindex(nuts3_names.index)
+        .fillna(0.0)
+        .rename_axis("nuts3")
+    )
+    hydro_update_by_tech = (
+        pd.DataFrame(
+            {
+                "before_mw": _before_df.groupby("carrier")["Capacity"].sum(),
+                "after_mw": _after_df.groupby("carrier")["Capacity"].sum(),
+            }
+        )
+        .reindex(["ror", "hydro", "PHS"])
+        .fillna(0.0)
+        .rename_axis("carrier")
+    )
+    hydro_update_effect.round(1)
+    return hydro_update_by_tech, hydro_update_effect
+
+
+@app.cell(hide_code=True)
+def _(BASELINE, C_MODEL, GRID, INK, MUTED, hydro_update_effect, plt):
+    _d = hydro_update_effect
+    _x = range(len(_d))
+    _fig, _ax = plt.subplots(figsize=(12, 5))
+    _ax.bar(
+        [i - 0.21 for i in _x],
+        _d["before_mw"],
+        width=0.4,
+        color=MUTED,
+        label="before update (powerplantmatching)",
+    )
+    _ax.bar(
+        [i + 0.21 for i in _x],
+        _d["after_mw"],
+        width=0.4,
+        color=C_MODEL,
+        label="after update (calibrated)",
+    )
+    _ax.set_xticks(list(_x))
+    _ax.set_xticklabels(_d.index, rotation=90, fontsize=8, color=INK)
+    _ax.set_xlim(-0.6, len(_d) - 0.4)
+    _ax.yaxis.grid(True, color=GRID, linewidth=0.8)
+    _ax.set_axisbelow(True)
+    for _side in ("top", "right", "left"):
+        _ax.spines[_side].set_visible(False)
+    _ax.spines["bottom"].set_color(BASELINE)
+    _ax.tick_params(colors=MUTED)
+    _ax.set_ylabel("hydro capacity [MW]", color=MUTED)
+    _ax.set_title(
+        "AT hydro capacity per NUTS3 — before vs. after the data update",
+        color=INK,
+        loc="left",
+    )
+    _ax.legend(frameon=False)
+    _fig.tight_layout()
+    _fig
+    return
+
+
+@app.cell(hide_code=True)
+def _(BASELINE, C_MODEL, GRID, INK, MUTED, hydro_update_by_tech, plt):
+    _d = hydro_update_by_tech
+    _x = range(len(_d))
+    _fig, _ax = plt.subplots(figsize=(6, 4.5))
+    for _off, _col, _color, _label in [
+        (
+            -0.21,
+            "before_mw",
+            MUTED,
+            f"before update (powerplantmatching, AT total "
+            f"{_d['before_mw'].sum() / 1e3:.2f} GW)",
+        ),
+        (
+            0.21,
+            "after_mw",
+            C_MODEL,
+            f"after update (calibrated, AT total {_d['after_mw'].sum() / 1e3:.2f} GW)",
+        ),
+    ]:
+        _bars = _ax.bar(
+            [i + _off for i in _x],
+            _d[_col],
+            width=0.4,
+            color=_color,
+            label=_label,
+        )
+        _ax.bar_label(_bars, fmt="%.0f", fontsize=8, color=INK, padding=2)
+    _ax.set_xticks(list(_x))
+    _ax.set_xticklabels(_d.index, color=INK)
+    _ax.yaxis.grid(True, color=GRID, linewidth=0.8)
+    _ax.set_axisbelow(True)
+    for _side in ("top", "right", "left"):
+        _ax.spines[_side].set_visible(False)
+    _ax.spines["bottom"].set_color(BASELINE)
+    _ax.tick_params(colors=MUTED)
+    _ax.set_ylabel("capacity [MW]", color=MUTED)
+    _ax.set_title(
+        "AT-wide hydro capacity per technology",
+        color=INK,
+        loc="left",
+    )
+    _ax.legend(frameon=False)
+    _fig.tight_layout()
+    _fig
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ## 3. Comparison per NUTS3 region
 
     `delta_mw = model − register`: negative values mean the model places less

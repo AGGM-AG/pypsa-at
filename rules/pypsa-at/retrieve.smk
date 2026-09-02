@@ -51,6 +51,16 @@ if KLIEN_POTENTIALS["source"] == "build":
         script:
             scripts("pypsa-at/build_klien_potentials.py")
 
+    rule retrieve_klien_hydro_pathway:
+        input:
+            csv=storage(f"{KLIEN_POTENTIALS['url']}/hydro/Hydro_EEPOT.csv"),
+        output:
+            csv=f"{KLIEN_POTENTIALS['folder']}/catchments_hydro.csv",
+        message:
+            "Retrieving the KLIEN realisable hydropower pathway (GTIF Austria)"
+        run:
+            copy2(input["csv"], output["csv"])
+
 elif KLIEN_POTENTIALS["source"] == "archive":
 
     rule retrieve_klien_potentials:
@@ -58,10 +68,12 @@ elif KLIEN_POTENTIALS["source"] == "archive":
             nuts3_buildings=storage(f"{KLIEN_POTENTIALS['url']}/nuts3_pv_buildings.csv"),
             nuts3_ground=storage(f"{KLIEN_POTENTIALS['url']}/nuts3_pv_ground.csv"),
             nuts3_wind=storage(f"{KLIEN_POTENTIALS['url']}/nuts3_wind.csv"),
+            hydro_pathway=storage(f"{KLIEN_POTENTIALS['url']}/catchments_hydro.csv"),
         output:
             nuts3_buildings=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_buildings.csv",
             nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
             nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
+            hydro_pathway=f"{KLIEN_POTENTIALS['folder']}/catchments_hydro.csv",
         log:
             logs("retrieve_klien_potentials.log"),
         message:

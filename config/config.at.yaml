@@ -216,7 +216,7 @@ data:
     version: 0.3-at
   klien_potentials:
     source: archive
-    version: 2026-v2
+    version: 2026-v3
   nea-at:
     source: primary
     version: latest

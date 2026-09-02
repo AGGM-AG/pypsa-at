@@ -230,6 +230,8 @@ rule build_capacity_trajectories:
             "scripts/_helpers.py",
         ],
         powerplants=resources("powerplants_s_{clusters}.csv"),
+        powerplants_overwrite=resources("powerplants_s_{clusters}-overwrite.csv"),
+        klien_hydro_potentials=f"{KLIEN_POTENTIALS['folder']}/catchments_hydro.csv",
         costs=lambda w: resources(
             f"costs_{config_provider('costs', 'year')(w)}_processed.csv"
         ),
@@ -251,6 +253,13 @@ rule build_capacity_trajectories:
         exclude_carriers=config_provider("clustering", "exclude_carriers"),
         admin_levels=config_provider("clustering", "administrative"),
         custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
+        update_hydro_capacities_AT=config_provider(
+            "mods", "update_hydro_capacities_AT", "enable"
+        ),
+        klien_ambition=config_provider("mods", "klien_potential_limits", "ambition"),
+        klien_climate_scenario=config_provider(
+            "mods", "klien_potential_limits", "climate_scenario"
+        ),
     message:
         "Building capacity trajectories"
     script:

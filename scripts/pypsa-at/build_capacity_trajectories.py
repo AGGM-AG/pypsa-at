@@ -265,6 +265,95 @@ def filter_market_data(snakemake: Snakemake, market_data: pd.DataFrame) -> pd.Da
     ]
 
 
+def apply_klien_hydro_buildout_at(
+    trajectories: pd.Series, snakemake: Snakemake
+) -> pd.Series:
+    """
+    Override the Austrian ``ror`` capacity trajectory with the KLIEN pathway.
+
+    The realisable river hydropower pathway of the KLIEN study "Erneuerbare
+    Energiepotenziale in Oesterreich fuer 2030 und 2040" (Resch et al. 2026,
+    served by GTIF Austria) defines a country-wide buildout factor
+    ``C_pathway(year) / C_current`` that is applied to the calibrated
+    Austrian brownfield ror capacity from
+    ``powerplants_s_{clusters}-overwrite.csv``. Factors are anchored at the
+    base planning horizon (1.0), 2040 and 2070, interpolated linearly in
+    between and held flat afterwards. Reservoir (``hydro discharger`` /
+    ``hydro store``) and PHS keep their PEMMDB rows. The ``wocc`` climate
+    scenario falls back to ``mocc`` (RCP4.5) because the study publishes
+    pathways only for mocc/stcc. Guarded by
+    ``mods.update_hydro_capacities_AT.enable``.
+
+    Parameters
+    ----------
+    trajectories
+        Trajectory values indexed by (year, region, carrier, variable, sense).
+    snakemake
+        The Snakemake workflow object.
+
+    Returns
+    -------
+    :
+        The trajectories with overridden AT ror rows.
+    """
+    if not snakemake.params.update_hydro_capacities_AT:
+        logger.info(
+            "Skipping the KLIEN ror buildout for AT. config option "
+            "mods.update_hydro_capacities_AT.enable is false."
+        )
+        return trajectories
+
+    ambition = snakemake.params.klien_ambition
+    climate_scenario = snakemake.params.klien_climate_scenario
+    if climate_scenario == "wocc":
+        logger.info(
+            "The KLIEN hydro pathway has no wocc variant; falling back to "
+            "mocc (RCP4.5) for the AT ror buildout factor."
+        )
+        climate_scenario = "mocc"
+
+    klien = pd.read_csv(snakemake.input.klien_hydro_potentials, sep=";", decimal=",")
+    klien.columns = klien.columns.str.strip()
+    current_mw = klien["C_current"].sum()
+    base_year = min(snakemake.params.planning_horizons)
+    anchors = pd.Series(
+        {
+            base_year: 1.0,
+            2040: klien[f"C_2040_{ambition}_{climate_scenario}"].sum() / current_mw,
+            2070: klien[f"C_2070_{ambition}_{climate_scenario}"].sum() / current_mw,
+        }
+    )
+    factors = (
+        anchors.reindex(range(base_year, 2071)).interpolate(method="index").ffill()
+    )
+
+    brownfield_mw = (
+        pd.read_csv(snakemake.input.powerplants_overwrite, index_col=0)
+        .query(
+            "Country == 'AT' and Fueltype == 'Hydro' and Technology == 'Run-Of-River'"
+        )["Capacity"]
+        .sum()
+    )
+
+    trajectories = trajectories.copy()
+    for year in snakemake.params.planning_horizons:
+        if year == base_year:
+            continue
+        factor = factors.get(year, factors.iloc[-1])
+        idx = (str(year), "AT", "ror", "Generator-p_nom", "max")
+        if idx not in trajectories.index:
+            raise ValueError(
+                f"Expected AT ror trajectory row for {year} to override, "
+                "but it is missing. Check the PEMMDB trajectory build."
+            )
+        trajectories.loc[idx] = brownfield_mw * factor
+        logger.info(
+            f"KLIEN ror buildout for AT {year} ({ambition}/{climate_scenario}): "
+            f"factor {factor:.4f} -> max {brownfield_mw * factor:.0f} MW."
+        )
+    return trajectories
+
+
 def main(snakemake: Snakemake) -> pd.DataFrame:
     """
     Main function to calculate and return trajectories
@@ -294,6 +383,7 @@ def main(snakemake: Snakemake) -> pd.DataFrame:
     market_info = filter_market_data(snakemake, market_info)
     market_info = add_missing_years(market_info, snakemake)
     market_info = market_info.sort_index()
+    market_info = apply_klien_hydro_buildout_at(market_info, snakemake)
     return market_info
 
 
