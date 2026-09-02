@@ -194,15 +194,12 @@ if ECONTROL_BESTANDSSTATISTIK["source"] in ["build", "archive"]:
             typ=storage(
                 f"{ECONTROL_BESTANDSSTATISTIK['url']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx"
             ),
-            jr=storage(f"{ECONTROL_BESTANDSSTATISTIK['url']}/BeStGes-JR_KWEPL.xlsx"),
         output:
             typ=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx",
-            jr=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-JR_KWEPL.xlsx",
         message:
             "Retrieving E-Control Bestandsstatistik Kraftwerkspark (capacity by plant type)"
         run:
             copy2(input["typ"], output["typ"])
-            copy2(input["jr"], output["jr"])
 
 
 rule retrieve_heat_demand_at:

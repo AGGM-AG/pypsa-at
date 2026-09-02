@@ -36,6 +36,12 @@ from scripts.add_electricity import load_and_aggregate_powerplants
 
 logger = logging.getLogger(__name__)
 
+# Reference year of the KLIEN study capacities the buildout factor is
+# normalised to (study publication; the calibrated brownfield fleet has the
+# same vintage). The factor is 1.0 in this year regardless of the configured
+# planning horizons.
+KLIEN_BASE_YEAR = 2025
+
 
 def extract_hydro_capacities_tyndp(
     hydro_inflows_dir: str,
@@ -316,15 +322,23 @@ def apply_klien_hydro_buildout_at(
     klien.columns = klien.columns.str.strip()
     current_mw = klien["C_current"].sum()
     base_year = min(snakemake.params.planning_horizons)
+    if base_year != KLIEN_BASE_YEAR:
+        logger.warning(
+            f"The KLIEN buildout factor is anchored at {KLIEN_BASE_YEAR} "
+            f"(study reference), but the first planning horizon is "
+            f"{base_year}; horizons before {KLIEN_BASE_YEAR} keep factor 1.0."
+        )
     anchors = pd.Series(
         {
-            base_year: 1.0,
+            KLIEN_BASE_YEAR: 1.0,
             2040: klien[f"C_2040_{ambition}_{climate_scenario}"].sum() / current_mw,
             2070: klien[f"C_2070_{ambition}_{climate_scenario}"].sum() / current_mw,
         }
     )
     factors = (
-        anchors.reindex(range(base_year, 2071)).interpolate(method="index").ffill()
+        anchors.reindex(range(KLIEN_BASE_YEAR, 2071))
+        .interpolate(method="index")
+        .ffill()
     )
 
     brownfield_mw = (
@@ -339,7 +353,7 @@ def apply_klien_hydro_buildout_at(
     for year in snakemake.params.planning_horizons:
         if year == base_year:
             continue
-        factor = factors.get(year, factors.iloc[-1])
+        factor = factors.loc[min(max(year, KLIEN_BASE_YEAR), 2070)]
         idx = (str(year), "AT", "ror", "Generator-p_nom", "max")
         if idx not in trajectories.index:
             raise ValueError(

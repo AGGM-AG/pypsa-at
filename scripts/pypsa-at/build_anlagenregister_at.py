@@ -65,11 +65,14 @@ WATER_TECHCODES = [
 DEDUP_MIN_KW = 50_000.0
 
 # (plz, engpassleistung_kw) groups verified as genuinely distinct plants
-# (research 2026-09, see pypsa-at-planning#312).
+# (research 2026-09, see pypsa-at-planning#312). Entries are matched with a
+# capacity tolerance (no exact float comparison) and must match at least one
+# plant, so a register revision cannot silently disable an exemption.
 DEDUP_KEEP = {
     ("5710", 480_000.0),  # Kaprun: Limberg II (2011) + Limberg III (Sep 2025)
     ("5620", 60_000.0),  # Speicherkraftwerk Schwarzach: 120 MW as 2 x 60 MW
 }
+DEDUP_KEEP_TOLERANCE_KW = 1_000.0
 
 
 def load_postal_to_nuts(path: str) -> pd.Series:
@@ -208,19 +211,42 @@ def drop_duplicate_water_registrations(
         Deduplication threshold in kW.
     keep
         ``(plz, engpassleistung_kw)`` groups exempt from deduplication because
-        they are verified to be distinct physical plants.
+        they are verified to be distinct physical plants. Capacities are
+        matched within ``DEDUP_KEEP_TOLERANCE_KW``.
 
     Returns
     -------
     ``df`` without the lower-feed-in duplicate rows.
+
+    Raises
+    ------
+    ValueError
+        If a ``keep`` entry matches no plant, which indicates changed register
+        data that requires re-verifying the exemption.
     """
     water = df["typ"].eq("Strom") & (
         df["techcode"].fillna("").str.strip().isin(WATER_TECHCODES)
     )
-    keys = pd.Series(list(zip(df["plz"], df["engpassleistung_kw"])), index=df.index)
+    exempt = pd.Series(False, index=df.index)
+    for plz, capacity_kw in keep:
+        matches = (
+            water
+            & df["plz"].eq(plz)
+            & df["engpassleistung_kw"]
+            .sub(capacity_kw)
+            .abs()
+            .le(DEDUP_KEEP_TOLERANCE_KW)
+        )
+        if not matches.any():
+            raise ValueError(
+                f"DEDUP_KEEP entry (plz={plz}, {capacity_kw:.0f} kW) matches no "
+                "register plant. The register data changed; re-verify the "
+                "exemption."
+            )
+        exempt |= matches
     feedin = df[feedin_columns(df)].fillna(0).sum(axis=1)
     candidates = (
-        df[water & (df["engpassleistung_kw"] > min_kw) & ~keys.isin(keep)]
+        df[water & (df["engpassleistung_kw"] > min_kw) & ~exempt]
         .assign(_feedin=feedin)
         .sort_values("_feedin", ascending=False)
     )

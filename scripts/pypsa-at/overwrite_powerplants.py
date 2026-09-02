@@ -58,6 +58,102 @@ KLEINWASSERKRAFT_NAME_PREFIX = "Kleinwasserkraft AT "
 KLEINWASSERKRAFT_MAX_SCALE_DEVIATION = 0.15
 
 
+def _new_powerplant_rows(
+    names: "pd.Series | str",
+    fueltype: str,
+    technology: str,
+    date_in: "pd.Series | float",
+    capacity_mw: "pd.Series | float",
+    bus: "pd.Series | str",
+    country: "pd.Series | str" = "AT",
+) -> pd.DataFrame:
+    """
+    Build power plant rows in the ``build_powerplants`` output schema.
+
+    Parameters accept scalars or aligned array-likes; ``Set`` is always
+    ``"PP"``.
+    """
+    return pd.DataFrame(
+        {
+            "Name": names,
+            "Fueltype": fueltype,
+            "Technology": technology,
+            "Set": "PP",
+            "Country": country,
+            "DateIn": date_in,
+            "Capacity": capacity_mw,
+            "bus": bus,
+        }
+    )
+
+
+def _match_single_hydro_plant(
+    ppl: pd.DataFrame,
+    name: str,
+    country: str,
+    expected_capacity_mw: float,
+    expected_bus: str,
+    source_file: str,
+    technology: str | None = None,
+) -> "int | str":
+    """
+    Locate exactly one hydro plant of a curated list entry and validate it.
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table with ``Name``, ``Country``, ``Fueltype``,
+        ``Technology``, ``Capacity`` and ``bus`` columns.
+    name
+        Plant name to match.
+    country
+        Two-letter country code to match.
+    expected_capacity_mw
+        Capacity the curated list expects; deviations above 1 MW raise.
+    expected_bus
+        Bus the curated list expects; mismatches only warn because differing
+        clustering resolutions relabel buses.
+    source_file
+        Curated CSV referenced in error messages.
+    technology
+        Optional ``Technology`` the plant must additionally match.
+
+    Returns
+    -------
+    The matched index label.
+
+    Raises
+    ------
+    ValueError
+        If the plant does not match exactly once or its capacity deviates by
+        more than 1 MW — both indicate a changed upstream dataset.
+    """
+    query = "Country == @country and Fueltype == 'Hydro' and Name == @name"
+    if technology is not None:
+        query += " and Technology == @technology"
+    matches = ppl.query(query).index
+    if len(matches) != 1:
+        with_technology = f" with Technology {technology!r}" if technology else ""
+        raise ValueError(
+            f"Expected exactly one {country} hydro plant {name!r}"
+            f"{with_technology}, found {len(matches)}. Powerplants data "
+            f"changed upstream; re-check {source_file}."
+        )
+    idx = matches[0]
+    if abs(ppl.at[idx, "Capacity"] - expected_capacity_mw) > 1.0:
+        raise ValueError(
+            f"Capacity mismatch for {name!r} ({country}): powerplants table "
+            f"has {ppl.at[idx, 'Capacity']:.1f} MW, the curated list expects "
+            f"{expected_capacity_mw:.1f} MW. Re-check {source_file}."
+        )
+    if ppl.at[idx, "bus"] != expected_bus:
+        logger.warning(
+            f"{name!r} sits at bus {ppl.at[idx, 'bus']!r} but {source_file} "
+            f"expects {expected_bus!r} (differing clustering?). Applying anyway."
+        )
+    return idx
+
+
 def overwrite_nuclear_dateout(ppl: pd.DataFrame, dateout: dict) -> pd.DataFrame:
     """
     Set ``DateOut`` on matched CH nuclear reactors that lack a phase-out year.
@@ -183,17 +279,14 @@ def overwrite_biogas_to_power_plants_at(
     if clustering.startswith("AT10"):
         anlreg["nuts"] = anlreg["nuts"].map(map_at_nuts3_to_nuts2)
 
-    new_ppls = pd.DataFrame(
-        {
-            "Name": "Biogas AT " + anlreg["ID"].astype(int).astype(str),
-            "Fueltype": "Bioenergy",
-            "Technology": "Combustion Engine",
-            "Set": "PP",
-            "Country": "AT",
-            "DateIn": 2003,  # assumed build year at the height of Förderung in AT, phase out before 2030
-            "Capacity": anlreg["Engpassleistung (kW <sub>el</sub>)"] / 1000,
-            "bus": anlreg["nuts"].values,
-        }
+    new_ppls = _new_powerplant_rows(
+        names="Biogas AT " + anlreg["ID"].astype(int).astype(str),
+        fueltype="Bioenergy",
+        technology="Combustion Engine",
+        # assumed build year at the height of Förderung in AT, phase out before 2030
+        date_in=2003,
+        capacity_mw=anlreg["Engpassleistung (kW <sub>el</sub>)"] / 1000,
+        bus=anlreg["nuts"].values,
     )
 
     logger.info(
@@ -235,7 +328,7 @@ def add_kleinwasserkraft_to_power_plants_at(
     below 10 MW, while the E-Control Anlagenregister lists the full
     ``Kleinwasserkraft bis 10 MW`` class (~3600 plants, ~1.8 GW; E-Control
     Bestandsstatistik: 1.4 GW Laufkraft below 10 MW). This function drops the
-    incidental powerplantmatching run-of-river plants below
+    incidental powerplantmatching run-of-river plants up to
     ``KLEINWASSERKRAFT_MAX_MW`` and adds every register plant of the class
     individually, mapped to its NUTS3 bus via postal code
     (see pypsa-at-planning#312).
@@ -317,32 +410,28 @@ def add_kleinwasserkraft_to_power_plants_at(
         "Country == 'AT' "
         "and Fueltype == 'Hydro' "
         "and Technology == 'Run-Of-River' "
-        "and Capacity < @KLEINWASSERKRAFT_MAX_MW"
+        "and Capacity <= @KLEINWASSERKRAFT_MAX_MW"
     )
     logger.info(
-        f"Replaced {len(small_ror)} powerplantmatching run-of-river plants < "
+        f"Replaced {len(small_ror)} powerplantmatching run-of-river plants <= "
         f"{KLEINWASSERKRAFT_MAX_MW:.0f} MW ({small_ror['Capacity'].sum():.1f} MW) "
         "with the Anlagenregister Kleinwasserkraft fleet."
     )
     ppl = ppl.drop(index=small_ror.index)
 
     # register ids are only unique within (typ, bundesland)
-    new_ppls = pd.DataFrame(
-        {
-            "Name": (
-                KLEINWASSERKRAFT_NAME_PREFIX
-                + kwk["bundesland"].astype(str)
-                + "-"
-                + kwk["id"].astype(int).astype(str)
-            ),
-            "Fueltype": "Hydro",
-            "Technology": "Run-Of-River",
-            "Set": "PP",
-            "Country": "AT",
-            "DateIn": date_in.values,
-            "Capacity": kwk["engpassleistung_kw"].values / 1e3,
-            "bus": kwk["nuts"].values,
-        }
+    new_ppls = _new_powerplant_rows(
+        names=(
+            KLEINWASSERKRAFT_NAME_PREFIX
+            + kwk["bundesland"].astype(str)
+            + "-"
+            + kwk["id"].astype(int).astype(str)
+        ),
+        fueltype="Hydro",
+        technology="Run-Of-River",
+        date_in=date_in.values,
+        capacity_mw=kwk["engpassleistung_kw"].values / 1e3,
+        bus=kwk["nuts"].values,
     )
 
     logger.info(
@@ -455,33 +544,18 @@ def apply_grenzkraftwerke_shares_at(
     ppl = ppl.copy()
 
     for row in gkw.query("action == 'scale'").itertuples():
-        matches = ppl.query(
-            "Country == @row.country and Fueltype == 'Hydro' and Name == @row.Name"
-        ).index
-        if len(matches) != 1:
-            raise ValueError(
-                f"Expected exactly one {row.country} hydro plant {row.Name!r}, "
-                f"found {len(matches)}. Powerplants data changed upstream; "
-                f"re-check {grenzkraftwerke_file}."
-            )
-        idx = matches[0]
-        if abs(ppl.at[idx, "Capacity"] - row.capacity_mw) > 1.0:
-            raise ValueError(
-                f"Capacity mismatch for {row.Name!r} ({row.country}): "
-                f"powerplants table has {ppl.at[idx, 'Capacity']:.1f} MW, the "
-                f"Grenzkraftwerke list expects {row.capacity_mw:.1f} MW. "
-                f"Re-check {grenzkraftwerke_file}."
-            )
-        if ppl.at[idx, "bus"] != row.bus:
-            logger.warning(
-                f"{row.Name!r} sits at bus {ppl.at[idx, 'bus']!r} but the "
-                f"Grenzkraftwerke list expects {row.bus!r} (differing "
-                f"clustering?). Scaling anyway."
-            )
+        idx = _match_single_hydro_plant(
+            ppl,
+            row.Name,
+            row.country,
+            row.capacity_mw,
+            row.bus,
+            grenzkraftwerke_file,
+        )
         ppl.at[idx, "Capacity"] = row.capacity_mw * row.share
 
-    added = []
-    for row in gkw.query("action == 'add'").itertuples():
+    add_rows = gkw.query("action == 'add'")
+    for row in add_rows.itertuples():
         matches = ppl.query(
             "Country == @row.country and Fueltype == 'Hydro' and Name == @row.Name"
         ).index
@@ -491,23 +565,20 @@ def apply_grenzkraftwerke_shares_at(
                 f"powerplants table; change its action to 'scale' in "
                 f"{grenzkraftwerke_file}."
             )
-        added.append(
-            {
-                "Name": row.Name,
-                "Fueltype": "Hydro",
-                "Technology": "Run-Of-River",
-                "Set": "PP",
-                "Country": row.country,
-                "DateIn": float(row.date_in),
-                "Capacity": row.capacity_mw * row.share,
-                "bus": row.bus,
-            }
+    if not add_rows.empty:
+        new_ppls = _new_powerplant_rows(
+            names=add_rows["Name"].to_numpy(),
+            fueltype="Hydro",
+            technology="Run-Of-River",
+            date_in=add_rows["date_in"].astype(float).to_numpy(),
+            capacity_mw=(add_rows["capacity_mw"] * add_rows["share"]).to_numpy(),
+            bus=add_rows["bus"].to_numpy(),
+            country=add_rows["country"].to_numpy(),
         )
-    if added:
-        ppl = pd.concat([ppl, pd.DataFrame(added)], ignore_index=True)
+        ppl = pd.concat([ppl, new_ppls], ignore_index=True)
         logger.info(
-            f"Added {len(added)} missing Grenzkraftwerke treaty halves with "
-            f"{sum(r['Capacity'] for r in added):.0f} MW."
+            f"Added {len(new_ppls)} missing Grenzkraftwerke treaty halves with "
+            f"{new_ppls['Capacity'].sum():.0f} MW."
         )
 
     _scaled = gkw.query("action == 'scale'")
@@ -566,33 +637,15 @@ def reclassify_hydro_technologies_at(
     ppl = ppl.copy()
 
     for row in reclassification.itertuples():
-        matches = ppl.query(
-            "Country == 'AT' "
-            "and Fueltype == 'Hydro' "
-            "and Name == @row.Name "
-            "and Technology == @row.technology_old"
-        ).index
-        if len(matches) != 1:
-            raise ValueError(
-                f"Expected exactly one AT hydro plant {row.Name!r} with "
-                f"Technology {row.technology_old!r}, found {len(matches)}. "
-                f"Powerplants data changed upstream; re-check "
-                f"{reclassification_file}."
-            )
-        idx = matches[0]
-        if abs(ppl.at[idx, "Capacity"] - row.capacity_mw) > 1.0:
-            raise ValueError(
-                f"Capacity mismatch for {row.Name!r}: powerplants table has "
-                f"{ppl.at[idx, 'Capacity']:.1f} MW, the reclassification list "
-                f"expects {row.capacity_mw:.1f} MW. Re-check "
-                f"{reclassification_file}."
-            )
-        if ppl.at[idx, "bus"] != row.bus:
-            logger.warning(
-                f"{row.Name!r} sits at bus {ppl.at[idx, 'bus']!r} but the "
-                f"reclassification list expects {row.bus!r} (differing "
-                f"clustering?). Reclassifying anyway."
-            )
+        idx = _match_single_hydro_plant(
+            ppl,
+            row.Name,
+            "AT",
+            row.capacity_mw,
+            row.bus,
+            reclassification_file,
+            technology=row.technology_old,
+        )
         ppl.at[idx, "Technology"] = row.technology_new
         if pd.notna(getattr(row, "capacity_new", None)):
             logger.info(
