@@ -433,7 +433,11 @@ def apply_grenzkraftwerke_shares_at(
         ``Capacity`` and ``bus`` columns.
     grenzkraftwerke_file
         CSV with columns ``Name``, ``country``, ``bus``, ``capacity_mw``,
-        ``share``, ``river`` and ``note``.
+        ``share``, ``action``, ``date_in``, ``river`` and ``note``.
+        ``action`` is either ``scale`` (scale an existing entry to
+        ``capacity_mw * share``) or ``add`` (insert a missing run-of-river
+        twin at ``capacity_mw * share`` with build year ``date_in``, for
+        border plants powerplantmatching lists on one side only).
 
     Returns
     -------
@@ -443,13 +447,14 @@ def apply_grenzkraftwerke_shares_at(
     Raises
     ------
     ValueError
-        If a list entry does not match exactly one plant or the matched
-        capacity deviates by more than 1 MW (changed upstream dataset).
+        If a ``scale`` entry does not match exactly one plant, if the
+        matched capacity deviates by more than 1 MW, or if an ``add`` entry
+        already exists in the table (changed upstream dataset).
     """
     gkw = pd.read_csv(grenzkraftwerke_file)
     ppl = ppl.copy()
 
-    for row in gkw.itertuples():
+    for row in gkw.query("action == 'scale'").itertuples():
         matches = ppl.query(
             "Country == @row.country and Fueltype == 'Hydro' and Name == @row.Name"
         ).index
@@ -475,14 +480,45 @@ def apply_grenzkraftwerke_shares_at(
             )
         ppl.at[idx, "Capacity"] = row.capacity_mw * row.share
 
+    added = []
+    for row in gkw.query("action == 'add'").itertuples():
+        matches = ppl.query(
+            "Country == @row.country and Fueltype == 'Hydro' and Name == @row.Name"
+        ).index
+        if len(matches):
+            raise ValueError(
+                f"{row.country} hydro plant {row.Name!r} already exists in the "
+                f"powerplants table; change its action to 'scale' in "
+                f"{grenzkraftwerke_file}."
+            )
+        added.append(
+            {
+                "Name": row.Name,
+                "Fueltype": "Hydro",
+                "Technology": "Run-Of-River",
+                "Set": "PP",
+                "Country": row.country,
+                "DateIn": float(row.date_in),
+                "Capacity": row.capacity_mw * row.share,
+                "bus": row.bus,
+            }
+        )
+    if added:
+        ppl = pd.concat([ppl, pd.DataFrame(added)], ignore_index=True)
+        logger.info(
+            f"Added {len(added)} missing Grenzkraftwerke treaty halves with "
+            f"{sum(r['Capacity'] for r in added):.0f} MW."
+        )
+
+    _scaled = gkw.query("action == 'scale'")
     _removed = (
-        gkw.assign(removed=gkw["capacity_mw"] * (1 - gkw["share"]))
+        _scaled.assign(removed=_scaled["capacity_mw"] * (1 - _scaled["share"]))
         .groupby("country")["removed"]
         .sum()
     )
     for country, mw in _removed.items():
         logger.info(
-            f"Scaled {int((gkw['country'] == country).sum())} Grenzkraftwerke "
+            f"Scaled {int((_scaled['country'] == country).sum())} Grenzkraftwerke "
             f"to treaty shares: removed {mw:.0f} MW from {country}."
         )
     return ppl
