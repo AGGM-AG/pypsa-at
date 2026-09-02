@@ -4,7 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 
 run:
-  prefix: road-transport-demand
+  prefix: hydro-capacities-update
   name:
   - AT_KN2040
   scenarios:
