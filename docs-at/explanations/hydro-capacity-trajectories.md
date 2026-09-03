@@ -99,11 +99,9 @@ for a calibrated 2025 fleet of ≈ 6.3 GW.
 
 | Artifact | Location |
 |----------|----------|
+| KLIEN corridor build rule | `build_klien_hydro_trajectory_at` in `rules/pypsa-at/build.smk`, script `scripts/pypsa-at/build_klien_hydro_trajectory_at.py` |
+| KLIEN corridor output | `resources/klien_ror_trajectory_{clusters}.csv` (per horizon: growth factor, calibrated fleet, resulting upper limit); consumed by the trajectory build and attached to the network meta for tests |
 | Trajectory build rule | `build_capacity_trajectories` in `rules/pypsa-at/build.smk`, script `scripts/pypsa-at/build_capacity_trajectories.py` |
 | Output consumed by the solve | `resources/trajectories_{clusters}.csv` |
 | KLIEN hydro pathway data | `catchments_hydro.csv` in the `klien_potentials` dataset (`data/versions.csv`, version `2026-v3`); per-catchment realisable capacity and energy, mirrored from [GTIF Austria](https://gtif-austria.info/narratives/tf2-hydropower) |
 | Calibrated Austrian fleet | `powerplants_s_{clusters}-overwrite.csv` (see the Anlagenregister-based calibration, [issue #312](https://github.com/AGGM-AG/pypsa-at-planning/issues/312)) |
-
-The KLIEN data also contains per-catchment energy values (GWh/a) and geometries; these are not
-used for the capacity corridors but are the designated basis for the upcoming inflow
-recalibration (the energy side of the EAG 47 TWh target).

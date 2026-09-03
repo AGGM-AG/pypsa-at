@@ -36,12 +36,6 @@ from scripts.add_electricity import load_and_aggregate_powerplants
 
 logger = logging.getLogger(__name__)
 
-# Reference year of the KLIEN study capacities the buildout factor is
-# normalised to (study publication; the calibrated brownfield fleet has the
-# same vintage). The factor is 1.0 in this year regardless of the configured
-# planning horizons.
-KLIEN_BASE_YEAR = 2025
-
 
 def extract_hydro_capacities_tyndp(
     hydro_inflows_dir: str,
@@ -275,19 +269,13 @@ def apply_klien_hydro_buildout_at(
     trajectories: pd.Series, snakemake: Snakemake
 ) -> pd.Series:
     """
-    Override the Austrian ``ror`` capacity trajectory with the KLIEN pathway.
+    Override the Austrian ``ror`` upper bound with the KLIEN-scaled corridor.
 
-    The realisable river hydropower pathway of the KLIEN study "Erneuerbare
-    Energiepotenziale in Oesterreich fuer 2030 und 2040" (Resch et al. 2026,
-    served by GTIF Austria) defines a country-wide buildout factor
-    ``C_pathway(year) / C_current`` that is applied to the calibrated
-    Austrian brownfield ror capacity from
-    ``powerplants_s_{clusters}-overwrite.csv``. Factors are anchored at the
-    base planning horizon (1.0), 2040 and 2070, interpolated linearly in
-    between and held flat afterwards. Reservoir (``hydro discharger`` /
-    ``hydro store``) and PHS keep their PEMMDB rows. The ``wocc`` climate
-    scenario falls back to ``mocc`` (RCP4.5) because the study publishes
-    pathways only for mocc/stcc. Guarded by
+    The corridor is built by ``build_klien_hydro_trajectory_at`` from the KLIEN
+    realisable hydropower pathway and the calibrated Austrian brownfield ror
+    fleet. The base planning horizon keeps its PEMMDB row; every later horizon
+    takes the corridor value as ``p_nom_max``. Reservoir (``hydro discharger`` /
+    ``hydro store``) and PHS keep their PEMMDB rows. Guarded by
     ``mods.update_hydro_capacities_AT.enable``.
 
     Parameters
@@ -309,61 +297,27 @@ def apply_klien_hydro_buildout_at(
         )
         return trajectories
 
-    ambition = snakemake.params.klien_ambition
-    climate_scenario = snakemake.params.klien_climate_scenario
-    if climate_scenario == "wocc":
-        logger.info(
-            "The KLIEN hydro pathway has no wocc variant; falling back to "
-            "mocc (RCP4.5) for the AT ror buildout factor."
-        )
-        climate_scenario = "mocc"
-
-    klien = pd.read_csv(snakemake.input.klien_hydro_potentials, sep=";", decimal=",")
-    klien.columns = klien.columns.str.strip()
-    current_mw = klien["C_current"].sum()
+    corridor = pd.read_csv(snakemake.input.klien_ror_trajectory, index_col="year")
     base_year = min(snakemake.params.planning_horizons)
-    if base_year != KLIEN_BASE_YEAR:
-        logger.warning(
-            f"The KLIEN buildout factor is anchored at {KLIEN_BASE_YEAR} "
-            f"(study reference), but the first planning horizon is "
-            f"{base_year}; horizons before {KLIEN_BASE_YEAR} keep factor 1.0."
-        )
-    anchors = pd.Series(
-        {
-            KLIEN_BASE_YEAR: 1.0,
-            2040: klien[f"C_2040_{ambition}_{climate_scenario}"].sum() / current_mw,
-            2070: klien[f"C_2070_{ambition}_{climate_scenario}"].sum() / current_mw,
-        }
-    )
-    factors = (
-        anchors.reindex(range(KLIEN_BASE_YEAR, 2071))
-        .interpolate(method="index")
-        .ffill()
-    )
-
-    brownfield_mw = (
-        pd.read_csv(snakemake.input.powerplants_overwrite, index_col=0)
-        .query(
-            "Country == 'AT' and Fueltype == 'Hydro' and Technology == 'Run-Of-River'"
-        )["Capacity"]
-        .sum()
-    )
 
     trajectories = trajectories.copy()
     for year in snakemake.params.planning_horizons:
         if year == base_year:
             continue
-        factor = factors.loc[min(max(year, KLIEN_BASE_YEAR), 2070)]
+        if year not in corridor.index:
+            raise ValueError(
+                f"The KLIEN ror corridor has no entry for {year}. "
+                "Check the build_klien_hydro_trajectory_at rule."
+            )
         idx = (str(year), "AT", "ror", "Generator-p_nom", "max")
         if idx not in trajectories.index:
             raise ValueError(
                 f"Expected AT ror trajectory row for {year} to override, "
                 "but it is missing. Check the PEMMDB trajectory build."
             )
-        trajectories.loc[idx] = brownfield_mw * factor
+        trajectories.loc[idx] = corridor.loc[year, "value"]
         logger.info(
-            f"KLIEN ror buildout for AT {year} ({ambition}/{climate_scenario}): "
-            f"factor {factor:.4f} -> max {brownfield_mw * factor:.0f} MW."
+            f"KLIEN ror buildout for AT {year}: max {corridor.loc[year, 'value']:.0f} MW."
         )
     return trajectories
 
