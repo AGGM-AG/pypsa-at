@@ -1,0 +1,4 @@
+Name,bus,technology,capacity_mw,date_in,lat,lon,note
+Ottenstein,AT124,Pumped Storage,48,1957,48.6072,15.2567,EVN Speicherkraftwerk Ottenstein am Kamp (4x12 MW pumped storage); absent from powerplantmatching (pypsa-at-planning#312)
+Dobra Krumau,AT124,Reservoir,16.2,1953,48.5561,15.3203,EVN Speicherkraftwerk Dobra-Krumau am Kamp (3x5.4 MW); absent from powerplantmatching
+Thurnberg Wegscheid,AT124,Reservoir,2.7,1949,48.5306,15.4083,EVN Speicherkraftwerk Thurnberg-Wegscheid am Kamp (2x1.35 MW); absent from powerplantmatching

@@ -1,6 +1,6 @@
-from importlib import import_module
 from types import SimpleNamespace
 
+import build_heat_demand_at
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -8,8 +8,6 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import box
-
-build_heat_demand_at = import_module("scripts.pypsa-at.build_heat_demand_at")
 
 
 @pytest.fixture

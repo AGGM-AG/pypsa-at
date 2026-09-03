@@ -51,6 +51,16 @@ if KLIEN_POTENTIALS["source"] == "build":
         script:
             scripts("pypsa-at/build_klien_potentials.py")
 
+    rule retrieve_klien_hydro_pathway:
+        input:
+            csv=storage(f"{KLIEN_POTENTIALS['url']}/hydro/Hydro_EEPOT.csv"),
+        output:
+            csv=f"{KLIEN_POTENTIALS['folder']}/catchments_hydro.csv",
+        message:
+            "Retrieving the KLIEN realisable hydropower pathway (GTIF Austria)"
+        run:
+            copy2(input["csv"], output["csv"])
+
 elif KLIEN_POTENTIALS["source"] == "archive":
 
     rule retrieve_klien_potentials:
@@ -58,10 +68,12 @@ elif KLIEN_POTENTIALS["source"] == "archive":
             nuts3_buildings=storage(f"{KLIEN_POTENTIALS['url']}/nuts3_pv_buildings.csv"),
             nuts3_ground=storage(f"{KLIEN_POTENTIALS['url']}/nuts3_pv_ground.csv"),
             nuts3_wind=storage(f"{KLIEN_POTENTIALS['url']}/nuts3_wind.csv"),
+            hydro_pathway=storage(f"{KLIEN_POTENTIALS['url']}/catchments_hydro.csv"),
         output:
             nuts3_buildings=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_buildings.csv",
             nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
             nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
+            hydro_pathway=f"{KLIEN_POTENTIALS['folder']}/catchments_hydro.csv",
         log:
             logs("retrieve_klien_potentials.log"),
         message:
@@ -172,6 +184,21 @@ if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
             "Retrieving Statistik Austria municipality register"
         run:
             copy2(input["ods"], output["ods"])
+
+
+if ECONTROL_BESTANDSSTATISTIK["source"] in ["build", "archive"]:
+
+    rule retrieve_econtrol_bestandsstatistik:
+        input:
+            typ=storage(
+                f"{ECONTROL_BESTANDSSTATISTIK['url']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx"
+            ),
+        output:
+            typ=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx",
+        message:
+            "Retrieving E-Control Bestandsstatistik Kraftwerkspark (capacity by plant type)"
+        run:
+            copy2(input["typ"], output["typ"])
 
 
 rule retrieve_heat_demand_at:

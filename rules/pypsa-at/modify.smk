@@ -316,6 +316,11 @@ rule overwrite_powerplants_at:
         powerplants=resources("powerplants_s_{clusters}.csv"),
         anlagenregister="data/pypsa-at/Anlagenregister_electricity_from_renewable_gas_AT.csv",
         postal_to_nuts="data/pypsa-at/AT-Postal-to-NUTS.csv",
+        hydro_reclassification="data/pypsa-at/hydro_technology_reclassification_AT.csv",
+        anlagenregister_plants=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
+        grenzkraftwerke="data/pypsa-at/grenzkraftwerke_AT.csv",
+        missing_hydro_plants="data/pypsa-at/missing_hydro_plants_AT.csv",
+        bestandsstatistik_typ=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx",
     output:
         powerplants=resources("powerplants_s_{clusters}-overwrite.csv"),
     log:
@@ -326,6 +331,9 @@ rule overwrite_powerplants_at:
     params:
         add_biogas_to_power_plants_AT=config_provider(
             "mods", "existing_capacities", "add_biogas_to_power_plants_AT"
+        ),
+        update_hydro_capacities_AT=config_provider(
+            "mods", "update_hydro_capacities_AT", "enable"
         ),
         threshold_capacity=config_provider("existing_capacities", "threshold_capacity"),
         clustering=config_provider("mods", "modify_nuts3_shapes"),

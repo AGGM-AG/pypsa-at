@@ -47,6 +47,8 @@ desnz_electricity_consumption,unknown,primary,latest supported,2026-02-02,,https
 desnz_electricity_consumption,2026-02-16,archive,latest supported,2026-02-16,,https://data.pypsa.org/workflows/eur/desnz_electricity_consumption/2026-02-16/Subnational_electricity_consumption_statistics_2005-2024.xlsx
 dh_areas,341.5,primary,latest supported,2025-12-02,,https://fordatis.fraunhofer.de/bitstream/fordatis/341.5/2/dh_areas.gpkg
 dh_areas,341.5,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/dh_areas/341.5/dh_areas.gpkg
+econtrol-bestandsstatistik,2025,archive,latest not-tested,2026-09-01,Zenodo mirror stub - record not yet created; upload the two xlsx files and replace the URL,https://zenodo.org/records/TODO/files
+econtrol-bestandsstatistik,2025,build,latest supported,2026-09-01,E-Control Bestandsstatistik Kraftwerkspark (Datenstand Mai 2026): Brutto-Engpassleistung by plant type incl. Pumpspeicher split; national totals; file BeStGes-2025_KW2EPLTyp.xlsx under this base URL,https://www.e-control.at/documents/1785851/1811756
 eez,v12_20231025,primary,latest supported,2025-12-02,API request used,https://www.marineregions.org/download_file.php
 eez,v12_20231025,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/eez/v12_20231025/World_EEZ_v12_20231025_LR.zip
 egon,2019-10-02,archive,latest supported,2026-02-23,,https://data.pypsa.org/workflows/de/egon/2019-10-02
@@ -99,9 +101,11 @@ jrc_idees,2023-v1,archive,latest supported,2026-02-09,,https://data.pypsa.org/wo
 jrc_idees,2021-v1,primary,supported,2025-12-02,,https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/JRC-IDEES/JRC-IDEES-2021_v1/JRC-IDEES-2021.zip
 jrc_idees,2021-v1,archive,supported,2026-01-13,,https://data.pypsa.org/workflows/eur/jrc_idees/2024-05-20/JRC-IDEES-2021.zip
 kfz-bestand-at,2025,primary,latest supported,2026-08-21,Statistik Austria vehicle stock at 31 December 2025 by registration district and vehicle type,https://www.statistik.at/fileadmin/pages/75/kfz-bestand_2025.ods
-klien_potentials,2026-v2,archive,latest supported,2026-05-29,Pre-aggregated AT PV and wind potential CSVs including the column shift fix,https://zenodo.org/records/20445622/files
-klien_potentials,2026-v2,build,latest supported,2026-04-17,Base URL for raw KLIEN GeoJSON files; individual file paths are appended per input in the build rule,https://workspace-ui-public.gtif-austria.hub-otc.eox.at/api/public/share/public-4wazei3y-02/KLIEN-studie
-klien_potentials,2026-v1,archive,supported,2026-04-17,Pre-aggregated AT PV and wind potential CSVs,https://zenodo.org/records/19812094/files
+klien_potentials,2026-v3,archive,latest supported,2026-09-02,Adds the KLIEN realisable hydropower pathway (catchments_hydro.csv; C in MW_el and E in GWh/a per catchment for current and 2040/2070 x low/medium/high x mocc/stcc) to the pre-aggregated AT PV and wind potential CSVs. Replace TODO with the new Zenodo record after upload,https://zenodo.org/records/20445622/files
+klien_potentials,2026-v3,build,latest supported,2026-09-02,Base URL for raw KLIEN files; individual file paths are appended per input in the rules. Adds hydro/Hydro_EEPOT.csv (stored as catchments_hydro.csv; realisable hydropower pathway) to the GeoJSON inputs,https://workspace-ui-public.gtif-austria.hub-otc.eox.at/api/public/share/public-4wazei3y-02/KLIEN-studie
+klien_potentials,2026-v2,archive,not-supported,2026-05-29,Pre-aggregated AT PV and wind potential CSVs including the column shift fix,https://zenodo.org/records/20445622/files
+klien_potentials,2026-v2,build,not-supported,2026-04-17,Base URL for raw KLIEN GeoJSON files; individual file paths are appended per input in the build rule,https://workspace-ui-public.gtif-austria.hub-otc.eox.at/api/public/share/public-4wazei3y-02/KLIEN-studie
+klien_potentials,2026-v1,archive,not-supported,2026-04-17,Pre-aggregated AT PV and wind potential CSVs,https://zenodo.org/records/19812094/files
 lau_regions,2019,primary,latest supported,2025-12-02,,https://gisco-services.ec.europa.eu/distribution/v2/lau/download/ref-lau-2019-01m.geojson.zip
 lau_regions,2019,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/lau_regions/2019/ref-lau-2019-01m.geojson.zip
 luisa_land_cover,unknown,primary,latest supported,2025-12-02,,https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/LUISA/EUROPE/Basemaps/LandUse/2018/LATEST/LUISA_basemap_020321_50m.tif

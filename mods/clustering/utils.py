@@ -24,7 +24,7 @@ from mods.clustering.constants import _DE_NUTS1_TO_DE5
 logger = logging.getLogger(__name__)
 
 
-def _map_at_nuts3_to_nuts2(code: str) -> str:
+def map_at_nuts3_to_nuts2(code: str) -> str:
     """
     Map an AT NUTS3 code to its NUTS2 parent; all other codes pass through.
 
@@ -80,7 +80,7 @@ def combine_regions_by_clustering(df, clustering):
     coarser regions actually present in the clustered network:
 
     - ``AT10`` clusterings aggregate AT NUTS3 → AT NUTS2 (via
-      :func:`_map_at_nuts3_to_nuts2`); AT333 (Osttirol) is preserved as its
+      :func:`map_at_nuts3_to_nuts2`); AT333 (Osttirol) is preserved as its
       own region.
     - ``DE5`` clusterings aggregate DE NUTS1 → DE5 macro-regions (via
       :func:`_map_de_nuts1_to_de5`).
@@ -112,7 +112,7 @@ def combine_regions_by_clustering(df, clustering):
     >>> storage = combine_regions_by_clustering(storage, "AT10DE5")
     """
     if clustering.startswith("AT10"):
-        df = df.groupby(df.index.map(_map_at_nuts3_to_nuts2)).sum()
+        df = df.groupby(df.index.map(map_at_nuts3_to_nuts2)).sum()
     if clustering.endswith("DE5"):
         df = df.groupby(df.index.map(_map_de_nuts1_to_de5)).sum()
 

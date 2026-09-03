@@ -1,10 +1,7 @@
-import importlib
-
+import build_inflow_totals_per_region as build
 import pandas as pd
 
 from mods.constants import TYNDP_TO_PYPSA_LOCATION
-
-build = importlib.import_module("scripts.pypsa-at.build_inflow_totals_per_region")
 
 
 def test_process_inflow_per_region_groups_regions_and_technologies():

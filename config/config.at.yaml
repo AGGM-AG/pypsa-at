@@ -4,7 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 
 run:
-  prefix: road-transport-demand
+  prefix: hydro-capacities-update
   name:
   - AT_KN2040
   scenarios:
@@ -216,12 +216,15 @@ data:
     version: 0.3-at
   klien_potentials:
     source: archive
-    version: 2026-v2
+    version: 2026-v3
   nea-at:
     source: primary
     version: latest
   anlagenregister:
     source: archive
+    version: latest
+  econtrol-bestandsstatistik:
+    source: build
     version: latest
   kfz-bestand-at:
     source: primary
@@ -343,6 +346,12 @@ mods:
   existing_capacities:
     add_biogas_to_power_plants_AT: true # add Austrian biogas-to-power plants from Anlagenregister
                                         # in addition to powerplantmatching
+
+  # calibrate Austrian hydro power plant capacities per technology and NUTS3
+  # region to the deduplicated E-Control Anlagenregister totals
+  # (see pypsa-at-planning#312); consumed by overwrite_powerplants_at
+  update_hydro_capacities_AT:
+    enable: true
 
   tyndp_h2_import_scenario: "DE" # One of DE (Distributed Energy), NT (National Trends), GA (Global Ambition).
                            # Only used when H2 imports is enabled

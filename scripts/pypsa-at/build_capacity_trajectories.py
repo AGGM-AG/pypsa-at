@@ -265,6 +265,63 @@ def filter_market_data(snakemake: Snakemake, market_data: pd.DataFrame) -> pd.Da
     ]
 
 
+def apply_klien_hydro_buildout_at(
+    trajectories: pd.Series, snakemake: Snakemake
+) -> pd.Series:
+    """
+    Override the Austrian ``ror`` upper bound with the KLIEN-scaled corridor.
+
+    The corridor is built by ``build_klien_hydro_trajectory_at`` from the KLIEN
+    realisable hydropower pathway and the calibrated Austrian brownfield ror
+    fleet. The base planning horizon keeps its PEMMDB row; every later horizon
+    takes the corridor value as ``p_nom_max``. Reservoir (``hydro discharger`` /
+    ``hydro store``) and PHS keep their PEMMDB rows. Guarded by
+    ``mods.update_hydro_capacities_AT.enable``.
+
+    Parameters
+    ----------
+    trajectories
+        Trajectory values indexed by (year, region, carrier, variable, sense).
+    snakemake
+        The Snakemake workflow object.
+
+    Returns
+    -------
+    :
+        The trajectories with overridden AT ror rows.
+    """
+    if not snakemake.params.update_hydro_capacities_AT:
+        logger.info(
+            "Skipping the KLIEN ror buildout for AT. config option "
+            "mods.update_hydro_capacities_AT.enable is false."
+        )
+        return trajectories
+
+    corridor = pd.read_csv(snakemake.input.klien_ror_trajectory, index_col="year")
+    base_year = min(snakemake.params.planning_horizons)
+
+    trajectories = trajectories.copy()
+    for year in snakemake.params.planning_horizons:
+        if year == base_year:
+            continue
+        if year not in corridor.index:
+            raise ValueError(
+                f"The KLIEN ror corridor has no entry for {year}. "
+                "Check the build_klien_hydro_trajectory_at rule."
+            )
+        idx = (str(year), "AT", "ror", "Generator-p_nom", "max")
+        if idx not in trajectories.index:
+            raise ValueError(
+                f"Expected AT ror trajectory row for {year} to override, "
+                "but it is missing. Check the PEMMDB trajectory build."
+            )
+        trajectories.loc[idx] = corridor.loc[year, "value"]
+        logger.info(
+            f"KLIEN ror buildout for AT {year}: max {corridor.loc[year, 'value']:.0f} MW."
+        )
+    return trajectories
+
+
 def main(snakemake: Snakemake) -> pd.DataFrame:
     """
     Main function to calculate and return trajectories
@@ -294,6 +351,7 @@ def main(snakemake: Snakemake) -> pd.DataFrame:
     market_info = filter_market_data(snakemake, market_info)
     market_info = add_missing_years(market_info, snakemake)
     market_info = market_info.sort_index()
+    market_info = apply_klien_hydro_buildout_at(market_info, snakemake)
     return market_info
 
 
