@@ -1,92 +1,135 @@
 ,bus0,bus1,p_nom,p_nom_diameter,max_pressure_bar,build_year,diameter_mm,length,name,p_min_pu
-gas pipeline AT342 -> AT341,AT342,AT341,1000,0,0,0,0,0,AGGM_pipeline01,0
-gas pipeline AT341 -> AT342,AT341,AT342,1000,0,0,0,0,0,AGGM_pipeline02,0
-gas pipeline DE2 -> AT331,DE2,AT331,1000,0,0,0,0,0,AGGM_pipeline03,0
-gas pipeline AT335 -> AT332,AT335,AT332,1000,0,0,0,0,0,AGGM_pipeline04,0
-gas pipeline AT332 -> AT334,AT332,AT334,1000,0,0,0,0,0,AGGM_pipeline05,0
-gas pipeline AT335 -> AT322,AT335,AT322,340,0,0,0,0,167,AGGM_pipeline06,0
-gas pipeline AT322 -> AT335,AT322,AT335,550,0,0,0,0,167,AGGM_pipeline07,0
-gas pipeline DE2 -> AT342,DE2,AT342,1000,0,0,0,0,0,AGGM_pipeline08,0
-gas pipeline CH -> AT342,CH,AT342,1500,0,0,0,0,0,AGGM_pipeline09,0
-gas pipeline DE2 -> AT335,DE2,AT335,1000,0,0,0,0,0,AGGM_pipeline10,0
-gas pipeline AT211 -> AT212,AT211,AT212,45000,0,0,0,0,111,AGGM_pipeline11,0
-gas pipeline AT212 -> AT211,AT212,AT211,11000,0,0,0,0,111,AGGM_pipeline12,0
-gas pipeline AT213 -> AT211,AT213,AT211,11000,0,0,0,0,86,AGGM_pipeline13,0
-gas pipeline AT211 -> AT213,AT211,AT213,45000,0,0,0,0,86,AGGM_pipeline14,0
-gas pipeline AT213 -> AT212,AT213,AT212,11000,0,0,0,0,86,AGGM_pipeline15,0
-gas pipeline AT213 -> AT225,AT213,AT225,45000,0,0,0,0,86,AGGM_pipeline16,0
-gas pipeline AT211 -> IT0,AT211,IT0,45000,0,0,0,0,0,AGGM_pipeline17,0
-gas pipeline IT0 -> AT211,IT0,AT211,8000,0,0,0,0,0,AGGM_pipeline18,0
-gas pipeline AT314 -> AT222,AT314,AT222,1000,0,0,0,0,64,AGGM_pipeline19,0
-gas pipeline AT222 -> AT314,AT222,AT314,500,0,0,0,0,64,AGGM_pipeline20,0
-gas pipeline AT223 -> AT222,AT223,AT222,1000,0,0,0,0,81,AGGM_pipeline21,0
-gas pipeline AT222 -> AT223,AT222,AT223,1000,0,0,0,0,81,AGGM_pipeline22,0
-gas pipeline AT223 -> AT226,AT223,AT226,1000,0,0,0,0,81,AGGM_pipeline23,0
-gas pipeline AT226 -> AT223,AT226,AT223,1000,0,0,0,0,81,AGGM_pipeline24,0
-gas pipeline AT221 -> AT223,AT221,AT223,4500,0,0,0,0,71,AGGM_pipeline25,0
-gas pipeline AT223 -> AT221,AT223,AT221,1000,0,0,0,0,71,AGGM_pipeline26,0
-gas pipeline AT223 -> AT122,AT223,AT122,1000,0,0,0,0,111,AGGM_pipeline27,0
-gas pipeline AT122 -> AT223,AT122,AT223,5500,0,0,0,0,111,AGGM_pipeline28,0
-gas pipeline AT122 -> AT224,AT122,AT224,47500,0,0,0,0,139,AGGM_pipeline29,0
-gas pipeline AT224 -> AT122,AT224,AT122,0,0,0,0,0,139,AGGM_pipeline30,0
-gas pipeline AT224 -> AT113,AT224,AT113,550,0,0,0,0,81,AGGM_pipeline31,0
-gas pipeline AT113 -> AT224,AT113,AT224,0,0,0,0,0,81,AGGM_pipeline32,0
-gas pipeline AT225 -> AT224,AT225,AT224,11000,0,0,0,0,0,AGGM_pipeline33,0
-gas pipeline AT224 -> AT225,AT224,AT225,45500,0,0,0,0,0,AGGM_pipeline34,0
-gas pipeline AT225 -> SI,AT225,SI,4500,0,0,0,0,0,AGGM_pipeline35,0
-gas pipeline AT225 -> AT221,AT225,AT221,11000,0,0,0,0,86,AGGM_pipeline36,0
-gas pipeline AT221 -> AT225,AT221,AT225,45500,0,0,0,0,86,AGGM_pipeline37,0
-gas pipeline AT113 -> HU,AT113,HU,500,0,0,0,0,0,AGGM_pipeline38,0
-gas pipeline AT127 -> AT112,AT127,AT112,550,0,0,0,0,19,AGGM_pipeline39,0
-gas pipeline AT112 -> AT127,AT112,AT127,0,0,0,0,0,19,AGGM_pipeline40,0
-gas pipeline AT112 -> HU,AT112,HU,6300,0,0,0,0,0,AGGM_pipeline41,0
-gas pipeline AT112 -> AT111,AT112,AT111,500,0,0,0,0,0,AGGM_pipeline42,0
-gas pipeline AT112 -> AT122,AT112,AT122,0,0,0,0,0,19,AGGM_pipeline43,0
-gas pipeline AT122 -> AT112,AT122,AT112,550,0,0,0,0,19,AGGM_pipeline44,0
-gas pipeline AT130 -> AT126,AT130,AT126,0,0,0,0,0,32,AGGM_pipeline45,0
-gas pipeline AT126 -> AT130,AT126,AT130,10000,0,0,0,0,32,AGGM_pipeline46,0
-gas pipeline AT130 -> AT127,AT130,AT127,0,0,0,0,0,56,AGGM_pipeline47,0
-gas pipeline AT127 -> AT130,AT127,AT130,1700,0,0,0,0,56,AGGM_pipeline48,0
-gas pipeline SK -> AT126,SK,AT126,65300,0,0,0,0,0,AGGM_pipeline49,0
-gas pipeline AT126 -> SK,AT126,SK,10300,0,0,0,0,0,AGGM_pipeline50,0
-gas pipeline AT127 -> AT122,AT127,AT122,47500,0,0,0,0,0,AGGM_pipeline51,0
-gas pipeline AT122 -> AT123,AT122,AT123,2000,0,0,0,0,77,AGGM_pipeline52,0
-gas pipeline AT123 -> AT122,AT123,AT122,2000,0,0,0,0,77,AGGM_pipeline53,0
-gas pipeline AT126 -> AT127,AT126,AT127,57500,0,0,0,0,81,AGGM_pipeline54,0
-gas pipeline AT127 -> AT126,AT127,AT126,1300,0,0,0,0,81,AGGM_pipeline55,0
-gas pipeline AT123 -> AT126,AT123,AT126,18000,0,0,0,0,79,AGGM_pipeline56,0
-gas pipeline AT126 -> AT123,AT126,AT123,25000,0,0,0,0,79,AGGM_pipeline57,0
-gas pipeline AT127 -> AT123,AT127,AT123,18000,0,0,0,0,79,AGGM_pipeline58,0
-gas pipeline AT123 -> AT127,AT123,AT127,25000,0,0,0,0,79,AGGM_pipeline59,0
-gas pipeline AT125 -> AT126,AT125,AT126,10000,0,0,0,0,0,AGGM_pipeline60,0
-gas pipeline AT124 -> AT123,AT124,AT123,2000,0,0,0,0,0,AGGM_pipeline61,0
-gas pipeline AT123 -> AT124,AT123,AT124,2000,0,0,0,0,0,AGGM_pipeline62,0
-gas pipeline AT124 -> AT313,AT124,AT313,15500,0,0,0,0,205,AGGM_pipeline63,0
-gas pipeline AT313 -> AT124,AT313,AT124,10000,0,0,0,0,205,AGGM_pipeline64,0
-gas pipeline AT121 -> AT123,AT121,AT123,10000,0,0,0,0,205,AGGM_pipeline65,0
-gas pipeline AT123 -> AT121,AT123,AT121,15500,0,0,0,0,205,AGGM_pipeline66,0
-gas pipeline AT312 -> AT121,AT312,AT121,7000,0,0,0,0,105,AGGM_pipeline67,0
-gas pipeline AT121 -> AT312,AT121,AT312,7000,0,0,0,0,105,AGGM_pipeline68,0
-gas pipeline AT124 -> AT125,AT124,AT125,18000,0,0,0,0,79,AGGM_pipeline69,0
-gas pipeline AT125 -> AT124,AT125,AT124,25000,0,0,0,0,79,AGGM_pipeline70,0
-gas pipeline AT313 -> DE2,AT313,DE2,6600,0,0,0,0,0,AGGM_pipeline71,0
-gas pipeline DE2 -> AT313,DE2,AT313,8300,0,0,0,0,0,AGGM_pipeline72,0
-gas pipeline AT313 -> AT312,AT313,AT312,2000,0,0,0,0,96,AGGM_pipeline73,0
-gas pipeline AT312 -> AT313,AT312,AT313,2000,0,0,0,0,96,AGGM_pipeline74,0
-gas pipeline AT312 -> AT314,AT312,AT314,10000,0,0,0,0,30,AGGM_pipeline75,0
-gas pipeline AT314 -> AT312,AT314,AT312,8000,0,0,0,0,30,AGGM_pipeline76,0
-gas pipeline AT314 -> AT315,AT314,AT315,1500,0,0,0,0,0,AGGM_pipeline77,0
-gas pipeline AT315 -> AT312,AT315,AT312,10000,0,0,0,0,30,AGGM_pipeline78,0
-gas pipeline AT312 -> AT315,AT312,AT315,8000,0,0,0,0,30,AGGM_pipeline79,0
-gas pipeline AT315 -> AT323,AT315,AT323,2000,0,0,0,0,105,AGGM_pipeline80,0
-gas pipeline AT323 -> AT315,AT323,AT315,0,0,0,0,0,105,AGGM_pipeline81,0
-gas pipeline AT315 -> AT311,AT315,AT311,1500,0,0,0,0,0,AGGM_pipeline82,0
-gas pipeline AT311 -> AT315,AT311,AT315,1500,0,0,0,0,0,AGGM_pipeline83,0
-gas pipeline AT313 -> AT311,AT313,AT311,1000,0,0,0,0,0,AGGM_pipeline84,0
-gas pipeline AT311 -> AT313,AT311,AT313,1000,0,0,0,0,0,AGGM_pipeline85,0
-gas pipeline AT311 -> DE2,AT311,DE2,7200,0,0,0,0,0,AGGM_pipeline86,0
-gas pipeline DE2 -> AT311,DE2,AT311,4700,0,0,0,0,0,AGGM_pipeline87,0
-gas pipeline AT311 -> AT323,AT311,AT323,0,0,0,0,0,126,AGGM_pipeline88,0
-gas pipeline AT323 -> AT311,AT323,AT311,0,0,0,0,0,126,AGGM_pipeline89,0
-gas pipeline AT322 -> AT323,AT322,AT323,340,0,0,0,0,0,AGGM_pipeline90,0
-gas pipeline AT323 -> AT322,AT323,AT322,800,0,0,0,0,0,AGGM_pipeline91,0
+gas pipeline DE2 -> AT342,DE2,AT342,1269,0,0,0,0,0,AGGM_pipeline01,0
+gas pipeline AT342 -> CH,AT342,CH,265,0,0,0,0,0,AGGM_pipeline02,0
+gas pipeline AT342 -> LI,AT342,LI,265,0,0,0,0,0,AGGM_pipeline03,0
+gas pipeline AT342 <-> AT341,AT342,AT341,575,0,0,1978,0,0,AGGM_pipeline04,-1
+gas pipeline DE2 -> AT331,DE2,AT331,288,0,0,0,0,0,AGGM_pipeline05,0
+gas pipeline DE2 -> AT335,DE2,AT335,1380,0,0,1988,0,0,AGGM_pipeline06,0
+gas pipeline AT335 <-> AT322,AT335,AT322,575,0,0,2026,0,0,AGGM_pipeline07,-1
+gas pipeline AT335 <-> AT332,AT335,AT332,1380,0,0,1988,0,0,AGGM_pipeline08,-1
+gas pipeline AT332 -> AT334,AT332,AT334,288,0,0,1988,0,0,AGGM_pipeline09,0
+gas pipeline DE2 -> AT323,DE2,AT323,260,0,0,1981,0,0,AGGM_pipeline10,0
+gas pipeline AT323 <-> AT322,AT323,AT322,575,0,0,1992,0,0,AGGM_pipeline11,-1
+gas pipeline AT315 -> AT323,AT315,AT323,2000,0,0,1975,0,0,AGGM_pipeline12,0
+gas pipeline AT312 <-> AT311,AT312,AT311,288,0,0,0,0,0,AGGM_pipeline13,-1
+gas pipeline DE2 -> AT311,DE2,AT311,4750,0,0,1999,0,0,AGGM_pipeline14,0
+gas pipeline AT311 -> DE2,AT311,DE2,7274,0,0,1999,0,0,AGGM_pipeline15,0
+gas pipeline AT311 -> AT313,AT311,AT313,4750,0,0,1999,0,0,AGGM_pipeline16,0
+gas pipeline AT313 -> AT311,AT313,AT311,7274,0,0,1999,0,0,AGGM_pipeline17,0
+gas pipeline AT315 -> AT311,AT315,AT311,1725,0,0,0,0,0,AGGM_pipeline18,0
+gas pipeline AT315 -> AT311 (2),AT315,AT311,1725,0,0,0,0,0,AGGM_pipeline19,0
+gas pipeline AT315 <-> AT312,AT315,AT312,575,0,0,0,0,0,AGGM_pipeline20,-1
+gas pipeline AT315 <-> AT312 (2),AT315,AT312,1725,0,0,0,0,0,AGGM_pipeline21,-1
+gas pipeline AT315 <-> AT314,AT315,AT314,6900,0,0,1995,0,0,AGGM_pipeline22,-1
+gas pipeline AT315 <-> AT314 (2),AT315,AT314,288,0,0,0,0,0,AGGM_pipeline23,-1
+gas pipeline AT314 <-> AT222,AT314,AT222,1150,0,0,1998,0,0,AGGM_pipeline24,-1
+gas pipeline AT314 <-> AT121,AT314,AT121,6900,0,0,1995,0,0,AGGM_pipeline25,-1
+gas pipeline AT121 <-> AT314,AT121,AT314,288,0,0,0,0,0,AGGM_pipeline26,-1
+gas pipeline AT222 <-> AT223,AT222,AT223,1150,0,0,1985,0,0,AGGM_pipeline27,-1
+gas pipeline AT223 <-> AT226,AT223,AT226,115,0,0,0,0,0,AGGM_pipeline28,-1
+gas pipeline AT221 <-> AT223,AT221,AT223,4025,0,0,2011,0,0,AGGM_pipeline29,-1
+gas pipeline AT221 <-> AT223 (2),AT221,AT223,575,0,0,1972,0,0,AGGM_pipeline30,-1
+gas pipeline AT122 <-> AT223,AT122,AT223,5175,0,0,2011,0,0,AGGM_pipeline31,-1
+gas pipeline AT122 <-> AT223 (2),AT122,AT223,575,0,0,2010,0,0,AGGM_pipeline32,-1
+gas pipeline AT225 <-> AT221,AT225,AT221,575,0,0,2011,0,0,AGGM_pipeline33,-1
+gas pipeline AT221 <-> AT225,AT221,AT225,115,0,0,0,0,0,AGGM_pipeline34,-1
+gas pipeline AT225 -> SI,AT225,SI,4689,0,0,1977,0,0,AGGM_pipeline35,0
+gas pipeline AT225 -> AT213,AT225,AT213,16672,0,0,1974,0,0,AGGM_pipeline36,0
+gas pipeline AT213 -> AT225,AT213,AT225,6015,0,0,1974,0,0,AGGM_pipeline37,0
+gas pipeline AT225 -> AT213 (2),AT225,AT213,16672,0,0,1986,0,0,AGGM_pipeline38,0
+gas pipeline AT213 -> AT225 (2),AT213,AT225,6015,0,0,1986,0,0,AGGM_pipeline39,0
+gas pipeline AT225 -> AT213 (3),AT225,AT213,16672,0,0,2001,0,0,AGGM_pipeline40,0
+gas pipeline AT213 -> AT225 (3),AT213,AT225,6015,0,0,2001,0,0,AGGM_pipeline41,0
+gas pipeline AT225 -> AT224,AT225,AT224,6015,0,0,1974,0,0,AGGM_pipeline42,0
+gas pipeline AT224 -> AT225,AT224,AT225,16672,0,0,1974,0,0,AGGM_pipeline43,0
+gas pipeline AT225 -> AT224 (2),AT225,AT224,6015,0,0,1986,0,0,AGGM_pipeline44,0
+gas pipeline AT224 -> AT225 (2),AT224,AT225,16672,0,0,1986,0,0,AGGM_pipeline45,0
+gas pipeline AT225 -> AT224 (3),AT225,AT224,6015,0,0,2001,0,0,AGGM_pipeline46,0
+gas pipeline AT224 -> AT225 (3),AT224,AT225,16672,0,0,2001,0,0,AGGM_pipeline47,0
+gas pipeline AT224 -> AT122,AT224,AT122,6015,0,0,1974,0,0,AGGM_pipeline48,0
+gas pipeline AT122 -> AT224,AT122,AT224,16672,0,0,1974,0,0,AGGM_pipeline49,0
+gas pipeline AT224 -> AT122 (2),AT224,AT122,6015,0,0,1986,0,0,AGGM_pipeline50,0
+gas pipeline AT122 -> AT224 (2),AT122,AT224,16672,0,0,1986,0,0,AGGM_pipeline51,0
+gas pipeline AT224 -> AT122 (3),AT224,AT122,6015,0,0,2001,0,0,AGGM_pipeline52,0
+gas pipeline AT122 -> AT224 (3),AT122,AT224,16672,0,0,2001,0,0,AGGM_pipeline53,0
+gas pipeline AT224 <-> AT113,AT224,AT113,288,0,0,1996,0,0,AGGM_pipeline54,-1
+gas pipeline AT224 <-> AT113 (2),AT224,AT113,172,0,0,1976,0,0,AGGM_pipeline55,-1
+gas pipeline AT112 <-> AT111,AT112,AT111,172,0,0,1995,0,0,AGGM_pipeline56,-1
+gas pipeline AT127 <-> AT112,AT127,AT112,288,0,0,1995,0,0,AGGM_pipeline57,-1
+gas pipeline AT127 <-> AT112 (2),AT127,AT112,172,0,0,1970,0,0,AGGM_pipeline58,-1
+gas pipeline AT127 <-> AT112 (3),AT127,AT112,172,0,0,1982,0,0,AGGM_pipeline59,-1
+gas pipeline AT127 <-> AT112 (4),AT127,AT112,172,0,0,1984,0,0,AGGM_pipeline60,-1
+gas pipeline AT126 -> HU,AT126,HU,6378,0,0,1996,0,0,AGGM_pipeline61,0
+gas pipeline AT127 <-> AT130,AT127,AT130,2300,0,0,0,0,0,AGGM_pipeline62,-1
+gas pipeline AT127 <-> AT123,AT127,AT123,2530,0,0,1999,0,0,AGGM_pipeline63,-1
+gas pipeline AT127 <-> AT126,AT127,AT126,575,0,0,1970,0,0,AGGM_pipeline64,-1
+gas pipeline AT127 <-> AT126 (2),AT127,AT126,1725,0,0,1958,0,0,AGGM_pipeline65,-1
+gas pipeline AT127 <-> AT126 (3),AT127,AT126,1725,0,0,1958,0,0,AGGM_pipeline66,-1
+gas pipeline AT127 <-> AT126 (4),AT127,AT126,6900,0,0,2011,0,0,AGGM_pipeline67,-1
+gas pipeline AT127 -> AT126,AT127,AT126,6015,0,0,1974,0,0,AGGM_pipeline68,0
+gas pipeline AT126 -> AT127,AT126,AT127,16672,0,0,1974,0,0,AGGM_pipeline69,0
+gas pipeline AT127 -> AT126 (2),AT127,AT126,6015,0,0,1986,0,0,AGGM_pipeline70,0
+gas pipeline AT126 -> AT127 (2),AT126,AT127,16672,0,0,1986,0,0,AGGM_pipeline71,0
+gas pipeline AT127 -> AT126 (3),AT127,AT126,6015,0,0,2001,0,0,AGGM_pipeline72,0
+gas pipeline AT126 -> AT127 (3),AT126,AT127,16672,0,0,2001,0,0,AGGM_pipeline73,0
+gas pipeline AT127 -> AT122,AT127,AT122,16672,0,0,1974,0,0,AGGM_pipeline74,0
+gas pipeline AT122 -> AT127,AT122,AT127,6015,0,0,1974,0,0,AGGM_pipeline75,0
+gas pipeline AT127 -> AT122 (2),AT127,AT122,16672,0,0,1986,0,0,AGGM_pipeline76,0
+gas pipeline AT122 -> AT127 (2),AT122,AT127,6015,0,0,1986,0,0,AGGM_pipeline77,0
+gas pipeline AT127 -> AT122 (3),AT127,AT122,16672,0,0,2001,0,0,AGGM_pipeline78,0
+gas pipeline AT122 -> AT127 (3),AT122,AT127,6015,0,0,2001,0,0,AGGM_pipeline79,0
+gas pipeline AT127 <-> AT122,AT127,AT122,4600,0,0,1971,0,0,AGGM_pipeline80,-1
+gas pipeline AT127 <-> AT122 (2),AT127,AT122,575,0,0,1958,0,0,AGGM_pipeline81,-1
+gas pipeline AT127 <-> AT122 (3),AT127,AT122,6900,0,0,2011,0,0,AGGM_pipeline82,-1
+gas pipeline AT123 <-> AT122,AT123,AT122,172,0,0,1958,0,0,AGGM_pipeline83,-1
+gas pipeline AT123 <-> AT122 (2),AT123,AT122,345,0,0,1979,0,0,AGGM_pipeline84,-1
+gas pipeline AT213 -> AT211,AT213,AT211,6015,0,0,1974,0,0,AGGM_pipeline85,0
+gas pipeline AT211 -> AT213,AT211,AT213,16672,0,0,1974,0,0,AGGM_pipeline86,0
+gas pipeline AT213 -> AT211 (2),AT213,AT211,6015,0,0,1986,0,0,AGGM_pipeline87,0
+gas pipeline AT211 -> AT213 (2),AT211,AT213,16672,0,0,1986,0,0,AGGM_pipeline88,0
+gas pipeline AT213 -> AT211 (3),AT213,AT211,6015,0,0,2001,0,0,AGGM_pipeline89,0
+gas pipeline AT211 -> AT213 (3),AT211,AT213,16672,0,0,2001,0,0,AGGM_pipeline90,0
+gas pipeline IT0 -> AT211,IT0,AT211,6015,0,0,1974,0,0,AGGM_pipeline91,0
+gas pipeline AT211 -> IT0,AT211,IT0,16672,0,0,1974,0,0,AGGM_pipeline92,0
+gas pipeline IT0 -> AT211 (2),IT0,AT211,6015,0,0,1986,0,0,AGGM_pipeline93,0
+gas pipeline AT211 -> IT0 (2),AT211,IT0,16672,0,0,1986,0,0,AGGM_pipeline94,0
+gas pipeline IT0 -> AT211 (3),IT0,AT211,6015,0,0,2001,0,0,AGGM_pipeline95,0
+gas pipeline AT211 -> IT0 (3),AT211,IT0,16672,0,0,2001,0,0,AGGM_pipeline96,0
+gas pipeline AT211 <-> AT212,AT211,AT212,172,0,0,1975,0,0,AGGM_pipeline97,-1
+gas pipeline AT211 <-> AT212 (2),AT211,AT212,115,0,0,1975,0,0,AGGM_pipeline98,-1
+gas pipeline AT211 <-> AT212 (3),AT211,AT212,115,0,0,1975,0,0,AGGM_pipeline99,-1
+gas pipeline AT126 <-> AT130,AT126,AT130,3450,0,0,0,0,0,AGGM_pipeline100,-1
+gas pipeline AT126 <-> AT130 (2),AT126,AT130,3450,0,0,0,0,0,AGGM_pipeline101,-1
+gas pipeline AT126 <-> AT130 (3),AT126,AT130,2990,0,0,1997,0,0,AGGM_pipeline102,-1
+gas pipeline SK <-> AT126,SK,AT126,23000,0,0,1974,0,0,AGGM_pipeline103,-1
+gas pipeline SK <-> AT126 (2),SK,AT126,27600,0,0,1986,0,0,AGGM_pipeline104,-1
+gas pipeline SK <-> AT126 (3),SK,AT126,6900,0,0,1979,0,0,AGGM_pipeline105,-1
+gas pipeline SK <-> AT126 (4),SK,AT126,32200,0,0,1968,0,0,AGGM_pipeline106,-1
+gas pipeline SK <-> AT126 (5),SK,AT126,2300,0,0,1968,0,0,AGGM_pipeline107,-1
+gas pipeline SK <-> AT126 (6),SK,AT126,4025,0,0,1979,0,0,AGGM_pipeline108,-1
+gas pipeline AT126 <-> AT125,AT126,AT125,575,0,0,2000,0,0,AGGM_pipeline109,-1
+gas pipeline AT126 <-> AT125 (2),AT126,AT125,115,0,0,1976,0,0,AGGM_pipeline110,-1
+gas pipeline AT126 -> AT124,AT126,AT124,6000,0,0,1979,0,0,AGGM_pipeline111,0
+gas pipeline AT126 -> AT124 (2),AT126,AT124,6000,0,0,2012,0,0,AGGM_pipeline112,0
+gas pipeline AT124 -> AT126,AT124,AT126,7774,0,0,1979,0,0,AGGM_pipeline113,0
+gas pipeline AT124 -> AT126 (2),AT124,AT126,7774,0,0,2012,0,0,AGGM_pipeline114,0
+gas pipeline AT126 <-> AT124,AT126,AT124,1150,0,0,1994,0,0,AGGM_pipeline115,-1
+gas pipeline AT126 <-> AT123,AT126,AT123,345,0,0,1956,0,0,AGGM_pipeline116,-1
+gas pipeline AT126 <-> AT123 (2),AT126,AT123,3450,0,0,1967,0,0,AGGM_pipeline117,-1
+gas pipeline AT126 <-> AT123 (3),AT126,AT123,6900,0,0,1994,0,0,AGGM_pipeline118,-1
+gas pipeline AT125 <-> AT124,AT125,AT124,172,0,0,1986,0,0,AGGM_pipeline119,-1
+gas pipeline CZ -> AT125,CZ,AT125,256,0,0,2001,0,0,AGGM_pipeline120,0
+gas pipeline AT124 <-> AT123,AT124,AT123,172,0,0,1958,0,0,AGGM_pipeline121,-1
+gas pipeline AT124 <-> AT123 (2),AT124,AT123,1150,0,0,1973,0,0,AGGM_pipeline122,-1
+gas pipeline AT124 -> AT313,AT124,AT313,12000,0,0,1979,0,0,AGGM_pipeline123,0
+gas pipeline AT313 -> AT124,AT313,AT124,15547,0,0,1979,0,0,AGGM_pipeline124,0
+gas pipeline AT123 <-> AT121,AT123,AT121,345,0,0,1961,0,0,AGGM_pipeline125,-1
+gas pipeline AT123 <-> AT121 (2),AT123,AT121,3450,0,0,1967,0,0,AGGM_pipeline126,-1
+gas pipeline AT123 <-> AT121 (3),AT123,AT121,6900,0,0,2012,0,0,AGGM_pipeline127,-1
+gas pipeline AT121 <-> AT312,AT121,AT312,3450,0,0,1978,0,0,AGGM_pipeline128,-1
+gas pipeline AT313 <-> AT312,AT313,AT312,3220,0,0,2007,0,0,AGGM_pipeline129,-1
+gas pipeline AT313 <-> AT312 (2),AT313,AT312,2645,0,0,1979,0,0,AGGM_pipeline130,-1
+gas pipeline DE2 -> AT313,DE2,AT313,6000,0,0,1979,0,0,AGGM_pipeline131,0
+gas pipeline DE2 -> AT313 (2),DE2,AT313,6000,0,0,2026,0,0,AGGM_pipeline132,0
+gas pipeline AT313 -> DE2,AT313,DE2,7774,0,0,1979,0,0,AGGM_pipeline133,0
+gas pipeline AT313 -> DE2 (2),AT313,DE2,7774,0,0,2026,0,0,AGGM_pipeline134,0
