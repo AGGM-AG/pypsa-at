@@ -319,6 +319,7 @@ rule overwrite_powerplants_at:
         hydro_reclassification="data/pypsa-at/hydro_technology_reclassification_AT.csv",
         anlagenregister_plants=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
         grenzkraftwerke="data/pypsa-at/grenzkraftwerke_AT.csv",
+        missing_hydro_plants="data/pypsa-at/missing_hydro_plants_AT.csv",
         bestandsstatistik_typ=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx",
     output:
         powerplants=resources("powerplants_s_{clusters}-overwrite.csv"),
