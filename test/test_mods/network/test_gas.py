@@ -14,6 +14,7 @@ from pypsa import NetworkCollection
 from evals.utils import filter_by
 from mods.clustering.utils import combine_regions_by_clustering
 from mods.network.gas import _TANAP_PIPELINE_CAPACITY
+from mods.utils import aggregate_gas_pipeline_corridors_to_nuts2
 from test.conftest import require_config
 
 update_gas_transport_data = import_module(
@@ -208,9 +209,20 @@ class TestAGGMGasNetworkCapacityData:
 
     @pytest.fixture(params=["AT10", "AT35"])
     def aggm_data(self, request, project_root) -> pd.DataFrame:
-        """AGGM brownfield gas network for both supported custom clusterings is present."""
-        file_name = f"AGGM_gas_network_base_{request.param}.csv"
-        return pd.read_csv(project_root / "data" / "pypsa-at" / file_name, index_col=0)
+        """
+        AGGM brownfield gas network for both supported custom clusterings is present.
+
+        AT35 is the maintained source file; AT10 is derived from it via
+        ``aggregate_gas_pipeline_corridors_to_nuts2`` rather than a separate
+        static file (see ``modify_brownfield_gas_network_AT.py``).
+        """
+        at35 = pd.read_csv(
+            project_root / "data" / "pypsa-at" / "AGGM_gas_network_base_AT35.csv",
+            index_col=0,
+        )
+        if request.param == "AT10":
+            return aggregate_gas_pipeline_corridors_to_nuts2(at35)
+        return at35
 
     @pytest.fixture
     def raw(self) -> pd.DataFrame:

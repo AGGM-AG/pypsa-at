@@ -1,7 +1,6 @@
 ,bus0,bus1,p_nom,p_nom_diameter,max_pressure_bar,build_year,diameter_mm,length,name,p_min_pu
 gas pipeline DE2 -> AT342,DE2,AT342,1269,0,0,0,0,0,AGGM_pipeline01,0
 gas pipeline AT342 -> CH,AT342,CH,265,0,0,0,0,0,AGGM_pipeline02,0
-gas pipeline AT342 -> LI,AT342,LI,265,0,0,0,0,0,AGGM_pipeline03,0
 gas pipeline AT342 <-> AT341,AT342,AT341,575,0,0,1978,0,0,AGGM_pipeline04,-1
 gas pipeline DE2 -> AT331,DE2,AT331,288,0,0,0,0,0,AGGM_pipeline05,0
 gas pipeline DE2 -> AT335,DE2,AT335,1380,0,0,1988,0,0,AGGM_pipeline06,0

@@ -10,6 +10,7 @@ import geopandas as gpd
 import pandas as pd
 from pypsa.geo import haversine_pts
 
+from mods.utils import aggregate_gas_pipeline_corridors_to_nuts2
 from scripts._helpers import configure_logging
 from scripts.cluster_gas_network import load_bus_regions
 
@@ -137,16 +138,18 @@ if __name__ == "__main__":
     gas_network_raw_df = pd.read_csv(gas_network_raw, index_col=0)
 
     if mods["modify_brownfield_gas_network_AT"]:
+        gas_network_input_df = pd.read_csv(
+            snakemake.input.brownfield_gas_network_AT35, index_col=0
+        )
         if custom_clustering.startswith("AT10"):
-            gas_network_input = snakemake.input.brownfield_gas_network_AT10
-        elif custom_clustering.startswith("AT35"):
-            gas_network_input = snakemake.input.brownfield_gas_network_AT35
-        else:
+            gas_network_input_df = aggregate_gas_pipeline_corridors_to_nuts2(
+                gas_network_input_df
+            )
+        elif not custom_clustering.startswith("AT35"):
             raise ValueError(
                 f"Unexpected clustering detected: {custom_clustering}. "
                 f"Chose from {('AT10DE5', 'AT35DE5')}."
             )
-        gas_network_input_df = pd.read_csv(gas_network_input, index_col=0)
 
         # update data in raw where AGGM data is supplied
         new_gas_network_df = update_gas_transport_data(
