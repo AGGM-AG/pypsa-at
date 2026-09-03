@@ -109,19 +109,18 @@ if NEA_AT["source"] == "primary":
 
 rule retrieve_ffe_industry_load_profiles:
     output:
-        "data/pypsa-at/ffe_industry_load_profiles.json",
+        f"{FFE_INDUSTRY_LOAD_PROFILES['folder']}/ffe_industry_load_profiles.json",
     log:
         logs("retrieve_ffe_industry_load_profiles.log"),
     retries: 2
     resources:
         mem_mb=1000,
+    params:
+        url=FFE_INDUSTRY_LOAD_PROFILES["url"],
     message:
         "Retrieving FfE normalized industrial electricity load profiles"
     run:
-        data = requests.get(
-            "https://api.opendata.ffe.de/opendata",
-            params={"id_opendata": 59},
-        ).json()
+        data = requests.get(params.url, params={"id_opendata": 59}).json()
         with open(output[0], "w") as f:
             json.dump(data, f)
 
