@@ -245,12 +245,12 @@ buttons, Plotly charts, Marimo notebooks, footnotes, cross-references via `[text
 
 Tests live in `test/`. Shared fixtures and `--result-path` are defined in `test/conftest.py`.
 
-| Location            | Covers                                                          |
-|---------------------|-----------------------------------------------------------------|
-| `test/test_mods/`   | `mods/` — mirrors the package layout, plus its own `conftest.py` |
-| `test/test_evals/`  | `evals/*.py` modules (not views or plots)                        |
-| `test/test_*.py`    | `scripts/pypsa-at/` scripts, config schema, data versions layer  |
-| `test/test_data/`   | Test fixtures data                                               |
+| Location            | Covers                                                         |
+|---------------------|----------------------------------------------------------------|
+| `test/test_mods/`   | `mods/` — mirrors the package layout |
+| `test/test_evals/`  | `evals/*.py` modules (not views or plots)                       |
+| `test/test_*.py`    | `scripts/pypsa-at/` scripts, config schema, data versions layer |
+| `test/test_data/`   | Test fixtures data                                              |
 
 A few top-level files (`test_base_network.py`, `test_build_shapes.py`,
 `test_build_powerplants.py`) come from upstream — treat them like other upstream code.
