@@ -432,7 +432,8 @@ def add_kleinwasserkraft_to_power_plants_at(
         date_in=date_in.values,
         capacity_mw=kwk["engpassleistung_kw"].values / 1e3,
         bus=kwk["nuts"].values,
-    )
+    ).assign(plz=kwk["plz"].values)
+    # postal codes are carried over to simplify locating plants
 
     logger.info(
         f"Added {len(new_ppls)} Austrian Kleinwasserkraft plants with "
@@ -595,6 +596,67 @@ def apply_grenzkraftwerke_shares_at(
     return ppl
 
 
+def add_missing_hydro_plants_at(
+    ppl: pd.DataFrame, missing_plants_file: str
+) -> pd.DataFrame:
+    """
+    Add curated Austrian hydro plants absent from powerplantmatching.
+
+    Some large Austrian hydro plants are missing from the powerplantmatching
+    fleet — notably the EVN Kamp storage chain (Ottenstein, Dobra-Krumau,
+    Thurnberg-Wegscheid), which left the AT124 (Waldviertel) region without
+    the reservoir capacity that carries its river energy (see
+    pypsa-at-planning#312). Each curated plant is added with its coordinates
+    so downstream catchment lookups place it on the correct river section.
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table with ``Name``, ``Country``, ``Fueltype`` and
+        ``Capacity`` columns (as produced by ``build_powerplants``).
+    missing_plants_file
+        CSV with columns ``Name``, ``bus``, ``technology``, ``capacity_mw``,
+        ``date_in``, ``lat``, ``lon`` and ``note``.
+
+    Returns
+    -------
+    :
+        A copy of ``ppl`` with the curated plants appended.
+
+    Raises
+    ------
+    ValueError
+        If a curated plant already exists among the Austrian hydro rows
+        (changed upstream dataset — switch it to a reclassification instead).
+    """
+    missing = pd.read_csv(missing_plants_file)
+    existing = set(ppl.query("Country == 'AT' and Fueltype == 'Hydro'")["Name"])
+    clash = sorted(set(missing["Name"]) & existing)
+    if clash:
+        raise ValueError(
+            f"Curated missing plant(s) {clash} already exist in the "
+            f"powerplants table; remove them from {missing_plants_file} or "
+            "handle them via reclassification instead."
+        )
+
+    new_ppls = _new_powerplant_rows(
+        names=missing["Name"].to_numpy(),
+        fueltype="Hydro",
+        technology=missing["technology"].to_numpy(),
+        date_in=missing["date_in"].astype(float).to_numpy(),
+        capacity_mw=missing["capacity_mw"].astype(float).to_numpy(),
+        bus=missing["bus"].to_numpy(),
+    ).assign(lat=missing["lat"].to_numpy(), lon=missing["lon"].to_numpy())
+
+    summary = missing.groupby("technology")["capacity_mw"].agg(["size", "sum"]).round(1)
+    for tech, r in summary.iterrows():
+        logger.info(
+            f"Added {r['size']:.0f} missing Austrian {tech} plants "
+            f"({r['sum']:.1f} MW) from {missing_plants_file}."
+        )
+    return pd.concat([ppl, new_ppls], ignore_index=True)
+
+
 def reclassify_hydro_technologies_at(
     ppl: pd.DataFrame, reclassification_file: str
 ) -> pd.DataFrame:
@@ -689,6 +751,9 @@ def overwrite_powerplants(snakemake):
         )
         ppl_overwrite = apply_grenzkraftwerke_shares_at(
             ppl_overwrite, snakemake.input.grenzkraftwerke
+        )
+        ppl_overwrite = add_missing_hydro_plants_at(
+            ppl_overwrite, snakemake.input.missing_hydro_plants
         )
         ppl_overwrite = add_kleinwasserkraft_to_power_plants_at(
             ppl_overwrite,
