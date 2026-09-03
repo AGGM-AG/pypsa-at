@@ -94,14 +94,3 @@ for a calibrated 2025 fleet of ≈ 6.3 GW.
 | `mods.klien_potential_limits.ambition` | Pathway ambition (`low` / `medium` / `high`), shared with the KLIEN PV and wind limits. |
 | `mods.klien_potential_limits.climate_scenario` | Climate scenario (`wocc` / `mocc` / `stcc`), shared with the KLIEN PV and wind limits. The hydro study publishes pathways only for `mocc` (RCP 4.5) and `stcc` (RCP 8.5); `wocc` falls back to `mocc`, which is logged. |
 | `mods.trajectories.apply_trajectories` | Enables/disables enforcement of all capacity trajectories during the solve (see [Generic Capacity Trajectories](capacity-trajectories.md)). |
-
-## Workflow artifacts
-
-| Artifact | Location |
-|----------|----------|
-| KLIEN corridor build rule | `build_klien_hydro_trajectory_at` in `rules/pypsa-at/build.smk`, script `scripts/pypsa-at/build_klien_hydro_trajectory_at.py` |
-| KLIEN corridor output | `resources/klien_ror_trajectory_{clusters}.csv` (per horizon: growth factor, calibrated fleet, resulting upper limit); consumed by the trajectory build and attached to the network meta for tests |
-| Trajectory build rule | `build_capacity_trajectories` in `rules/pypsa-at/build.smk`, script `scripts/pypsa-at/build_capacity_trajectories.py` |
-| Output consumed by the solve | `resources/trajectories_{clusters}.csv` |
-| KLIEN hydro pathway data | `catchments_hydro.csv` in the `klien_potentials` dataset (`data/versions.csv`, version `2026-v3`); per-catchment realisable capacity and energy, mirrored from [GTIF Austria](https://gtif-austria.info/narratives/tf2-hydropower) |
-| Calibrated Austrian fleet | `powerplants_s_{clusters}-overwrite.csv` (see the Anlagenregister-based calibration, [issue #312](https://github.com/AGGM-AG/pypsa-at-planning/issues/312)) |
