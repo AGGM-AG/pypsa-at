@@ -294,6 +294,33 @@ pixi run pytest test/test_mods/ --result-path=results/{prefix}/{scenario}
 - Prefer f-strings over %s whenever possible, especially during logging
 - Keep Snakemake simple: implement guard logic in Python scripts (The DAG should not depend on the config).
 
+### Docstrings
+
+- NumPy style throughout; mkdocstrings renders them (`docstring_style: numpy` in `mkdocs.yml`).
+- No types in docstrings. Types come from the function signature, so parameter and
+  return lines carry only a description.
+- The `Returns` section uses a bare colon as the type placeholder, followed by the
+  description on an indented new line:
+
+```python
+def scale(values: pd.Series, factor: float) -> pd.Series:
+    """
+    Scale a series by a constant factor.
+
+    Parameters
+    ----------
+    values
+        The series to scale.
+    factor
+        Multiplier applied to every entry.
+
+    Returns
+    -------
+    :
+        The scaled series.
+    """
+```
+
 ## Data Versions
 
 External datasets are pinned in `data/versions.csv` (columns: `dataset`, `version`,
@@ -307,7 +334,7 @@ To add or bump a dataset: add a row to `data/versions.csv` (both `primary` and
 
 ## Common Gotchas
 
-- Tests marked with `AT` require the ``--result-path`` argument to load solved networks
+- Tests that use the ``nc`` NetworkCollection fixture automatically become marked with the `AT` pytest mark
 - `mods` subpackages are imported through `mods/__init__.py` re-exports — a new
   orchestrator is invisible to `scripts/` until it is added to `__all__` there
 - Scripts under `scripts/pypsa-at/` live in a hyphenated directory (not a valid Python
