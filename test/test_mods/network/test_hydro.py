@@ -123,3 +123,70 @@ def test_inflows_match_pemmdb_totals(nc, project_root):
                 clip,
             )
             _assert_energy_matches(actual, expected, tol)
+
+
+class TestRedistributePeaks:
+    """Unit tests for the p_max_pu peak redistribution guard."""
+
+    def test_feasible_column_conserves_energy(self):
+        from mods.network.hydro import _redistribute_peaks
+
+        df = pd.DataFrame({"a": [2.0, 0.4, 0.2, 0.2, 0.2]})
+        out = _redistribute_peaks(df)
+        assert out["a"].max() <= 1.0
+        assert out["a"].sum() == pytest.approx(3.0, abs=0.011)
+
+    def test_infeasible_column_raises(self):
+        from mods.network.hydro import _redistribute_peaks
+
+        # total 6.0 > feasible maximum 5.0 -> would loop forever unguarded
+        df = pd.DataFrame({"a": [3.0, 2.0, 0.5, 0.25, 0.25]})
+        with pytest.raises(ValueError, match="feasible maximum"):
+            _redistribute_peaks(df)
+
+    def test_infeasible_column_error_names_the_column(self):
+        from mods.network.hydro import _redistribute_peaks
+
+        df = pd.DataFrame(
+            {
+                "infeasible": [3.0, 2.0, 0.5, 0.25, 0.25],
+                "feasible": [2.0, 0.4, 0.2, 0.2, 0.2],
+            }
+        )
+        with pytest.raises(ValueError, match="infeasible"):
+            _redistribute_peaks(df)
+
+    def test_feasible_frame_with_zero_column_keeps_columns_independent(self):
+        from mods.network.hydro import _redistribute_peaks
+
+        df = pd.DataFrame(
+            {
+                "feasible": [2.0, 0.4, 0.2, 0.2, 0.2],
+                "zero": [0.0, 0.0, 0.0, 0.0, 0.0],
+            }
+        )
+        out = _redistribute_peaks(df)
+        assert out["feasible"].sum() == pytest.approx(3.0, abs=0.011)
+        assert (out["zero"] == 0.0).all()
+        assert out.notna().all().all()
+
+    def test_max_iter_falls_back_to_energy_conserving_waterfill(self, caplog):
+        from mods.network.hydro import _redistribute_peaks
+
+        df = pd.DataFrame({"a": [2.0, 0.4, 0.2, 0.2, 0.2]})
+        with caplog.at_level("INFO"):
+            out = _redistribute_peaks(df, max_iter=1)
+        assert out["a"].max() <= 1.0
+        assert out["a"].sum() == pytest.approx(3.0, abs=0.011)
+        assert "waterfill" in caplog.text
+
+    def test_near_bound_column_conserves_energy(self):
+        from mods.network.hydro import _redistribute_peaks
+
+        # 99.99% of the feasible maximum: proportional redistribution stalls
+        n, total = 100, 100 * 0.9999
+        profile = pd.Series(range(1, n + 1), dtype=float)
+        df = pd.DataFrame({"a": profile / profile.sum() * total})
+        out = _redistribute_peaks(df)
+        assert out["a"].max() <= 1.0
+        assert out["a"].sum() == pytest.approx(total, abs=0.011)
