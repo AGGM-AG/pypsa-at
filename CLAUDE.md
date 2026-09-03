@@ -147,7 +147,7 @@ Additional relevant Snakemake rule functions:
 
 ```bash
 # Pull latest before anything
-git fetch --all && git pull
+git fetch --all && git pull && git merge origin/main
 
 # Dry-run (show plan, no execution)
 pixi run snakemake -n -c1 -p
