@@ -306,10 +306,29 @@ def _modify_inflow_snapshots(n: Network, inflow: xr.DataArray) -> xr.DataArray:
 
 
 def _redistribute_peaks(
-    df: pd.DataFrame, upper: float = 1, lower: float = 0, eps: float = 0.01
+    df: pd.DataFrame,
+    upper: float = 1,
+    lower: float = 0,
+    eps: float = 0.01,
+    max_iter: int = 500,
 ) -> pd.DataFrame:
     """
     Redistribute peak values (column-wise) in a dataframe
+
+    Values above ``upper`` are clipped and their surplus re-added
+    proportionally to the column profile until the residual falls below
+    ``eps`` — energy-conserving as long as a column can absorb its total.
+    A column whose sum reaches ``upper * len(df)`` (annual energy at or
+    above p_nom x hours) can never absorb the surplus without spillage.
+    That should not happen for a correctly calibrated fleet — upstream
+    inflow-total calibration (``build_hydro_inflow_targets``, including its
+    diversion-plant overrides for inter-catchment schemes) is responsible
+    for keeping every region's target energy within its p_nom x hours
+    envelope. A column violating this bound therefore indicates a data
+    problem (missing plant capacity, a missing diversion override, a
+    mis-scaled inflow total, ...) rather than an expected physical case, so
+    this raises instead of silently spilling energy that would otherwise
+    understate delivered generation without a visible signal.
 
     Parameters
     ----------
@@ -321,21 +340,73 @@ def _redistribute_peaks(
         The lower limit to cap
     eps
         Values at upper + eps are just capped and not redistributed.
+    max_iter
+        Iteration bound for the proportional redistribution; columns that
+        have not converged by then (stalling close to the feasible
+        maximum) fall back to an energy-conserving headroom waterfill.
 
     Returns
     -------
     :
         The modified DataFrame
+
+    Raises
+    ------
+    ValueError
+        If any column's total exceeds the feasible maximum ``upper *
+        len(df)`` (i.e. inflow energy above what ``p_nom`` could deliver
+        over the full period even at 100% utilisation every hour).
     """
     df = df.copy()
-    weights = df / df.sum()
-    diff = df - df.clip(lower, upper)
-    max_diff = diff.sum().max()
-    while max_diff > eps:
-        df = df.clip(lower, upper) + diff.sum() * weights
-        diff = df - df.clip(lower, upper)
-        max_diff = diff.sum().max()
-    df = df.clip(lower, upper)
+
+    feasible_max = upper * len(df)
+    totals = df.sum()
+    infeasible = df.columns[totals >= feasible_max]
+    if len(infeasible):
+        _surplus = (totals[infeasible] - feasible_max).round(2)
+        raise ValueError(
+            f"{len(infeasible)} inflow column(s) exceed the feasible maximum "
+            f"of {feasible_max:.1f} (energy above what p_nom could deliver "
+            f"over all {len(df)} hours) and cannot be redistributed without "
+            f"spillage: surplus per column {_surplus.to_dict()}. This "
+            "indicates a capacity/energy mismatch upstream (missing plant "
+            "capacity, a missing diversion override in "
+            "scripts/pypsa-at/build_hydro_inflow_targets.py, or a mis-scaled "
+            "inflow total) — fix the underlying data rather than suppressing "
+            "this error."
+        )
+
+    # redistribution is column-independent: iterate per column so converged
+    # columns exit immediately and only near-bound columns iterate long
+    waterfilled = []
+    for column in df.columns.difference(infeasible):
+        series = df[column]
+        weights = series / total if (total := series.sum()) > 0 else 0.0
+        diff = series - series.clip(lower, upper)
+        iteration = 0
+        while diff.sum() > eps and iteration < max_iter:
+            series = series.clip(lower, upper) + diff.sum() * weights
+            diff = series - series.clip(lower, upper)
+            iteration += 1
+        series = series.clip(lower, upper)
+        if diff.sum() > eps:  # fixme: do we really need this?
+            # proportional redistribution stalls for columns close to the
+            # feasible maximum (nearly every hour saturated); fall back to
+            # an energy-conserving waterfill of the remaining headroom
+            waterfilled.append(column)
+            residual = total - series.sum()
+            while residual > eps:
+                headroom = upper - series
+                series = (series + residual * headroom / headroom.sum()).clip(
+                    lower, upper
+                )
+                residual = total - series.sum()
+        df[column] = series
+    if waterfilled:
+        logger.info(
+            f"Peak redistribution fell back to headroom waterfill after "
+            f"{max_iter} iterations for near-bound columns {waterfilled}."
+        )
     return df
 
 
