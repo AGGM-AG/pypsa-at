@@ -172,7 +172,7 @@ if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
 
     rule build_inflow_totals_per_region:
         input:
-            powerplants=resources("powerplants_s_{clusters}.csv"),
+            powerplants=resources("powerplants_s_{clusters}-overwrite.csv"),
             hydro_inflows=f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows",
             costs=lambda w: resources(
                 f"costs_{config_provider('costs', 'year')(w)}_processed.csv"
