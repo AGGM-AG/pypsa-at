@@ -213,6 +213,104 @@ def make_gas_pipelines_unextendable(n: pypsa.Network, snakemake: Snakemake) -> N
         n.links.loc[n.links.carrier.isin(to_fix), "p_nom_extendable"] = False
 
 
+def restore_asymmetric_pipeline_capacities(
+    n: pypsa.Network, snakemake: Snakemake
+) -> None:
+    """
+    Resize the reverse leg of gas pipelines whose two flow directions differ.
+
+    AGGM supplies compressor-limited corridors with a smaller capacity in one
+    direction, carried through the clustered gas network as
+    ``p_min_pu = -reverse capacity / p_nom``. ``prepare_sector_network`` builds
+    one Link from that row with the correct asymmetric bounds, but
+    ``lossy_bidirectional_links`` then splits every gas pipeline into a forward
+    leg and a reverse leg, and the reverse leg copies ``p_nom`` from the
+    forward one. That split is otherwise wanted: it bills the pipe once and
+    draws compressor electricity at whichever end is actually sending. Only the
+    copied capacity is wrong, so this resets it to the reverse capacity the
+    corridor really has.
+
+    Parameters
+    ----------
+    n
+        The pre-network to be modified in place.
+    snakemake
+        The Snakemake workflow object providing config and the clustered gas
+        network resource.
+
+    Returns
+    -------
+    :
+        Updates ``p_nom`` and its bounds on the affected reverse legs in place.
+
+    Raises
+    ------
+    ValueError
+        If a corridor present in the network has no reverse leg to resize.
+        Its asymmetry would otherwise be lost without a trace, because
+        ``lossy_bidirectional_links`` has already zeroed the ``p_min_pu`` that
+        records it.
+
+    Notes
+    -----
+    The reverse legs are fixed rather than extendable so that
+    ``solve_network.add_lossy_bidirectional_link_constraints`` leaves them
+    alone. That constraint synchronises a reverse leg with its forward leg
+    whenever both are extendable, which would even out the asymmetry again in
+    planning horizons where gas pipelines may still be expanded.
+    """
+    mods = snakemake.config["mods"]
+    if not mods.get("modify_brownfield_gas_network_AT"):
+        logger.info(
+            "Skip restoring asymmetric gas pipeline capacities because the "
+            "brownfield gas network modification is disabled."
+        )
+        return
+
+    gas_network = pd.read_csv(snakemake.input.clustered_gas_network, index_col=0)
+    asymmetric = gas_network[
+        gas_network["p_min_pu"].between(-1, 0, inclusive="neither")
+    ]
+    if asymmetric.empty:
+        logger.info("No asymmetric gas pipelines in the clustered gas network.")
+        return
+
+    gas_pipes = n.links[n.links["carrier"] == "gas pipeline"]
+    is_reversed = gas_pipes.get("reversed", pd.Series(False, index=gas_pipes.index))
+    if not is_reversed.fillna(False).any():
+        logger.info(
+            "Gas pipelines were not split into separate flow directions, so the "
+            "asymmetric bounds of the corridors themselves still apply."
+        )
+        return
+
+    # corridors outside the modelled scope never made it into the network
+    corridors = asymmetric.index.intersection(gas_pipes.index)
+    reverse_legs = corridors + "-reversed"
+
+    missing = reverse_legs.difference(gas_pipes.index)
+    if not missing.empty:
+        raise ValueError(
+            f"Asymmetric gas pipelines without a reverse leg to resize: {list(missing)}."
+        )
+
+    reverse_capacity = pd.Series(
+        (
+            -asymmetric.loc[corridors, "p_min_pu"] * asymmetric.loc[corridors, "p_nom"]
+        ).to_numpy(),
+        index=reverse_legs,
+    )
+
+    for attribute in ("p_nom", "p_nom_min", "p_nom_max"):
+        n.links.loc[reverse_legs, attribute] = reverse_capacity
+    n.links.loc[reverse_legs, "p_nom_extendable"] = False
+
+    logger.info(
+        f"Restored the reverse capacity of {len(reverse_legs)} asymmetric gas pipeline(s), "
+        f"totalling {reverse_capacity.sum() / 1e3:.1f} GW."
+    )
+
+
 def override_gas_storage_capacities(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
     Override gas Store e_nom_min with validated storage capacities.

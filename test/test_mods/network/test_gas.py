@@ -5,6 +5,7 @@
 """Integration tests for mods/network/gas.py — gas storage capacity overrides."""
 
 from importlib import import_module
+from types import SimpleNamespace
 
 import pandas as pd
 import pypsa
@@ -13,7 +14,10 @@ from pypsa import NetworkCollection
 
 from evals.utils import filter_by
 from mods.clustering.utils import combine_regions_by_clustering
-from mods.network.gas import _TANAP_PIPELINE_CAPACITY
+from mods.network.gas import (
+    _TANAP_PIPELINE_CAPACITY,
+    restore_asymmetric_pipeline_capacities,
+)
 from test.conftest import require_config
 
 _modify_brownfield_gas_network_AT = import_module(
@@ -23,11 +27,13 @@ update_gas_transport_data = _modify_brownfield_gas_network_AT.update_gas_transpo
 aggregate_gas_pipeline_corridors_to_nuts2 = (
     _modify_brownfield_gas_network_AT.aggregate_gas_pipeline_corridors_to_nuts2
 )
+apply_reverse_flow_limits = _modify_brownfield_gas_network_AT.apply_reverse_flow_limits
 
 GAS_NETWORK_COLUMNS = [
     "bus0",
     "bus1",
     "p_nom",
+    "p_nom_reverse",
     "p_nom_diameter",
     "max_pressure_bar",
     "build_year",
@@ -207,6 +213,166 @@ class TestModifyBrownfieldGasNetworkAT:
         pd.testing.assert_frame_equal(result, expected_output)
 
 
+def corridor_frame(rows: list[tuple]) -> pd.DataFrame:
+    """
+    Build AGGM corridor rows from (bus0, bus1, p_nom, p_nom_reverse, p_min_pu) tuples.
+
+    ``p_nom_reverse`` is ``None`` for every corridor that is not asymmetric,
+    matching the blank column entries of the AGGM input file.
+    """
+    df = pd.DataFrame(
+        rows, columns=["bus0", "bus1", "p_nom", "p_nom_reverse", "p_min_pu"]
+    )
+    df["p_nom_reverse"] = df["p_nom_reverse"].astype(float)
+    connector = df["p_min_pu"].map({-1: " <-> "}).fillna(" -> ")
+    df.index = "gas pipeline " + df["bus0"] + connector + df["bus1"]
+    for column in ("p_nom_diameter", "max_pressure_bar", "diameter_mm", "length"):
+        df[column] = 0
+    df["build_year"] = 1974
+    df["name"] = [f"AGGM_pipeline{i:02d}" for i in range(len(df))]
+    return df
+
+
+class TestApplyReverseFlowLimits:
+    """Unit tests for converting AGGM reverse capacities into p_min_pu bounds."""
+
+    @pytest.fixture
+    def corridors(self) -> pd.DataFrame:
+        """One corridor of every shape the AGGM file can hold."""
+        return corridor_frame(
+            [
+                ("AT225", "AT213", 16672.0, 6015.0, -1),  # asymmetric
+                ("AT342", "AT341", 575.0, None, -1),  # symmetric
+                ("DE2", "AT342", 1269.0, None, 0),  # one way
+                ("AT311", "DE2", 7274.0, 7274.0, -1),  # reverse equals forward
+                ("AT126", "HU", 6378.0, 0.0, -1),  # reverse capacity of zero
+            ]
+        )
+
+    def test_asymmetric_corridor_becomes_a_fraction(self, corridors):
+        """p_min_pu holds the reverse capacity as a share of the forward one."""
+        result = apply_reverse_flow_limits(corridors)
+
+        assert result.loc["gas pipeline AT225 <-> AT213", "p_min_pu"] == pytest.approx(
+            -6015.0 / 16672.0
+        )
+
+    def test_reverse_capacity_is_recoverable(self, corridors):
+        """The reverse capacity can be read back from p_min_pu and p_nom."""
+        result = apply_reverse_flow_limits(corridors)
+        row = result.loc["gas pipeline AT225 <-> AT213"]
+
+        assert -row["p_min_pu"] * row["p_nom"] == pytest.approx(6015.0)
+
+    @pytest.mark.parametrize(
+        "corridor, expected",
+        [
+            ("gas pipeline AT342 <-> AT341", -1.0),  # symmetric stays bidirectional
+            ("gas pipeline DE2 -> AT342", 0.0),  # one way stays one way
+            ("gas pipeline AT311 <-> DE2", -1.0),  # equal capacities are symmetric
+            ("gas pipeline AT126 <-> HU", 0.0),  # zero reverse capacity is one way
+        ],
+    )
+    def test_corridor_shapes_map_to_expected_bounds(
+        self, corridors, corridor, expected
+    ):
+        """Corridors without an asymmetry keep or reach the bound they imply."""
+        result = apply_reverse_flow_limits(corridors)
+
+        assert result.loc[corridor, "p_min_pu"] == pytest.approx(expected)
+
+    def test_reverse_capacity_column_is_dropped(self, corridors):
+        """The clustered gas network keeps the column set of a PyPSA gas network."""
+        result = apply_reverse_flow_limits(corridors)
+
+        assert "p_nom_reverse" not in result.columns
+
+    def test_column_is_dropped_without_any_asymmetry(self, corridors):
+        """The column also goes when no corridor carries a reverse capacity."""
+        symmetric_only = corridors[corridors["p_nom_reverse"].isna()]
+
+        result = apply_reverse_flow_limits(symmetric_only)
+
+        assert "p_nom_reverse" not in result.columns
+        assert result["p_min_pu"].tolist() == [-1, 0]
+
+    def test_input_is_not_modified(self, corridors):
+        """The caller's frame is left untouched."""
+        before = corridors.copy()
+
+        apply_reverse_flow_limits(corridors)
+
+        pd.testing.assert_frame_equal(corridors, before)
+
+    def test_rows_are_preserved(self, corridors):
+        """Converting bounds neither drops nor reorders corridors."""
+        result = apply_reverse_flow_limits(corridors)
+
+        assert result.index.equals(corridors.index)
+
+
+class TestAggregateReverseCapacities:
+    """Unit tests for carrying AGGM reverse capacities through the NUTS2 aggregation."""
+
+    def test_parallel_asymmetric_pipes_sum_per_direction(self):
+        """Merged parallel pipes sum their forward and reverse capacities separately."""
+        corridors = corridor_frame(
+            [
+                ("AT225", "AT213", 16672.0, 6015.0, -1),
+                ("AT225", "AT213", 16672.0, 6015.0, -1),
+            ]
+        )
+        corridors.index = ["first", "second"]
+
+        result = aggregate_gas_pipeline_corridors_to_nuts2(corridors)
+
+        assert len(result) == 1
+        assert result["p_nom"].iloc[0] == pytest.approx(2 * 16672.0)
+        assert result["p_nom_reverse"].iloc[0] == pytest.approx(2 * 6015.0)
+
+    def test_blank_reverse_capacity_follows_the_corridor_bound(self):
+        """A bidirectional pipe contributes its p_nom, a one-way pipe contributes zero."""
+        corridors = corridor_frame(
+            [
+                ("AT225", "AT213", 16672.0, 6015.0, -1),  # asymmetric
+                ("AT226", "AT212", 1000.0, None, -1),  # symmetric, same NUTS2 pair
+            ]
+        )
+        corridors.index = ["asymmetric", "symmetric"]
+
+        result = aggregate_gas_pipeline_corridors_to_nuts2(corridors)
+
+        assert len(result) == 1
+        assert result["p_nom"].iloc[0] == pytest.approx(17672.0)
+        assert result["p_nom_reverse"].iloc[0] == pytest.approx(6015.0 + 1000.0)
+
+    def test_reverse_capacity_survives_aggregation(self):
+        """The column reaches the caller rather than being dropped on the way."""
+        corridors = corridor_frame([("AT225", "AT213", 16672.0, 6015.0, -1)])
+
+        result = aggregate_gas_pipeline_corridors_to_nuts2(corridors)
+
+        assert "p_nom_reverse" in result.columns
+        assert result["p_nom_reverse"].notna().all()
+
+    def test_aggregation_then_conversion_keeps_the_asymmetry(self):
+        """The two ingestion steps compose into the bound the corridors imply."""
+        corridors = corridor_frame(
+            [
+                ("AT225", "AT213", 16672.0, 6015.0, -1),
+                ("AT225", "AT213", 16672.0, 6015.0, -1),
+            ]
+        )
+        corridors.index = ["first", "second"]
+
+        result = apply_reverse_flow_limits(
+            aggregate_gas_pipeline_corridors_to_nuts2(corridors)
+        )
+
+        row = result.iloc[0]
+        assert -row["p_min_pu"] * row["p_nom"] == pytest.approx(2 * 6015.0)
+
+
 class TestAGGMGasNetworkCapacityData:
     """Data integrity tests for the AGGM brownfield gas network capacity input files."""
 
@@ -256,6 +422,48 @@ class TestAGGMGasNetworkCapacityData:
         assert pd.api.types.is_numeric_dtype(p_nom)
         assert p_nom.notna().all()
         assert (p_nom >= 0).all()
+
+    def test_reverse_capacities_are_valid(self, aggm_data):
+        """
+        Reverse capacities are numeric and never exceed the forward direction.
+
+        A reverse capacity above the forward one would put ``p_min_pu`` below
+        -1, which PyPSA accepts silently while meaning a pipe that carries more
+        gas backwards than the direction its row is written in.
+        """
+        reverse = aggm_data["p_nom_reverse"].dropna()
+        if reverse.empty:
+            pytest.skip("No asymmetric corridors in this file.")
+
+        assert pd.api.types.is_numeric_dtype(reverse)
+        assert (reverse >= 0).all()
+        assert (reverse <= aggm_data.loc[reverse.index, "p_nom"]).all()
+
+    def test_reverse_capacities_belong_to_bidirectional_corridors(self, aggm_data):
+        """
+        Only a corridor marked bidirectional may carry a reverse capacity.
+
+        A reverse capacity on a one-way row contradicts itself, and the
+        ingestion would resolve it silently in favour of the reverse capacity.
+        """
+        asymmetric = aggm_data["p_nom_reverse"].notna()
+        assert (aggm_data.loc[asymmetric, "p_min_pu"] == -1).all()
+
+    def test_directions_are_not_split_across_rows(self, aggm_data):
+        """
+        One physical pipe is one row, so no bus pair holds one-way rows in both
+        directions. Two such rows would be built as two Links, billing the pipe
+        twice and retrofitting it twice into hydrogen.
+        """
+        one_way = aggm_data[aggm_data["p_min_pu"] == 0]
+        bus_pair = one_way.apply(
+            lambda c: " <-> ".join(sorted((c["bus0"], c["bus1"]))), axis=1
+        )
+        for corridor, group in one_way.groupby(bus_pair):
+            assert group["bus0"].nunique() == 1, (
+                f"Corridor {corridor} has one-way rows in both directions: "
+                f"{list(group.index)}. Merge them into one row with p_nom_reverse."
+            )
 
     def test_capacities_are_added_to_csv(self, raw, aggm_data):
         """All AGGM capacities are actually added to the clustered gas network csv."""
@@ -342,3 +550,261 @@ class TestBrownfieldGasNetworkLinks:
         pd.testing.assert_series_equal(
             built, expected_corridors["p_nom"], check_names=False, check_dtype=False
         )
+
+
+class TestRestoreAsymmetricPipelineCapacities:
+    """Unit tests for resizing the reverse leg of asymmetric gas pipelines."""
+
+    @staticmethod
+    def clustered_gas_network(tmp_path) -> str:
+        """
+        Clustered gas network holding one asymmetric corridor, one symmetric
+        corridor, one one-way corridor and one corridor outside the modelled
+        scope.
+        """
+        path = tmp_path / "gas_network.csv"
+        pd.DataFrame(
+            {
+                "bus0": ["AT225", "AT342", "DE2", "AT999"],
+                "bus1": ["AT213", "AT341", "AT342", "AT998"],
+                "p_nom": [16672.0, 575.0, 1269.0, 100.0],
+                "p_min_pu": [-6015.0 / 16672.0, -1.0, 0.0, -0.5],
+            },
+            index=[
+                "gas pipeline AT225 <-> AT213",
+                "gas pipeline AT342 <-> AT341",
+                "gas pipeline DE2 -> AT342",
+                "gas pipeline AT999 <-> AT998",
+            ],
+        ).to_csv(path)
+        return str(path)
+
+    @staticmethod
+    def snakemake(path: str, enabled: bool = True) -> SimpleNamespace:
+        """Minimal Snakemake stand-in exposing the config flag and the resource."""
+        return SimpleNamespace(
+            config={"mods": {"modify_brownfield_gas_network_AT": enabled}},
+            input=SimpleNamespace(clustered_gas_network=path),
+        )
+
+    @staticmethod
+    def network(split: bool = True, drop: str | None = None) -> pypsa.Network:
+        """Brownfield network as prepare_sector_network leaves it, split into legs."""
+        n = pypsa.Network()
+        n.add("Bus", ["AT225 gas", "AT213 gas", "AT342 gas", "AT341 gas", "DE2 gas"])
+
+        legs = {
+            "gas pipeline AT225 <-> AT213": ("AT225 gas", "AT213 gas", 16672.0, False),
+            "gas pipeline AT342 <-> AT341": ("AT342 gas", "AT341 gas", 575.0, False),
+            "gas pipeline DE2 -> AT342": ("DE2 gas", "AT342 gas", 1269.0, False),
+        }
+        if split:
+            legs |= {
+                "gas pipeline AT225 <-> AT213-reversed": (
+                    "AT213 gas",
+                    "AT225 gas",
+                    16672.0,
+                    True,
+                ),
+                "gas pipeline AT342 <-> AT341-reversed": (
+                    "AT341 gas",
+                    "AT342 gas",
+                    575.0,
+                    True,
+                ),
+                "gas pipeline DE2 -> AT342-reversed": (
+                    "AT342 gas",
+                    "DE2 gas",
+                    1269.0,
+                    True,
+                ),
+            }
+        legs.pop(drop, None)
+
+        for name, (bus0, bus1, p_nom, reversed_leg) in legs.items():
+            n.add(
+                "Link",
+                name,
+                bus0=bus0,
+                bus1=bus1,
+                p_nom=p_nom,
+                p_nom_extendable=True,
+                carrier="gas pipeline",
+                reversed=reversed_leg,
+            )
+        return n
+
+    @pytest.fixture
+    def restored(self, tmp_path) -> pypsa.Network:
+        """Network after the reverse legs have been resized."""
+        n = self.network()
+        restore_asymmetric_pipeline_capacities(
+            n, self.snakemake(self.clustered_gas_network(tmp_path))
+        )
+        return n
+
+    def test_reverse_leg_carries_the_reverse_capacity(self, restored):
+        """The reverse leg drops from the copied forward capacity to its own."""
+        assert restored.links.at[
+            "gas pipeline AT225 <-> AT213-reversed", "p_nom"
+        ] == pytest.approx(6015.0)
+
+    def test_reverse_leg_bounds_follow_the_capacity(self, restored):
+        """p_nom_min and p_nom_max move with p_nom so the leg cannot drift back."""
+        leg = restored.links.loc["gas pipeline AT225 <-> AT213-reversed"]
+
+        assert leg["p_nom_min"] == pytest.approx(6015.0)
+        assert leg["p_nom_max"] == pytest.approx(6015.0)
+
+    def test_reverse_leg_is_fixed(self, restored):
+        """
+        A fixed reverse leg is skipped by add_lossy_bidirectional_link_constraints,
+        which would otherwise even the asymmetry out again wherever gas pipelines
+        may still be expanded.
+        """
+        assert not restored.links.at[
+            "gas pipeline AT225 <-> AT213-reversed", "p_nom_extendable"
+        ]
+
+    def test_forward_leg_is_untouched(self, restored):
+        """The forward direction keeps its full capacity and stays expandable."""
+        leg = restored.links.loc["gas pipeline AT225 <-> AT213"]
+
+        assert leg["p_nom"] == pytest.approx(16672.0)
+        assert leg["p_nom_extendable"]
+
+    @pytest.mark.parametrize(
+        "leg",
+        [
+            "gas pipeline AT342 <-> AT341-reversed",  # symmetric corridor
+            "gas pipeline DE2 -> AT342-reversed",  # one-way corridor
+        ],
+    )
+    def test_other_corridors_are_untouched(self, restored, leg):
+        """Only corridors with an asymmetry are resized."""
+        assert restored.links.at[leg, "p_nom_extendable"]
+
+    def test_corridor_outside_the_modelled_scope_is_skipped(self, restored):
+        """Reduced country scope drops corridors, which is not an error."""
+        assert "gas pipeline AT999 <-> AT998-reversed" not in restored.links.index
+
+    def test_disabled_feature_changes_nothing(self, tmp_path):
+        """Without the AGGM brownfield network there is nothing to restore."""
+        n = self.network()
+        before = n.links["p_nom"].copy()
+
+        restore_asymmetric_pipeline_capacities(
+            n, self.snakemake(self.clustered_gas_network(tmp_path), enabled=False)
+        )
+
+        pd.testing.assert_series_equal(n.links["p_nom"], before)
+
+    def test_unsplit_network_changes_nothing(self, tmp_path):
+        """
+        Without the split the corridors are single Links that still carry their
+        own asymmetric bounds, so there is no reverse leg to correct.
+        """
+        n = self.network(split=False)
+        before = n.links["p_nom"].copy()
+
+        restore_asymmetric_pipeline_capacities(
+            n, self.snakemake(self.clustered_gas_network(tmp_path))
+        )
+
+        pd.testing.assert_series_equal(n.links["p_nom"], before)
+
+    def test_missing_reverse_leg_raises(self, tmp_path):
+        """
+        A corridor built without its reverse leg is a silent loss of the
+        asymmetry: lossy_bidirectional_links has zeroed the p_min_pu that
+        recorded it, so nothing downstream would notice.
+        """
+        n = self.network(drop="gas pipeline AT225 <-> AT213-reversed")
+
+        with pytest.raises(ValueError, match="without a reverse leg"):
+            restore_asymmetric_pipeline_capacities(
+                n, self.snakemake(self.clustered_gas_network(tmp_path))
+            )
+
+
+class TestAsymmetricGasPipelineCapacitiesInNetwork:
+    """Verify the AGGM flow asymmetries survive into the solved networks."""
+
+    @pytest.fixture(scope="class")
+    def brownfield_network(self, nc) -> pypsa.Network:
+        """Solved 2025 network — Link capacities match the pre-solve brownfield build."""
+        return nc.networks["2025"]
+
+    @pytest.fixture(scope="class")
+    def asymmetric_corridors(self, brownfield_network) -> pd.DataFrame:
+        """
+        Corridors whose two flow directions differ, taken from the clustered gas
+        network the run was built from, and reduced to those actually built.
+        """
+        merged = pd.DataFrame.from_dict(
+            brownfield_network.meta["resources"]["aggm_gas_pipeline_data"]
+        )
+        asymmetric = merged[merged["p_min_pu"].between(-1, 0, inclusive="neither")]
+        built = asymmetric[asymmetric.index.isin(brownfield_network.links.index)]
+        if built.empty:
+            pytest.skip("No asymmetric gas pipeline corridors in this run.")
+        return built
+
+    def test_forward_legs_keep_the_full_capacity(
+        self, brownfield_network, asymmetric_corridors
+    ):
+        """The stronger direction is unaffected by the reverse leg correction."""
+        built = brownfield_network.links.loc[asymmetric_corridors.index, "p_nom"]
+
+        pd.testing.assert_series_equal(
+            built, asymmetric_corridors["p_nom"], check_names=False, check_dtype=False
+        )
+
+    def test_reverse_legs_carry_the_reverse_capacity(
+        self, brownfield_network, asymmetric_corridors
+    ):
+        """
+        The reverse leg holds the corridor's own reverse capacity rather than the
+        forward capacity lossy_bidirectional_links copies onto it.
+        """
+        expected = -asymmetric_corridors["p_min_pu"] * asymmetric_corridors["p_nom"]
+        reverse_legs = asymmetric_corridors.index + "-reversed"
+
+        missing = set(reverse_legs) - set(brownfield_network.links.index)
+        assert not missing, f"Asymmetric corridors without a reverse leg: {missing}"
+
+        built = brownfield_network.links.loc[reverse_legs, "p_nom"]
+        assert built.to_numpy() == pytest.approx(expected.to_numpy())
+
+    def test_reverse_legs_are_smaller_than_forward_legs(
+        self, brownfield_network, asymmetric_corridors
+    ):
+        """The whole point of the asymmetry: less capacity against the compressors."""
+        forward = brownfield_network.links.loc[asymmetric_corridors.index, "p_nom"]
+        reverse = brownfield_network.links.loc[
+            asymmetric_corridors.index + "-reversed", "p_nom"
+        ]
+
+        assert (reverse.to_numpy() < forward.to_numpy()).all()
+
+    def test_reverse_legs_are_fixed(self, brownfield_network, asymmetric_corridors):
+        """
+        Guards against upstream re-synchronising the pair: an extendable reverse
+        leg would be tied back to its forward leg by
+        add_lossy_bidirectional_link_constraints.
+        """
+        reverse_legs = asymmetric_corridors.index + "-reversed"
+
+        assert not brownfield_network.links.loc[reverse_legs, "p_nom_extendable"].any()
+
+    def test_corridor_is_billed_once(self, brownfield_network, asymmetric_corridors):
+        """
+        One physical pipe carries one investment cost: the reverse leg is free,
+        so the corridor is not billed twice for its two flow directions.
+        """
+        reverse_legs = asymmetric_corridors.index + "-reversed"
+        costs = brownfield_network.links.loc[reverse_legs, "capital_cost"]
+
+        # noisy_costs adds a small length-proportional perturbation at solve time,
+        # and the reverse legs carry length 0, so their cost stays exactly zero
+        assert (costs == 0).all()

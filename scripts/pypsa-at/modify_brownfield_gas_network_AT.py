@@ -24,9 +24,6 @@ logger = logging.getLogger(__name__)
 # correction factor for pipeline length between region centroids; same value as cluster_gas_network default
 LENGTH_FACTOR = 1.25
 
-# suffix "(1)", "(2)", marking parallel pipes along the same corridor
-_PARALLEL_SUFFIX = r"(\(\d+\))$"
-
 
 def aggregate_gas_pipeline_corridors_to_nuts2(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -44,8 +41,8 @@ def aggregate_gas_pipeline_corridors_to_nuts2(df: pd.DataFrame) -> pd.DataFrame:
     df
         AGGM gas pipeline corridor data at AT35 (NUTS3) resolution, with the
         standard gas network columns (``bus0``, ``bus1``, ``p_nom``,
-        ``p_nom_diameter``, ``max_pressure_bar``, ``build_year``,
-        ``diameter_mm``, ``length``, ``name``, ``p_min_pu``).
+        ``p_nom_reverse``, ``p_nom_diameter``, ``max_pressure_bar``,
+        ``build_year``, ``diameter_mm``, ``length``, ``name``, ``p_min_pu``).
 
     Returns
     -------
@@ -59,6 +56,13 @@ def aggregate_gas_pipeline_corridors_to_nuts2(df: pd.DataFrame) -> pd.DataFrame:
     data. Averaging that in with real years would bias the mean towards 0, so
     zeros are treated as missing for the aggregation and only restored where
     every merged corridor segment had an unknown year.
+
+    ``p_nom_reverse`` is aggregated here rather than by
+    ``aggregate_parallel_pipes``, whose strategy mapping silently drops columns
+    it does not know. Parallel pipes merge by summing each flow direction on
+    its own, so blank entries are first resolved to the reverse capacity the
+    row implies: the full ``p_nom`` for a bidirectional pipe, zero for a
+    one-way one.
     """
     columns = df.columns
     df = df.copy()
@@ -68,125 +72,71 @@ def aggregate_gas_pipeline_corridors_to_nuts2(df: pd.DataFrame) -> pd.DataFrame:
 
     df["bidirectional"] = df["p_min_pu"] == -1
     df["build_year"] = df["build_year"].astype(float).replace(0, np.nan)
+    reverse_capacity = df["p_nom_reverse"].fillna(-df["p_min_pu"] * df["p_nom"])
 
     reindex_pipes(df)
+    # reindex_pipes relabels in place without reordering rows, so the corridor
+    # labels transfer to the reverse capacities positionally
+    reverse_capacity.index = df.index
+
     df = aggregate_parallel_pipes(df)
+    df["p_nom_reverse"] = reverse_capacity.groupby(level=0).sum()
 
     df["build_year"] = df["build_year"].fillna(0).round().astype(int)
     return df[columns]
 
 
-def _corridor_keys(df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+def apply_reverse_flow_limits(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Build directionless corridor keys for pairing opposite-direction rows.
+    Turn the AGGM reverse capacity column into the PyPSA ``p_min_pu`` bound.
+
+    A pipe whose compressors move more gas one way than the other is supplied
+    as a single row carrying the forward capacity in ``p_nom`` and the reverse
+    capacity in ``p_nom_reverse``. PyPSA expresses that as a fraction of
+    ``p_nom``, so the column is converted into
+    ``p_min_pu = -p_nom_reverse / p_nom`` and dropped afterwards: the clustered
+    gas network resource keeps the standard column set it shares with the
+    Sci2Grid corridors it is concatenated with.
+
+    Rows without a reverse capacity keep the ``p_min_pu`` they came with, so
+    fully bidirectional (``-1``) and one-way (``0``) pipes pass through
+    unchanged.
 
     Parameters
     ----------
     df
-        AGGM gas pipeline corridor data with ``bus0`` and ``bus1`` columns.
+        AGGM gas pipeline corridor data including the ``p_nom_reverse`` column.
 
     Returns
     -------
     :
-        The bus pair alone, and the bus pair combined with the ``(n)``
-        parallel-line suffix parsed off the row index.
-    """
-    suffix = df.index.to_series().str.extract(_PARALLEL_SUFFIX, expand=False).fillna("")
-    bus_pair = pd.Series(
-        [" <-> ".join(sorted(buses)) for buses in zip(df["bus0"], df["bus1"])],
-        index=df.index,
-    )
-    return bus_pair, bus_pair + " " + suffix
-
-
-def collapse_directional_pipeline_pairs(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Collapse opposite-direction pipeline data row pairs into one asymmetric bidirectional row.
-
-    A corridor whose compressors move more gas one way than the other is
-    supplied as two unidirectional rows in data. Physically that is a single pipe, so
-    both rows are merged into one that carries both capacities: ``p_nom`` holds
-    the forward (larger) capacity and ``p_min_pu`` the reverse capacity as a
-    fraction of it, as p_min_pu = -1 * reverse-capacity / forward-capacity.
-
-    One row per physical pipe is necessary for the remaining workflow to be consistent.
-    ``prepare_sector_network`` then builds a single Link, which
-    ``lossy_bidirectional_links`` splits into a forward leg plus a zero-cost
-    reverse leg, so investment cost is counted once per pipe.
-
-    Rows pair on their unordered bus pair plus their ``(n)`` parallel-line
-    suffix. Everything else passes through untouched: rows that are already
-    bidirectional, one-way corridors without a counterpart, and parallel lines
-    running in the same direction.
-
-    Parameters
-    ----------
-    df
-        AGGM gas pipeline corridor data with the standard gas network columns.
-
-    Returns
-    -------
-    :
-        The same columns with each directional pair reduced to a single row.
+        The same rows without ``p_nom_reverse``, with ``p_min_pu`` holding the
+        reverse capacity of every asymmetric pipe.
 
     Notes
     -----
-    The collapsed row keeps the forward row's index. Relabelling it to a
-    ``<->`` name would collide with genuinely separate parallel corridors that
-    already carry that label.
-
     ``p_min_pu`` is zeroed for the whole carrier by
-    ``prepare_sector_network.lossy_bidirectional_links`` before the solve, so
-    the fraction written here never reaches the optimisation. It records the
-    reverse capacity for the reverse leg to be sized from after the split.
+    ``prepare_sector_network.lossy_bidirectional_links`` before the solve, which
+    splits every gas pipeline into a forward leg and a reverse leg of equal
+    capacity. The fraction written here is what
+    ``mods.network.gas`` reads back to resize that reverse leg.
     """
     df = df.copy()
-    # the source column is integer typed, as only 0 and -1 occur in the input
+    reverse_capacity = df.pop("p_nom_reverse")
+    asymmetric = reverse_capacity.notna()
+
+    if asymmetric.sum() == 0:
+        return df
+
+    # the source column only holds 0 and -1, so it cannot take fractions as is
     df["p_min_pu"] = df["p_min_pu"].astype(float)
+    df.loc[asymmetric, "p_min_pu"] = -(
+        reverse_capacity[asymmetric] / df.loc[asymmetric, "p_nom"]
+    )
 
-    bus_pair, parallel_line = _corridor_keys(df)
-    directional = df["p_min_pu"] == 0
-    reverse_rows = []
-
-    for corridor, group in df[directional].groupby(
-        parallel_line[directional], sort=False
-    ):
-        if len(group) != 2 or group["bus0"].nunique() != 2:
-            continue  # one-way corridor, or parallel lines in the same direction
-
-        forward = group["p_nom"].idxmax()
-        reverse = group.index[group.index != forward][0]
-        forward_capacity = group.at[forward, "p_nom"]
-
-        if forward_capacity == 0:
-            logger.warning(f"Corridor {corridor} has zero capacity in both directions.")
-            continue
-
-        if group["build_year"].nunique() > 1:
-            logger.warning(
-                f"Corridor {corridor} pairs rows with differing build years "
-                f"{sorted(group['build_year'])}. Keeping the forward direction's."
-            )
-
-        df.at[forward, "p_min_pu"] = -group.at[reverse, "p_nom"] / forward_capacity
-        df.at[forward, "name"] = (
-            f"{group.at[forward, 'name']} {group.at[reverse, 'name']}"
-        )
-        reverse_rows.append(reverse)
-
-    df = df.drop(index=reverse_rows)
-
-    # rows left in both directions mean the parallel line suffixes did not line
-    # up one to one, so the pair was skipped above
-    unpaired = df[df["p_min_pu"] == 0]
-    for corridor, group in unpaired.groupby(bus_pair[unpaired.index], sort=False):
-        if group["bus0"].nunique() == 2:
-            logger.warning(
-                f"Corridor {corridor} still has rows in both directions after pairing "
-                f"by parallel line suffix: {list(group.index)}. Left as one-way rows."
-            )
-
-    logger.info(f"Collapsed {len(reverse_rows)} directional AGGM row pair(s).")
+    logger.info(
+        f"Applied reverse flow limits to {int(asymmetric.sum())} asymmetric gas pipeline(s)."
+    )
     return df
 
 
@@ -321,9 +271,10 @@ if __name__ == "__main__":
                 f"Chose from {('AT10DE5', 'AT35DE5')}."
             )
 
-        # merge opposite-direction rows of one physical pipe into a single
-        # bidirectional corridor. Must run after the NUTS2 aggregation.
-        gas_network_input_df = collapse_directional_pipeline_pairs(gas_network_input_df)
+        # express the AGGM reverse capacities as PyPSA p_min_pu bounds. Must run
+        # after the NUTS2 aggregation, which sums the reverse capacities of
+        # merged parallel pipes.
+        gas_network_input_df = apply_reverse_flow_limits(gas_network_input_df)
 
         # update data in raw where AGGM data is supplied
         new_gas_network_df = update_gas_transport_data(
