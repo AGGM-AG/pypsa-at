@@ -16,7 +16,19 @@ logger = logging.getLogger(__name__)
 
 
 def nuts2_parent(region: str) -> str:
-    """Map an Austrian NUTS3 code to NUTS2, preserving AT333."""
+    """
+    Map an Austrian NUTS3 code to NUTS2, preserving AT333.
+
+    Parameters
+    ----------
+    region
+        Region to be mapped
+
+    Returns
+    -------
+    :
+        The mapped region string
+    """
     if region == "AT333":
         return region
     if region.startswith("AT") and len(region) == 5:
@@ -24,8 +36,20 @@ def nuts2_parent(region: str) -> str:
     return region
 
 
-def main(snakemake) -> None:
-    """Copy NUTS2 data and replace its profile with KLIEN-weighted NUTS3 data."""
+def main(snakemake: Snakemake) -> None:
+    """
+    Copy NUTS2 data and replace its profile with KLIEN-weighted NUTS3 data.
+
+    Parameters
+    ----------
+    snakemake
+        Snakemake object providing input, parameters and output.
+
+    Returns
+    -------
+    :
+        Stores the results in snakemake.output
+    """
     with (
         xr.open_dataset(snakemake.input.profile_nuts2) as nuts2_file,
         xr.open_dataset(snakemake.input.profile_nuts3) as nuts3_file,
