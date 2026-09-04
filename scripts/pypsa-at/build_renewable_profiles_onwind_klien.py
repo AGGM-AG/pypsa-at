@@ -75,7 +75,6 @@ def main(snakemake: Snakemake) -> None:
         missing = weights[weights.isna()].index.tolist()
         raise ValueError(f"Missing KLIEN technical potentials for: {missing}")
 
-
     weight = xr.DataArray(weights.to_numpy(), dims="bus", coords={"bus": source_buses})
     weight_sum = weight.groupby(target).sum("bus")
     target_buses = nuts2.indexes["bus"]
