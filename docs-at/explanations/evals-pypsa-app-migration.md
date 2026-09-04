@@ -5,6 +5,7 @@
     It collects the findings of a scoping investigation (September 2026) and is meant to
     be refined before any code is written. Line references point at the commit this
     document was written against (`40f3348` in pypsa-at, `2cbefa3` in pypsa-app).
+    Revision 3 folds in the decisions from the first review round (§9).
 
 ## 1. Goal and summary
 
@@ -155,11 +156,12 @@ repository. Recommended only if a second repository is organisationally unaccept
 
 1. **Global mapping** (`mapping/`). One TOML/YAML table, key
    `(component, carrier, bus_carrier)` with fallbacks `(carrier, bus_carrier)` and
-   `(carrier)`, value `{nice_name, color, order, pattern}`. Optional `context` key for
-   the few statistic-dependent labels described in issue #80 (e.g. `Waste CHP` /
-   `Waste CHP CC` merged for balances, kept apart for capacities). The 26 per-view
-   `categories` tables are the source material; a script can generate the first draft
-   and flag conflicts.
+   `(carrier)`, value `{nice_name, color, order, pattern}`. Statistic-dependent labels
+   (issue #80 §3, e.g. `Waste CHP` / `Waste CHP CC` merged for balances, kept apart for
+   capacities) are keyed on the **statistic name** (decision 9.3). The 26 per-view
+   `categories` tables plus `COLOUR_SCHEME` in `evals/constants.py:329` are the source
+   material; a script can generate the first draft and flag conflicts. Colours live in
+   this table, not in `n.carriers`; see §5.4 for why.
 2. **Groupers** (`groupers.py`), registered with `pypsa.statistics.groupers.add_grouper`:
     - `carrier`: overrides the built-in. With `nice_names=False` it returns raw carriers;
       with `nice_names=True` it looks up `(c, carrier, bus_carrier@port)` in the mapping.
@@ -169,9 +171,23 @@ repository. Recommended only if a second repository is organisationally unaccept
       `location` of `bus0` and `bus1` (same logic as `evals.utils.get_trade_type`).
     - `region`: `location` for `keep_regions` countries, `country` otherwise
       (optional; see §6.2 for the trade-off).
-3. **Custom statistics** (`statistics/`). Only what has no `pypsa.statistics` equivalent:
-   `loss` (used by residual load), `remaining_capacity`, `technical_potential`.
-   `trade_energy`, `trade_capacity`, `phs_*`, `grid_*` are dropped.
+3. **Custom statistics** (`statistics/`). Only what has no `pypsa.statistics` equivalent
+   survives. What happens to each method of `ESMStatistics` (`evals/stats.py`):
+
+    | Method | Fate | Replacement |
+    |---|---|---|
+    | `trade_energy` | dropped | `supply` / `withdrawal` / `energy_balance` with the `trade` grouper (§5.3) |
+    | `trade_capacity` | dropped | `optimal_capacity(components=branch_components, groupby=[..., "trade"])` |
+    | `loss` | kept | none in PyPSA 1.3 (`transmission` returns flows, not losses) |
+    | `remaining_capacity` | kept | none in PyPSA 1.3 |
+    | `technical_potential` | kept | none in PyPSA 1.3 |
+    | `phs_split` | dropped | already deprecated, no view calls it |
+    | `phs_hydro_operation` | dropped | already deprecated, no view calls it |
+    | `grid_capacity` | dropped | already deprecated; `optimal_capacity(groupby=["bus0", "bus1", ...])` if ever needed |
+    | `grid_flow` | dropped | already deprecated; `transmission(groupby=["bus0", "bus1", ...])` if ever needed |
+
+    `collect_myopic_statistics` disappears as well: a `NetworkCollection` already runs
+    every statistic per member and prepends the collection index (§5.1, §5.5).
 4. **Transforms** (`transforms/`). Pure functions `DataFrame -> DataFrame` for class B/C
    operations: `negate_withdrawal`, `net_storage`, `split_saldo`,
    `aggregate_locations(keep_regions, add_eu, nice_names)`, `domestic_to_losses`,
@@ -186,11 +202,23 @@ repository. Recommended only if a second repository is organisationally unaccept
    `ChartGenerator(nc).iplot(df, kind=…, x="year", y="value", color="carrier",
    facet_col="bus_carrier", color_discrete_map=…, color_order=…)` and then apply the AT
    styling that the ESM charts add on top (totals annotations, legend rank, footnotes,
-   hover template). `sankey` stays a custom `go.Sankey` renderer; it is not expressible
-   with the PyPSA chart generator.
+   hover template); §6.6 explains how that post-styling works. `sankey` stays a custom
+   `go.Sankey` renderer; it is not expressible with the PyPSA chart generator.
 7. **Registry and CLI**. `registry.py` maps view names to `(view, ParamsModel, chart)`;
    `cli.py` reproduces today's `pixi run evals <results>` behaviour (HTML + JSON + CSV per
    location) so `rules/pypsa-at/collect.smk` only changes its shell line.
+
+    **Installing the CLI as a uv tool.** Declaring the CLI under `[project.scripts]`
+    (e.g. `pypsa-at-views = "pypsa_at_views.cli:main"`) is all that is needed for
+    `uv tool install pypsa-at-views` (from PyPI) or
+    `uv tool install git+https://github.com/AGGM-AG/pypsa-at-views@v0.1.0`, after which
+    `pypsa-at-views export results/<prefix>/<run>` works from any shell; `uvx --from
+    pypsa-at-views pypsa-at-views ...` runs it without installing. The tool gets its own
+    isolated environment with PyPSA, pandas 3 and Plotly, so it does not touch the pixi
+    environment. For the Snakemake rule itself a pinned pixi pypi-dependency is still the
+    better choice: the rule then runs inside the same locked environment as the solve
+    step, and `pixi.lock` records the exact package version for reproducibility. Use the
+    uv tool for ad-hoc exports on machines without the workflow checkout.
 
 ### 4.2 PyPSA App fork: the extension hook
 
@@ -325,6 +353,65 @@ variant is `energy_balance` with the same `groupby`, and `trade_capacity` become
 per port, imports land in the receiving location automatically, which is what the
 current code emulates with its `bus0`/`bus1` merge loop.
 
+### 5.4 Colours per nice-name alias
+
+`ChartGenerator.iplot` accepts `color_discrete_map` and applies it verbatim: with the
+mapping from §5.1 plus `{"Thermal Powerplant": "#aa3311", "Gas for Power": "#3366aa",
+"gas": "#999999"}` every bar trace came back with exactly that colour. The alternative,
+adding the alias names as extra rows in `n.carriers` so PyPSA's own colour lookup finds
+them, does **not** work reliably: PyPSA keys its lookup by `n.carriers.nice_name` and
+only applies it when *every* plotted label resolves (`charts.py:702-708`); one unmapped
+label (the empty carrier of a `Load`, or a raw carrier whose PyPSA nice name differs)
+disables the whole map and Plotly falls back to its default palette. Verified on both
+paths. Consequence: the mapping table owns colours, and every chart passes
+`color_discrete_map` built from it. The accessor path (`n.statistics.x.iplot.bar`) has
+the same limitation, which is one more reason to render through `ChartGenerator`.
+
+### 5.5 Multi-scenario collections
+
+`pypsa.NetworkCollection` accepts a `MultiIndex`, e.g. `(scenario, year)`:
+
+```python
+idx = pd.MultiIndex.from_tuples([("KN2045_Mix", "2030"), ("KN2045_Mix", "2040"),
+                                 ("KN2045_Elec", "2030")], names=["scenario", "year"])
+nc = pypsa.NetworkCollection(networks, index=idx)
+nc.statistics.supply(groupby=["location", "carrier", "bus_carrier"], bus_carrier="AC")
+```
+
+The result carries both levels, and `ChartGenerator(nc).iplot(..., x="year",
+facet_col="scenario")` produced one facet per scenario. This is the basis for §6.4.
+
+### 5.6 Running `evals` on Python 3.13, pandas 3, PyPSA 1.3
+
+The existing unit tests (`test/test_evals/`, 131 tests over `stats.py` and `utils.py`)
+pass unchanged in the app's environment (Python 3.13.x, pandas 3.0, PyPSA 1.3.0). The
+only noise is PyPSA's own `FutureWarning` about the pandas 3 string dtype. Views and
+plots have no tests, so they still need a regression run on a solved network, but the
+pandas-3 risk listed in §7.2 is much smaller than assumed.
+
+### 5.7 The two capacity hotfixes (decision 9.7)
+
+Re-tested on PyPSA 1.2.4 (pypsa-at's pin) and 1.3.0 with a PyPSA-Eur style heat pump
+(`bus0=heat`, `bus1=low voltage`, `efficiency=1/COP`, `p_max_pu=0`, `p_min_pu=-1`; see
+`mods/constraints/eag.py:291-294`):
+
+| statistic | bus_carrier | 1.2.4 | 1.3.0 | expected for the view |
+|---|---|---|---|---|
+| `optimal_capacity` | low voltage | **+10** | **+10** | negative (electricity demand) |
+| `optimal_capacity` | rural heat | **−30** | **−30** | positive (heat production) |
+| `withdrawal` | low voltage | 15 | 15 | correct |
+| `optimal_capacity.attrs["unit"]` | | `MW` | `MW` | `MW` |
+
+So the **heat-pump sign flip is still required** on 1.3: `optimal_capacity` derives
+its sign from the port and static efficiency and ignores `p_max_pu ≤ 0`, so a
+reverse-flow link is reported with the wrong sign at *both* ports (the current hotfix
+only corrects the electricity side; the heat side is silently dropped by the `> 0`
+filter in `view_capacity_heat_production`). Port it as a transform keyed on
+`links.p_max_pu <= 0` rather than on the substring `"heat pump"`, apply it at both
+ports, and raise it upstream. The **`MWh → MW` unit patch is obsolete**: the statistic
+already reports `MW`; the `MWh` came from evals' own `unit` *grouper* level (the bus
+unit), which the new package no longer uses.
+
 ## 6. Obstacles and proposed solutions
 
 ### 6.1 "Some views subtract or rename series"
@@ -335,7 +422,7 @@ Split by class (see §2.2):
 |---|---|---|
 | A. label mapping | grouper + mapping table | one source of truth; free `nice_names=True` everywhere; `Storage In/Out` become mapping entries keyed on `component in (Store, StorageUnit)` and statistic (supply → Out, withdrawal → In) |
 | B. location aggregation | `transforms.aggregate_locations` (pandas) | cheap on aggregated frames; keeps `keep_regions` and the `EU` row exactly as today. Alternative `region` grouper evaluated in §6.2 |
-| C. netting / sign | `transforms/` | explicit, tested functions replacing scattered `.mul(-1)` and `.add()` calls; the heat-pump sign hotfix and `MWh→MW` patch must first be re-checked against PyPSA 1.3 (both may be obsolete) |
+| C. netting / sign | `transforms/` | explicit, tested functions replacing scattered `.mul(-1)` and `.add()` calls; the reverse-flow (heat pump) sign flip stays, generalised to `p_max_pu ≤ 0` links; the `MWh→MW` patch goes (§5.7) |
 | D. derived physics | stays inside the four affected views | no PyPSA equivalent; document each as a "derived quantity" with a formula; port existing code with tests |
 
 This does not eliminate custom pandas code, but it confines it to two folders with pure
@@ -351,8 +438,8 @@ aggregation in one pass and would work with the accessor `iplot` path. Two costs
 - `domestic` trade relative to a coarser grouper silently becomes `local` and drops out,
   so the "domestic → Transmission Losses" rename would have to move into the grouper.
 
-Recommendation: start with the transform (exact parity, simplest), keep the grouper as a
-later optimisation for the app where the user picks the aggregation level interactively.
+**Decision (9.4):** keep today's behaviour and implement it as the transform. The
+`region` grouper is a later optimisation for interactive level selection in the app.
 
 ### 6.3 Trade
 
@@ -361,18 +448,70 @@ Solved by §5.3. Remaining work: (i) map `(trade, statistic)` → `Import Foreig
 time-series views, (iii) `regionalize_statistics` (global import/export of EU-only fuels)
 stays a transform because it is a supply-minus-demand residual, not a branch flow.
 
-### 6.4 Year index in the app
+### 6.4 Scenario and year identity in the app
 
-The app names collection members after file stems (`<uuid>.nc`). The view service must
-re-index the collection by planning year read from `n.meta["wildcards"]
-["planning_horizons"]` (pypsa-at writes this) and sort ascending. Networks without this
-metadata should get a clear error, not a silent mis-ordering.
+**Requirement.** Result folders are `results/<prefix>/<run>/networks/<name>_<year>.nc`,
+where `<run>` is a unique, human-readable scenario name. Networks should appear in the
+app as `<run> <year>` and be loadable from such subfolders.
+
+**Where the identity comes from.** PyPSA-Eur writes the full config and the rule
+wildcards into the network file (`scripts/solve_network.py:1610`):
+`n.meta["wildcards"]["planning_horizons"]` is the year and, when scenarios are enabled,
+`n.meta["wildcards"]["run"]` is the scenario name (`get_rdir` in `scripts/_helpers.py:57`
+makes `{run}` a wildcard). Both survive every ingest path of the app because they live
+inside the `.nc` file:
+
+| Ingest path | What the app keeps | Scenario / year source |
+|---|---|---|
+| upload | original `filename`, file stored as `<uuid>.nc` | `n.meta` only |
+| Snakedispatch run import | `source_path` (path inside the run outputs) and `filename` | `n.meta`, or the parent folder of `source_path` |
+| in-place registration by path (`register-path`, present on the `pypsa-app-legacy` branch, removed from main in PR #99) | `file_path` in its original folder | `n.meta`, or the parent folder |
+
+**Design.** The view service reads the identity from `n.meta` first and falls back to
+the folder name only when the metadata is missing; networks with neither get a clear
+error. The `NetworkCollection` is built with a `(scenario, year)` `MultiIndex` (verified
+in §5.5). Views that compare years within one scenario select on the first level;
+scenario comparison becomes a facet, which is a feature today's `evals` does not have.
+Sorting is ascending by year.
+
+**Folder loading.** Restoring the `register-path` route from the legacy branch (47
+backend lines, 79 lines of dialog) and extending it to accept a folder gives the
+"load from subfolder" experience in LOCAL_MODE: register every `*_<year>.nc` below the
+folder, name each network `<run> <year>` from `n.meta`, keep the files in place. For
+the shared deployment the Snakedispatch run import already delivers the same metadata.
+Since option 7.1 d restores the legacy frontend anyway, this route comes back with it.
 
 ### 6.5 Sankey
 
 `SankeyChart` (1 567 lines) encodes the AT energy-flow topology; there is no PyPSA
 counterpart. Port as-is into `charts/sankey.py`, refactor only the data preparation
 (§2.2 class D) into the view. Lowest priority for the app.
+
+### 6.6 Styling after `ChartGenerator`
+
+`ChartGenerator.iplot` returns an ordinary `plotly.graph_objects.Figure` built by Plotly
+Express (`px.bar`, `px.area`, ...), the same object today's `ESMBarChart` starts from
+(`evals/plots/barchart.py` also calls `px.bar` and then styles the result). Everything
+the ESM charts add is therefore applied *after* the call, with the standard Plotly API,
+and nothing inside PyPSA needs to change:
+
+| Today (`evals/plots/components.py`) | On the generated figure |
+|---|---|
+| `TotalSumRenderer.add_sum_trace` | `fig.add_trace(go.Scatter(mode="text", ...), row=1, col=i)`; per-facet sums computed from the same long-format frame the view returned |
+| `_set_legend_rank` | `fig.for_each_trace(lambda t: t.update(legendrank=...))` from the mapping's `order` |
+| `BarTraceStyler` (hover, width, text) | `fig.update_traces(selector={"type": "bar"}, hovertemplate=..., width=...)` |
+| `LayoutStyler` (fonts, legend title, axis titles, footnotes) | `fig.update_layout(...)`, `fig.add_annotation(...)` |
+| patterns for import/export | `fig.update_traces(marker_pattern_shape=..., selector={"name": ...})` |
+
+Verified in the scratch experiment: adding two per-facet total traces, legend ranks and a
+hover template to a `ChartGenerator` bar figure took a dozen lines and left the JSON at
+9 kB. The facet-to-column lookup is the only fragile part: Plotly Express names facets
+`bus_carrier=AC` in `fig.layout.annotations`, so the styling code derives the column
+index from those annotations instead of assuming an order.
+
+Decision 9.6: totals and legend ranking are implemented this way in phase 4; if a
+particular chart makes them awkward, they are dropped for that chart rather than
+blocking the migration.
 
 ## 7. Risks and dependencies
 
@@ -425,10 +564,11 @@ Costs: AGGM carries an unmaintained UI (no upstream security bumps for the ≈ 6
 dependencies), a Node toolchain in the Docker build, and any backend API change upstream
 makes must be mirrored by hand in `lib/api/client.ts`.
 
-Recommendation: (d) if stakeholders need the full app experience before the React UI
-exists, otherwise (b). In both cases align with lkstrp on (a) early; the `view` card type
-is the piece worth contributing upstream. If (d) is chosen, the interim page in (b) is
-unnecessary.
+**Decision (9.2): option d.** Restore the Svelte frontend from `252a6bf` (plus the
+`register-path` route and dialog from `pypsa-app-legacy`, see §6.4) into the fork and
+add the `view` card there. The interim page (b) is dropped. lkstrp is contacted in
+parallel about the React timeline and the extension hook; the `view` card type is the
+piece to contribute there later.
 
 ### 7.2 Environment split
 
@@ -438,9 +578,14 @@ unnecessary.
 | pandas | 2.3.3 | ≥ 3.0 (copy-on-write, string dtype, `stack()` changes) |
 | PyPSA | 1.2.4 | ≥ 1.2.3 (1.3.0 resolves today) |
 
-The package needs a CI matrix over both. Expect pandas-3 fallout in
-`evals/utils.py` (`insert_index_level`, `rename_aggregate`, `.stack()` in
-`phs_split`) and in `plots/components.py`.
+**Can `evals` move to Python 3.13 and pandas 3?** Yes, as a package: the existing
+unit tests pass on that stack (§5.6). What cannot move is pypsa-at's own environment,
+because `pixi.toml` inherits the PyPSA-Eur pins (pandas 2.3.3, Python 3.12) and
+diverging from them means carrying every upstream environment update by hand. Hence the
+package targets Python ≥ 3.12 and pandas ≥ 2.2 with a two-cell CI matrix
+(3.12/pandas 2, 3.13/pandas 3) until PyPSA-Eur itself moves to pandas 3, after which
+the lower bound is lifted. The one deprecated construct known to break on pandas 3,
+`.stack()` in `phs_split`, is dropped anyway (§4.1 item 3).
 
 ### 7.3 Upstream churn in PyPSA App
 
@@ -474,38 +619,44 @@ Each phase ends with a reviewable PR and leaves `pixi run evals` working.
 
 | Phase | Scope | Repo | Exit criterion |
 |---|---|---|---|
-| **0. Decisions** | resolve §9; measure real `.nc` sizes; agree package name and repo | planning | this document approved |
+| **0. Decisions** | remaining items in §9; measure real `.nc` sizes; agree the package name | planning | this document approved |
 | **1. Global mapping + grouper** (issue #80) | generate mapping from the 26 `categories` tables; register custom `carrier` grouper in `evals/fileio.read_networks`; migrate `view_capacity_electricity_production` to `nice_names=True`; regression test on a solved run | pypsa-at | identical HTML/JSON for that view |
-| **2. Trade grouper + transforms** | replace `trade_energy` by `trade` grouper; move class B/C code into `transforms/`; delete deprecated statistics and dead views | pypsa-at | all 22 views regression-equal (JSON diff tolerance on floats) |
+| **2. Trade grouper + transforms** | replace `trade_energy` by `trade` grouper; move class B/C code into `transforms/` (reverse-flow sign flip generalised, unit patch removed, §5.7); delete deprecated statistics and dead views | pypsa-at | all 22 views regression-equal (JSON diff tolerance on floats) |
 | **3. Extract package** | move `evals/` → `pypsa-at-views` with `pyproject.toml`, CI matrix (py3.12/pandas2, py3.13/pandas3), CLI, tests; pypsa-at consumes it via pixi | new repo + pypsa-at | `pixi run evals` unchanged for users |
-| **4. Charts on `ChartGenerator`** | re-implement `bar`, `facet_bar`, `area` on `ChartGenerator.iplot`; keep visual parity checklist (totals, legend order, patterns, footnotes); Sankey ported unchanged | package | side-by-side review of every view |
-| **5. App extension hook** | fork `AGGM-AG/pypsa-app`; add settings, entry point, routes, task, service; Docker image with the package installed; UI per the §7.1 decision (server-rendered page or revived Svelte UI with a `view` card); open upstream PR | fork | AT views render from uploaded pypsa-at networks |
+| **4. Charts on `ChartGenerator`** | re-implement `bar`, `facet_bar`, `area` on `ChartGenerator.iplot` with the post-styling of §6.6; capacity and balance views first (decision 9.7); Sankey, time series and demand views follow | package | side-by-side review of the 13 first-wave views |
+| **5. App extension hook + Svelte UI** | fork `AGGM-AG/pypsa-app`; add settings, entry point, routes, task, service (§4.2) with `(scenario, year)` collections (§6.4); restore `frontend/` from `252a6bf` and `register-path` from `pypsa-app-legacy`; add `ViewCard`, `ViewEditorDialog`, `view` card type; Docker `full` target; open upstream PR for the hook | fork | capacity and balance views render for a registered result folder |
 | **6. Decommission** | remove `evals/`, update `collect.smk`, docs, changelog | pypsa-at | no references to `evals` left |
-| **7. UI** | contribute `view` card to the React UI or maintain the demo page | fork / upstream | stakeholders use the app |
+| **7. Upstream UI** | contribute the `view` card to the React UI once it exists; retire the Svelte tree | fork / upstream | stakeholders use the app |
 
 Phases 1-2 are pure refactors inside pypsa-at and deliver value on their own (single
 source of truth for labels, less code). Phase 5 can start in parallel with 3-4 using the
 `plots` endpoint as a template.
 
-## 9. Open questions to settle before implementation
+## 9. Decisions and remaining questions
 
-1. **Repository layout**: separate `pypsa-at-views` repository (recommended) or a
-   `pyproject.toml` inside pypsa-at?
-2. **Frontend**: interim server-rendered page (7.1 b), revived Svelte UI (7.1 d), or wait for upstream React (7.1 a)?
-   Has anyone talked to lkstrp about the timeline and about accepting an extension hook?
-3. **Context-dependent labels** (issue #80 §3): is keying the mapping on the statistic
-   name (`optimal_capacity` vs `energy_balance`) sufficient, or do we need per-view
-   overrides? The inventory suggests the statistic name covers all current cases.
-4. **Location aggregation in the app**: fixed to today's behaviour (country + AT regions
-   + EU) or user-selectable level (needs the `region` grouper, §6.2)?
-5. **Parity tolerance**: which views must be pixel-identical (stakeholder-facing) and
-   which may change look when moving to `ChartGenerator`? Totals annotations and legend
-   ranking are the main visual differences.
-6. **Sign hotfixes**: re-verify the heat-pump `×-1` and `MWh→MW` patches against PyPSA
-   1.3 before porting; if they are obsolete, drop them in phase 2.
-7. **Scope of the first app release**: the 7 capacity views + 6 balance views (closest
-   to plain statistics) or everything including Sankey?
-8. **Ownership**: who maintains the fork sync and the upstream PR conversation?
+Decisions taken in the first review round (2026-09-04):
+
+| # | Question | Decision |
+|---|---|---|
+| 9.1 | Repository layout | separate `pypsa-at-views` package; `evals/` migrates into it |
+| 9.2 | Frontend | option 7.1 d: restore the Svelte UI in the fork; lkstrp is contacted about the React timeline in parallel |
+| 9.3 | Context-dependent labels | keying the mapping on the statistic name is sufficient |
+| 9.4 | Location aggregation in the app | today's behaviour (country + AT regions + EU) via the transform; `region` grouper later (§6.2) |
+| 9.5 | Environment | the package targets Python 3.13 / pandas 3 and stays compatible with pypsa-at's pins (§7.2) |
+| 9.6 | Totals annotation and legend ranking | nice-to-have; implemented per §6.6, dropped per chart if they turn out expensive |
+| 9.7 | First-wave scope | the 7 capacity views and 6 balance views; verification of the sign hotfixes done (§5.7) |
+| 9.8 | Ownership of fork sync and upstream conversation | Philip |
+
+Still open:
+
+1. **Package name and location**: `pypsa-at-views` under `AGGM-AG`? Publish to PyPI or
+   install from git tags only (affects the uv tool and pixi dependency syntax)?
+2. **Reverse-flow sign fix upstream**: open a PyPSA issue for `optimal_capacity` on
+   `p_max_pu ≤ 0` links (§5.7), or keep it as a local transform indefinitely?
+3. **Folder registration semantics** (§6.4): one registration per `.nc` file, or a
+   "result folder" record that groups them? The legacy `register-path` route is per
+   file; grouping only matters for the UI's network list.
+4. **Real `.nc` sizes and memory budget** (§7.4): still unmeasured.
 
 ## Appendix A: files to look at
 
