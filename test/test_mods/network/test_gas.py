@@ -14,12 +14,15 @@ from pypsa import NetworkCollection
 from evals.utils import filter_by
 from mods.clustering.utils import combine_regions_by_clustering
 from mods.network.gas import _TANAP_PIPELINE_CAPACITY
-from mods.utils import aggregate_gas_pipeline_corridors_to_nuts2
 from test.conftest import require_config
 
-update_gas_transport_data = import_module(
+_modify_brownfield_gas_network_AT = import_module(
     "scripts.pypsa-at.modify_brownfield_gas_network_AT"
-).update_gas_transport_data
+)
+update_gas_transport_data = _modify_brownfield_gas_network_AT.update_gas_transport_data
+aggregate_gas_pipeline_corridors_to_nuts2 = (
+    _modify_brownfield_gas_network_AT.aggregate_gas_pipeline_corridors_to_nuts2
+)
 
 GAS_NETWORK_COLUMNS = [
     "bus0",

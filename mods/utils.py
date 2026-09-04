@@ -9,18 +9,15 @@ from pathlib import Path
 from typing import Any, Literal
 
 import geopandas as gpd
-import numpy as np
 import pandas as pd
 import pypsa
 import xarray as xr
 from pypsa import Network
 from snakemake.script import Snakemake
 
-from mods.clustering.utils import _map_at_nuts3_to_nuts2
 from mods.constants import ISLAND_SPLIT_NODES, TYNDP_TO_PYPSA_LOCATION
 from scripts._helpers import load_costs
 from scripts.add_electricity import load_and_aggregate_powerplants
-from scripts.cluster_gas_network import aggregate_parallel_pipes, reindex_pipes
 
 logger = logging.getLogger(__name__)
 
@@ -334,51 +331,3 @@ def resolve_tyndp_locations(
         }
     else:
         return mapping
-
-
-def aggregate_gas_pipeline_corridors_to_nuts2(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Aggregate AT gas pipeline corridors from NUTS3 (AT35) to NUTS2 (AT10) resolution.
-
-    Remaps ``bus0``/``bus1`` from AT NUTS3 codes to their NUTS2 parents via
-    `mods.clustering.utils._map_at_nuts3_to_nuts2`,  drops corridors that collapse onto a single
-    NUTS2 region (self-loops), and collapses parallel corridors between the
-    same NUTS2 bus pair by reusing `scripts.cluster_gas_network.reindex_pipes`
-    and `scripts.cluster_gas_network.aggregate_parallel_pipes` — the same
-    parallel-corridor collapse used to build in the PyPSA-Eur workflow.
-
-    Parameters
-    ----------
-    df
-        AGGM gas pipeline corridor data at AT35 (NUTS3) resolution, with the
-        standard gas network columns (``bus0``, ``bus1``, ``p_nom``,
-        ``p_nom_diameter``, ``max_pressure_bar``, ``build_year``,
-        ``diameter_mm``, ``length``, ``name``, ``p_min_pu``).
-
-    Returns
-    -------
-    :
-        The same columns aggregated to AT NUTS2 (AT10) resolution, reindexed
-        to unique ``"gas pipeline BUS0 -> BUS1"`` / ``"... <-> ..."`` labels.
-
-    Notes
-    -----
-    ``build_year`` uses ``0`` as an "unknown year" sentinel in the AGGM input
-    data. Averaging that in with real years would bias the mean towards 0, so
-    zeros are treated as missing for the aggregation and only restored where
-    every merged corridor segment had an unknown year.
-    """
-    columns = df.columns
-    df = df.copy()
-    df["bus0"] = df["bus0"].map(_map_at_nuts3_to_nuts2)
-    df["bus1"] = df["bus1"].map(_map_at_nuts3_to_nuts2)
-    df = df.loc[df["bus0"] != df["bus1"]]
-
-    df["bidirectional"] = df["p_min_pu"] == -1
-    df["build_year"] = df["build_year"].astype(float).replace(0, np.nan)
-
-    reindex_pipes(df)
-    df = aggregate_parallel_pipes(df)
-
-    df["build_year"] = df["build_year"].fillna(0).round().astype(int)
-    return df[columns]
