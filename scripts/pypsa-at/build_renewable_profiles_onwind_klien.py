@@ -9,9 +9,9 @@ from shutil import copyfile
 
 import pandas as pd
 import xarray as xr
+from snakemake.script import Snakemake
 
 from scripts._helpers import configure_logging
-from snakemake.script import Snakemake
 
 logger = logging.getLogger(__name__)
 
