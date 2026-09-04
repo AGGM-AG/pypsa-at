@@ -394,6 +394,14 @@ class TestAGGMGasNetworkCapacityData:
         return at35
 
     @pytest.fixture
+    def source_file(self, project_root) -> pd.DataFrame:
+        """The maintained AGGM file, for invariants a human has to uphold when editing it."""
+        return pd.read_csv(
+            project_root / "data" / "pypsa-at" / "AGGM_gas_network_base_AT35.csv",
+            index_col=0,
+        )
+
+    @pytest.fixture
     def raw(self) -> pd.DataFrame:
         """
         Mock network that contains every bus that borders AT regions
@@ -439,15 +447,17 @@ class TestAGGMGasNetworkCapacityData:
         assert (reverse >= 0).all()
         assert (reverse <= aggm_data.loc[reverse.index, "p_nom"]).all()
 
-    def test_reverse_capacities_belong_to_bidirectional_corridors(self, aggm_data):
+    def test_reverse_capacities_belong_to_bidirectional_corridors(self, source_file):
         """
         Only a corridor marked bidirectional may carry a reverse capacity.
 
         A reverse capacity on a one-way row contradicts itself, and the
         ingestion would resolve it silently in favour of the reverse capacity.
+        Checked against the maintained file rather than the aggregated frame,
+        which resolves every blank into the reverse capacity its row implies.
         """
-        asymmetric = aggm_data["p_nom_reverse"].notna()
-        assert (aggm_data.loc[asymmetric, "p_min_pu"] == -1).all()
+        asymmetric = source_file["p_nom_reverse"].notna()
+        assert (source_file.loc[asymmetric, "p_min_pu"] == -1).all()
 
     def test_directions_are_not_split_across_rows(self, aggm_data):
         """
