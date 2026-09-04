@@ -1,6 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Austrian Gas Grid Management AG
+#
+# SPDX-License-Identifier: MIT
+# For license information, see the LICENSE.txt file in the project root.
+"""Generate onshore regions geopandas with AT in NUTS3 resolution."""
 import geopandas as gpd
 import logging
-
 
 import pandas as pd
 
