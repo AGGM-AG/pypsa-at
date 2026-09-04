@@ -378,17 +378,57 @@ counterpart. Port as-is into `charts/sankey.py`, refactor only the data preparat
 
 ### 7.1 No frontend in PyPSA App (blocking for the stated goal)
 
-Three ways forward, not mutually exclusive:
+Four ways forward, not mutually exclusive:
 
 | Option | Effort | Notes |
 |---|---|---|
 | **a. Wait for the upstream React UI** | none now, unknown timeline | announced in PR #103, no issue tracks it; core dev bandwidth unclear |
 | **b. Minimal server-rendered page in the fork** | ~2-3 days | `/views/{network_set}/{view}` returns a Jinja page embedding Plotly JSON; enough for stakeholders; throwaway once (a) lands |
 | **c. Build a React UI in the fork** | weeks | duplicates upstream work; only if AGGM wants to own the UI |
+| **d. Revive the removed Svelte UI in the fork** | ~1 week for the AT card, then ongoing upkeep | full app experience today (login, network list, report grid, plot cards); unmaintained upstream; see below |
 
-Recommendation: do (b) as the demo target for the backend milestone and align with
-lkstrp on (a). Contributing the `view` card type to the React UI once it exists is the
-long-term path.
+**Option d in detail.** The Svelte frontend still exists in git history. The most
+complete state is commit `252a6bf` (2026-06-22), the parent of the removal commit; it
+carries the newest backend and the full UI. Branch `pypsa-app-legacy` (2026-06-12) is
+ten days older and differs from main in 14 backend files, mostly `cli.py` and `uv.lock`.
+Restoring `frontend/` from `252a6bf` onto a fork of main is the cleanest route, because
+the backend API the UI talks to has not changed since.
+
+| Item | Value |
+|---|---|
+| Stack | SvelteKit 2, Svelte 5, Tailwind 4, bits-ui, plotly.js-dist 3.6, Node 22 |
+| Size | 277 source files; report components ≈ 2 700 lines (`ReportGrid` 628, `PlotCard` 354, `PlotEditorDialog` 373) |
+| Build | `adapter-static` writes into `src/pypsa_app/backend/static/app`; FastAPI serves it as an SPA; Docker target `full` builds it |
+| Plot contract | `plots.generate(networkIds, statistic, plotType, parameters)` → poll `/tasks/status/{id}` → `Plotly.newPlot(json)` |
+| Reports | card types `plot`, `markdown`, `explore`, `overview`, `component_table` in `reportStore.svelte.ts`; default report from a YAML file |
+
+What AGGM would add for AT views:
+
+- `ViewCard.svelte`, a copy of `PlotCard` that calls `/views/generate` (≈ 350 lines).
+- `ViewEditorDialog.svelte`, a parameter form rendered from the JSON schema the backend
+  publishes per view (≈ 350 lines).
+- a `view` card type in the report store and an AT default report YAML.
+
+Roughly 700-900 lines of UI code. Three rules keep a later port to React cheap:
+
+1. **No evaluation logic in JavaScript.** Labels, colours, ordering, units, aggregation
+   all come from the Python package as Plotly JSON. `PlotCard` already sanitises
+   `bus_carrier` and `query` against `network.facets` client-side; do not extend that
+   pattern to views.
+2. **Keep the stored card definition minimal**, e.g.
+   `{type: "view", view: "balance_electricity", parameters: {...}}`. Reports live as JSON
+   on the network record, so a React UI can read the same records unchanged.
+3. **Add new files, do not edit upstream components.** The Svelte tree then becomes
+   disposable the day the React UI lands, and the AT contribution there is one card type.
+
+Costs: AGGM carries an unmaintained UI (no upstream security bumps for the ≈ 60 npm
+dependencies), a Node toolchain in the Docker build, and any backend API change upstream
+makes must be mirrored by hand in `lib/api/client.ts`.
+
+Recommendation: (d) if stakeholders need the full app experience before the React UI
+exists, otherwise (b). In both cases align with lkstrp on (a) early; the `view` card type
+is the piece worth contributing upstream. If (d) is chosen, the interim page in (b) is
+unnecessary.
 
 ### 7.2 Environment split
 
@@ -439,7 +479,7 @@ Each phase ends with a reviewable PR and leaves `pixi run evals` working.
 | **2. Trade grouper + transforms** | replace `trade_energy` by `trade` grouper; move class B/C code into `transforms/`; delete deprecated statistics and dead views | pypsa-at | all 22 views regression-equal (JSON diff tolerance on floats) |
 | **3. Extract package** | move `evals/` → `pypsa-at-views` with `pyproject.toml`, CI matrix (py3.12/pandas2, py3.13/pandas3), CLI, tests; pypsa-at consumes it via pixi | new repo + pypsa-at | `pixi run evals` unchanged for users |
 | **4. Charts on `ChartGenerator`** | re-implement `bar`, `facet_bar`, `area` on `ChartGenerator.iplot`; keep visual parity checklist (totals, legend order, patterns, footnotes); Sankey ported unchanged | package | side-by-side review of every view |
-| **5. App extension hook** | fork `AGGM-AG/pypsa-app`; add settings, entry point, routes, task, service; Docker image with the package installed; server-rendered demo page (§7.1 b); open upstream PR | fork | AT views render from uploaded pypsa-at networks |
+| **5. App extension hook** | fork `AGGM-AG/pypsa-app`; add settings, entry point, routes, task, service; Docker image with the package installed; UI per the §7.1 decision (server-rendered page or revived Svelte UI with a `view` card); open upstream PR | fork | AT views render from uploaded pypsa-at networks |
 | **6. Decommission** | remove `evals/`, update `collect.smk`, docs, changelog | pypsa-at | no references to `evals` left |
 | **7. UI** | contribute `view` card to the React UI or maintain the demo page | fork / upstream | stakeholders use the app |
 
@@ -451,7 +491,7 @@ source of truth for labels, less code). Phase 5 can start in parallel with 3-4 u
 
 1. **Repository layout**: separate `pypsa-at-views` repository (recommended) or a
    `pyproject.toml` inside pypsa-at?
-2. **Frontend**: accept option 7.1 (b) as the interim UI, or wait for upstream React?
+2. **Frontend**: interim server-rendered page (7.1 b), revived Svelte UI (7.1 d), or wait for upstream React (7.1 a)?
    Has anyone talked to lkstrp about the timeline and about accepting an extension hook?
 3. **Context-dependent labels** (issue #80 §3): is keying the mapping on the statistic
    name (`optimal_capacity` vs `energy_balance`) sufficient, or do we need per-view
