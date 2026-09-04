@@ -1,26 +1,15 @@
 # Sourcery configuration for PyPSA-AT.
+# Reference: https://docs.sourcery.ai/Configuration/Project-Settings/
 #
-# 📚 Reference: https://docs.sourcery.ai/Configuration/Project-Settings/
-#
-# What this file can and cannot do
-# --------------------------------
-# Sourcery validates this file strictly: only the keys `version`, `ignore`,
-# `rule_settings`, `rules`, `rule_tags`, `metrics`, `github`, `clone_detection`,
-# `proxy` and `coding_assistant` are accepted. An unknown key makes Sourcery
-# reject the whole file, so do not add free-text review instructions here.
-#
-# The natural-language review rules that encode REVIEW.md and CLAUDE.md live
-# in the Sourcery dashboard (Repo settings → Review rules). The canonical list
-# to paste there is maintained in .github/sourcery-review-rules.md.
-#
-# `ignore` and `rule_settings` drive the pattern-based rules engine (IDE, CLI
-# and the rule comments on pull requests). Which files the AI reviewer looks
-# at is controlled by the dashboard "Path filters" setting instead.
+# Only the keys version, ignore, rule_settings, rules, rule_tags, metrics,
+# github, clone_detection, proxy and coding_assistant are accepted; unknown
+# keys make Sourcery reject the file. Natural-language review rules that
+# mirror REVIEW.md live in the Sourcery dashboard (Repo settings → Review
+# rules), and the AI reviewer's file scope in its "Path filters" setting.
 
-version: '1'  # The schema version of this config file
+version: '1'
 
 ignore: # Paths the pattern-based rules engine will not analyse.
-# Tooling and environments
 - .git
 - .pixi
 - .marimo
@@ -41,7 +30,7 @@ ignore: # Paths the pattern-based rules engine will not analyse.
 - ~/.cache
 - ~/.config
 - ~/.local
-# Workflow inputs and outputs (git-ignored, GB-scale)
+# Workflow inputs and outputs
 - bak
 - benchmarks
 - cutouts
@@ -58,10 +47,8 @@ ignore: # Paths the pattern-based rules engine will not analyse.
 - docs-at/site
 - test/test_data
 - '*.ipynb'
-# Upstream PyPSA-Eur / PyPSA-DE / Open-TYNDP code is kept as close to upstream
-# as possible (see CLAUDE.md "Upstream files — do NOT touch"), so no
-# refactoring suggestions there. AT-owned code under scripts/pypsa-at and
-# scripts/lib/validation stays in scope.
+# Upstream PyPSA-Eur / PyPSA-DE / Open-TYNDP code (see CLAUDE.md); AT-owned
+# scripts/pypsa-at and scripts/lib/validation stay in scope.
 - scripts/*.py
 - scripts/build_central_heating_temperature_profiles
 - scripts/build_cop_profiles
@@ -73,33 +60,29 @@ ignore: # Paths the pattern-based rules engine will not analyse.
 rule_settings:
   enable:
   - default
-  # REVIEW.md §3 "Keep code maintainable": typed parameters and return values.
-  # Both rules exclude test_*.py files themselves.
+  # REVIEW.md §3: typed parameters and return values (test files are excluded).
   - require-parameter-annotation
   - require-return-annotation
-  # REVIEW.md §3: propose a split when a function does too much (> 40 statements).
+  # REVIEW.md §3: propose a split for functions with more than 40 statements.
   - no-long-functions
-  # CLAUDE.md: prefer f-strings over other formatting.
+  # CLAUDE.md: prefer f-strings.
   - no-str-format
-  # Never ship debugger breakpoints.
   - remove-breakpoint
   - remove-pdb-set_trace
-  disable: []  # A list of rule IDs Sourcery will never suggest.
+  disable: []
   rule_types:
   - refactoring
   - suggestion
   - comment
-  python_version: '3.12' # Lowest Python version supported by the project (pixi.toml: python >= 3.12).
+  python_version: '3.12'
 
 rules:
-# CLAUDE.md "Conventions & Key Patterns": scripts and library code log through
-# `logging`; print output belongs to CLI entry points only.
+# CLAUDE.md: workflow and library code logs through `logging`.
 - id: no-print-statements
   description: Use the module `logger` instead of `print` in workflow and library code
   explanation: |
     Snakemake captures script output through the `logging` module, so `print`
-    calls are lost in workflow logs. Use `logger.info(...)` / `logger.debug(...)`
-    with an f-string instead. Print is fine in stand-alone CLI tools (`utils/`).
+    calls are lost in workflow logs. Use `logger.info(...)` with an f-string.
   pattern: print(...)
   language: python
   paths:
@@ -117,14 +100,12 @@ rules:
   tags:
   - pypsa-at
 
-# CLAUDE.md "Writing Tests": pytest.ini already puts `.`, `scripts`,
-# `scripts/pypsa-at` and `scripts/open-tyndp` on `pythonpath`.
+# CLAUDE.md: pytest.ini configures `pythonpath`, no `sys.path` juggling in tests.
 - id: no-sys-path-insert-in-tests
   description: Do not manipulate `sys.path` in tests; `pytest.ini` configures `pythonpath`
   explanation: |
     `pytest.ini` already makes `scripts/`, `scripts/pypsa-at/` and
-    `scripts/open-tyndp/` importable. Import the module directly instead of
-    editing `sys.path`.
+    `scripts/open-tyndp/` importable. Import the module directly.
   pattern: sys.path.insert(...)
   language: python
   paths:
@@ -144,8 +125,7 @@ rules:
   description: Do not manipulate `sys.path` in tests; `pytest.ini` configures `pythonpath`
   explanation: |
     `pytest.ini` already makes `scripts/`, `scripts/pypsa-at/` and
-    `scripts/open-tyndp/` importable. Import the module directly instead of
-    editing `sys.path`.
+    `scripts/open-tyndp/` importable. Import the module directly.
   pattern: sys.path.append(...)
   language: python
   paths:
@@ -161,33 +141,15 @@ rules:
   tags:
   - pypsa-at
 
-# rule_tags: {} # Additional rule tags.
-
-# metrics:
-#   quality_threshold: 25.0
-
 github:
-  # Pull requests carrying any of these labels are skipped entirely. Automated
-  # PRs (dependabot, lockfile updates) are labelled `sourcery-ignore` by their
-  # workflows.
+  # Automated PRs (dependabot, lockfile updates) carry this label.
   ignore_labels:
   - sourcery-ignore
-  # Sourcery requests a review from the PR author once it has posted its review.
   request_review: author
-
-# clone_detection:
-#   min_lines: 3
-#   min_duplicates: 2
-#   identical_clones_only: false
-
-# proxy:
-#   url:
-#   ssl_certs_file:
-#   no_ssl_verify: false
 
 coding_assistant:
   enabled: true
-  # Context handed to the Sourcery IDE assistant (not used by pull request reviews).
+  # Context for the Sourcery IDE assistant only; pull request reviews do not use it.
   project_description: |
     PyPSA-AT is a sector-coupled energy system optimisation model for Austria
     built on PyPSA-Eur and PyPSA-DE, orchestrated with Snakemake and managed
