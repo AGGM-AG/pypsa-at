@@ -11,6 +11,7 @@ import pandas as pd
 import xarray as xr
 
 from scripts._helpers import configure_logging
+from snakemake.script import Snakemake
 
 logger = logging.getLogger(__name__)
 
