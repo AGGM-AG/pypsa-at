@@ -18,9 +18,7 @@ from mods.network.gas import (
     block_russian_gas_imports,
     make_gas_pipelines_unextendable,
     override_gas_storage_capacities,
-    remove_duplicate_gas_pipeline_reversals,
     unravel_gas_import_and_production,
-    zero_secondary_direction_gas_pipeline_costs,
 )
 from mods.network.h2 import (
     add_h2_for_industry_bus,
@@ -99,8 +97,6 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     unravel_gas_import_and_production(n, snakemake, costs)
     block_russian_gas_imports(n, snakemake)
     make_gas_pipelines_unextendable(n, snakemake)
-    remove_duplicate_gas_pipeline_reversals(n, snakemake)
-    zero_secondary_direction_gas_pipeline_costs(n, snakemake)
 
     apply_pemmdb_trajectories(n, snakemake, costs)
     override_gas_storage_capacities(n, snakemake)
