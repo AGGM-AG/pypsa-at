@@ -12,6 +12,7 @@ nav:
   - how-to-guides/index.md
   - Working with Evaluations: how-to-guides/evals.md
   - Production Targets: how-to-guides/production-targets.md
+  - Anlagenregister: how-to-guides/anlagenregister.md
 - Tutorials:
   - tutorials/index.md
   - tutorials/model-modifications.md
@@ -63,6 +64,8 @@ nav:
   - Data Flows:
     - explanations/data-flows/index.md
     - Industrial Demand: explanations/data-flows/industrial-demand.md
+    - Heat Demand: explanations/data-flows/heat-demand.md
+    - Road Mobility Demand: explanations/data-flows/road-demand.md
   - National CO2 Balance: explanations/co2-balancing.md
   - TYNDP H2 Import Infrastructure: explanations/h2-imports.md
   - Electricity Grid:

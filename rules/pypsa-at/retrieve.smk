@@ -97,18 +97,90 @@ if NEA_AT["source"] == "primary":
 
 rule retrieve_ffe_industry_load_profiles:
     output:
-        "data/pypsa-at/ffe_industry_load_profiles.json",
+        f"{FFE_INDUSTRY_LOAD_PROFILES['folder']}/ffe_industry_load_profiles.json",
     log:
         logs("retrieve_ffe_industry_load_profiles.log"),
     retries: 2
     resources:
         mem_mb=1000,
+    params:
+        url=FFE_INDUSTRY_LOAD_PROFILES["url"],
     message:
         "Retrieving FfE normalized industrial electricity load profiles"
     run:
-        data = requests.get(
-            "https://api.opendata.ffe.de/opendata",
-            params={"id_opendata": 59},
-        ).json()
+        data = requests.get(params.url, params={"id_opendata": 59}).json()
         with open(output[0], "w") as f:
             json.dump(data, f)
+
+
+if ANLAGENREGISTER["source"] == "build":
+
+    rule retrieve_anlagenregister_at:
+        output:
+            plants=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
+        log:
+            logs("retrieve_anlagenregister_at.log"),
+        threads: 1
+        resources:
+            mem_mb=2000,
+        params:
+            base_url=ANLAGENREGISTER["url"],
+            timeout=900,  # seconds; Strom queries for large Bundesländer take minutes
+            retries=2,
+            pause=2,  # seconds between requests
+        message:
+            "Retrieving E-Control Anlagenregister (9 Strom + 1 Gas queries, this takes a while)"
+        script:
+            scripts("pypsa-at/retrieve_anlagenregister_at.py")
+
+elif ANLAGENREGISTER["source"] == "archive":
+
+    rule retrieve_anlagenregister_at:
+        input:
+            plants=storage(f"{ANLAGENREGISTER['url']}/anlagenregister_plants.csv"),
+        output:
+            plants=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
+        log:
+            logs("retrieve_anlagenregister_at.log"),
+        message:
+            "Retrieving the mirrored E-Control Anlagenregister (plant-level CSV) from Zenodo"
+        run:
+            copy2(input.plants, output.plants)
+
+
+if KFZ_BESTAND_AT["source"] in ["primary", "archive"]:
+
+    rule retrieve_kfz_bestand_at:
+        input:
+            ods=storage(KFZ_BESTAND_AT["url"]),
+        output:
+            ods=f"{KFZ_BESTAND_AT['folder']}/kfz-bestand_{KFZ_BESTAND_AT['version']}.ods",
+        message:
+            "Retrieving Statistik Austria vehicle stock data"
+        run:
+            copy2(input["ods"], output["ods"])
+
+
+if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
+
+    rule retrieve_statistik_at_regions:
+        input:
+            ods=storage(STATISTIK_AT_REGIONS["url"]),
+        output:
+            ods=f"{STATISTIK_AT_REGIONS['folder']}/RegGemVz{STATISTIK_AT_REGIONS['version']}.ods",
+        message:
+            "Retrieving Statistik Austria municipality register"
+        run:
+            copy2(input["ods"], output["ods"])
+
+
+rule retrieve_heat_demand_at:
+    input:
+        tif=storage(f"{HEAT_DEMAND_DATASET['url']}/{{heatmap_file}}"),
+    output:
+        tif=f"{HEAT_DEMAND_DATASET['folder']}/{{heatmap_file}}",
+    retries: 2
+    message:
+        "Retrieving Austrian heat demand heatmap {wildcards.heatmap_file}"
+    run:
+        copy2(input.tif, output.tif)
