@@ -282,6 +282,9 @@ pixi run pytest test/test_mods/ --result-path=results/{prefix}/{scenario}
 - Add a short entry to `CHANGELOG.AT.md` (Keep a Changelog format) for user-visible changes.
   Skip the entry if there are no behavioral changes (e.g. refactoring, file relocations,
   dataset registry housekeeping, tooling, docs)
+- Sourcery reviews every PR: `.sourcery.yaml` holds the pattern-based rules, the natural-language
+  review rules mirroring `REVIEW.md` live in the Sourcery dashboard and are listed in
+  `.github/sourcery-review-rules.md` — update both when `REVIEW.md` changes
 - Fill in `.github/pull_request_template.md`; its checklist is the source of truth:
   tests pass, docs updated, changelog entry, Sourcery Bot suggestions addressed,
   config changes reflected in `scripts/lib/validation`, new rules documented in `docs-at/`
