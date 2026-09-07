@@ -25,7 +25,6 @@
         "backend": "PyCharm"
       }
     },
-    "runArgs": ["--env-file", "/mnt/storage/pypsa-at-devcontainer.env"],
     "shutdownAction": "none",
     "containerEnv": {
       "SHELL": "/bin/zsh"
