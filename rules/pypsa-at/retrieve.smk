@@ -184,3 +184,19 @@ rule retrieve_heat_demand_at:
         "Retrieving Austrian heat demand heatmap {wildcards.heatmap_file}"
     run:
         copy2(input.tif, output.tif)
+
+
+if WIND_POWER_AT["source"] == "primary":
+
+    rule retrieve_wind_power_at:
+        input:
+            wind=storage(WIND_POWER_AT["url"]),
+        output:
+            wind=f"{WIND_POWER_AT['folder']}/wind_prodction_at.xlsx",
+        log:
+            logs("retrieve_wind_power_at.log"),
+        retries: 2
+        message:
+            "Retrieving Austrian wind production"
+        run:
+            copy2(input.wind, output.wind)
