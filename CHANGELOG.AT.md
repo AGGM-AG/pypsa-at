@@ -55,6 +55,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Updated PHS modeling by exchanging StorageUnits with 2x Links + Bus + Store + Generator ([#131](https://github.com/AGGM-AG/pypsa-at/pull/131))
 - Changed Inflow data source to PEMMDB data with ERA5 profiles ([#146](https://github.com/AGGM-AG/pypsa-at/pull/146))
 - Added Austrian biogas-to-power plants from Anlagenregister as brownfield capacities ([#157](https://github.com/AGGM-AG/pypsa-at/pull/157/)) 
+- The AGGM flow directions of Austrian gas pipelines now apply only up to `mods.threshold_year_for_gas_grid_expansion`. From the following planning horizon on, both flow directions stay extendable, so a corridor may be turned, decommissioned or rebuilt in either direction
 
 ### Fixed
 - Fixed double subtraction of brownfield capacities in `modify_prenetwork` and `solve_network` and added a new test for this case. ([#101](https://github.com/AGGM-AG/pypsa-at/pull/101))

@@ -591,11 +591,22 @@ class TestRestoreAsymmetricPipelineCapacities:
         return str(path)
 
     @staticmethod
-    def snakemake(path: str, enabled: bool = True) -> SimpleNamespace:
-        """Minimal Snakemake stand-in exposing the config flag and the resource."""
+    def snakemake(
+        path: str,
+        enabled: bool = True,
+        planning_horizons: str = "2030",
+        threshold_year: int = 2040,
+    ) -> SimpleNamespace:
+        """Minimal Snakemake stand-in exposing the config flags and the resource."""
         return SimpleNamespace(
-            config={"mods": {"modify_brownfield_gas_network_AT": enabled}},
+            config={
+                "mods": {
+                    "modify_brownfield_gas_network_AT": enabled,
+                    "threshold_year_for_gas_grid_expansion": threshold_year,
+                }
+            },
             input=SimpleNamespace(clustered_gas_network=path),
+            wildcards=SimpleNamespace(planning_horizons=planning_horizons),
         )
 
     @staticmethod
@@ -761,6 +772,45 @@ class TestRestoreAsymmetricPipelineCapacities:
 
         pd.testing.assert_series_equal(n.links["p_nom"], before)
 
+    def test_expansion_horizon_changes_nothing(self, tmp_path):
+        """
+        Past the threshold year the model may invest in the gas grid, so a
+        corridor is free to be turned, decommissioned or rebuilt in either
+        direction. Both legs stay extendable and
+        add_lossy_bidirectional_link_constraints ties them together, which the
+        directional capacities of today's compressors would prevent.
+        """
+        n = self.network()
+        before = n.links[["p_nom", "p_nom_extendable"]].copy()
+
+        restore_asymmetric_pipeline_capacities(
+            n,
+            self.snakemake(
+                self.clustered_gas_network(tmp_path),
+                planning_horizons="2050",
+                threshold_year=2040,
+            ),
+        )
+
+        pd.testing.assert_frame_equal(n.links[["p_nom", "p_nom_extendable"]], before)
+
+    def test_threshold_year_is_still_brownfield(self, tmp_path):
+        """The threshold year itself is the last horizon with a fixed gas grid."""
+        n = self.network()
+
+        restore_asymmetric_pipeline_capacities(
+            n,
+            self.snakemake(
+                self.clustered_gas_network(tmp_path),
+                planning_horizons="2040",
+                threshold_year=2040,
+            ),
+        )
+
+        leg = n.links.loc["gas pipeline AT225 <-> AT213-reversed"]
+        assert leg["p_nom"] == pytest.approx(6015.0)
+        assert not leg["p_nom_extendable"]
+
     def test_unsplit_network_changes_nothing(self, tmp_path):
         """
         Without the split the corridors are single Links that still carry their
@@ -913,3 +963,69 @@ class TestAsymmetricGasPipelineCapacitiesInNetwork:
         flow = brownfield_network.links_t.p0[reverse_legs]
 
         assert flow.to_numpy() == pytest.approx(0.0, abs=1e-3)
+
+
+class TestGasPipelineDirectionsAfterExpansionThreshold:
+    """Verify both flow directions are free once the gas grid may be expanded."""
+
+    @pytest.fixture(scope="class")
+    def expansion_network(self, nc) -> pypsa.Network:
+        """
+        First solved horizon past ``threshold_year_for_gas_grid_expansion``,
+        where corridors may be turned, decommissioned or rebuilt.
+        """
+        mods = require_config(nc, "mods")
+        threshold = int(mods["threshold_year_for_gas_grid_expansion"])
+        horizons = sorted(y for y in nc.networks.keys() if int(y) > threshold)
+        if not horizons:
+            pytest.skip(f"No planning horizon past the threshold year {threshold}.")
+        return nc.networks[horizons[0]]
+
+    @pytest.fixture(scope="class")
+    def gas_pipeline_legs(self, expansion_network) -> tuple[pd.Index, pd.Index]:
+        """Forward and matching reverse legs of the built gas pipelines."""
+        links = expansion_network.links
+        gas_pipes = links[links["carrier"] == "gas pipeline"]
+        is_reversed = gas_pipes["reversed"].fillna(False).astype(bool)
+
+        forward = gas_pipes.index[~is_reversed]
+        reverse = forward + "-reversed"
+        paired = reverse.isin(gas_pipes.index[is_reversed])
+        return forward[paired], reverse[paired]
+
+    def test_both_legs_are_extendable(self, expansion_network, gas_pipeline_legs):
+        """
+        The directional capacities describe today's compressors. Once the model
+        may invest, a corridor is free to be turned, so neither leg stays fixed.
+        """
+        forward, reverse = gas_pipeline_legs
+        extendable = expansion_network.links.loc[
+            forward.append(reverse), "p_nom_extendable"
+        ]
+
+        assert extendable.all(), (
+            f"Fixed gas pipeline legs past the expansion threshold: "
+            f"{list(extendable[~extendable].index)}"
+        )
+
+    def test_flow_directions_are_synchronised(
+        self, expansion_network, gas_pipeline_legs
+    ):
+        """
+        Two extendable legs are one pipe: add_lossy_bidirectional_link_constraints
+        ties their capacities together, so they grow and shrink as one.
+        """
+        forward, reverse = gas_pipeline_legs
+        built_forward = expansion_network.links.loc[forward, "p_nom_opt"]
+        built_reverse = expansion_network.links.loc[reverse, "p_nom_opt"]
+
+        assert built_reverse.to_numpy() == pytest.approx(built_forward.to_numpy())
+
+    def test_corridors_may_be_decommissioned(
+        self, expansion_network, gas_pipeline_legs
+    ):
+        """A corridor that is free to be rebuilt is also free to disappear."""
+        forward, _ = gas_pipeline_legs
+        lower_bound = expansion_network.links.loc[forward, "p_nom_min"]
+
+        assert lower_bound.to_numpy() == pytest.approx(0.0)

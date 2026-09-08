@@ -256,11 +256,21 @@ def restore_asymmetric_pipeline_capacities(
 
     Notes
     -----
-    The reverse legs are fixed and unextendable so that
-    ``solve_network.add_lossy_bidirectional_link_constraints`` leaves them
-    alone. That constraint synchronises a reverse leg with its forward part
-    whenever both are extendable, which would even out the asymmetry again in
-    planning horizons where gas pipelines may still be expanded.
+    The directional capacities describe the compressors that stand in the grid
+    today, so they only apply while the grid is fixed. Up to and including
+    ``mods.threshold_year_for_gas_grid_expansion`` the corridors are brownfield
+    and keep the direction provided in ``AGGM_gas_network_base_AT35.csv``. In the
+    next planning horizon after the threshold year
+    the model may invest in the gas grid, and a corridor is then free to be
+    turned, decommissioned or rebuilt in either direction. Both legs stay
+    extendable there, which lets
+    ``solve_network.add_lossy_bidirectional_link_constraints`` tie the pair
+    together, so the two directions grow and shrink as one pipe.
+
+    The reverse legs are fixed and unextendable within the brownfield horizons
+    so that the same constraint leaves them alone. It synchronises a reverse leg
+    with its forward part whenever both are extendable, which would even the
+    asymmetry out again.
 
     Only corridors touching Austria are resized. AGGM data is authoritative for
     the Austrian grid alone, and the upstream Sci2Grid corridors carry one-way
@@ -272,6 +282,17 @@ def restore_asymmetric_pipeline_capacities(
         logger.info(
             "Skip restoring asymmetric gas pipeline capacities because the "
             "brownfield gas network modification is disabled."
+        )
+        return
+
+    pyear = int(snakemake.wildcards.planning_horizons)
+    threshold_year = int(mods["threshold_year_for_gas_grid_expansion"])
+    if pyear > threshold_year:
+        logger.info(
+            f"Skip restoring asymmetric gas pipeline capacities in {pyear} because "
+            f"the gas grid may be expanded after {threshold_year}. Both flow "
+            "directions stay extendable, so the model may turn, decommission or "
+            "rebuild a corridor in either direction."
         )
         return
 
