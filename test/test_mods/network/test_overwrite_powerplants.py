@@ -13,7 +13,7 @@ import pandas as pd
 import pytest
 from overwrite_powerplants import overwrite_biogas_to_power_plants_AT
 
-from mods.clustering.utils import _map_at_nuts3_to_nuts2
+from mods.clustering.utils import map_at_nuts3_to_nuts2
 
 # Column header of the capacity in Anlagenregister csv
 CAPACITY_COL = "Engpassleistung (kW <sub>el</sub>)"
@@ -215,7 +215,7 @@ def _expected_at_biogas_per_node(threshold, clustering):
     reg = pd.read_csv(ANLAGENREGISTER).dropna(subset=["Plz"])
     reg["bus"] = reg["Plz"].astype("Int64").astype(str).str.zfill(4).map(postal)
     if clustering.startswith("AT10"):
-        reg["bus"] = reg["bus"].map(_map_at_nuts3_to_nuts2)
+        reg["bus"] = reg["bus"].map(map_at_nuts3_to_nuts2)
     reg["MW"] = reg[CAPACITY_COL] / 1000
     per_node = reg[reg["MW"] < 2].groupby("bus")["MW"].sum()
     return per_node[per_node > threshold]

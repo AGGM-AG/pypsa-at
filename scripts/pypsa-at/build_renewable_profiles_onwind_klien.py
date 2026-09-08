@@ -10,7 +10,7 @@ import pandas as pd
 import xarray as xr
 from snakemake.script import Snakemake
 
-from mods.utils import nuts3_to_at10
+from mods.clustering.utils import map_at_nuts3_to_nuts2
 from scripts._helpers import configure_logging
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ def main(snakemake: Snakemake) -> None:
     ]
     source_buses = nuts3.indexes["bus"]
     target = xr.DataArray(
-        source_buses.map(nuts3_to_at10).to_numpy(),
+        source_buses.map(map_at_nuts3_to_nuts2).to_numpy(),
         dims="bus",
         coords={"bus": source_buses},
         name="target_bus",

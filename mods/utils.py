@@ -331,24 +331,3 @@ def resolve_tyndp_locations(
         }
     else:
         return mapping
-
-
-def nuts3_to_at10(region: str) -> str:
-    """
-    Map an Austrian NUTS3 code to NUTS2, preserving AT333.
-
-    Parameters
-    ----------
-    region
-        Region to be mapped
-
-    Returns
-    -------
-    :
-        The mapped region string
-    """
-    if region == "AT333":
-        return region
-    if region.startswith("AT") and len(region) == 5:
-        return region[:4]
-    return region
