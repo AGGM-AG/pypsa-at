@@ -111,6 +111,8 @@ if config["clustering"]["administrative"]["AT"] == 2:
         message:
             "Building NUTS2 renewable profiles for {wildcards.clusters} clusters and onwind technology"
 
+    ruleorder: build_renewable_profiles_onwind_nuts2 > build_renewable_profiles
+
     rule build_renewable_profiles_onwind_klien:
         input:
             profile_nuts2=resources_shared("profile_nuts2_{clusters}_{technology}.nc"),
