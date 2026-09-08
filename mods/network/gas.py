@@ -217,18 +217,24 @@ def restore_asymmetric_pipeline_capacities(
     n: pypsa.Network, snakemake: Snakemake
 ) -> None:
     """
-    Resize the reverse leg of gas pipelines whose two flow directions differ.
+    Resize asymmetric directional flow capacities in existing gas pipelines.
 
     AGGM supplies compressor-limited corridors with a smaller capacity in one
     direction, carried through the clustered gas network as
     ``p_min_pu = -reverse capacity / p_nom``. ``prepare_sector_network`` builds
     one Link from that row with the correct asymmetric bounds, but
-    ``lossy_bidirectional_links`` then splits every gas pipeline into a forward
-    leg and a reverse leg, and the reverse leg copies ``p_nom`` from the
+    ``lossy_bidirectional_links`` then splits every gas pipeline into forward leg
+    and reverse leg, and the reverse leg copies ``p_nom`` from the
     forward one. That split is otherwise wanted: it bills the pipe once and
     draws compressor electricity at whichever end is actually sending. Only the
     copied capacity is wrong, so this resets it to the reverse capacity the
     corridor really has.
+
+    A distinctly monodirectional pipeline needs the same correction. AGGM marks it
+    ``p_min_pu = 0``, so its reverse capacity is zero and the copied ``p_nom``
+    invents a flow direction the corridor does not have. The reverse leg is
+    therefore resized to zero like any other, which leaves the Link in place to
+    carry the compressor bus wiring but unable to transport gas.
 
     Parameters
     ----------
@@ -247,17 +253,19 @@ def restore_asymmetric_pipeline_capacities(
     ------
     ValueError
         If a corridor present in the network has no reverse leg to resize.
-        Its asymmetry would otherwise be lost without a trace, because
-        ``lossy_bidirectional_links`` has already zeroed the ``p_min_pu`` that
-        records it.
 
     Notes
     -----
-    The reverse legs are fixed rather than extendable so that
+    The reverse legs are fixed and unextendable so that
     ``solve_network.add_lossy_bidirectional_link_constraints`` leaves them
-    alone. That constraint synchronises a reverse leg with its forward leg
+    alone. That constraint synchronises a reverse leg with its forward part
     whenever both are extendable, which would even out the asymmetry again in
     planning horizons where gas pipelines may still be expanded.
+
+    Only corridors touching Austria are resized. AGGM data is authoritative for
+    the Austrian grid alone, and the upstream Sci2Grid corridors carry one-way
+    flags of their own whose reverse legs are part of the European supply this
+    modification has no remit over.
     """
     mods = snakemake.config["mods"]
     if not mods.get("modify_brownfield_gas_network_AT"):
@@ -268,11 +276,19 @@ def restore_asymmetric_pipeline_capacities(
         return
 
     gas_network = pd.read_csv(snakemake.input.clustered_gas_network, index_col=0)
-    asymmetric = gas_network[
-        gas_network["p_min_pu"].between(-1, 0, inclusive="neither")
-    ]
-    if asymmetric.empty:
-        logger.info("No asymmetric gas pipelines in the clustered gas network.")
+    austrian = gas_network["bus0"].str.startswith("AT") | gas_network[
+        "bus1"
+    ].str.startswith("AT")
+    # interval (-1, 0] contains every corridor whose reverse direction carries less than its
+    # forward direction, from a compressor-limited one down to a one-way pipe at
+    # exactly 0. A symmetric corridor sits at -1 and is left alone.
+    constrained = gas_network["p_min_pu"].between(-1, 0, inclusive="right")
+    directional = gas_network[austrian & constrained]
+    if directional.empty:
+        logger.info(
+            "No Austrian gas pipelines with a constrained reverse direction in "
+            "the clustered gas network."
+        )
         return
 
     gas_pipes = n.links[n.links["carrier"] == "gas pipeline"]
@@ -284,8 +300,8 @@ def restore_asymmetric_pipeline_capacities(
         )
         return
 
-    # corridors outside the modelled scope never made it into the network
-    corridors = asymmetric.index.intersection(gas_pipes.index)
+    # corridors outside the modeled scope never made it into the network
+    corridors = directional.index.intersection(gas_pipes.index)
     reverse_legs = corridors + "-reversed"
 
     missing = reverse_legs.difference(gas_pipes.index)
@@ -296,7 +312,8 @@ def restore_asymmetric_pipeline_capacities(
 
     reverse_capacity = pd.Series(
         (
-            -asymmetric.loc[corridors, "p_min_pu"] * asymmetric.loc[corridors, "p_nom"]
+            -directional.loc[corridors, "p_min_pu"]
+            * directional.loc[corridors, "p_nom"]
         ).to_numpy(),
         index=reverse_legs,
     )
@@ -305,9 +322,11 @@ def restore_asymmetric_pipeline_capacities(
         n.links.loc[reverse_legs, attribute] = reverse_capacity
     n.links.loc[reverse_legs, "p_nom_extendable"] = False
 
+    one_way = reverse_capacity == 0
     logger.info(
-        f"Restored the reverse capacity of {len(reverse_legs)} asymmetric gas pipeline(s), "
-        f"totalling {reverse_capacity.sum() / 1e3:.1f} GW."
+        f"Restored the reverse capacity of {len(reverse_legs)} Austrian gas pipeline(s), "
+        f"totalling {reverse_capacity.sum() / 1e3:.1f} GW, of which {one_way.sum()} "
+        f"one-way corridor(s) were closed in the reverse direction."
     )
 
 
