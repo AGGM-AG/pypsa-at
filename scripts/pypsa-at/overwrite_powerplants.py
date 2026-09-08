@@ -17,7 +17,7 @@ import logging
 
 import pandas as pd
 
-from mods.clustering.utils import _map_at_nuts3_to_nuts2
+from mods.clustering.utils import map_at_nuts3_to_nuts2
 from scripts._helpers import configure_logging
 
 logger = logging.getLogger(__name__)
@@ -153,7 +153,7 @@ def overwrite_biogas_to_power_plants_AT(
 
     # Relabel NUTS3 codes to NUTS2 if run has lower resolution
     if clustering.startswith("AT10"):
-        anlreg["nuts"] = anlreg["nuts"].map(_map_at_nuts3_to_nuts2)
+        anlreg["nuts"] = anlreg["nuts"].map(map_at_nuts3_to_nuts2)
 
     new_ppls = pd.DataFrame(
         {
