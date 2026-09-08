@@ -68,7 +68,7 @@ use rule build_renewable_profiles as build_renewable_profiles_onwind_nuts3 with:
                 "regions_onshore_nuts3_base_s_{clusters}.geojson"
             ),
             "resource_regions": resources_shared(
-                "regions_onshore_nuts3_base_s_{clusters}.geojson" # Input needed by original rule
+                "regions_onshore_nuts3_base_s_{clusters}.geojson"  # Input needed by original rule
             ),
         },
     output:
