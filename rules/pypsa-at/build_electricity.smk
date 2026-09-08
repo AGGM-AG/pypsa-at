@@ -68,7 +68,7 @@ use rule build_renewable_profiles as build_renewable_profiles_onwind_nuts3 with:
                 "regions_onshore_nuts3_base_s_{clusters}.geojson"
             ),
             "resource_regions": resources_shared(
-                "regions_onshore_nuts3_base_s_{clusters}.geojson"
+                "regions_onshore_nuts3_base_s_{clusters}.geojson" # Input needed by original rule
             ),
         },
     output:
@@ -98,8 +98,8 @@ if config["clustering"]["administrative"]["AT"] == 2:
                 "profile": resources_shared(
                     "profile_nuts2_{clusters}_{technology}.nc"
                 ),
-                "class_regions": resources_shared(
-                    "regions_by_class_nuts2_{clusters}_{technology}.geojson"
+                "class_regions": resources(
+                    "regions_by_class_{clusters}_{technology}.geojson"
                 ),
             },
         log:
@@ -114,14 +114,10 @@ if config["clustering"]["administrative"]["AT"] == 2:
     rule build_renewable_profiles_onwind_klien:
         input:
             profile_nuts2=resources_shared("profile_nuts2_{clusters}_{technology}.nc"),
-            class_regions_nuts2=resources_shared(
-                "regions_by_class_nuts2_{clusters}_{technology}.geojson"
-            ),
             profile_nuts3=resources_shared("profile_nuts3_{clusters}_{technology}.nc"),
             klien_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
         output:
             profile=resources("profile_{clusters}_{technology}.nc"),
-            class_regions=resources("regions_by_class_{clusters}_{technology}.geojson"),
         log:
             logs("build_renewable_profile_{clusters}_{technology}_klien.log"),
         benchmark:

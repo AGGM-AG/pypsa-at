@@ -5,36 +5,15 @@
 """Apply KLIEN-weighted NUTS3 onshore wind profiles to the NUTS2 profile."""
 
 import logging
-from shutil import copyfile
 
 import pandas as pd
 import xarray as xr
 from snakemake.script import Snakemake
 
+from mods.utils import nuts3_to_at10
 from scripts._helpers import configure_logging
 
 logger = logging.getLogger(__name__)
-
-
-def nuts2_parent(region: str) -> str:
-    """
-    Map an Austrian NUTS3 code to NUTS2, preserving AT333.
-
-    Parameters
-    ----------
-    region
-        Region to be mapped
-
-    Returns
-    -------
-    :
-        The mapped region string
-    """
-    if region == "AT333":
-        return region
-    if region.startswith("AT") and len(region) == 5:
-        return region[:4]
-    return region
 
 
 def main(snakemake: Snakemake) -> None:
@@ -63,7 +42,7 @@ def main(snakemake: Snakemake) -> None:
     ]
     source_buses = nuts3.indexes["bus"]
     target = xr.DataArray(
-        source_buses.map(nuts2_parent).to_numpy(),
+        source_buses.map(nuts3_to_at10).to_numpy(),
         dims="bus",
         coords={"bus": source_buses},
         name="target_bus",
@@ -88,8 +67,7 @@ def main(snakemake: Snakemake) -> None:
     weighted = weighted.rename({"target_bus": "bus"}).sel(bus=target_buses)
     nuts2["profile"] = weighted.transpose(*nuts2["profile"].dims)
     nuts2.to_netcdf(snakemake.output.profile)
-    copyfile(snakemake.input.class_regions_nuts2, snakemake.output.class_regions)
-    logger.info("Wrote KLIEN-weighted onwind profile to %s", snakemake.output.profile)
+    logger.info(f"Wrote KLIEN-weighted onwind profile to {snakemake.output.profile}.")
 
 
 if __name__ == "__main__":

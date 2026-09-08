@@ -121,9 +121,9 @@ if config["foresight"] == "perfect":
     include: "rules/solve_perfect.smk"
 
 
-resources_shared = path_provider("resources/", RDIR, True, exclude_from_shared)
-logs_shared = path_provider("logs/", RDIR, True, exclude_from_shared)
-benchmarks_shared = path_provider("benchmarks/", RDIR, True, exclude_from_shared)
+resources_shared = path_provider("resources/", RDIR, True, []])
+logs_shared = path_provider("logs/", RDIR, True, []])
+benchmarks_shared = path_provider("benchmarks/", RDIR, True, []])
 
 
 include: "rules/pypsa-at/retrieve.smk"  # PyPSA-AT specific data retrieval
