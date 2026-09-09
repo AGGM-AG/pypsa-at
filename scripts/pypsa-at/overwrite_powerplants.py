@@ -14,6 +14,8 @@ layer (``prepare_sector_network`` -> ``process_hydro``).
 
 import logging
 
+import build_hydro_inflow_targets as bhit
+import geopandas as gpd
 import pandas as pd
 from build_anlagenregister_at import (
     MAX_UNMAPPED_CAPACITY_SHARE,
@@ -121,7 +123,8 @@ def _match_single_hydro_plant(
 
     Returns
     -------
-    The matched index label.
+    :
+        The matched index label.
 
     Raises
     ------
@@ -145,7 +148,11 @@ def _match_single_hydro_plant(
             (ppl.loc[matches, "Capacity"] - expected_capacity_mw).abs() <= 1.0
         ]
     if len(matches) != 1:
-        with_technology = f" with Technology {technology!r}" if technology else ""
+        with_technology = (
+            f" with Technology {technology!r}"
+            if technology is not None and pd.notna(technology)
+            else ""
+        )
         raise ValueError(
             f"Expected exactly one {country} hydro plant {name!r}"
             f"{with_technology} at {expected_capacity_mw:.1f} MW, found "
@@ -181,7 +188,8 @@ def overwrite_nuclear_dateout(ppl: pd.DataFrame, dateout: dict) -> pd.DataFrame:
 
     Returns
     -------
-    A copy of ``ppl`` with ``DateOut`` overridden on the matched CH nuclear rows.
+    :
+        A copy of ``ppl`` with ``DateOut`` overridden on the matched CH nuclear rows.
 
     Raises
     ------
@@ -241,9 +249,6 @@ def overwrite_biogas_to_power_plants_at(
     clustering
         clustering identifier, either AT10 (NUTS2) or AT35 (NUTS3). Needed for
         AT10, maps powerplants accordingly using map_at_nuts3_to_nuts2.
-    postal_centroids_file
-        Optional GeoNames postal code table; when given, every register
-        plant receives the coordinates of its postal code centroid.
 
     Returns
     -------
@@ -540,7 +545,8 @@ def scale_kleinwasserkraft_to_bestandsstatistik_at(
 
     Returns
     -------
-    A copy of ``ppl`` with scaled Kleinwasserkraft capacities.
+    :
+        A copy of ``ppl`` with scaled Kleinwasserkraft capacities.
 
     Raises
     ------
@@ -670,8 +676,15 @@ def apply_grenzkraftwerke_shares_at(
     return ppl
 
 
+def _buses_for_clustering(buses: pd.Series, clustering: str | None) -> pd.Series:
+    """Map curated NUTS3 bus codes to NUTS2 when the run clusters Austria at AT10."""
+    if clustering and clustering.startswith("AT10"):
+        return buses.map(map_at_nuts3_to_nuts2)
+    return buses
+
+
 def add_missing_hydro_plants_at(
-    ppl: pd.DataFrame, missing_plants_file: str
+    ppl: pd.DataFrame, missing_plants_file: str, clustering: str | None = None
 ) -> pd.DataFrame:
     """
     Add curated Austrian hydro plants absent from powerplantmatching.
@@ -690,7 +703,9 @@ def add_missing_hydro_plants_at(
         ``Capacity`` columns (as produced by ``build_powerplants``).
     missing_plants_file
         CSV with columns ``Name``, ``bus``, ``technology``, ``capacity_mw``,
-        ``date_in``, ``lat``, ``lon`` and ``note``.
+        ``date_in``, ``lat``, ``lon`` and ``note``; ``bus`` is the NUTS3 code.
+    clustering
+        Clustering identifier (``AT10...`` maps the NUTS3 buses to NUTS2).
 
     Returns
     -------
@@ -719,7 +734,7 @@ def add_missing_hydro_plants_at(
         technology=missing["technology"].to_numpy(),
         date_in=missing["date_in"].astype(float).to_numpy(),
         capacity_mw=missing["capacity_mw"].astype(float).to_numpy(),
-        bus=missing["bus"].to_numpy(),
+        bus=_buses_for_clustering(missing["bus"], clustering).to_numpy(),
     ).assign(lat=missing["lat"].to_numpy(), lon=missing["lon"].to_numpy())
 
     summary = missing.groupby("technology")["capacity_mw"].agg(["size", "sum"]).round(1)
@@ -796,7 +811,7 @@ def drop_duplicate_hydro_plants_at(
 
 
 def reclassify_hydro_technologies_at(
-    ppl: pd.DataFrame, reclassification_file: str
+    ppl: pd.DataFrame, reclassification_file: str, clustering: str | None = None
 ) -> pd.DataFrame:
     """
     Correct the ``Technology`` of misclassified Austrian hydro plants.
@@ -836,6 +851,11 @@ def reclassify_hydro_technologies_at(
         changed upstream dataset that warrants re-checking the list.
     """
     reclassification = pd.read_csv(reclassification_file)
+    for column in ("bus", "bus_new"):
+        if column in reclassification:
+            reclassification[column] = _buses_for_clustering(
+                reclassification[column], clustering
+            )
     ppl = ppl.copy()
 
     for row in reclassification.itertuples():
@@ -924,9 +944,6 @@ def add_klien_residual_plants_at(
         Tuple of the powerplants table with the residual plants appended and
         the residual plant table (``KLIEN_RESIDUAL_COLUMNS``).
     """
-    import build_hydro_inflow_targets as bhit
-    import geopandas as gpd
-
     plants = bhit.select_hydro_plants(ppl, pd.read_csv(grenzkraftwerke_file))
     sections = gpd.read_file(klien_catchments_file)
     sections.columns = sections.columns.str.strip()
@@ -989,14 +1006,15 @@ def overwrite_powerplants(snakemake):
             ppl_overwrite, snakemake.input.hydro_duplicates
         )
         ppl_overwrite = reclassify_hydro_technologies_at(
-            ppl_overwrite, snakemake.input.hydro_reclassification
+            ppl_overwrite,
+            snakemake.input.hydro_reclassification,
+            clustering=snakemake.params.clustering,
         )
         ppl_overwrite = apply_grenzkraftwerke_shares_at(
             ppl_overwrite, snakemake.input.grenzkraftwerke
         )
-        ppl_overwrite = add_missing_hydro_plants_at(
-            ppl_overwrite, snakemake.input.missing_hydro_plants
-        )
+        # the register replacement drops every Austrian run-of-river plant of
+        # 10 MW or less, so curated plants must be appended after it
         ppl_overwrite = add_kleinwasserkraft_to_power_plants_at(
             ppl_overwrite,
             anlagenregister_plants_file=snakemake.input.anlagenregister_plants,
@@ -1006,6 +1024,11 @@ def overwrite_powerplants(snakemake):
         )
         ppl_overwrite = scale_kleinwasserkraft_to_bestandsstatistik_at(
             ppl_overwrite, snakemake.input.bestandsstatistik_typ
+        )
+        ppl_overwrite = add_missing_hydro_plants_at(
+            ppl_overwrite,
+            snakemake.input.missing_hydro_plants,
+            clustering=snakemake.params.clustering,
         )
         if snakemake.params.klien_residual_plants:
             ppl_overwrite, residual = add_klien_residual_plants_at(

@@ -140,8 +140,8 @@ European plant databases. For Austrian hydropower it has systematic defects:
 
 ### The curated lists
 
-Plant-level corrections cannot be derived from any single dataset, so they live in four
-reviewed lists (five with the catchment corrections of Part 3). A **curated entry** is one row of these lists: it names the plant as ppm
+Plant-level corrections cannot be derived from any single dataset, so they live in six
+reviewed lists. A **curated entry** is one row of these lists: it names the plant as ppm
 spells it, the region and capacity the row expects to find (so a changed upstream dataset is
 detected), the correction to apply, and a note with the rationale and the source URL
 (operator plant pages, Wikipedia plant articles, the Anlagenregister). The lists are reviewed
@@ -151,6 +151,7 @@ data, not configuration.
 |------|----------------|
 | **Duplicates** | "This entry duplicates that plant (in this country); drop it." The kept twin must exist, otherwise the workflow stops. |
 | **Reclassification and relocation** | "This plant has this technology, not that one", optionally with a corrected capacity, region and coordinates. |
+| **Border plants** | "This plant is shared with Bavaria by this treaty share; scale it, or add the German half where it is missing." |
 | **Missing plants** | "This plant exists with this technology, capacity, commissioning year and coordinates." |
 | **Catchment pins** | "This plant's energy belongs to this KLIEN catchment, whatever its coordinates say" (used in Part 3). |
 | **Catchment corrections** | "The study's capacity and energy of this catchment are wrong; use these operator figures instead" (used in Part 3). |
@@ -164,9 +165,9 @@ The corrections are applied in a fixed order, each step on the result of the pre
 | **Drop duplicates** | Removes the second entry of a plant listed twice, after checking that the kept twin is present. | Duplicates list |
 | **Reclassify, relocate, correct** | Moves each listed plant to the right technology (31 river-chain plants become run-of-river, Enzingerboden fed from the Tauernmoos reservoir becomes a reservoir plant), corrects nameplate capacities, and moves plants with wrong coordinates to their actual site. | Reclassification list |
 | **Apply the border treaty** | Scales each Inn and Danube border plant to its 50 % Austrian share, and adds the German half on the German side where ppm lacks it. | Border-plant list with treaty shares |
-| **Add missing plants** | Appends plants with coordinates, so the catchment lookup in Part 3 places them on the right river. Plants known only from the Anlagenregister carry its id and locality, because the register publishes neither operator names nor build years. | Missing-plants list |
 | **Replace the small-hydro fleet** | Drops the incidental ppm plants ≤ 10 MW and adds every *Kleinwasserkraft bis 10 MW* plant of the Anlagenregister individually, mapped to its region by postal code and placed at the centroid of that postal code. | E-Control Anlagenregister, GeoNames postal codes |
 | **Scale small hydro to E-Control** | The register's small-hydro class and E-Control's size-class accounting differ by ≈ 12.5 %. The added plants are scaled uniformly to the E-Control bottleneck capacity below 10 MW (1,543 MW), preserving the regional distribution. | E-Control Bestandsstatistik |
+| **Add missing plants** | Appends plants with coordinates, so the catchment lookup in Part 3 places them on the right river. It runs after the register step, which would otherwise drop curated plants of 10 MW or less again. Plants known only from the Anlagenregister carry its id and locality, because the register publishes neither operator names nor build years. | Missing-plants list |
 | **Add KLIEN residual plants** | Runs the catchment allocation of Part 3 on the fleet so far and adds, per catchment, one synthetic run-of-river plant for the capacity the study counts but no source holds, sized at the catchment's own full-load hours (see [Closing the remaining gap](#closing-the-remaining-gap-klien-residual-plants)). | KLIEN catchments |
 
 ### Why only the small plants of the Anlagenregister are used
@@ -220,7 +221,9 @@ roughly a gigawatt between the two rows depending on the source.
 Every curated entry must match *exactly one* Austrian hydro plant of the expected name (and,
 for reclassifications, the expected old technology) with a capacity within 1 MW. Where two ppm
 entries share a name, the capacity decides. Any other outcome stops the workflow, because it
-means the upstream dataset changed and the entry has to be re-verified. A region mismatch
+means the upstream dataset changed and the entry has to be re-verified; the same holds for a
+catchment pin whose plant name is not in the fleet, since a renamed plant would otherwise
+send its energy to the wrong catchment unnoticed. A region mismatch
 only warns, since coarser clusterings relabel regions. The small-hydro scaling stops if its
 factor deviates more than 15 % from one, and the postal-code mapping stops if more than 0.1 %
 of the class capacity cannot be placed.
@@ -633,8 +636,7 @@ pumped-storage column follows E-Control's natural inflow of the respective year 
 4.7 TWh), so the table needs no proxy for years after 2017. The table is in delivered
 electricity: the calibrated energies are generation, the store inflows are grossed up by the
 turbine efficiency when
-they enter the network, and the floor weights them back down by the same efficiency. Years after 2017 use the 2013 pumped-storage inflow as a proxy,
-because the PEMMDB climate years end in 2017.
+they enter the network, and the floor weights them back down by the same efficiency.
 
 ## Configuration
 
@@ -655,9 +657,8 @@ because the PEMMDB climate years end in 2017.
 | `solving.constraints.limits_volume_min.hydro.AT` | The EAG hydro production floor, 43.5 TWh for 2030 (see [The EAG hydro target](#the-eag-hydro-target)). |
 
 !!! note "Data availability"
-    The KLIEN hydro catchments (an 82 MB GeoJSON) are not mirrored on Zenodo yet; the
-    `archive` source of the KLIEN dataset carries a placeholder, and fresh clones need the
-    `build` source, which downloads from the GTIF share. The GeoNames postal codes and the
-    two E-Control statistics are downloaded from geonames.org and e-control.at at run time
-    (`primary` source); the E-Control files are deliberately not mirrored, because the
-    licence of E-Control's publications is unclear.
+    The KLIEN potentials, including the 82 MB catchment GeoJSON, are mirrored on Zenodo
+    (`archive` source, the default). The GeoNames postal codes and the two E-Control
+    statistics are downloaded from geonames.org and e-control.at at run time (`primary`
+    source); the E-Control files are deliberately not mirrored, because the licence of
+    E-Control's publications is unclear.

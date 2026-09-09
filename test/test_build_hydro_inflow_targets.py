@@ -283,14 +283,11 @@ def test_override_unknown_section_raises(sections, regions):
         assign_plants_to_sections(plants, sections, regions, overrides=ov)
 
 
-def test_override_missing_name_ignored(sections, regions, caplog):
+def test_override_missing_name_raises(sections, regions):
     plants = _named("X", "R2", None, None)
     ov = pd.DataFrame({"name": ["NotThere"], "section": ["S1"]})
-    with caplog.at_level("WARNING"):
-        membership = assign_plants_to_sections(plants, sections, regions, overrides=ov)
-    assert "not in the fleet" in caplog.text
-    # X falls through to the bus fallback instead
-    assert set(membership["plant"]) == {"X"}
+    with pytest.raises(ValueError, match="not in the fleet"):
+        assign_plants_to_sections(plants, sections, regions, overrides=ov)
 
 
 def test_override_requires_name_column(plants, sections, regions):

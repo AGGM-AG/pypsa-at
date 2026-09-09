@@ -159,6 +159,206 @@ def test_missing_plants_clash_raises(ppl, missing_plants_file):
         add_missing_hydro_plants_at(clashing, missing_plants_file)
 
 
+def test_missing_plants_buses_follow_at10_clustering(ppl, missing_plants_file):
+    from overwrite_powerplants import add_missing_hydro_plants_at
+
+    out = add_missing_hydro_plants_at(ppl, missing_plants_file, clustering="AT10DE5")
+    added = out[out["Name"].isin(["Ottenstein", "Dobra Krumau"])]
+    assert added["bus"].tolist() == ["AT12", "AT12"]
+
+
+def test_curated_small_plant_survives_register_replacement(
+    ppl, anlagenregister_plants_file, postal_to_nuts_file, tmp_path
+):
+    """The register step drops AT run-of-river plants <= 10 MW; curated plants come after."""
+    from overwrite_powerplants import (
+        add_kleinwasserkraft_to_power_plants_at,
+        add_missing_hydro_plants_at,
+    )
+
+    path = tmp_path / "missing_small.csv"
+    pd.DataFrame(
+        {
+            "Name": ["Goessnitz"],
+            "bus": ["AT212"],
+            "technology": ["Run-Of-River"],
+            "capacity_mw": [8.0],
+            "date_in": [1962],
+            "lat": [46.93],
+            "lon": [13.09],
+            "note": ["not in the register"],
+        }
+    ).to_csv(path, index=False)
+
+    out = add_kleinwasserkraft_to_power_plants_at(
+        ppl,
+        anlagenregister_plants_file=anlagenregister_plants_file,
+        postal_to_nuts_file=postal_to_nuts_file,
+        clustering="AT35",
+    )
+    out = add_missing_hydro_plants_at(out, str(path))
+
+    assert (out["Name"] == "Goessnitz").sum() == 1
+
+
+@pytest.fixture
+def grenzkraftwerke_file(tmp_path) -> str:
+    path = tmp_path / "grenzkraftwerke.csv"
+    pd.DataFrame(
+        {
+            "Name": ["Jochenstein", "Jochenstein", "Scharding Neuhaus"],
+            "country": ["AT", "DE", "DE"],
+            "bus": ["AT311", "DE2", "DE2"],
+            "capacity_mw": [132.0, 132.0, 96.0],
+            "share": [0.5, 0.5, 0.5],
+            "action": ["scale", "scale", "add"],
+            "date_in": [1956, 1956, 1961],
+            "river": ["Danube", "Danube", "Inn"],
+            "note": ["treaty", "treaty", "German half missing in ppm"],
+        }
+    ).to_csv(path, index=False)
+    return str(path)
+
+
+def test_grenzkraftwerke_scaled_to_treaty_share_and_german_half_added(
+    grenzkraftwerke_file,
+):
+    from overwrite_powerplants import apply_grenzkraftwerke_shares_at
+
+    ppl = pd.DataFrame(
+        {
+            "Name": ["Jochenstein", "Jochenstein"],
+            "Country": ["AT", "DE"],
+            "Fueltype": ["Hydro", "Hydro"],
+            "Technology": ["Run-Of-River", "Run-Of-River"],
+            "Capacity": [132.0, 132.0],
+            "bus": ["AT311", "DE2"],
+        }
+    )
+
+    out = apply_grenzkraftwerke_shares_at(ppl, grenzkraftwerke_file)
+
+    assert out.query("Name == 'Jochenstein'")["Capacity"].tolist() == [66.0, 66.0]
+    added = out.query("Name == 'Scharding Neuhaus'").iloc[0]
+    assert added["Country"] == "DE" and added["bus"] == "DE2"
+    assert added["Capacity"] == pytest.approx(48.0)
+
+
+def test_grenzkraftwerke_add_raises_when_plant_exists(grenzkraftwerke_file):
+    from overwrite_powerplants import apply_grenzkraftwerke_shares_at
+
+    ppl = pd.DataFrame(
+        {
+            "Name": ["Jochenstein", "Jochenstein", "Scharding Neuhaus"],
+            "Country": ["AT", "DE", "DE"],
+            "Fueltype": ["Hydro"] * 3,
+            "Technology": ["Run-Of-River"] * 3,
+            "Capacity": [132.0, 132.0, 96.0],
+            "bus": ["AT311", "DE2", "DE2"],
+        }
+    )
+    with pytest.raises(ValueError, match="already exists"):
+        apply_grenzkraftwerke_shares_at(ppl, grenzkraftwerke_file)
+
+
+def test_kleinwasserkraft_scaled_to_bestandsstatistik_anchor(monkeypatch):
+    import overwrite_powerplants as op
+
+    ppl = pd.DataFrame(
+        {
+            "Name": [f"{op.KLEINWASSERKRAFT_NAME_PREFIX}K-1", "Big Dam"],
+            "Country": ["AT", "AT"],
+            "Fueltype": ["Hydro", "Hydro"],
+            "Technology": ["Run-Of-River", "Run-Of-River"],
+            "Capacity": [1000.0, 100.0],
+            "bus": ["AT212", "AT212"],
+        }
+    )
+    monkeypatch.setattr(op, "_read_small_hydro_anchor_mw", lambda path: 900.0)
+
+    out = op.scale_kleinwasserkraft_to_bestandsstatistik_at(ppl, "unused.xlsx")
+
+    assert out["Capacity"].tolist() == pytest.approx([900.0, 100.0])
+
+    monkeypatch.setattr(op, "_read_small_hydro_anchor_mw", lambda path: 500.0)
+    with pytest.raises(ValueError, match="deviates more than"):
+        op.scale_kleinwasserkraft_to_bestandsstatistik_at(ppl, "unused.xlsx")
+
+
+@pytest.fixture
+def residual_inputs(tmp_path) -> dict:
+    """One KLIEN catchment (100 MW, 400 GWh/a) inside one Austrian region."""
+    import geopandas as gpd
+    from shapely.geometry import box
+
+    catchments = tmp_path / "catchments_hydro.geojson"
+    gpd.GeoDataFrame(
+        {"id": [51200], "C_current": [100.0], "E_current": [400.0]},
+        geometry=[box(14.0, 47.0, 15.0, 48.0)],
+        crs="EPSG:4326",
+    ).to_file(catchments, driver="GeoJSON")
+    regions = tmp_path / "regions.geojson"
+    gpd.GeoDataFrame(
+        {"name": ["AT121"]}, geometry=[box(13.5, 46.5, 15.5, 48.5)], crs="EPSG:4326"
+    ).to_file(regions, driver="GeoJSON")
+    corrections = tmp_path / "corrections.csv"
+    corrections.write_text("id,C_current_new,E_current_new,note\n")
+    overrides = tmp_path / "overrides.csv"
+    overrides.write_text("name,section,weight,note\n")
+    grenz = tmp_path / "grenzkraftwerke.csv"
+    grenz.write_text("Name,country,bus,capacity_mw,share,action,date_in,river,note\n")
+    return dict(
+        klien_catchments_file=str(catchments),
+        catchment_corrections_file=str(corrections),
+        regions_file=str(regions),
+        diversion_overrides_file=str(overrides),
+        grenzkraftwerke_file=str(grenz),
+    )
+
+
+def _plant(capacity: float) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "Name": ["Real plant"],
+            "Country": ["AT"],
+            "Fueltype": ["Hydro"],
+            "Technology": ["Run-Of-River"],
+            "Set": ["PP"],
+            "Capacity": [capacity],
+            "bus": ["AT121"],
+            "lat": [47.5],
+            "lon": [14.5],
+        }
+    )
+
+
+def test_klien_residual_plant_fills_the_catchment_capacity(residual_inputs):
+    from overwrite_powerplants import (
+        KLIEN_RESIDUAL_NAME_PREFIX,
+        add_klien_residual_plants_at,
+    )
+
+    # 50 MW present out of 100 MW: half the energy at 4,000 h is unallocated
+    out, residual = add_klien_residual_plants_at(_plant(50.0), **residual_inputs)
+
+    assert residual["section"].tolist() == ["51200"]
+    assert residual["capacity_mw"].iloc[0] == pytest.approx(50.0)
+    assert residual["energy_gwh"].iloc[0] == pytest.approx(200.0)
+    added = out[out["Name"] == f"{KLIEN_RESIDUAL_NAME_PREFIX}51200"].iloc[0]
+    assert added["Technology"] == "Run-Of-River" and added["bus"] == "AT121"
+    assert added["Capacity"] == pytest.approx(50.0)
+    assert 47.0 < added["lat"] < 48.0 and 14.0 < added["lon"] < 15.0
+
+
+def test_klien_residual_plant_absent_when_catchment_is_covered(residual_inputs):
+    from overwrite_powerplants import add_klien_residual_plants_at
+
+    out, residual = add_klien_residual_plants_at(_plant(100.0), **residual_inputs)
+
+    assert residual.empty
+    assert len(out) == 1
+
+
 def test_reclassification_relocates_plant_when_new_location_given(tmp_path):
     from overwrite_powerplants import reclassify_hydro_technologies_at
 
@@ -198,6 +398,43 @@ def test_reclassification_relocates_plant_when_new_location_given(tmp_path):
     assert out["lon"] == pytest.approx(14.505)
     assert out["Capacity"] == pytest.approx(52.0)
     assert out["Technology"] == "Run-Of-River"
+
+
+def test_reclassification_relocation_follows_at10_clustering(tmp_path):
+    from overwrite_powerplants import reclassify_hydro_technologies_at
+
+    ppl = pd.DataFrame(
+        {
+            "Name": ["St Pantaleon"],
+            "Country": ["AT"],
+            "Fueltype": ["Hydro"],
+            "Technology": ["Run-Of-River"],
+            "Capacity": [52.0],
+            "bus": ["AT31"],
+            "lat": [48.0076],
+            "lon": [12.8942],
+        }
+    )
+    path = tmp_path / "reclassification.csv"
+    pd.DataFrame(
+        {
+            "Name": ["St Pantaleon"],
+            "bus": ["AT311"],
+            "capacity_mw": [52.0],
+            "technology_old": ["Run-Of-River"],
+            "technology_new": ["Run-Of-River"],
+            "group": ["Enns"],
+            "note": ["geocoded to the wrong village"],
+            "capacity_new": [None],
+            "bus_new": ["AT121"],
+            "lat_new": [48.2249],
+            "lon_new": [14.5308],
+        }
+    ).to_csv(path, index=False)
+
+    out = reclassify_hydro_technologies_at(ppl, str(path), clustering="AT10DE5")
+
+    assert out["bus"].tolist() == ["AT12"]
 
 
 def test_reclassification_matches_plant_without_technology(tmp_path):

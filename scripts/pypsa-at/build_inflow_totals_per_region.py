@@ -269,8 +269,9 @@ def apply_hydro_inflow_targets(
     For every carrier present in ``targets``, the rows of all Austrian
     regions (buses starting with ``AT`` plus every bus named in ``targets``)
     are set to the target value, or to zero where a region has no target.
-    Carriers absent from ``targets`` (e.g. PHS) keep their PEMMDB-based
-    values, as do all other countries.
+    Carriers absent from ``targets`` keep their PEMMDB-based values, as do
+    all other countries; with the Austrian calibration enabled the targets
+    cover ``ror``, ``hydro`` and ``PHS``.
 
     Parameters
     ----------

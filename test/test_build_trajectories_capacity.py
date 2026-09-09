@@ -173,3 +173,50 @@ def test_storage_volumes_are_converted_to_mwh():
     assert out.iloc[0] == pytest.approx(769_000.0)
     assert out.iloc[1] == pytest.approx(2787.0)
     assert market_info.iloc[0] == pytest.approx(769.0)
+
+
+def _corridor_snakemake(tmp_path, enabled: bool = True):
+    from types import SimpleNamespace
+
+    corridor = tmp_path / "klien_ror_trajectory.csv"
+    pd.DataFrame({"year": [2025, 2030], "value": [6000.0, 6400.0]}).to_csv(
+        corridor, index=False
+    )
+    return SimpleNamespace(
+        params=SimpleNamespace(
+            update_hydro_capacities_AT=enabled, planning_horizons=[2025, 2030]
+        ),
+        input=SimpleNamespace(klien_ror_trajectory=str(corridor)),
+    )
+
+
+def _trajectories(ror_min_2030: float) -> pd.Series:
+    index = pd.MultiIndex.from_tuples(
+        [
+            ("2025", "AT", "ror", "Generator-p_nom", "max"),
+            ("2030", "AT", "ror", "Generator-p_nom", "max"),
+            ("2030", "AT", "ror", "Generator-p_nom", "min"),
+        ],
+        names=["year", "region", "carrier", "variable", "sense"],
+    )
+    return pd.Series([0.0, 7000.0, ror_min_2030], index=index, name="value")
+
+
+def test_klien_corridor_overrides_only_later_horizons(tmp_path):
+    from build_capacity_trajectories import apply_klien_hydro_buildout_at
+
+    out = apply_klien_hydro_buildout_at(
+        _trajectories(0.0), _corridor_snakemake(tmp_path)
+    )
+
+    assert out[("2025", "AT", "ror", "Generator-p_nom", "max")] == 0.0
+    assert out[("2030", "AT", "ror", "Generator-p_nom", "max")] == pytest.approx(6400.0)
+
+
+def test_klien_corridor_below_lower_bound_raises(tmp_path):
+    from build_capacity_trajectories import apply_klien_hydro_buildout_at
+
+    with pytest.raises(ValueError, match="exceeds the KLIEN corridor"):
+        apply_klien_hydro_buildout_at(
+            _trajectories(6500.0), _corridor_snakemake(tmp_path)
+        )

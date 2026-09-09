@@ -240,9 +240,10 @@ def _override_membership(
             for section, weight in w.items():
                 rows.append((pidx, section, weight))
     if missing:
-        logger.warning(
-            f"{len(missing)} diversion-override name(s) not in the fleet: "
-            f"{missing}; ignored (absent in this clustering?)."
+        raise ValueError(
+            f"Diversion override name(s) not in the fleet: {missing}. A renamed "
+            "or dropped plant would silently send its energy to the wrong "
+            "catchment; re-check the overrides list against the powerplants."
         )
     return pd.DataFrame(rows, columns=["plant", "section", "weight"])
 
@@ -294,9 +295,6 @@ def assign_plants_to_sections(
     :
         Long-format frame with columns ``plant``, ``section`` and
         ``weight``; weights sum to one per locatable plant.
-
-    TODO: needs review. I suspect this can be more simple and less convoluted.
-    TODO: raise errors instead of warning.
     """
     extra_lookups = list(extra_lookups or [])
     _require_matching_crs(sections, regions, *(g for _, g in extra_lookups))

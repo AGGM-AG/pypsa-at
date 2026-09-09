@@ -346,6 +346,9 @@ def inflow_turbine_weights(n: pypsa.Network, generators: pd.Index) -> pd.Series:
     stated in delivered electricity (E-Control counts generation at the
     terminals) therefore weights such a generator by that efficiency.
     Generators on an electricity bus (``ror``, wind, solar) get weight one.
+    Where several turbine vintages leave the same store bus, their
+    efficiencies are averaged without capacity weighting; the vintages of one
+    store share the cost data, so the approximation is exact in practice.
 
     Parameters
     ----------

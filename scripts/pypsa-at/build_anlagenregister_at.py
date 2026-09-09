@@ -68,10 +68,10 @@ DEDUP_MIN_KW = 50_000.0
 # (research 2026-09, see pypsa-at-planning#312). Entries are matched with a
 # capacity tolerance (no exact float comparison) and must match at least one
 # plant, so a register revision cannot silently disable an exemption.
-DEDUP_KEEP = {
+DEDUP_KEEP = (
     ("5710", 480_000.0),  # Kaprun: Limberg II (2011) + Limberg III (Sep 2025)
     ("5620", 60_000.0),  # Speicherkraftwerk Schwarzach: 120 MW as 2 x 60 MW
-}
+)
 DEDUP_KEEP_TOLERANCE_KW = 1_000.0
 
 
@@ -190,7 +190,7 @@ def map_plants_to_nuts3(
 def drop_duplicate_water_registrations(
     df: pd.DataFrame,
     min_kw: float = DEDUP_MIN_KW,
-    keep: set[tuple[str, float]] = DEDUP_KEEP,
+    keep: tuple = DEDUP_KEEP,
 ) -> pd.DataFrame:
     """
     Drop duplicate register entries for large water-powered plants.
@@ -216,7 +216,8 @@ def drop_duplicate_water_registrations(
 
     Returns
     -------
-    ``df`` without the lower-feed-in duplicate rows.
+    :
+        ``df`` without the lower-feed-in duplicate rows.
 
     Raises
     ------
@@ -245,11 +246,11 @@ def drop_duplicate_water_registrations(
             )
         exempt |= matches
     feedin = df[feedin_columns(df)].fillna(0).sum(axis=1)
-    candidates = (
-        df[water & (df["engpassleistung_kw"] > min_kw) & ~exempt]
-        .assign(_feedin=feedin)
-        .sort_values("_feedin", ascending=False)
-    )
+    # assign before filtering: assigning a full-length series to an empty
+    # selection would re-expand it to NaN rows that then look like duplicates
+    candidates = df.assign(_feedin=feedin)[
+        water & (df["engpassleistung_kw"] > min_kw) & ~exempt
+    ].sort_values("_feedin", ascending=False)
     drop = candidates[
         candidates.duplicated(subset=["plz", "engpassleistung_kw"], keep="first")
     ]

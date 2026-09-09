@@ -341,6 +341,16 @@ def apply_klien_hydro_buildout_at(
                 "but it is missing. Check the PEMMDB trajectory build."
             )
         trajectories.loc[idx] = corridor.loc[year, "value"]
+        idx_min = (str(year), "AT", "ror", "Generator-p_nom", "min")
+        if (
+            idx_min in trajectories.index
+            and trajectories.loc[idx_min] > trajectories.loc[idx]
+        ):
+            raise ValueError(
+                f"The AT ror lower bound for {year} ({trajectories.loc[idx_min]:.0f} "
+                f"MW) exceeds the KLIEN corridor ({trajectories.loc[idx]:.0f} MW); "
+                "the constraint would be infeasible."
+            )
         logger.info(
             f"KLIEN ror buildout for AT {year}: max {corridor.loc[year, 'value']:.0f} MW."
         )

@@ -422,7 +422,7 @@ def _redistribute_peaks(
             diff = series - series.clip(lower, upper)
             iteration += 1
         series = series.clip(lower, upper)
-        if diff.sum() > eps:  # fixme: do we really need this?
+        if diff.sum() > eps:
             # proportional redistribution stalls for columns close to the
             # feasible maximum (nearly every hour saturated); fall back to
             # an energy-conserving waterfill of the remaining headroom
