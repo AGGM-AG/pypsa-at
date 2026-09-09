@@ -131,9 +131,9 @@ European plant databases. For Austrian hydropower it has systematic defects:
 | **Wrong technology** | The Danube, Drau, Mur, Inn, Salzach and Ill chains are labelled *Reservoir*. | Only 2.4 GW of run-of-river instead of ≈ 6.1 GW, 6.2 GW of reservoirs instead of ≈ 3.4 GW. Because run-of-river inflow is normalised by run-of-river capacity, this alone cut the Austrian river energy from ≈ 34 TWh to ≈ 13 TWh. |
 | **Border plants counted twice** | The Inn and Danube *Grenzkraftwerke* shared 50/50 with Bavaria appear at full capacity in Austria, four of them again in Germany. | ≈ 0.3 GW too much in Austria, ≈ 0.2 GW in Germany. |
 | **Duplicate entries** | Kaprun and Malta appear as *Hauptstufe* and *Main Stage*; Verbund's Bavarian Inn plant Feldkirchen appears a second time as an Austrian plant in the Mölltal. | ≈ 1 GW of phantom capacity in two alpine valleys. |
-| **Wrong capacities** | Rodund I and II merged into one entry, Kaprun and Limberg above their nameplate, Prutz and Reisseck above the operator's figures; Kirchbichl still at its pre-2020 capacity; Gaming at 14 MW instead of 5.6 MW. | Regions with more (or less) capacity than the river can feed. |
+| **Wrong capacities** | Rodund I and II merged into one entry, Limberg above its nameplate, Prutz and Reisseck above the operator's figures; Kirchbichl still at its pre-2020 capacity; Gaming at 14 MW instead of 5.6 MW. | Regions with more (or less) capacity than the river can feed. |
 | **Wrong location** | Plants geocoded to a same-named village (St. Pantaleon on the Salzach instead of the Enns), to the operator's address (Böckstein, Wald, Weyer, Altenmarkt, Gaming in Vienna). | Capacity in the wrong region; the river energy of the true site has no plant to land on. |
-| **Missing plants** | The EVN Kamp chain, the Lech plants in Außerfern, the Salzburg AG city plants, the Sill plants in Innsbruck, the Traun chain, Rodund II and Obervermuntwerk I, Partenstein, Plankenau, and all ÖBB railway plants (Spullersee, Braz, Schneiderau, Uttendorf I). | Regions whose inflow is physically infeasible with the remaining capacity. |
+| **Missing plants** | The EVN Kamp chain, the Lech plants in Außerfern, the Salzburg AG city plants, the Sill plants in Innsbruck, the Traun chain, Rodund II, Obervermuntwerk I and Lutz Oberstufe, Partenstein, Plankenau, Wagrain-St. Johann, Schwarzach in the Defereggental, all ÖBB railway plants (Spullersee, Braz, Schneiderau, Uttendorf I, Fulpmes) and the industrial self-suppliers Kitzloch and Wiesberg, which are in no public register. | Regions whose inflow is physically infeasible with the remaining capacity. |
 | **Missing small hydro** | Only 22 plants below 10 MW. | The ≈ 1.5 GW small-hydro fleet and its regional distribution are absent. |
 
 ### The curated lists
@@ -174,8 +174,8 @@ technology class, bottleneck capacity, postal code and annual feed-in (see
 hydropower the model uses only its *Kleinwasserkraft bis 10 MW* class, for three reasons:
 
 - **Small plants are what ppm lacks.** ppm holds 22 Austrian hydro plants below 10 MW; the
-  register holds about 3,600 with 1.8 GW. Above 10 MW, ppm misses about a dozen plants,
-  which are few enough to curate one by one.
+  register holds about 3,600 with 1.8 GW. Above 10 MW, ppm misses about twenty plants,
+  few enough to curate one by one.
 - **Large plants are registered at the company address**, not at the site. Per-region
   register totals above 10 MW are off by hundreds of megawatts in Salzburg, Vorarlberg and
   Tyrol, so the register cannot place large plants. ÖBB's 16.7 Hz railway plants
@@ -199,13 +199,14 @@ generators (whose nominal power is the peak inflow) are not part of this compari
 
 | Technology | Model component | powerplantmatching | Calibrated fleet | E-Control 2025 |
 |------------|-----------------|-------------------:|-----------------:|---------------:|
-| Run-of-river | `ror` generator | 2,395 MW (67 plants) | 6,652 MW (3,695 plants) | 6,146 MW Laufkraftwerke |
-| Reservoir | `hydro discharger` link | 6,248 MW (76) | 3,044 MW (53) | 3,442 MW Speicherkraftwerke without pumped storage |
+| Run-of-river | `ror` generator | 2,395 MW (67 plants) | 6,740 MW (3,700 plants) | 6,146 MW Laufkraftwerke |
+| Reservoir | `hydro discharger` link | 6,248 MW (76) | 3,103 MW (54) | 3,442 MW Speicherkraftwerke without pumped storage |
 | Pumped storage | `PHS discharger` link | 6,120 MW (21) | 6,294 MW (23) | 6,172 MW Pumpspeicherkraftwerke |
 
-The run-of-river surplus of ≈ 0.5 GW has two known contributions: ppm nameplate versus
-E-Control bottleneck capacities, and the ÖBB 16.7 Hz railway plants (≈ 160 MW), which
-E-Control's public-grid statistics do not count but which turbine the same rivers. The reservoir/pumped-storage boundary is soft: E-Control, KLIEN and ppm
+The run-of-river surplus of ≈ 0.6 GW has three known contributions: ppm nameplate versus
+E-Control bottleneck capacities, the ÖBB 16.7 Hz railway plants (≈ 175 MW) and the
+industrial self-suppliers (≈ 40 MW), which E-Control's public-grid statistics do not count
+but which turbine the same rivers. The reservoir/pumped-storage boundary is soft: E-Control, KLIEN and ppm
 classify mixed storage groups with pumps (Silz, Zemm, Naßfeld) differently, which shifts
 roughly a gigawatt between the two rows depending on the source.
 
@@ -280,9 +281,9 @@ With the default settings (medium ambition, RCP 4.5):
 | Horizon | Growth factor | Upper limit |
 |---------|---------------|-------------|
 | 2025 | 1.000 | calibrated brownfield fleet |
-| 2030 | 1.066 | ≈ 7.1 GW |
-| 2040 | 1.198 | ≈ 8.0 GW |
-| 2050 | 1.227 | ≈ 8.2 GW |
+| 2030 | 1.066 | ≈ 7.2 GW |
+| 2040 | 1.198 | ≈ 8.1 GW |
+| 2050 | 1.227 | ≈ 8.3 GW |
 
 ### Why only run-of-river is overridden
 
@@ -465,23 +466,24 @@ generating 30.5 TWh):
 
 | Quantity | Model (2013 weather year) | E-Control Betriebsstatistik 2013 |
 |----------|--------------------------:|---------------------------------:|
-| Run-of-river energy | 31.4 TWh | 30.5 TWh Laufkraft |
-| Reservoir inflow energy | 9.9 TWh | 15.2 TWh Speicherkraft incl. pumped-storage generation |
-| Run-of-river full-load hours | 4,720 h | 5,470 h |
+| Run-of-river energy | 32.3 TWh | 30.5 TWh Laufkraft |
+| Reservoir inflow energy | 10.1 TWh | 15.2 TWh Speicherkraft incl. pumped-storage generation |
+| Run-of-river full-load hours | 4,800 h | 5,470 h |
 
-The run-of-river energy is 14 % short in full-load hours, and the shortfall has a known
-address: 3.4 TWh/a (7.6 %) of the KLIEN energy sits in catchments whose capacity is not in
-the fleet and is left out of the targets by the cap in step 5. Part of it cannot be closed,
-because the study books capacity that is not Austrian or not real (see below); the rest
-would raise the run-of-river energy towards ≈ 35 TWh and ≈ 5,300 full-load hours, close to
-E-Control's 2013 figure. The four Danube regions (AT121, AT126, AT130, AT313) sit at
+The run-of-river energy is 12 % short in full-load hours. Part of the shortfall has a
+known address: 1.7 TWh/a (3.9 %) of the KLIEN energy sits in catchments whose capacity is
+not in the fleet and is left out of the targets by the cap in step 5. Closing all of it
+would raise the run-of-river energy towards ≈ 34 TWh and ≈ 5,050 full-load hours. The
+rest of the difference to E-Control's 5,470 hours is fleet vintage: the ratio compares the
+2025 fleet with the 2013 statistic, and plants added since 2013 sit mostly in alpine
+valleys with fewer hours than the Danube chain. The four Danube regions (AT121, AT126, AT130, AT313) sit at
 5,950–6,350 hours, consistent with the catchment values and the operators' figures for the
 Danube chain.
 
 The reservoir side cannot be compared as directly, because E-Control does not publish the
 Speicherkraft generation without pumped-storage plants per year. The model's reservoir
-capacity (3,044 MW) lies between the E-Control 2013 and 2025 Speicherkraftwerke without
-pumped storage (2,795 and 3,442 MW). Its inflow energy of 9.9 TWh is above what the 2025 split of the Bestandsstatistik
+capacity (3,103 MW) lies between the E-Control 2013 and 2025 Speicherkraftwerke without
+pumped storage (2,795 and 3,442 MW). Its inflow energy of 10.1 TWh is above what the 2025 split of the Bestandsstatistik
 suggests for that class (≈ 7 TWh in 2013), and the PEMMDB natural inflow into Austrian
 pumped-storage reservoirs (7.6 TWh) is about twice the E-Control pumped-storage generation
 from natural inflow (≈ 3.7 TWh in 2013). Both point to the same cause: the boundary between
@@ -528,21 +530,25 @@ before suspecting the inflow data.
 
 ### Open items in the fleet
 
-After curating every catchment with more than 100 GWh/a of unmatched energy against operator
-data, 3.4 TWh/a remain spread over 91 catchments. The largest are no longer fleet gaps but
-inconsistencies of the study itself:
+After three curation rounds against operator data, plus the postal-code placement and the
+catchment corrections, 1.7 TWh/a remain spread over 130 catchments, none above 120 GWh/a.
+What is left falls into three kinds:
 
 | Catchment | Gap | Cause |
 |-----------|-----|-------|
-| Enns below Steyr (51200) | 93 MW, 430 GWh/a | The catchment is the 97 km² main stem below Steyr (the Steyr river is its own catchment). The operator's plants there sum to 123 MW and 576 GWh/a, while the study books 215 MW and 980 GWh/a, the Ennskraftwerke AG company total. Nothing is missing; the cap keeps the present plants at their operator figures. |
-| Inn at the Bavarian border (30800) | 48 MW, 230 GWh/a | The study's 108 MW equal Oberaudorf-Ebbs (60 MW) plus Verbund's Nußdorf plant (48 MW), which lies in Bavaria. Not Austrian. |
-| Möll above Obervellach (80602) | 30 MW, 150 GWh/a | Innerfragant's Oschenik stage has storage pumps and stays pumped storage; the remainder is small plants. |
-| Ill below Vandans (10105) | 23 MW, 110 GWh/a | Walgauwerk, Illspitz and the Feldkirch plants sum to 99 MW against 122; no plant above 10 MW found. |
-| Ybbs (60214), Mur above Bruck (70800), Rauriser Ache (40404), Drau (80305), Inn above Kirchbichl (30601), Kaprun (40303) | 80–100 GWh/a each | Small plants below the register threshold or classification; not researched in detail. |
+| Möll above Obervellach (80602) | 30 MW, 120 GWh/a | Innerfragant's Oschenik stage has storage pumps and stays pumped storage, while the study counts it as a storage plant. |
+| Kamp (60303), Möll above Winklern (80601) | 15 MW each, 70 GWh/a | EVN and KELAG plants below 10 MW registered at the company address, so they land in the wrong catchment. |
+| Rosenbach (80703) | 15 MW, 64 GWh/a | No plant of that size exists on the Rosenbach; a study attribution error without known correct values. |
+| Pölsbach, Mur at Zeltweg, Drau at Annabrücke, Ybbs and about 120 smaller catchments | ≤ 60 GWh/a each | Small plants whose register capacity falls short of the study's count, or plants of the study that are still under construction (Gemeinschaftskraftwerk Paznaun, 2027). |
 
-One entry deserves a caveat: Uttendorf I (27 MW) is an AGGM derivation, Uttendorf II
-subtracted from the 93 MW OpenStreetMap figure for both stages, and no source states the
-figure directly. The row note says so.
+The two artefacts already corrected (lower Enns, Inn border) show the pattern to look for
+when a gap survives operator research: a company total or a foreign plant booked on one
+stretch.
+
+Two entries carry an AGGM derivation instead of a published capacity, stated as such in
+their notes: Uttendorf I (27 MW, Uttendorf II subtracted from the 93 MW OpenStreetMap
+figure for both stages) and Kitzloch (21.9 MW from the published head and discharge of the
+Rauris plant plus the old plant, which equals the study's catchment capacity).
 
 ## The EAG hydro target
 
@@ -564,21 +570,22 @@ the calibrated 2025 fleet and the run-of-river capacity the optimizer would have
 
 | Weather year | Natural inflow, 2025 fleet | Additional ror needed for 43 TWh | Feasible in 2030 |
 |---|---:|---:|:---:|
-| 2003 | 39.3 TWh | 990 MW | no |
-| 2011 | 41.1 TWh | 480 MW | no |
-| 2025 | 41.4 TWh | 410 MW | within the corridor |
-| 2006 | 42.2 TWh | 180 MW | within the corridor |
-| 2007 | 42.9 TWh | 20 MW | within the corridor |
-| 2022 | 43.1 TWh | 0 MW | yes |
-| 2005, 2015, 2004, 2008, 2010, 2018, 2017 | 43.4–45.7 TWh | 0 MW | yes |
-| 2001, 2016, 2021, 2002, 2009 | 46.2–47.7 TWh | 0 MW | yes |
-| 2019, 2023, 2000, 2014, 2020, 2013 | 48.2–49.4 TWh | 0 MW | yes |
-| 2012, 2024 | 51.8, 52.9 TWh | 0 MW | yes |
+| 2003 | 39.8 TWh | 860 MW | no |
+| 2011 | 41.6 TWh | 360 MW | within the corridor |
+| 2025 | 41.9 TWh | 290 MW | within the corridor |
+| 2006 | 42.7 TWh | 60 MW | within the corridor |
+| 2007, 2022, 2005 | 43.4–43.9 TWh | 0 MW | yes |
+| 2015, 2004, 2008, 2010, 2018, 2017 | 44.4–46.3 TWh | 0 MW | yes |
+| 2001, 2016, 2021, 2002, 2009 | 46.8–48.2 TWh | 0 MW | yes |
+| 2019, 2023, 2014, 2000, 2020, 2013 | 48.8–50.0 TWh | 0 MW | yes |
+| 2012, 2024 | 52.4, 53.6 TWh | 0 MW | yes |
 
-With the configured 2013 weather year the fleet delivers 49.4 TWh of natural inflow and the
-floor leaves 6 TWh of slack. Two dry years, 2003 and 2011, cannot meet it with any buildout
+With the configured 2013 weather year the fleet delivers 50.0 TWh of natural inflow and the
+floor leaves 7 TWh of slack. Only the driest year, 2003, cannot meet it with any buildout
 the corridor permits; a hard floor makes such a year infeasible, which is the intended
-signal rather than a defect. Years after 2017 use the 2013 pumped-storage inflow as a proxy,
+signal rather than a defect. The table counts inflow before the turbine links, whose
+efficiencies (0.90 for reservoirs, 0.87 for pumped storage) take about 2 TWh off the
+delivered electricity; how the floor accounts for that is an open item. Years after 2017 use the 2013 pumped-storage inflow as a proxy,
 because the PEMMDB climate years end in 2017.
 
 ## Configuration
