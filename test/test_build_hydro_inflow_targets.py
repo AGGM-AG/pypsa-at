@@ -317,3 +317,199 @@ def test_override_section_energy_end_to_end(sections, regions):
     assert targets.set_index(["bus", "carrier"]).at[("R2", "hydro"), "energy"] == (
         pytest.approx(100.0)
     )
+
+
+# --- rule-level helpers ----------------------------------------------------
+
+
+def test_select_hydro_plants_keeps_at_fleet_and_de_grenzkraftwerke_twins():
+    from build_hydro_inflow_targets import select_hydro_plants
+
+    ppl = pd.DataFrame(
+        {
+            "Name": ["Danube A", "Jochenstein", "Jochenstein", "Isar B", "Gas C"],
+            "Country": ["AT", "AT", "DE", "DE", "AT"],
+            "Fueltype": ["Hydro", "Hydro", "Hydro", "Hydro", "Natural Gas"],
+            "Technology": [
+                "Reservoir",
+                "Run-Of-River",
+                "Run-Of-River",
+                "Run-Of-River",
+                "CCGT",
+            ],
+            "Capacity": [100.0, 66.0, 66.0, 10.0, 400.0],
+            "bus": ["AT126", "AT311", "DE2", "DE2", "AT130"],
+            "lat": [48.4, 48.5, 48.5, 48.0, 48.2],
+            "lon": [15.7, 13.7, 13.7, 12.0, 16.4],
+        },
+        index=[10, 11, 12, 13, 14],
+    )
+    gkw = pd.DataFrame(
+        {"Name": ["Jochenstein", "Jochenstein"], "country": ["AT", "DE"]}
+    )
+
+    plants = select_hydro_plants(ppl, gkw)
+
+    assert plants.index.tolist() == [10, 11, 12]
+    assert plants["carrier"].tolist() == ["hydro", "ror", "ror"]
+    assert plants.columns.tolist() == ["bus", "carrier", "p_nom", "name", "lat", "lon"]
+
+
+@pytest.fixture
+def econtrol_file(tmp_path) -> str:
+    """Synthetic ``BStGes-JR1_Bilanz.xlsx`` with the sheet ``Erz`` layout."""
+    from build_hydro_inflow_targets import ECONTROL_COLUMNS, ECONTROL_FIRST_ROW
+
+    years = [1985, 1990, 1995, *range(2000, 2026)]  # annual only from 2000
+    rows = [[None] * len(ECONTROL_COLUMNS) for _ in range(ECONTROL_FIRST_ROW)]
+    for year in years:
+        lauf = 30_000.0 if year != 2013 else 33_000.0
+        speicher_gt10 = 12_000.0 if year != 2013 else 15_000.0
+        rows.append(
+            [year, 5_000.0, lauf - 5_000.0, lauf, 500.0, 50.0, speicher_gt10, 6_000.0]
+        )
+    rows.append(["Quelle: E-Control"] + [None] * (len(ECONTROL_COLUMNS) - 1))
+    path = tmp_path / "BStGes-JR1_Bilanz.xlsx"
+    pd.DataFrame(rows).to_excel(path, sheet_name="Erz", header=False, index=False)
+    return str(path)
+
+
+def test_read_econtrol_annual_generation(econtrol_file):
+    from build_hydro_inflow_targets import read_econtrol_annual_generation
+
+    econtrol = read_econtrol_annual_generation(econtrol_file)
+
+    assert econtrol.columns.tolist() == ["lauf", "speicher"]
+    assert econtrol.index.min() == 1985 and econtrol.index.max() == 2025
+    assert econtrol.at[2013, "lauf"] == pytest.approx(33_000.0)
+    assert econtrol.at[2013, "speicher"] == pytest.approx(15_500.0)
+
+
+def test_read_econtrol_annual_generation_raises_on_changed_layout(tmp_path):
+    from build_hydro_inflow_targets import read_econtrol_annual_generation
+
+    path = tmp_path / "broken.xlsx"
+    pd.DataFrame([[2013, 1.0]]).to_excel(
+        path, sheet_name="Erz", header=False, index=False
+    )
+    with pytest.raises(ValueError, match="Unexpected layout"):
+        read_econtrol_annual_generation(str(path))
+
+
+def test_weather_year_factors_relative_to_reference_period(econtrol_file):
+    from build_hydro_inflow_targets import (
+        read_econtrol_annual_generation,
+        weather_year_factors,
+    )
+
+    econtrol = read_econtrol_annual_generation(econtrol_file)
+    factors = weather_year_factors(econtrol, 2013)
+
+    # available reference years 1995, 2000-2020: 21 at 30000 + one at 33000
+    assert factors["ror"] == pytest.approx(33_000.0 / ((21 * 30_000.0 + 33_000.0) / 22))
+    assert factors["hydro"] == pytest.approx(
+        15_500.0 / ((21 * 12_500.0 + 15_500.0) / 22)
+    )
+    assert weather_year_factors(econtrol, 2000)["ror"] < 1.0
+
+
+def test_weather_year_factors_unknown_year_raises(econtrol_file):
+    from build_hydro_inflow_targets import (
+        read_econtrol_annual_generation,
+        weather_year_factors,
+    )
+
+    econtrol = read_econtrol_annual_generation(econtrol_file)
+    with pytest.raises(ValueError, match="weather year 1950"):
+        weather_year_factors(econtrol, 1950)
+
+
+def test_phs_shares_section_energy_only_where_klien_counts_it():
+    """PHS members take energy in sections whose C_current includes them."""
+    sections = pd.DataFrame(
+        # S1: KLIEN capacity 600 ~ ror 100 + PHS 500 -> PHS counted
+        # S2: KLIEN capacity 100 ~ ror 100 -> PHS excluded
+        {"E_current": [600.0, 100.0], "C_current": [600.0, 100.0]},
+        index=pd.Index(["S1", "S2"], name="section"),
+    )
+    plants = pd.DataFrame(
+        {
+            "carrier": ["ror", "PHS", "ror", "PHS"],
+            "p_nom": [100.0, 500.0, 100.0, 500.0],
+        },
+        index=pd.Index(["r1", "p1", "r2", "p2"], name="plant"),
+    )
+    membership = pd.DataFrame(
+        {
+            "plant": ["r1", "p1", "r2", "p2"],
+            "section": ["S1", "S1", "S2", "S2"],
+            "weight": [1.0, 1.0, 1.0, 1.0],
+        }
+    )
+
+    energy, _ = allocate_section_energy(
+        sections, membership, plants, capacity_col="C_current"
+    )
+
+    assert energy["r1"] == pytest.approx(100.0)
+    assert energy["p1"] == pytest.approx(500.0)
+    assert energy["r2"] == pytest.approx(100.0)
+    assert "p2" not in energy.index
+
+    # without the capacity column PHS is never eligible
+    energy_default, _ = allocate_section_energy(sections, membership, plants)
+    assert energy_default["r1"] == pytest.approx(600.0)
+
+
+def test_plants_never_exceed_section_full_load_hours():
+    """With C_current given, missing capacity leaves energy unallocated."""
+    sections = pd.DataFrame(
+        {"E_current": [500.0], "C_current": [100.0]},  # 5000 h per MW
+        index=pd.Index(["S1"], name="section"),
+    )
+    plants = pd.DataFrame(
+        {"carrier": ["ror"], "p_nom": [40.0]},  # 60 MW of the section missing
+        index=pd.Index(["r1"], name="plant"),
+    )
+    membership = pd.DataFrame({"plant": ["r1"], "section": ["S1"], "weight": [1.0]})
+
+    energy, unallocated = allocate_section_energy(
+        sections, membership, plants, capacity_col="C_current"
+    )
+
+    assert energy["r1"] == pytest.approx(200.0)  # 40 MW x 5000 h
+    assert unallocated["S1"] == pytest.approx(300.0)
+    # more fleet capacity than KLIEN counts: the section energy is simply split
+    plants.loc["r1", "p_nom"] = 150.0
+    energy, unallocated = allocate_section_energy(
+        sections, membership, plants, capacity_col="C_current"
+    )
+    assert energy["r1"] == pytest.approx(500.0)
+    assert unallocated.empty
+
+
+def test_catchment_corrections_overwrite_capacity_and_energy():
+    from build_hydro_inflow_targets import apply_catchment_corrections
+
+    sections = pd.DataFrame(
+        {"C_current": [215.13, 108.29], "E_current": [980.2, 521.2]},
+        index=pd.Index([51200, 30800], name="id"),
+    )
+    corrections = pd.DataFrame(
+        {
+            "id": [51200],
+            "C_current_new": [122.6],
+            "E_current_new": [576.3],
+            "note": ["company total booked on one stretch"],
+        }
+    )
+
+    out = apply_catchment_corrections(sections, corrections)
+
+    assert out.loc[51200, "C_current"] == pytest.approx(122.6)
+    assert out.loc[51200, "E_current"] == pytest.approx(576.3)
+    assert out.loc[30800, "C_current"] == pytest.approx(108.29)
+    assert sections.loc[51200, "C_current"] == pytest.approx(215.13)
+
+    with pytest.raises(ValueError, match="not in the KLIEN table"):
+        apply_catchment_corrections(sections, corrections.assign(id=[99999]))
