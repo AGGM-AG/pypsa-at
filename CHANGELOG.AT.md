@@ -46,8 +46,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - EAG limits for solar, wind, hydro and bioass added ([#179](https://github.com/AGGM-AG/pypsa-at/pull/179))
 - Added Austrian regional vehicle-stock and NEA-based road transport demand data ([#188](https://github.com/AGGM-AG/pypsa-at/pull/188))
 - Heat demand totals based on NEA data and spatial disaggregation based on austrian heatmap ([#182](https://github.com/AGGM-AG/pypsa-at/pull/182))
+- Calibrated Austrian hydro fleet: powerplantmatching duplicates dropped, technology reclassification of the large river chains, operator-sourced capacity corrections and relocations, Grenzkraftwerke treaty shares, missing plants above 10 MW (Kamp, Lech, Salzach, Sill, Traun, Enns, Große Mühl, Großarl, Ill, Alfenz and Stubach incl. the ÖBB railway plants), and the Anlagenregister *Kleinwasserkraft* fleet scaled to the E-Control Bestandsstatistik (`mods.update_hydro_capacities_AT`)
+- KLIEN-scaled Austrian run-of-river capacity corridor (`build_klien_hydro_trajectory_at`) replacing the PEMMDB upper bound; new datasets `econtrol-bestandsstatistik` and `klien_potentials` 2026-v3 with the hydro catchment table
+- Anlagenregister small hydro plants receive the coordinates of their postal code centroid (new dataset `geonames-postal-codes-at`, GeoNames CC BY 4.0), so the KLIEN inflow allocation places them in their river catchment instead of spreading them over the region by area
+- Curated KLIEN catchment corrections (`data/pypsa-at/hydro_catchment_corrections_AT.csv`) replace the study's capacity and energy where operator data proves them wrong (lower Enns company total, Bavarian Nußdorf plant on the Inn border)
+- EAG hydro production floor for 2030 set to 43 TWh: the 47 TWh target minus a fixed 4 TWh credit for generation from pumped water, which E-Control counts but the model's natural-inflow expression excludes
+- KLIEN-calibrated Austrian hydro inflow targets (`build_hydro_inflow_targets_at`): catchment energy allocated to plants by location, shared with the German Grenzkraftwerke halves, scaled to the weather year with the E-Control Betriebsstatistik (new dataset `econtrol-betriebsstatistik`), replacing the Austrian run-of-river and reservoir totals in `build_inflow_totals_per_region`; reservoir inflow rises from ≈ 2.6 TWh to ≈ 10 TWh
 
 ### Changed
+- `overwrite_powerplants_at` now writes the calibrated fleet as `powerplants_s_{clusters}.csv` and the untouched powerplantmatching output moves to `powerplants_s_{clusters}-raw.csv`, so every rule reads the calibrated table without per-rule overrides; Austrian run-of-river inflow rises from ≈ 13 TWh to ≈ 35 TWh because the ror normalisation now sees the full fleet
+- Hydro plant corrections may relocate a plant (`bus_new`, `lat_new`, `lon_new`); the Ennskraftwerk St. Pantaleon moves from the Salzach (AT311) to the Enns (AT121)
+- `_redistribute_peaks` iterates per region, falls back to a headroom waterfill for near-saturated regions, raises on regions whose inflow exceeds `p_nom × hours` instead of spilling silently
+- Anlagenregister aggregation drops duplicate registrations of large water plants (one entry per marketing contract)
 - Blocked imports of Russian methane via Ukraine and TurkStream ([#129](https://github.com/AGGM-AG/pypsa-at/pull/129))
 - modified Austrian brownfield gas grid with AGGM expert data; disabled expansion of pipelines until 2040; disabled building of new methane pipelines in the model ([#91](https://github.com/AGGM-AG/pypsa-at/pull/91))
 - Updated gas storage capacities from AGSI and AT-specific data sources ([#111](https://github.com/AGGM-AG/pypsa-at/pull/111))
