@@ -297,7 +297,11 @@ country:
 - **Reservoir**: Austria's storage sites are essentially built out and the KLIEN pathway
   contains no meaningful new reservoir capacity. The PEMMDB reservoir turbine corridor
   (2,787 MW, flat over all horizons) sits below the calibrated fleet, which the constraint
-  treats as "no buildout", the desired behaviour.
+  treats as "no buildout", the desired behaviour. The storage *volume* is not left to the
+  corridor data at all: the Austrian reservoir and pumped-storage stores get an upper
+  bound equal to their existing volume (zero for the new vintages of later horizons), so
+  no volume can be added even if a future PEMMDB release reports more than the model
+  holds. Turbine and pump links stay extendable.
 - **Pumped storage**: buildout is real (Limberg III, Reißeck II+, Tauernmoos) and is not
   covered by the river-catchment assessment. The PEMMDB corridor allows 6,058 MW of turbine
   and 5,533 MW of pump capacity in 2030 and 8,533 / 7,433 MW from 2040, i.e. roughly
@@ -615,6 +619,7 @@ because the PEMMDB climate years end in 2017.
 
 | Setting | Meaning |
 |---------|---------|
+| `mods.update_hydro_capacities_AT.fix_store_volumes` | Caps the volume of the Austrian reservoir and pumped-storage stores at the existing value (no new storage volume). |
 | `mods.update_hydro_capacities_AT.enable` | Master switch for all three Austrian calibration steps. When off, the ppm fleet is used as is, the Austrian corridor keeps its PEMMDB value and the inflow energy stays on the capacity-proportional PEMMDB split. |
 | `mods.klien_potential_limits.ambition` | Pathway ambition (`low` / `medium` / `high`), shared with the KLIEN PV and wind limits. |
 | `mods.klien_potential_limits.climate_scenario` | Climate scenario (`wocc` / `mocc` / `stcc`), shared with the KLIEN PV and wind limits. The hydro study publishes pathways only for `mocc` (RCP 4.5) and `stcc` (RCP 8.5); `wocc` falls back to `mocc`, which is logged. |

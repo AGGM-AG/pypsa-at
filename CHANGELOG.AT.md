@@ -56,6 +56,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - `overwrite_powerplants_at` now writes the calibrated fleet as `powerplants_s_{clusters}.csv` and the untouched powerplantmatching output moves to `powerplants_s_{clusters}-raw.csv`, so every rule reads the calibrated table without per-rule overrides; Austrian run-of-river inflow rises from ≈ 13 TWh to ≈ 35 TWh because the ror normalisation now sees the full fleet
 - Hydro plant corrections may relocate a plant (`bus_new`, `lat_new`, `lon_new`); the Ennskraftwerk St. Pantaleon moves from the Salzach (AT311) to the Enns (AT121)
+- Austrian reservoir and pumped-storage store volumes are fixed at the existing capacity (`mods.update_hydro_capacities_AT.fix_store_volumes`): the new store vintages get `e_nom_max = 0`, turbine and pump links stay extendable
 - PEMMDB storage volumes (GWh) are converted to MWh in the capacity trajectories; the `Store-e_nom` corridors were a thousand times too small and blocked every storage-volume expansion
 - Austrian pumped-storage natural inflow taken from the E-Control Betriebsstatistik (generation of pumped-storage plants minus generation from pumped water, reference-period mean scaled to the weather year, spread by pumped-storage capacity) instead of the PEMMDB *PS Open* value, which was about twice as high
 - Reservoir and pumped-storage inflow is grossed up by the turbine efficiency of the store when patched into the network, so the delivered electricity equals the calibrated (PEMMDB / KLIEN) energy instead of falling 10–13 % short

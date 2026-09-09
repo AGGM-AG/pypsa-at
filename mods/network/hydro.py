@@ -39,7 +39,39 @@ def process_hydro(n: Network, snakemake: Snakemake, costs: pd.DataFrame):
         snakemake.params.exclude_carriers,
     )
     add_phs_hydro(n, snakemake, costs, ppl)
+    hydro_config = snakemake.params.update_hydro_capacities_AT
+    if hydro_config.get("enable") and hydro_config.get("fix_store_volumes"):
+        fix_store_volumes(n, ["AT"])
     patch_inflows(n, snakemake, ppl)
+
+
+def fix_store_volumes(n: Network, countries: list[str]) -> None:
+    """
+    Forbid new reservoir and pumped-storage volume in the given countries.
+
+    The store components of both hydro technologies are extendable, so that
+    the PEMMDB corridors can bound their growth. Where the storage sites are
+    known to be built out, as in Austria, the assumption should not depend on
+    the corridor data: the stores get ``e_nom_max`` equal to ``e_nom_min``,
+    which is the existing volume in the base year and zero for the new
+    vintages of later horizons. Turbine and pump links are not touched.
+
+    Parameters
+    ----------
+    n
+        The pre-network to be modified in place.
+    countries
+        Two-letter country codes whose store volumes are fixed.
+    """
+    stores = n.stores[
+        n.stores.carrier.isin(["hydro store", "PHS store"])
+        & n.stores.bus.str[:2].isin(countries)
+    ]
+    n.stores.loc[stores.index, "e_nom_max"] = stores["e_nom_min"]
+    logger.info(
+        f"Fixed the volume of {len(stores)} reservoir and pumped-storage stores "
+        f"in {countries} at the existing capacity (e_nom_max = e_nom_min)."
+    )
 
 
 def add_phs_hydro(

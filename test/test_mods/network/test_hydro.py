@@ -130,6 +130,62 @@ def test_inflows_match_pemmdb_totals(nc, project_root):
             _assert_energy_matches(actual, expected, tol)
 
 
+class TestFixStoreVolumes:
+    """fix_store_volumes caps hydro and PHS stores of the given countries."""
+
+    def _network(self):
+        n = Network()
+        n.add("Bus", "AT1 hydro bus", carrier="hydro store")
+        n.add("Bus", "AT1 PHS bus", carrier="PHS store")
+        n.add("Bus", "DE1 hydro bus", carrier="hydro store")
+        n.add("Bus", "AT1 gas bus", carrier="gas")
+        n.add(
+            "Store",
+            "AT1 hydro store",
+            bus="AT1 hydro bus",
+            carrier="hydro store",
+            e_nom_min=3200.0,
+            e_nom_extendable=True,
+        )
+        n.add(
+            "Store",
+            "AT1 PHS store",
+            bus="AT1 PHS bus",
+            carrier="PHS store",
+            e_nom_min=0.0,
+            e_nom_extendable=True,
+        )
+        n.add(
+            "Store",
+            "DE1 hydro store",
+            bus="DE1 hydro bus",
+            carrier="hydro store",
+            e_nom_min=300.0,
+            e_nom_extendable=True,
+        )
+        n.add(
+            "Store",
+            "AT1 gas store",
+            bus="AT1 gas bus",
+            carrier="gas store",
+            e_nom_min=0.0,
+            e_nom_extendable=True,
+        )
+        return n
+
+    def test_only_hydro_stores_of_listed_countries_are_capped(self):
+        from mods.network.hydro import fix_store_volumes
+
+        n = self._network()
+        fix_store_volumes(n, ["AT"])
+
+        # base-year vintage keeps its existing volume, new vintage gets zero
+        assert n.stores.at["AT1 hydro store", "e_nom_max"] == pytest.approx(3200.0)
+        assert n.stores.at["AT1 PHS store", "e_nom_max"] == pytest.approx(0.0)
+        assert np.isinf(n.stores.at["DE1 hydro store", "e_nom_max"])
+        assert np.isinf(n.stores.at["AT1 gas store", "e_nom_max"])
+
+
 class TestPatchComponentInflows:
     """Store inflows are grossed up by the turbine efficiency of their store."""
 
