@@ -78,6 +78,7 @@ use rule prepare_sector_network as prepare_sector_network_at with:
         exclude_carriers=config_provider("clustering", "exclude_carriers"),
         carrier_to_load_mapping=config_provider("demand", "carrier_to_load_mapping"),
         annual_demand_overrides=config_provider("industry", "annual_demand_overrides"),
+        update_hydro_capacities_AT=config_provider("mods", "update_hydro_capacities_AT"),
 
 
 rule build_industrial_demand_overrides_at:

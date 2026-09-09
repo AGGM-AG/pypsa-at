@@ -1,13 +1,11 @@
-import importlib
 from types import SimpleNamespace
 
 import pandas as pd
+import patch_transport_demand_at as transport
 import pytest
 import xarray as xr
 
 from mods.constants import UNITS
-
-transport = importlib.import_module("scripts.pypsa-at.patch_transport_demand_at")
 
 
 @pytest.fixture

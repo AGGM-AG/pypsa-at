@@ -1,10 +1,8 @@
-import importlib
 from types import SimpleNamespace
 
+import build_kfz_bestand_at as kfz
 import pandas as pd
 import pytest
-
-kfz = importlib.import_module("scripts.pypsa-at.build_kfz_bestand_at")
 
 
 @pytest.fixture

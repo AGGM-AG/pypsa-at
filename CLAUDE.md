@@ -147,7 +147,7 @@ Additional relevant Snakemake rule functions:
 
 ```bash
 # Pull latest before anything
-git fetch --all && git pull
+git fetch --all && git pull && git merge origin/main
 
 # Dry-run (show plan, no execution)
 pixi run snakemake -n -c1 -p
@@ -245,12 +245,12 @@ buttons, Plotly charts, Marimo notebooks, footnotes, cross-references via `[text
 
 Tests live in `test/`. Shared fixtures and `--result-path` are defined in `test/conftest.py`.
 
-| Location            | Covers                                                          |
-|---------------------|-----------------------------------------------------------------|
-| `test/test_mods/`   | `mods/` — mirrors the package layout, plus its own `conftest.py` |
-| `test/test_evals/`  | `evals/*.py` modules (not views or plots)                        |
-| `test/test_*.py`    | `scripts/pypsa-at/` scripts, config schema, data versions layer  |
-| `test/test_data/`   | Test fixtures data                                               |
+| Location            | Covers                                                         |
+|---------------------|----------------------------------------------------------------|
+| `test/test_mods/`   | `mods/` — mirrors the package layout |
+| `test/test_evals/`  | `evals/*.py` modules (not views or plots)                       |
+| `test/test_*.py`    | `scripts/pypsa-at/` scripts, config schema, data versions layer |
+| `test/test_data/`   | Test fixtures data                                              |
 
 A few top-level files (`test_base_network.py`, `test_build_shapes.py`,
 `test_build_powerplants.py`) come from upstream — treat them like other upstream code.
@@ -296,6 +296,33 @@ pixi run pytest test/test_mods/ --result-path=results/{prefix}/{scenario}
 - Prefer f-strings over %s whenever possible, especially during logging
 - Keep Snakemake simple: implement guard logic in Python scripts (The DAG should not depend on the config).
 
+### Docstrings
+
+- NumPy style throughout; mkdocstrings renders them (`docstring_style: numpy` in `mkdocs.yml`).
+- No types in docstrings. Types come from the function signature, so parameter and
+  return lines carry only a description.
+- The `Returns` section uses a bare colon as the type placeholder, followed by the
+  description on an indented new line:
+
+```python
+def scale(values: pd.Series, factor: float) -> pd.Series:
+    """
+    Scale a series by a constant factor.
+
+    Parameters
+    ----------
+    values
+        The series to scale.
+    factor
+        Multiplier applied to every entry.
+
+    Returns
+    -------
+    :
+        The scaled series.
+    """
+```
+
 ## Data Versions
 
 External datasets are pinned in `data/versions.csv` (columns: `dataset`, `version`,
@@ -309,7 +336,7 @@ To add or bump a dataset: add a row to `data/versions.csv` (both `primary` and
 
 ## Common Gotchas
 
-- Tests marked with `AT` require the ``--result-path`` argument to load solved networks
+- Tests that use the ``nc`` NetworkCollection fixture automatically become marked with the `AT` pytest mark
 - `mods` subpackages are imported through `mods/__init__.py` re-exports — a new
   orchestrator is invisible to `scripts/` until it is added to `__all__` there
 - Scripts under `scripts/pypsa-at/` live in a hyphenated directory (not a valid Python

@@ -85,9 +85,7 @@ nav:
     - KLIEN Potentials: explanations/renewable-energy-potentials/klien-potentials.md
     - Photovoltaic Potentials: explanations/renewable-energy-potentials/pv-potentials.md
     - Wind Power Potentials: explanations/renewable-energy-potentials/wind-potentials.md
-  - Hydroelectric Resources:
-    - Inflow Calculation and Application: explanations/hydro-inflow.md
-    - Hydro Capacity Trajectories: explanations/hydro-capacity-trajectories.md
+  - Hydropower Capacities and Inflows: explanations/hydro-capacity-trajectories.md
   - Generic Capacity Trajectories: explanations/capacity-trajectories.md
   - Regulatory Requirements:
     - explanations/regulatory-requirements/index.md

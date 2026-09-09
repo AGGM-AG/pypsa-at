@@ -310,22 +310,54 @@ use rule cluster_gas_network as cluster_gas_network_at with:
 ruleorder: modify_brownfield_gas_network_AT > cluster_gas_network  # AT wins for the final .csv
 
 
+# build_powerplants: redirect the powerplantmatching table to a "-raw" file so
+# overwrite_powerplants_at can post-process it into the final
+# powerplants_s_{clusters}.csv that every downstream rule reads.
+use rule build_powerplants as build_powerplants_at with:
+    output:
+        resources("powerplants_s_{clusters}-raw.csv"),
+
+
+ruleorder: build_powerplants_at > build_powerplants
+
+
+ruleorder: overwrite_powerplants_at > build_powerplants  # AT wins for the final .csv
+
+
 # Overwrite attributes in the power plants resource CSV file
 rule overwrite_powerplants_at:
     input:
-        powerplants=resources("powerplants_s_{clusters}.csv"),
+        powerplants=resources("powerplants_s_{clusters}-raw.csv"),
         anlagenregister="data/pypsa-at/Anlagenregister_electricity_from_renewable_gas_AT.csv",
         postal_to_nuts="data/pypsa-at/AT-Postal-to-NUTS.csv",
+        postal_centroids=f"{GEONAMES_POSTAL_CODES_AT['folder']}/AT.txt",
+        hydro_duplicates="data/pypsa-at/hydro_duplicate_plants_AT.csv",
+        hydro_reclassification="data/pypsa-at/hydro_technology_reclassification_AT.csv",
+        anlagenregister_plants=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
+        grenzkraftwerke="data/pypsa-at/grenzkraftwerke_AT.csv",
+        missing_hydro_plants="data/pypsa-at/missing_hydro_plants_AT.csv",
+        bestandsstatistik_typ=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx",
+        klien_catchments=f"{KLIEN_POTENTIALS['folder']}/catchments_hydro.geojson",
+        catchment_corrections="data/pypsa-at/hydro_catchment_corrections_AT.csv",
+        diversion_overrides="data/pypsa-at/hydro_diversion_overrides_AT.csv",
+        regions_onshore=resources("regions_onshore_base_s_{clusters}.geojson"),
     output:
-        powerplants=resources("powerplants_s_{clusters}-overwrite.csv"),
+        powerplants=resources("powerplants_s_{clusters}.csv"),
+        residual_plants=resources("hydro_residual_plants_{clusters}.csv"),
     log:
-        logs("powerplants_s_{clusters}-overwrite.log"),
+        logs("overwrite_powerplants_s_{clusters}.log"),
     threads: 1
     resources:
-        mem_mb=1000,
+        mem_mb=4000,
     params:
         add_biogas_to_power_plants_AT=config_provider(
             "mods", "existing_capacities", "add_biogas_to_power_plants_AT"
+        ),
+        update_hydro_capacities_AT=config_provider(
+            "mods", "update_hydro_capacities_AT", "enable"
+        ),
+        klien_residual_plants=config_provider(
+            "mods", "update_hydro_capacities_AT", "klien_residual_plants"
         ),
         threshold_capacity=config_provider("existing_capacities", "threshold_capacity"),
         clustering=config_provider("mods", "modify_nuts3_shapes"),
@@ -333,19 +365,3 @@ rule overwrite_powerplants_at:
         "Overriding power plant attributes for {wildcards.clusters} clusters."
     script:
         scripts("pypsa-at/overwrite_powerplants.py")
-
-
-if config["foresight"] == "myopic":
-
-    # redirect powerplants input file to the patched file
-    use rule add_existing_baseyear as add_existing_baseyear_at with:
-        input:
-            **{
-                **rules.add_existing_baseyear.input,
-                "powerplants": resources("powerplants_s_{clusters}-overwrite.csv"),
-            },
-
-    ruleorder: add_existing_baseyear_at > add_existing_baseyear
-    # The new rule also needs to override `add_brownfield` instead of
-    # `add_existing_baseyear` for myopic years
-    ruleorder: add_existing_baseyear_at > add_brownfield

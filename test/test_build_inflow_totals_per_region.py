@@ -1,10 +1,7 @@
-import importlib
-
+import build_inflow_totals_per_region as build
 import pandas as pd
 
 from mods.constants import TYNDP_TO_PYPSA_LOCATION
-
-build = importlib.import_module("scripts.pypsa-at.build_inflow_totals_per_region")
 
 
 def test_process_inflow_per_region_groups_regions_and_technologies():
@@ -163,3 +160,45 @@ def test_distribute_inflow_to_powerplants_distributes_by_capacity_share():
     expected = expected.sort_values(["bus", "carrier"]).reset_index(drop=True)
 
     pd.testing.assert_frame_equal(result, expected)
+
+
+def test_apply_hydro_inflow_targets_replaces_at_rows_only():
+    from build_inflow_totals_per_region import apply_hydro_inflow_targets
+
+    distributed = pd.DataFrame(
+        {
+            "bus": ["AT121", "AT121", "AT121", "AT122", "DE2", "DE2"],
+            "carrier": ["ror", "hydro", "PHS", "ror", "ror", "hydro"],
+            "inflow": [100.0, 10.0, 5.0, 50.0, 300.0, 30.0],
+        }
+    )
+    targets = pd.DataFrame(
+        {
+            "bus": ["AT121", "AT121", "AT123"],
+            "carrier": ["ror", "hydro", "ror"],
+            "inflow": [200.0, 40.0, 7.0],
+        }
+    )
+
+    out = apply_hydro_inflow_targets(distributed, targets).set_index(
+        ["bus", "carrier"]
+    )["inflow"]
+
+    assert out[("AT121", "ror")] == 200.0
+    assert out[("AT121", "hydro")] == 40.0
+    assert out[("AT121", "PHS")] == 5.0  # carrier without targets untouched
+    assert out[("AT122", "ror")] == 0.0  # AT region without target -> zero
+    assert out[("AT122", "hydro")] == 0.0
+    assert out[("AT123", "ror")] == 7.0  # target for a region without fleet row
+    assert out[("DE2", "ror")] == 300.0 and out[("DE2", "hydro")] == 30.0
+
+
+def test_apply_hydro_inflow_targets_empty_targets_is_noop():
+    from build_inflow_totals_per_region import apply_hydro_inflow_targets
+
+    distributed = pd.DataFrame(
+        {"bus": ["AT121"], "carrier": ["ror"], "inflow": [100.0]}
+    )
+    empty = pd.DataFrame(columns=["bus", "carrier", "rav_gwh", "year_factor", "inflow"])
+
+    assert apply_hydro_inflow_targets(distributed, empty).equals(distributed)

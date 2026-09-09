@@ -4,14 +4,12 @@
 # For license information, see the LICENSE.txt file in the project root.
 """End-to-end test for the industry demand profile builder."""
 
-import importlib
 import json
 from types import SimpleNamespace
 
+import build_industrial_demand_profiles as build
 import pandas as pd
 import pytest
-
-build = importlib.import_module("scripts.pypsa-at.build_industrial_demand_profiles")
 
 
 @pytest.fixture()

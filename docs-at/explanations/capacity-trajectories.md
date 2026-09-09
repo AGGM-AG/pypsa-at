@@ -21,7 +21,7 @@ the target component exposes a `carrier` column and the standard `{property}`/`{
 `{property}_max`/`{property}_extendable` attributes.
 
 For the current hydro use case that builds `trajectories.csv`, see
-[Hydro Capacity Trajectories](hydro-capacity-trajectories.md).
+[Hydropower Capacities and Inflows](hydro-capacity-trajectories.md).
 
 ---
 

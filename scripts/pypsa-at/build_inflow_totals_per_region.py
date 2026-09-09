@@ -260,6 +260,60 @@ def distribute_inflow_to_powerplants(
     return combined_df[["bus", "carrier", "inflow"]]
 
 
+def apply_hydro_inflow_targets(
+    distributed: pd.DataFrame, targets: pd.DataFrame
+) -> pd.DataFrame:
+    """
+    Replace regional inflow totals with calibrated targets.
+
+    For every carrier present in ``targets``, the rows of all Austrian
+    regions (buses starting with ``AT`` plus every bus named in ``targets``)
+    are set to the target value, or to zero where a region has no target.
+    Carriers absent from ``targets`` keep their PEMMDB-based values, as do
+    all other countries; with the Austrian calibration enabled the targets
+    cover ``ror``, ``hydro`` and ``PHS``.
+
+    Parameters
+    ----------
+    distributed
+        Frame with columns ``bus``, ``carrier`` and ``inflow`` from
+        :func:`distribute_inflow_to_powerplants`.
+    targets
+        Frame with columns ``bus``, ``carrier`` and ``inflow`` (MWh) from
+        ``build_hydro_inflow_targets_at``; empty when the calibration is
+        disabled.
+
+    Returns
+    -------
+    :
+        The frame with replaced Austrian rows.
+    """
+    if targets.empty:
+        logger.info("No hydro inflow targets given; keeping PEMMDB-based totals.")
+        return distributed
+
+    key = ["bus", "carrier"]
+    carriers = targets["carrier"].unique()
+    at_buses = pd.Index(
+        distributed.loc[distributed["bus"].str.startswith("AT"), "bus"].unique()
+    )
+    buses = at_buses.union(targets["bus"].unique())
+
+    out = distributed.set_index(key)["inflow"]
+    replaced = pd.MultiIndex.from_product([buses, carriers], names=key)
+    before = out.reindex(replaced).fillna(0.0)
+    after = targets.set_index(key)["inflow"].reindex(replaced).fillna(0.0)
+    out = pd.concat([out[~out.index.isin(replaced)], after]).sort_index()
+
+    for carrier in carriers:
+        logger.info(
+            f"Replaced AT {carrier} inflow totals with calibrated targets: "
+            f"{before.xs(carrier, level='carrier').sum() / 1e6:.2f} -> "
+            f"{after.xs(carrier, level='carrier').sum() / 1e6:.2f} TWh."
+        )
+    return out.reset_index()
+
+
 if __name__ == "__main__":
     if "snakemake" not in globals():
         from scripts._helpers import mock_snakemake
@@ -307,6 +361,11 @@ if __name__ == "__main__":
     inflow, region_to_country_mapping = normalize_ror(inflow_df, ppl, market_info_df)
     distributed_inflow_df = distribute_inflow_to_powerplants(
         inflow, ppl, region_to_country_mapping
+    )
+
+    hydro_inflow_targets = pd.read_csv(snakemake.input.hydro_inflow_targets)
+    distributed_inflow_df = apply_hydro_inflow_targets(
+        distributed_inflow_df, hydro_inflow_targets
     )
 
     # Write the primary output (distributed inflow totals)
