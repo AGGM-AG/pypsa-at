@@ -101,6 +101,9 @@ def test_build_trajectories_capacity(nc: NetworkCollection) -> None:
                 .abs()
                 .reset_index()
             )
+            # PEMMDB storage volumes are GWh, the network's Store-e_nom is MWh
+            is_volume = expected_df["variable"] == "Store-e_nom"
+            expected_df.loc[is_volume, "value"] *= 1e3
             ppl_filtered = powerplants[
                 powerplants["bus"].str.startswith(region)
                 & powerplants["carrier"].isin(
@@ -151,3 +154,22 @@ def test_build_trajectories_klien_ror_at(nc: NetworkCollection) -> None:
         )
         # the corridor must grow from the calibrated fleet, never shrink it
         assert expected >= corridor.loc[int(year), "brownfield_mw"]
+
+
+def test_storage_volumes_are_converted_to_mwh():
+    from build_capacity_trajectories import convert_storage_volumes_to_mwh
+
+    index = pd.MultiIndex.from_tuples(
+        [
+            (2030, "AT", "hydro store", "Store-e_nom", "max"),
+            (2030, "AT", "hydro discharger", "Link-p_nom", "max"),
+        ],
+        names=["year", "region", "carrier", "variable", "sense"],
+    )
+    market_info = pd.Series([769.0, 2787.0], index=index, name="value")
+
+    out = convert_storage_volumes_to_mwh(market_info)
+
+    assert out.iloc[0] == pytest.approx(769_000.0)
+    assert out.iloc[1] == pytest.approx(2787.0)
+    assert market_info.iloc[0] == pytest.approx(769.0)

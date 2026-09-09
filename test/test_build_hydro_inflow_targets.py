@@ -358,19 +358,45 @@ def test_select_hydro_plants_keeps_at_fleet_and_de_grenzkraftwerke_twins():
 @pytest.fixture
 def econtrol_file(tmp_path) -> str:
     """Synthetic ``BStGes-JR1_Bilanz.xlsx`` with the sheet ``Erz`` layout."""
-    from build_hydro_inflow_targets import ECONTROL_COLUMNS, ECONTROL_FIRST_ROW
+    from build_hydro_inflow_targets import (
+        BIL_COLUMNS,
+        BIL_FIRST_ROW,
+        ECONTROL_COLUMNS,
+        ECONTROL_FIRST_ROW,
+    )
 
     years = [1985, 1990, 1995, *range(2000, 2026)]  # annual only from 2000
     rows = [[None] * len(ECONTROL_COLUMNS) for _ in range(ECONTROL_FIRST_ROW)]
     for year in years:
         lauf = 30_000.0 if year != 2013 else 33_000.0
         speicher_gt10 = 12_000.0 if year != 2013 else 15_000.0
+        pumped_storage = 6_000.0 if year != 2013 else 8_000.0
         rows.append(
-            [year, 5_000.0, lauf - 5_000.0, lauf, 500.0, 50.0, speicher_gt10, 6_000.0]
+            [
+                year,
+                5_000.0,
+                lauf - 5_000.0,
+                lauf,
+                500.0,
+                50.0,
+                speicher_gt10,
+                pumped_storage,
+            ]
         )
     rows.append(["Quelle: E-Control"] + [None] * (len(ECONTROL_COLUMNS) - 1))
+    # sheet "Bil": pumping consumption 4,000 GWh, 5,000 in 2013
+    balance = [[None] * len(BIL_COLUMNS) for _ in range(BIL_FIRST_ROW)]
+    for year in years:
+        pumping = 4_000.0 if year != 2013 else 5_000.0
+        balance.append(
+            [year, 60_000.0, 20_000.0, 80_000.0, 20_000.0, 60_000.0, pumping, 56_000.0]
+        )
     path = tmp_path / "BStGes-JR1_Bilanz.xlsx"
-    pd.DataFrame(rows).to_excel(path, sheet_name="Erz", header=False, index=False)
+    with pd.ExcelWriter(path) as writer:
+        pd.DataFrame(rows).to_excel(writer, sheet_name="Erz", header=False, index=False)
+        pd.DataFrame(balance).to_excel(
+            writer, sheet_name="Bil", header=False, index=False
+        )
     return str(path)
 
 
@@ -379,10 +405,16 @@ def test_read_econtrol_annual_generation(econtrol_file):
 
     econtrol = read_econtrol_annual_generation(econtrol_file)
 
-    assert econtrol.columns.tolist() == ["lauf", "speicher"]
+    from build_hydro_inflow_targets import PUMPED_WATER_SHARE
+
+    assert econtrol.columns.tolist() == ["lauf", "speicher", "phs_natural"]
     assert econtrol.index.min() == 1985 and econtrol.index.max() == 2025
     assert econtrol.at[2013, "lauf"] == pytest.approx(33_000.0)
     assert econtrol.at[2013, "speicher"] == pytest.approx(15_500.0)
+    # pumped-storage generation 8,050 minus the pumped-water share of 5,000 GWh pumping
+    assert econtrol.at[2013, "phs_natural"] == pytest.approx(
+        8_050.0 - 5_000.0 * PUMPED_WATER_SHARE
+    )
 
 
 def test_read_econtrol_annual_generation_raises_on_changed_layout(tmp_path):
@@ -513,3 +545,32 @@ def test_catchment_corrections_overwrite_capacity_and_energy():
 
     with pytest.raises(ValueError, match="not in the KLIEN table"):
         apply_catchment_corrections(sections, corrections.assign(id=[99999]))
+
+
+def test_phs_inflow_targets_follow_fleet_capacity(econtrol_file):
+    from build_hydro_inflow_targets import (
+        PUMPED_WATER_SHARE,
+        phs_inflow_targets,
+        read_econtrol_annual_generation,
+    )
+
+    econtrol = read_econtrol_annual_generation(econtrol_file)
+    plants = pd.DataFrame(
+        {
+            "bus": ["AT322", "AT341", "AT212", "DE2"],
+            "carrier": ["PHS", "PHS", "hydro", "PHS"],
+            "p_nom": [300.0, 100.0, 50.0, 500.0],
+        }
+    )
+
+    out = phs_inflow_targets(econtrol, 2013, plants, {"AT322", "AT341", "AT212"})
+
+    assert out["carrier"].eq("PHS").all()
+    assert out["bus"].tolist() == ["AT322", "AT341"]
+    # 2013: 8,050 - 5,000 x share; every other reference year 6,050 - 4,000 x share
+    natural_2013 = 8_050.0 - 5_000.0 * PUMPED_WATER_SHARE
+    assert out["inflow"].sum() == pytest.approx(natural_2013 * 1e3)
+    assert out["rav_gwh"].tolist() == pytest.approx(
+        [0.75 * out["rav_gwh"].sum(), 0.25 * out["rav_gwh"].sum()]
+    )
+    assert out["year_factor"].iloc[0] > 1.0

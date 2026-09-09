@@ -93,7 +93,7 @@ flowchart LR
     ECJ["E-Control Betriebsstatistik<br/><span style='font-size:11px'>annual generation by year</span>"]
     FLT["<b>1. Calibrated fleet</b><br/><span style='font-size:11px'>replaces the ppm fleet for AT</span>"]
     COR["<b>2. Run-of-river corridor</b><br/><span style='font-size:11px'>replaces the PEMMDB ror corridor for AT</span>"]
-    TGT["<b>3. Inflow energy targets</b><br/><span style='font-size:11px'>replace the PEMMDB ror and reservoir<br/>energy for AT regions</span>"]
+    TGT["<b>3. Inflow energy targets</b><br/><span style='font-size:11px'>replace the PEMMDB ror, reservoir and<br/>pumped-storage energy for AT regions</span>"]
     PPM --> FLT
     ECB --> FLT
     REG --> FLT
@@ -113,8 +113,8 @@ flowchart LR
    calibrated fleet; reservoir and pumped storage keep their PEMMDB corridors
    ([Part 2](#part-2-capacity-corridors)).
 3. The Austrian **run-of-river and reservoir energies** are replaced by per-region targets
-   built from the KLIEN catchments; pumped-storage inflow keeps its PEMMDB value
-   ([Part 3](#part-3-inflows)).
+   built from the KLIEN catchments, and the pumped-storage natural inflow by E-Control's
+   pumped-storage statistic ([Part 3](#part-3-inflows)).
 
 ## Part 1: The Austrian brownfield fleet
 
@@ -246,6 +246,9 @@ year and hydro category:
 | Run of River, Pondage | Run-of-river | Turbine capacity |
 | Reservoir | Reservoir | Turbine capacity and storage volume |
 | Pumped storage, open and closed loop | Pumped storage | Pump and turbine capacity and storage volume |
+
+PEMMDB reports capacities in MW and storage volumes in GWh; the volumes are converted to
+the network's MWh when the corridors are built.
 
 A corridor is a **national** value. For a country split into several model regions
 (Austria, Germany, Italy) the constraint sums the components of all regions of the country
@@ -387,19 +390,28 @@ region:
    Sellrain-Silz (Ötztaler Ache) and the Zemm-Ziller group are counted as Speicherkraftwerke.
    Per catchment, pumped-storage members are made eligible when the catchment capacity is
    closer to the member capacity *with* them than without. The energy attributed to them is
-   then dropped (≈ 1.2 TWh/a), because their natural inflow is already in the PEMMDB
-   pumped-storage data; leaving them out would push the same energy onto the few small
-   run-of-river plants in those valleys.
+   then dropped (≈ 1.2 TWh/a), because their natural inflow comes from the E-Control
+   pumped-storage statistic below; leaving them out would push the same energy onto the
+   few small run-of-river plants in those valleys.
 7. **Roll up to region and technology.** Plant energies are summed by region and carrier. The
    run-of-river / reservoir split falls out of the plant list; no capacity-share heuristic is
    needed.
 
-### Pumped storage stays on PEMMDB
+### Pumped storage: natural inflow from E-Control
 
-Natural inflow to pumped-storage reservoirs keeps its PEMMDB value (*PS Open*). The KLIEN
-Regelarbeitsvermögen of pumped-storage plants (≈ 9 TWh) includes generation from pumped water
-and must never be used as natural inflow. Because pumped-storage plants are outside the
-catchment energy, the PEMMDB value is additive and nothing is counted twice.
+The KLIEN catchment energy excludes pumped-storage plants, and the study's own figure for
+them (≈ 9 TWh) includes generation from pumped water, so it cannot serve as natural inflow.
+The PEMMDB *PS Open* inflow for Austria (7.6 TWh in the 2013 climate year) turned out to be
+about twice what E-Control attributes to natural inflow. The Austrian pumped-storage inflow
+is therefore taken from E-Control: the generation of the pumped-storage plants minus the
+generation from pumped water. E-Control publishes the latter only in the Bestandsstatistik
+(3.8 TWh in 2025), while the year series carries the electricity consumed for pumping; the
+2025 ratio of the two, 0.66, is applied to every year. The resulting natural generation is
+3.5 TWh/a on average over the reference period and 4.5 TWh in the wet year 2013, scaled to
+the weather year like the other carriers and spread over the Austrian regions in proportion
+to the pumped-storage turbine capacity of the calibrated fleet, because the statistic knows
+no regions. Nothing is counted twice: the KLIEN energy the allocation attributes to
+pumped-storage plants is dropped.
 
 ### Weather-year scaling
 
@@ -480,21 +492,26 @@ valleys with fewer hours than the Danube chain. The four Danube regions (AT121, 
 5,950–6,350 hours, consistent with the catchment values and the operators' figures for the
 Danube chain.
 
-The reservoir side cannot be compared as directly, because E-Control does not publish the
-Speicherkraft generation without pumped-storage plants per year. The model's reservoir
-capacity (3,103 MW) lies between the E-Control 2013 and 2025 Speicherkraftwerke without
-pumped storage (2,795 and 3,442 MW). Its inflow energy of 10.1 TWh is above what the 2025 split of the Bestandsstatistik
-suggests for that class (≈ 7 TWh in 2013), and the PEMMDB natural inflow into Austrian
-pumped-storage reservoirs (7.6 TWh) is about twice the E-Control pumped-storage generation
-from natural inflow (≈ 3.7 TWh in 2013). Both point to the same cause: the boundary between
-reservoir and pumped-storage plants is drawn differently by E-Control, KLIEN, PEMMDB and ppm,
-so energy that E-Control books under pumped storage lands on the reservoir class here, and
-the PEMMDB pumped-storage inflow adds to it rather than replacing it. This is an open item.
+On the storage side, E-Control's Speicherkraft generation of 2013 (15.2 TWh) splits into
+8.0 TWh from pumped-storage plants, of which 4.5 TWh from natural inflow,
+and 7.1 TWh from the other storage plants. The model's pumped-storage inflow now equals
+the E-Control natural figure by construction. Its reservoir capacity (3,103 MW) lies between
+the E-Control 2013 and 2025 Speicherkraftwerke without pumped storage (2,795 and 3,442 MW),
+but its reservoir inflow of 10.1 TWh is 3.0 TWh above E-Control's 7.1 TWh. The
+boundary between reservoir and pumped-storage plants is drawn differently by E-Control,
+KLIEN and ppm, so part of the energy that E-Control books under pumped storage lands on the
+reservoir class here. Together the storage carriers hold 14.6 TWh of natural inflow
+against 11.6 TWh in E-Control, a remaining surplus of 3.0 TWh that sits on the
+reservoir side. This is an open item.
 
 ### Applying the inflow to the network
 
 Reservoir and pumped-storage inflow feed an inflow generator whose nominal power is the peak
-inflow and whose availability is the hourly inflow relative to that peak. Run-of-river
+inflow and whose availability is the hourly inflow relative to that peak. Because the
+calibrated energy is generation (PEMMDB, KLIEN and E-Control all report electricity at the
+terminals) while the store's turbine link applies its efficiency on the way out, the inflow
+is grossed up by that efficiency (0.90 for reservoirs, 0.87 for pumped storage), so the
+electricity the turbine can deliver equals the calibrated energy. Run-of-river
 generators receive the inflow as availability relative to their capacity. Hours where the
 river delivers more than the turbines can take are capped, and the capped energy is
 redistributed proportionally over the remaining hours, so the annual energy is conserved.
@@ -564,8 +581,8 @@ statistic, against which the EAG progress is measured, does include generation f
 water: 3.5 TWh a year on average over 2013 to 2025 (derived from E-Control's pumping
 series, 2.0 TWh in 2000 rising to 3.7 TWh over 2020 to 2025 and 4.3 TWh in 2022). That
 share is credited as a fixed 3.5 TWh, so the configured floor is 47 − 3.5 = 43.5 TWh. The
-credit is only honest once the pumped-storage natural inflow itself is calibrated (see the
-open item above); with the PEMMDB value it is counted twice.
+pumped-storage natural inflow is calibrated to the same statistic, so the credit and the
+inflow do not overlap.
 
 Whether the floor can be met depends on the weather year, because the inflow targets scale
 with it while the fleet does not. The table shows, per weather year, the natural inflow of
@@ -573,24 +590,25 @@ the calibrated 2025 fleet and the run-of-river capacity the optimizer would have
 2030 to reach the floor; the KLIEN corridor allows 445 MW of additions by 2030. The
 efficiency weights are applied, so the table is in delivered electricity.
 
-| Weather year | Natural inflow, 2025 fleet | Additional ror needed for 43 TWh | Feasible in 2030 |
+| Weather year | Natural inflow, 2025 fleet | Additional ror needed for 43.5 TWh | Feasible in 2030 |
 |---|---:|---:|:---:|
-| 2003 | 39.8 TWh | 860 MW | no |
-| 2011 | 41.6 TWh | 360 MW | within the corridor |
-| 2025 | 41.9 TWh | 290 MW | within the corridor |
-| 2006 | 42.7 TWh | 60 MW | within the corridor |
-| 2007, 2022, 2005 | 43.4–43.9 TWh | 0 MW | yes |
-| 2015, 2004, 2008, 2010, 2018, 2017 | 44.4–46.3 TWh | 0 MW | yes |
-| 2001, 2016, 2021, 2002, 2009 | 46.8–48.2 TWh | 0 MW | yes |
-| 2019, 2023, 2014, 2000, 2020, 2013 | 48.8–50.0 TWh | 0 MW | yes |
-| 2012, 2024 | 52.4, 53.6 TWh | 0 MW | yes |
+| 2003, 2025, 2011, 2006, 2022 | 36.2–38.8 TWh | 1,170–1,960 MW | no |
+| 2005, 2007, 2004, 2018, 2015 | 40.3–41.3 TWh | 520–750 MW | no |
+| 2017, 2008, 2010, 2021 | 41.8–42.7 TWh | 180–370 MW | within the corridor |
+| 2001, 2002 | 43.0, 43.1 TWh | 110, 80 MW | within the corridor |
+| 2019, 2016, 2000, 2023 | 43.8–44.9 TWh | 0 MW | yes |
+| 2009, 2020, 2014, 2013 | 45.1–46.8 TWh | 0 MW | yes |
+| 2012, 2024 | 48.7, 50.2 TWh | 0 MW | yes |
 
-With the configured 2013 weather year the fleet delivers 50.0 TWh of natural inflow and the
-floor leaves 7 TWh of slack. Only the driest year, 2003, cannot meet it with any buildout
-the corridor permits; a hard floor makes such a year infeasible, which is the intended
-signal rather than a defect. The table counts inflow before the turbine links, whose
-efficiencies (0.90 for reservoirs, 0.87 for pumped storage) take about 2 TWh off the
-delivered electricity; how the floor accounts for that is an open item. Years after 2017 use the 2013 pumped-storage inflow as a proxy,
+With the configured 2013 weather year the fleet delivers 46.8 TWh of natural inflow and the
+floor leaves 3.3 TWh of slack. Ten of the 26 years, every dry or average year with a
+run-of-river factor below 0.97, cannot meet it with any buildout the corridor permits; a hard
+floor makes such a year infeasible, which is the intended signal rather than a defect. The
+pumped-storage column follows E-Control's natural inflow of the respective year (2.5 to
+4.7 TWh), so the table needs no proxy for years after 2017. The table is in delivered
+electricity: the calibrated energies are generation, the store inflows are grossed up by the
+turbine efficiency when
+they enter the network, and the floor weights them back down by the same efficiency. Years after 2017 use the 2013 pumped-storage inflow as a proxy,
 because the PEMMDB climate years end in 2017.
 
 ## Configuration
@@ -604,7 +622,7 @@ because the PEMMDB climate years end in 2017.
 | `snapshots` | The weather year of the snapshots selects the ERA5 profile year and the E-Control year factor. |
 | `data.klien_potentials` | KLIEN dataset version; `2026-v3` adds the hydro catchments. |
 | `data.econtrol-bestandsstatistik` | E-Control Bestandsstatistik (capacity by plant type) for the small-hydro scaling. |
-| `data.econtrol-betriebsstatistik` | E-Control Betriebsstatistik (annual generation by plant type) for the weather-year factors. |
+| `data.econtrol-betriebsstatistik` | E-Control Betriebsstatistik (annual generation by plant type and electricity balance) for the weather-year factors and the pumped-storage natural inflow. |
 | `data.anlagenregister` | Plant-level Anlagenregister for the small-hydro fleet (see [E-Control Anlagenregister](../how-to-guides/anlagenregister.md)). |
 | `data.geonames-postal-codes-at` | GeoNames postal code centroids (CC BY 4.0) that locate the register plants. |
 | `solving.constraints.limits_volume_min.hydro.AT` | The EAG hydro production floor, 43.5 TWh for 2030 (see [The EAG hydro target](#the-eag-hydro-target)). |

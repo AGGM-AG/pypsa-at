@@ -10,6 +10,7 @@ import pytest
 import xarray as xr
 from pypsa import Network
 
+from mods.utils import inflow_turbine_weights
 from test.conftest import require_config
 
 _NON_RETIRING_HYDRO_CARRIERS = [
@@ -114,15 +115,77 @@ def test_inflows_match_pemmdb_totals(nc, project_root):
                 .mul(weightings, axis=0)
                 .sum()
             )
+            # store inflows are grossed up by the turbine efficiency when patched,
+            # so the calibrated energy per unit refers to p_nom x efficiency
+            effective_p_nom = n.generators["p_nom"].copy()
+            effective_p_nom[columns] *= inflow_turbine_weights(n, columns).to_numpy()
             expected = _energy(
                 _per_unit(
                     _snapshot_profiles(n, inflow, resource_carrier, model_carrier),
-                    n.generators["p_nom"],
+                    effective_p_nom,
                 ),
                 weightings,
                 clip,
             )
             _assert_energy_matches(actual, expected, tol)
+
+
+class TestPatchComponentInflows:
+    """Store inflows are grossed up by the turbine efficiency of their store."""
+
+    def _network(self):
+        n = Network()
+        n.set_snapshots(pd.date_range("2013-01-01", periods=4, freq="h"))
+        n.add("Bus", "AT1", carrier="AC")
+        n.add("Bus", "AT1 hydro bus", carrier="hydro store")
+        n.add(
+            "Generator", "AT1 hydro inflow", bus="AT1 hydro bus", carrier="hydro inflow"
+        )
+        n.add("Generator", "AT1 ror", bus="AT1", carrier="ror", p_nom=100.0)
+        n.add(
+            "Link",
+            "AT1 hydro discharger",
+            bus0="AT1 hydro bus",
+            bus1="AT1",
+            carrier="hydro discharger",
+            efficiency=0.8,
+        )
+        return n
+
+    def _inflow(self, n, values):
+        return xr.DataArray(
+            np.array(values, dtype=float)[:, None, None],
+            dims=["time", "countries", "carrier"],
+            coords={
+                "time": n.snapshots.to_numpy(),
+                "countries": ["AT1"],
+                "carrier": ["hydro"],
+            },
+        )
+
+    def test_store_inflow_is_grossed_up_by_turbine_efficiency(self):
+        from mods.network.hydro import _patch_component_inflows
+
+        n = self._network()
+        idx, inflows = _patch_component_inflows(
+            n, self._inflow(n, [10, 20, 40, 30]), "hydro", "hydro inflow"
+        )
+        gen = "AT1 hydro inflow"
+        assert idx.tolist() == [gen]
+        # calibrated 100 MWh of generation need 125 MWh into the store at 0.8
+        assert n.generators.at[gen, "p_nom"] == pytest.approx(40 / 0.8)
+        delivered = (n.generators_t.p_max_pu[gen] * n.generators.at[gen, "p_nom"]).sum()
+        assert delivered == pytest.approx(100 / 0.8)
+        assert inflows[gen].sum() == pytest.approx(100 / 0.8)
+        assert n.generators_t.p_max_pu[gen].max() == pytest.approx(1.0)
+
+    def test_ror_inflow_is_not_scaled(self):
+        from mods.network.hydro import _patch_component_inflows
+
+        n = self._network()
+        inflow = self._inflow(n, [10, 20, 40, 30]).assign_coords(carrier=["ror"])
+        _patch_component_inflows(n, inflow, "ror", "ror")
+        assert (n.generators_t.p_max_pu["AT1 ror"] * 100.0).sum() == pytest.approx(100)
 
 
 class TestRedistributePeaks:

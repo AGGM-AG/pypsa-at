@@ -126,6 +126,31 @@ def _map_index(
     return out
 
 
+def convert_storage_volumes_to_mwh(market_info: pd.Series) -> pd.Series:
+    """
+    Convert the PEMMDB storage volumes from GWh to the network's MWh.
+
+    PEMMDB reports turbine and pump capacities in MW, which matches the
+    network's ``p_nom``, but storage volumes in GWh, while ``Store-e_nom`` is
+    in MWh. Without the conversion every store corridor is a thousand times
+    too small and blocks all storage expansion.
+
+    Parameters
+    ----------
+    market_info
+        Trajectory values indexed by (year, region, carrier, variable, sense).
+
+    Returns
+    -------
+    :
+        The series with ``Store-e_nom`` rows multiplied by 1,000.
+    """
+    market_info = market_info.copy()
+    is_volume = market_info.index.get_level_values("variable") == "Store-e_nom"
+    market_info[is_volume] *= 1e3
+    return market_info
+
+
 def add_missing_years(s: pd.Series, snakemake: Snakemake) -> pd.Series:
     """
     Add missing planning horizons to the index in the given Series.
@@ -347,6 +372,7 @@ def main(snakemake: Snakemake) -> pd.DataFrame:
     )
     market_info = market_info[market_info.index.isin(market_info.index.dropna())]
     market_info = market_info.groupby(level=market_info.index.names).sum().abs()
+    market_info = convert_storage_volumes_to_mwh(market_info)
     market_info = add_missing_regions(market_info, location_mapping)
     market_info = filter_market_data(snakemake, market_info)
     market_info = add_missing_years(market_info, snakemake)

@@ -7,6 +7,7 @@ import xarray as xr
 from pypsa import Network
 from snakemake.script import Snakemake
 
+from mods.utils import inflow_turbine_weights
 from scripts.add_electricity import add_missing_carriers, load_and_aggregate_powerplants
 
 logger = getLogger(__name__)
@@ -433,7 +434,9 @@ def _patch_component_inflows(
     Returns
     -------
     :
-        Return a tuple of the changed index and inflows for the carrier.
+        Return a tuple of the changed index and inflows for the carrier. For
+        the store carriers the inflows are the grossed-up values fed into
+        the store, i.e. calibrated energy divided by the turbine efficiency.
     """
     component_name = "generators"
     idx = (
@@ -447,12 +450,20 @@ def _patch_component_inflows(
         .rename(columns=lambda x: f"{x} {model_carrier}")
     )
     match inflow_carrier:
-        case "hydro":
-            n.components[component_name].dynamic.p_max_pu[idx] = np.where(
-                inflows[idx].max() > 0, inflows[idx] / inflows[idx].max(), 0
+        case "hydro" | "PHS":
+            # The inflow energy is calibrated to generation (PEMMDB energy
+            # inflow, KLIEN Regelarbeitsvermögen and E-Control all report
+            # electricity at the terminals), but it is fed into the store and
+            # leaves through the turbine link, which applies its efficiency
+            # again. Grossing the inflow up by that efficiency makes the
+            # delivered electricity equal to the calibrated energy.
+            efficiency = inflow_turbine_weights(n, idx)
+            inflows[idx] = inflows[idx].div(efficiency, axis="columns")
+            logger.info(
+                f"Grossed up the {model_carrier} inflow by the turbine efficiency "
+                f"({efficiency.min():.3f}-{efficiency.max():.3f}) so that the "
+                "delivered electricity matches the calibrated inflow energy."
             )
-            n.components[component_name].static.loc[idx, "p_nom"] = inflows[idx].max()
-        case "PHS":
             n.components[component_name].dynamic.p_max_pu[idx] = np.where(
                 inflows[idx].max() > 0, inflows[idx] / inflows[idx].max(), 0
             )

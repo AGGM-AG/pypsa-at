@@ -93,6 +93,28 @@ ECONTROL_COLUMNS = [
     "sp_gt10_psw",
 ]
 
+# E-Control annual electricity balance (sheet ``Bil`` of the same workbook):
+# first data row and the columns read, in order; ``pumping`` is the
+# "Verbrauch für Pumpspeicher" column.
+BIL_FIRST_ROW = 10
+BIL_COLUMNS = [
+    "year",
+    "gross_generation",
+    "imports",
+    "supply",
+    "exports",
+    "gross_consumption",
+    "pumping",
+    "domestic_consumption",
+]
+
+# Share of the electricity consumed for pumping that comes back as generation
+# from pumped water. E-Control publishes the generation from pumped water only
+# in the Bestandsstatistik (BeStGes-2025_KW2EPLTyp.xlsx: 3,795 GWh in 2025),
+# while the Betriebsstatistik year series carries the pumping consumption
+# (5,725 GWh in 2025); the ratio of the two is applied to every year.
+PUMPED_WATER_SHARE = 3795.0 / 5725.4
+
 OUTPUT_COLUMNS = ["bus", "carrier", "rav_gwh", "year_factor", "inflow"]
 
 
@@ -676,8 +698,10 @@ def read_econtrol_annual_generation(path: str) -> pd.DataFrame:
     Returns
     -------
     :
-        Frame indexed by year with ``lauf`` (Laufkraftwerke) and ``speicher``
-        (Speicherkraftwerke, including pumped-storage generation) in GWh.
+        Frame indexed by year with ``lauf`` (Laufkraftwerke), ``speicher``
+        (Speicherkraftwerke, including pumped-storage generation) and
+        ``phs_natural`` (generation of the pumped-storage plants minus the
+        generation from pumped water, i.e. from their natural inflow) in GWh.
 
     Raises
     ------
@@ -685,26 +709,44 @@ def read_econtrol_annual_generation(path: str) -> pd.DataFrame:
         If the sheet layout does not yield the reference period, which
         indicates a changed E-Control file format.
     """
-    raw = pd.read_excel(path, sheet_name="Erz", header=None)
-    table = raw.iloc[ECONTROL_FIRST_ROW:, : len(ECONTROL_COLUMNS)].copy()
     layout_error = ValueError(
         f"Unexpected layout in {path}: expected {len(ECONTROL_COLUMNS)} columns "
-        f"and at least {MIN_REFERENCE_YEARS} years of the reference period "
-        f"{REFERENCE_PERIOD} in sheet 'Erz'. "
+        f"in sheet 'Erz', {len(BIL_COLUMNS)} columns in sheet 'Bil' and at least "
+        f"{MIN_REFERENCE_YEARS} years of the reference period {REFERENCE_PERIOD}. "
         "Has the E-Control file format changed?"
     )
-    if table.shape[1] != len(ECONTROL_COLUMNS):
+    table = _read_econtrol_sheet(path, "Erz", ECONTROL_FIRST_ROW, ECONTROL_COLUMNS)
+    balance = _read_econtrol_sheet(path, "Bil", BIL_FIRST_ROW, BIL_COLUMNS)
+    if table is None or balance is None:
         raise layout_error
-    table.columns = ECONTROL_COLUMNS
+    table["speicher"] = table["sp_le10"] + table["sp_gt10"]
+    pumped_storage = table["sp_le10_psw"].fillna(0.0) + table["sp_gt10_psw"]
+    table["phs_natural"] = (
+        pumped_storage - balance["pumping"].reindex(table.index) * PUMPED_WATER_SHARE
+    )
+    columns = ["lauf", "speicher", "phs_natural"]
+    reference = table.loc[slice(*REFERENCE_PERIOD), columns].dropna()
+    if len(reference) < MIN_REFERENCE_YEARS:
+        raise layout_error
+    return table[columns]
+
+
+def _read_econtrol_sheet(
+    path: str, sheet: str, first_row: int, columns: list[str]
+) -> pd.DataFrame | None:
+    """Read one year-indexed sheet of the E-Control workbook, ``None`` on a layout mismatch."""
+    try:
+        raw = pd.read_excel(path, sheet_name=sheet, header=None)
+    except ValueError:  # missing worksheet
+        return None
+    table = raw.iloc[first_row:, : len(columns)].copy()
+    if table.shape[1] != len(columns):
+        return None
+    table.columns = columns
     table = table[pd.to_numeric(table["year"], errors="coerce").notna()]
     table = table.apply(pd.to_numeric, errors="coerce").set_index("year")
     table.index = table.index.astype(int)
-    table = table.sort_index()
-    table["speicher"] = table["sp_le10"] + table["sp_gt10"]
-    reference = table.loc[slice(*REFERENCE_PERIOD), ["lauf", "speicher"]].dropna()
-    if len(reference) < MIN_REFERENCE_YEARS:
-        raise layout_error
-    return table[["lauf", "speicher"]]
+    return table.sort_index()
 
 
 def weather_year_factors(econtrol: pd.DataFrame, year: int) -> dict[str, float]:
@@ -721,8 +763,9 @@ def weather_year_factors(econtrol: pd.DataFrame, year: int) -> dict[str, float]:
     Returns
     -------
     :
-        ``{"ror": Laufkraft(year) / mean, "hydro": Speicherkraft(year) / mean}``
-        with the means taken over the years available in ``REFERENCE_PERIOD``.
+        ``{"ror": Laufkraft(year) / mean, "hydro": Speicherkraft(year) / mean,
+        "PHS": natural pumped-storage generation(year) / mean}`` with the
+        means taken over the years available in ``REFERENCE_PERIOD``.
 
     Raises
     ------
@@ -739,7 +782,57 @@ def weather_year_factors(econtrol: pd.DataFrame, year: int) -> dict[str, float]:
     return {
         "ror": float(econtrol.at[year, "lauf"] / reference["lauf"]),
         "hydro": float(econtrol.at[year, "speicher"] / reference["speicher"]),
+        "PHS": float(econtrol.at[year, "phs_natural"] / reference["phs_natural"]),
     }
+
+
+def phs_inflow_targets(
+    econtrol: pd.DataFrame, year: int, plants: pd.DataFrame, at_buses: set[str]
+) -> pd.DataFrame:
+    """
+    Natural inflow of the Austrian pumped-storage plants from E-Control.
+
+    The KLIEN catchment energy excludes pumped-storage plants and the PEMMDB
+    *PS Open* inflow for Austria is about twice what E-Control attributes to
+    natural inflow. The national figure is E-Control's generation of
+    pumped-storage plants minus the generation from pumped water, taken as
+    the reference-period mean and scaled to the weather year like the other
+    carriers. It is spread over the Austrian regions in proportion to the
+    pumped-storage turbine capacity of the calibrated fleet, because the
+    statistic knows no regions.
+
+    Parameters
+    ----------
+    econtrol
+        Annual series from :func:`read_econtrol_annual_generation`.
+    year
+        Weather year of the inflow profile (snapshots).
+    plants
+        Hydro plants from :func:`select_hydro_plants` with ``bus``,
+        ``carrier`` and ``p_nom``.
+    at_buses
+        Buses that belong to Austria.
+
+    Returns
+    -------
+    :
+        Frame with ``OUTPUT_COLUMNS`` and carrier ``PHS``.
+    """
+    phs = plants[(plants["carrier"] == "PHS") & plants["bus"].isin(at_buses)]
+    share = phs.groupby("bus")["p_nom"].sum()
+    share = share / share.sum()
+    reference = econtrol.loc[slice(*REFERENCE_PERIOD), "phs_natural"].dropna().mean()
+    factor = weather_year_factors(econtrol, year)["PHS"]
+    targets = pd.DataFrame(
+        {
+            "bus": share.index,
+            "carrier": "PHS",
+            "rav_gwh": (reference * share).to_numpy(),
+            "year_factor": factor,
+        }
+    )
+    targets["inflow"] = targets["rav_gwh"] * 1e3 * targets["year_factor"]
+    return targets[OUTPUT_COLUMNS]
 
 
 def main(snakemake: Snakemake) -> pd.DataFrame:
@@ -791,13 +884,14 @@ def main(snakemake: Snakemake) -> pd.DataFrame:
     targets, diagnostics = build_inflow_targets(
         plants, sections, regions, overrides=overrides, capacity_col="C_current"
     )
-    # natural inflow of the model's PHS plants stays on the TYNDP PS-Open data;
-    # the KLIEN energy attributed to them would double count it
+    # the natural inflow of the model's PHS plants comes from the E-Control
+    # pumped-storage statistic below; the KLIEN energy attributed to them in
+    # the catchments where the study counts them would double count it
     phs = targets["carrier"] == "PHS"
     if phs.any():
         logger.info(
             f"Dropping {targets.loc[phs, 'energy'].sum():.0f} GWh/a attributed "
-            "to PHS plants (covered by the TYNDP pumped-storage inflow)."
+            "to PHS plants (replaced by the E-Control pumped-storage inflow)."
         )
         targets = targets[~phs]
     at_buses = set(plants.loc[ppl.loc[plants.index, "Country"] == "AT", "bus"])
@@ -825,11 +919,15 @@ def main(snakemake: Snakemake) -> pd.DataFrame:
     factors = weather_year_factors(econtrol, year)
     targets["year_factor"] = targets["carrier"].map(factors)
     targets["inflow"] = targets["rav_gwh"] * 1e3 * targets["year_factor"]
+    targets = pd.concat(
+        [targets[OUTPUT_COLUMNS], phs_inflow_targets(econtrol, year, plants, at_buses)],
+        ignore_index=True,
+    )
 
     logger.info(
         f"KLIEN sections carry {sections['E_current'].sum() / 1e3:.2f} TWh/a. "
         f"Weather year {year} factors: ror {factors['ror']:.3f}, "
-        f"hydro {factors['hydro']:.3f}."
+        f"hydro {factors['hydro']:.3f}, PHS {factors['PHS']:.3f}."
     )
     for carrier, total in targets.groupby("carrier")["inflow"].sum().items():
         logger.info(f"AT {carrier} inflow target for {year}: {total / 1e6:.2f} TWh.")
