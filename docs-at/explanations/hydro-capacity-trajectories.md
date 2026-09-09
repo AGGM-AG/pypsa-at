@@ -598,45 +598,49 @@ Rauris plant plus the old plant, which equals the study's catchment capacity).
 
 ## The EAG hydro target
 
-The Erneuerbaren-Ausbau-Gesetz sets 47 TWh/a of hydropower generation for 2030, and the
-model enforces it as a production floor for Austria in that horizon. The floor counts
-natural inflow only: the run-of-river generators and the inflow generators of the reservoir
-and pumped-storage stores. The turbine output of pumped storage is not part of it, because a
-floor on turbine output would reward pumping and turbining water for no other reason than
-meeting the floor. The inflow generators sit upstream of the turbine links, so each is
-weighted by the efficiency of the turbine of its store (0.90 for reservoirs, 0.87 for
-pumped storage), which states the floor in delivered electricity. E-Control's hydro
-statistic, against which the EAG progress is measured, does include generation from pumped
-water: 3.5 TWh a year on average over 2013 to 2025 (derived from E-Control's pumping
-series, 2.0 TWh in 2000 rising to 3.7 TWh over 2020 to 2025 and 4.3 TWh in 2022). That
-share is credited as a fixed 3.5 TWh, so the configured floor is 47 − 3.5 = 43.5 TWh. The
-pumped-storage natural inflow is calibrated to the same statistic, so the credit and the
-inflow do not overlap.
+The Erneuerbaren-Ausbau-Gesetz requires, in § 4 (4), that renewable electricity generation
+rises by 27 TWh/a from the 2020 production to 2030, of which 5 TWh/a from hydropower. On
+the Statistik Austria accounting behind that figure, which counts the natural inflow of
+pumped-storage plants but not generation from pumped water, the 2020 production was about
+42 TWh, so the 2030 level is 47 TWh/a. The model enforces it as a production floor for
+Austria in 2030.
+
+The floor counts natural inflow only: the run-of-river generators and the inflow
+generators of the reservoir and pumped-storage stores, each weighted by the efficiency of
+the turbine of its store (0.90 for reservoirs, 0.87 for pumped storage), which states the
+floor in delivered electricity. The turbine output of pumped storage is not part of it,
+because a floor on turbine output would reward pumping and turbining water for no other
+reason than meeting the floor. This is the same basis as the target: generation from pumped
+water counts nowhere. E-Control's statutory monitoring of the EAG goes one step further and
+leaves the pumped-storage plants out entirely, natural inflow included, because its
+statistics cannot separate the two; on that basis the 2020 production was 39.0 TWh and
+the 2030 level would be 44 TWh. The two readings differ by the natural inflow of the
+pumped-storage plants, 3.5 TWh/a on average, and the model follows the law's figure of 47.
 
 Whether the floor can be met depends on the weather year, because the inflow targets scale
-with it while the fleet does not. The table shows, per weather year, the natural inflow of
-the calibrated 2025 fleet and the run-of-river capacity the optimizer would have to add in
-2030 to reach the floor; the KLIEN corridor allows 471 MW of additions by 2030. The
-efficiency weights are applied, so the table is in delivered electricity.
+with it while the fleet does not, and the law's figure is a snapshot for 2030 rather than a
+normalised value. The table shows, per weather year, the delivered natural inflow of the
+calibrated 2025 fleet and the run-of-river capacity the optimizer would have to add in 2030
+to reach 47 TWh; the KLIEN corridor allows 471 MW of additions by 2030.
 
-| Weather year | Natural inflow, 2025 fleet | Additional ror needed for 43.5 TWh | Feasible in 2030 |
+| Weather year | Delivered natural inflow, 2025 fleet | Additional ror needed for 47 TWh | Feasible in 2030 |
 |---|---:|---:|:---:|
-| 2003, 2025, 2011, 2006, 2022 | 37.6–40.3 TWh | 800–1,580 MW | no |
-| 2005, 2007, 2004, 2018, 2015 | 41.9–42.9 TWh | 140–370 MW | within the corridor |
-| 2017, 2008, 2010, 2021, 2001, 2002 | 43.5–44.9 TWh | 0 MW | yes |
-| 2019, 2016, 2000, 2023, 2009, 2020 | 45.6–47.3 TWh | 0 MW | yes |
-| 2014, 2013 | 47.7, 48.6 TWh | 0 MW | yes |
-| 2012, 2024 | 50.6, 52.1 TWh | 0 MW | yes |
+| 2003, 2025, 2011, 2006, 2022 | 36.4–39.0 TWh | 1,930–2,850 MW | no |
+| 2005, 2007, 2004, 2018, 2015 | 40.6–41.5 TWh | 1,320–1,500 MW | no |
+| 2017, 2008, 2010, 2021, 2001, 2002 | 42.3–43.6 TWh | 720–1,040 MW | no |
+| 2016, 2019 | 44.3 TWh | 580–600 MW | no |
+| 2000, 2023, 2009, 2020, 2014 | 45.2–46.1 TWh | 190–390 MW | within the corridor |
+| 2013 | 47.0 TWh | 0 MW | yes, without slack |
+| 2012, 2024 | 48.9, 50.5 TWh | 0 MW | yes |
 
-With the configured 2013 weather year the fleet delivers 48.6 TWh of natural inflow and the
-floor leaves 5 TWh of slack. Five dry years, 2003, 2025, 2011, 2006 and 2022, cannot meet it
-with any buildout the corridor permits (471 MW); a hard floor makes such a year infeasible,
-which is the intended signal rather than a defect. The
-pumped-storage column follows E-Control's natural inflow of the respective year (2.5 to
-4.7 TWh), so the table needs no proxy for years after 2017. The table is in delivered
-electricity: the calibrated energies are generation, the store inflows are grossed up by the
-turbine efficiency when
-they enter the network, and the floor weights them back down by the same efficiency.
+With the configured 2013 weather year the fleet delivers 47.0 TWh and meets the floor with
+no slack; any buildout the optimizer chooses is additional. Only the two wettest years
+exceed it on their own, five average-to-wet years reach it with buildout inside the
+corridor, and eighteen of the 26 years, every dry or average one, cannot meet it with any
+buildout the corridor permits. That is the honest picture: E-Control's monitoring reports
+hydropower behind its linear path in every year but the wet 2024. A hard floor makes a dry
+year infeasible, which is the intended signal rather than a defect; the pumped-storage
+column follows E-Control's natural inflow of the respective year.
 
 ## Configuration
 
@@ -654,7 +658,7 @@ they enter the network, and the floor weights them back down by the same efficie
 | `data.econtrol-betriebsstatistik` | E-Control Betriebsstatistik (annual generation by plant type and electricity balance) for the weather-year factors and the pumped-storage natural inflow. |
 | `data.anlagenregister` | Plant-level Anlagenregister for the small-hydro fleet (see [E-Control Anlagenregister](../how-to-guides/anlagenregister.md)). |
 | `data.geonames-postal-codes-at` | GeoNames postal code centroids (CC BY 4.0) that locate the register plants. |
-| `solving.constraints.limits_volume_min.hydro.AT` | The EAG hydro production floor, 43.5 TWh for 2030 (see [The EAG hydro target](#the-eag-hydro-target)). |
+| `solving.constraints.limits_volume_min.hydro.AT` | The EAG hydro production floor, 47 TWh for 2030 (see [The EAG hydro target](#the-eag-hydro-target)). |
 
 !!! note "Data availability"
     The KLIEN potentials, including the 82 MB catchment GeoJSON, are mirrored on Zenodo

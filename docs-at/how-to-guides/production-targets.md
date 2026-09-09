@@ -36,11 +36,11 @@ of pumped storage is deliberately not part of it, because a floor on turbine out
 reward pumping and turbining water for no other reason than meeting the floor. To state
 the floor in delivered electricity, every generator on a store bus is weighted by the
 efficiency of the turbine link of that store (0.90 for reservoirs, 0.87 for pumped
-storage with the default cost data); generators on an electricity bus count fully.
-E-Control's hydro statistic, against which the EAG progress is measured, does include
-generation from pumped water, 3.5 TWh/a on average over 2013–2025. The configured Austrian
-floor for 2030 is therefore the EAG target minus a fixed 3.5 TWh credit for that share
-(47 − 3.5 = 43.5 TWh).
+storage with the default cost data); generators on an electricity bus count fully. This
+matches the accounting behind the Austrian target: the EAG (§ 4 (4)) requires hydropower
+generation to rise by 5 TWh/a from the 2020 production, which is about 42 TWh on the
+Statistik Austria basis that counts the natural inflow of pumped-storage plants but not
+generation from pumped water; the configured Austrian floor for 2030 is therefore 47 TWh.
 Which weather years can meet it is discussed in
 [Hydropower Capacities and Inflows](../explanations/hydro-capacity-trajectories.md#the-eag-hydro-target).
 

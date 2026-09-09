@@ -289,13 +289,11 @@ solving:
           2030: 17
       hydro:
         AT:
-          # EAG target: 47 TWh/a hydropower generation in 2030. The model counts natural
-          # inflow only (ror, hydro inflow, PHS inflow). The turbine output of PHS is
-          # excluded so that storage cycling cannot be used to reach the goal.
-          # E-Control's Betriebsstatistik, on which the EAG progress is measured,
-          # includes generation from pumped water: 3.5 TWh/a on average 2013-2025
-          # That share is credited as a fixed 3.5 TWh, hence 47 - 3.5 = 43.5.
-          2030: 43.5
+          # EAG §4 (4): hydropower generation is to rise by 5 TWh/a by 2030
+          # on basis of about 42 TWh (Statistik Austria accounting, incl. PHS inflow).
+          # Note, that this constraint cannot be reached for dry weather years and
+          # limited RoR capacity expansion trajectories.
+          2030: 47
       biomass:
         AT:
           2030: 5.6
