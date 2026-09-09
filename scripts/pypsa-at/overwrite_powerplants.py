@@ -116,7 +116,8 @@ def _match_single_hydro_plant(
     source_file
         Curated CSV referenced in error messages.
     technology
-        Optional ``Technology`` the plant must additionally match.
+        Optional ``Technology`` the plant must additionally match; ``NaN``
+        matches plants listed without a technology.
 
     Returns
     -------
@@ -129,15 +130,27 @@ def _match_single_hydro_plant(
         more than 1 MW — both indicate a changed upstream dataset.
     """
     query = "Country == @country and Fueltype == 'Hydro' and Name == @name"
-    if technology is not None:
+    if technology is not None and pd.isna(technology):
+        # curated rows may target plants powerplantmatching lists without a
+        # technology (which would otherwise drop out of the model, because
+        # the hydro carrier is derived from the technology)
+        query += " and Technology.isna()"
+    elif technology is not None:
         query += " and Technology == @technology"
     matches = ppl.query(query).index
+    if len(matches) > 1:
+        # powerplantmatching lists some plants several times under one name
+        # (e.g. two "Kaprun Limberg" entries); the curated capacity picks one
+        matches = matches[
+            (ppl.loc[matches, "Capacity"] - expected_capacity_mw).abs() <= 1.0
+        ]
     if len(matches) != 1:
         with_technology = f" with Technology {technology!r}" if technology else ""
         raise ValueError(
             f"Expected exactly one {country} hydro plant {name!r}"
-            f"{with_technology}, found {len(matches)}. Powerplants data "
-            f"changed upstream; re-check {source_file}."
+            f"{with_technology} at {expected_capacity_mw:.1f} MW, found "
+            f"{len(matches)}. Powerplants data changed upstream; re-check "
+            f"{source_file}."
         )
     idx = matches[0]
     if abs(ppl.at[idx, "Capacity"] - expected_capacity_mw) > 1.0:
@@ -228,6 +241,9 @@ def overwrite_biogas_to_power_plants_at(
     clustering
         clustering identifier, either AT10 (NUTS2) or AT35 (NUTS3). Needed for
         AT10, maps powerplants accordingly using map_at_nuts3_to_nuts2.
+    postal_centroids_file
+        Optional GeoNames postal code table; when given, every register
+        plant receives the coordinates of its postal code centroid.
 
     Returns
     -------
@@ -315,11 +331,56 @@ def _read_small_hydro_anchor_mw(bestandsstatistik_typ_file: str) -> float:
     return float(anchor_mw)
 
 
+GEONAMES_COLUMNS = [
+    "country",
+    "plz",
+    "place",
+    "admin1",
+    "admin1_code",
+    "admin2",
+    "admin2_code",
+    "admin3",
+    "admin3_code",
+    "lat",
+    "lon",
+    "accuracy",
+]
+
+
+def load_postal_centroids(path: str) -> pd.DataFrame:
+    """
+    Load postal code centroids from the GeoNames postal code table.
+
+    GeoNames lists one row per locality; a postal code with several
+    localities gets the mean of their coordinates. The register plants have
+    no coordinates of their own, and placing them at their postal code lets
+    the inflow allocation locate them in the right river catchment instead
+    of spreading them over the whole region by area.
+
+    Parameters
+    ----------
+    path
+        Tab-separated GeoNames postal code file (``AT.txt``, no header).
+
+    Returns
+    -------
+    :
+        Frame indexed by 4-digit postal code with ``lat`` and ``lon``
+        columns (EPSG:4326).
+    """
+    geonames = pd.read_csv(
+        path, sep="\t", header=None, names=GEONAMES_COLUMNS, dtype={"plz": str}
+    )
+    geonames["plz"] = geonames["plz"].str.strip().str.zfill(4)
+    return geonames.groupby("plz")[["lat", "lon"]].mean()
+
+
 def add_kleinwasserkraft_to_power_plants_at(
     ppl: pd.DataFrame,
     anlagenregister_plants_file: str,
     postal_to_nuts_file: str,
     clustering: str,
+    postal_centroids_file: str | None = None,
 ) -> pd.DataFrame:
     """
     Replace the small hydro fleet with Anlagenregister Kleinwasserkraft plants.
@@ -346,6 +407,9 @@ def add_kleinwasserkraft_to_power_plants_at(
     clustering
         clustering identifier, either AT10 (NUTS2) or AT35 (NUTS3). Needed for
         AT10, maps powerplants accordingly using map_at_nuts3_to_nuts2.
+    postal_centroids_file
+        Optional GeoNames postal code table; when given, every register
+        plant receives the coordinates of its postal code centroid.
 
     Returns
     -------
@@ -434,6 +498,16 @@ def add_kleinwasserkraft_to_power_plants_at(
         bus=kwk["nuts"].values,
     ).assign(plz=kwk["plz"].values)
     # postal codes are carried over to simplify locating plants
+    if postal_centroids_file is not None:
+        centroids = load_postal_centroids(postal_centroids_file)
+        new_ppls["lat"] = new_ppls["plz"].map(centroids["lat"]).values
+        new_ppls["lon"] = new_ppls["plz"].map(centroids["lon"]).values
+        located = new_ppls["lat"].notna()
+        logger.info(
+            f"Located {located.sum()} of {len(new_ppls)} Kleinwasserkraft plants "
+            f"({new_ppls.loc[located, 'Capacity'].sum() / new_ppls['Capacity'].sum():.2%} "
+            "of their capacity) at their postal code centroid."
+        )
 
     logger.info(
         f"Added {len(new_ppls)} Austrian Kleinwasserkraft plants with "
@@ -657,6 +731,70 @@ def add_missing_hydro_plants_at(
     return pd.concat([ppl, new_ppls], ignore_index=True)
 
 
+def drop_duplicate_hydro_plants_at(
+    ppl: pd.DataFrame, duplicates_file: str
+) -> pd.DataFrame:
+    """
+    Drop Austrian hydro plants powerplantmatching lists twice.
+
+    powerplantmatching merges several source databases and keeps a second
+    entry when the names differ only in language (``Kaprun Haupstufe`` and
+    ``Kaprun Main Stage``, ``Malta Hauptstufe`` and ``Malta Main Stage``) or
+    when a foreign plant is geocoded into Austria (the Bavarian Inn plant
+    Feldkirchen). The curated list names the entry to remove by name and
+    capacity and the surviving twin by name and country; the twin must exist,
+    otherwise the drop would lose the plant. Austrian twins are corrected in
+    the reclassification step.
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table with ``Name``, ``Country``, ``Fueltype`` and
+        ``Capacity`` columns.
+    duplicates_file
+        CSV with columns ``Name``, ``bus``, ``capacity_mw``, ``keeps`` (the
+        surviving entry), optional ``keeps_country`` (default ``AT``) and
+        ``note``.
+
+    Returns
+    -------
+    :
+        A copy of ``ppl`` without the listed entries.
+
+    Raises
+    ------
+    ValueError
+        If an entry does not match exactly one Austrian hydro plant or its
+        kept twin is missing (changed upstream dataset).
+    """
+    duplicates = pd.read_csv(duplicates_file)
+    if "keeps_country" not in duplicates:
+        duplicates["keeps_country"] = "AT"
+    duplicates["keeps_country"] = duplicates["keeps_country"].fillna("AT")
+    ppl = ppl.copy()
+    for row in duplicates.itertuples():
+        idx = _match_single_hydro_plant(
+            ppl, row.Name, "AT", row.capacity_mw, row.bus, duplicates_file
+        )
+        keeps, keeps_country = row.keeps, row.keeps_country
+        twins = ppl.drop(index=idx).query(
+            "Country == @keeps_country and Fueltype == 'Hydro' and Name == @keeps"
+        )
+        if twins.empty:
+            raise ValueError(
+                f"Duplicate {row.Name!r} would be dropped, but its kept twin "
+                f"{keeps!r} ({keeps_country}) is not in the powerplants table. "
+                f"Powerplants data changed upstream; re-check {duplicates_file}."
+            )
+        logger.info(
+            f"Dropped duplicate {row.Name!r} ({ppl.at[idx, 'Capacity']:.0f} MW); "
+            f"the plant is kept as {keeps!r} ({keeps_country}, "
+            f"{twins['Capacity'].sum():.0f} MW)."
+        )
+        ppl = ppl.drop(index=idx)
+    return ppl
+
+
 def reclassify_hydro_technologies_at(
     ppl: pd.DataFrame, reclassification_file: str
 ) -> pd.DataFrame:
@@ -680,8 +818,10 @@ def reclassify_hydro_technologies_at(
     reclassification_file
         CSV with columns ``Name``, ``bus``, ``capacity_mw``,
         ``technology_old``, ``technology_new``, ``group``, ``note`` and
-        optionally ``capacity_new`` (corrected nameplate capacity in MW,
-        applied where set).
+        optional correction columns applied where set: ``capacity_new``
+        (nameplate capacity in MW) and ``bus_new`` / ``lat_new`` /
+        ``lon_new`` (relocation of a plant powerplantmatching geocoded to
+        the wrong place, e.g. a same-named village).
 
     Returns
     -------
@@ -715,10 +855,20 @@ def reclassify_hydro_technologies_at(
                 f"{ppl.at[idx, 'Capacity']:.1f} -> {row.capacity_new:.1f} MW."
             )
             ppl.at[idx, "Capacity"] = row.capacity_new
+        for column in ("bus", "lat", "lon"):
+            new_value = getattr(row, f"{column}_new", None)
+            if pd.notna(new_value):
+                logger.info(
+                    f"Relocated {row.Name!r}: {column} "
+                    f"{ppl.at[idx, column]!r} -> {new_value!r}."
+                )
+                ppl.at[idx, column] = new_value
 
-    summary = reclassification.groupby(["technology_old", "technology_new"])[
-        "capacity_mw"
-    ].agg(["size", "sum"])
+    summary = (
+        reclassification.fillna({"technology_old": "<none>"})
+        .groupby(["technology_old", "technology_new"])["capacity_mw"]
+        .agg(["size", "sum"])
+    )
     for (old, new), r in summary.iterrows():
         logger.info(
             f"Reclassified {r['size']:.0f} Austrian hydro plants "
@@ -746,6 +896,9 @@ def overwrite_powerplants(snakemake):
         )
 
     if snakemake.params.update_hydro_capacities_AT:
+        ppl_overwrite = drop_duplicate_hydro_plants_at(
+            ppl_overwrite, snakemake.input.hydro_duplicates
+        )
         ppl_overwrite = reclassify_hydro_technologies_at(
             ppl_overwrite, snakemake.input.hydro_reclassification
         )
@@ -760,6 +913,7 @@ def overwrite_powerplants(snakemake):
             anlagenregister_plants_file=snakemake.input.anlagenregister_plants,
             postal_to_nuts_file=snakemake.input.postal_to_nuts,
             clustering=snakemake.params.clustering,
+            postal_centroids_file=snakemake.input.postal_centroids,
         )
         ppl_overwrite = scale_kleinwasserkraft_to_bestandsstatistik_at(
             ppl_overwrite, snakemake.input.bestandsstatistik_typ

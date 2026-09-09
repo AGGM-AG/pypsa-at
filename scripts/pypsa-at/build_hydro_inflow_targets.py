@@ -5,14 +5,35 @@
 """
 Allocate KLIEN river-section inflow energy to plants and model regions.
 
-Carved-out core of the future ``build_hydro_inflow_targets`` rule: given
-watershed polygons per river section (KLIEN ``hydro_EEPOT_W23.geojson``)
-carrying an annual energy value (``E_current`` — the Regelarbeitsvermögen of
-Lauf- und Speicherkraftwerke, *excluding* Pumpspeicherkraftwerke, see KLIEN
-Langfassung §4.3.2), the hydro plant fleet and the model region shapes, it
-distributes each section's energy to the plants inside the section's
-catchment (capacity-weighted) and aggregates plant energies to
-region × carrier targets.
+Given watershed polygons per river section (KLIEN ``hydro_EEPOT_W23.geojson``,
+stored as ``catchments_hydro.geojson``) carrying an annual energy value
+(``E_current`` — the Regelarbeitsvermögen of Lauf- und Speicherkraftwerke,
+*excluding* Pumpspeicherkraftwerke, see KLIEN Langfassung §4.3.2), the hydro
+plant fleet and the model region shapes, it distributes each section's energy
+to the plants inside the section's catchment (capacity-weighted) and
+aggregates plant energies to region × carrier targets. The long-term mean is
+then scaled to the weather year of the snapshots with the E-Control annual
+generation series (Betriebsstatistik Jahresreihe).
+
+The German treaty halves of the Inn and Danube Grenzkraftwerke take part in
+the allocation (KLIEN counts the full border plants), so that only the
+Austrian half of their section energy ends up in the Austrian targets.
+
+Outputs
+-------
+
+- ``resources/hydro_inflow_targets_{clusters}.csv``:
+
+    ===================  ================  =========================================================
+    Field                Index             Description
+    ===================  ================  =========================================================
+    rav_gwh              bus, carrier      Long-term mean (1991–2020) annual energy from KLIEN
+    year_factor          bus, carrier      E-Control generation of the weather year over the mean
+    inflow               bus, carrier      Target inflow energy of the weather year in MWh
+    ===================  ================  =========================================================
+
+    Empty (header only) when ``mods.update_hydro_capacities_AT.enable`` is
+    false, so the DAG does not depend on the configuration.
 
 Location logic
 --------------
@@ -27,20 +48,52 @@ Location logic
   then the ``bus`` region as last resort. Within each lookup, the plant is
   spread over the sections intersecting its polygon, weighted by overlap
   area — a polygon fully inside one section yields a unique assignment.
-
-TODO: the Snakemake rule wiring (retrieve rule + ``data/versions.csv`` entries) is
-  still need to be added (currently on in marimo notebook).
 """
 
 import logging
 
 import geopandas as gpd
 import pandas as pd
+from snakemake.script import Snakemake
+
+from scripts._helpers import configure_logging, get_snapshots, set_scenario_config
 
 logger = logging.getLogger(__name__)
 
 # Carriers that take KLIEN section energy (PHS is outside ``E_current``)
 ELIGIBLE_CARRIERS = ("ror", "hydro")
+
+TECH_TO_CARRIER = {
+    "Run-Of-River": "ror",
+    "Reservoir": "hydro",
+    "Pumped Storage": "PHS",
+}
+
+# Projected CRS for the area weighting (Austria Lambert)
+KLIEN_CRS = "EPSG:3416"
+
+# Discharge reference period of the KLIEN Regelarbeitsvermögen. The E-Control
+# series is annual only from 2000 (five-year steps before), so the reference
+# mean uses the years available inside the period; at least
+# ``MIN_REFERENCE_YEARS`` must be present.
+REFERENCE_PERIOD = (1991, 2020)
+MIN_REFERENCE_YEARS = 20
+
+# E-Control annual generation series (sheet ``Erz`` of BStGes-JR1_Bilanz.xlsx):
+# first data row and the columns read, in order
+ECONTROL_FIRST_ROW = 10
+ECONTROL_COLUMNS = [
+    "year",
+    "lauf_le10",
+    "lauf_gt10",
+    "lauf",
+    "sp_le10",
+    "sp_le10_psw",
+    "sp_gt10",
+    "sp_gt10_psw",
+]
+
+OUTPUT_COLUMNS = ["bus", "carrier", "rav_gwh", "year_factor", "inflow"]
 
 
 def _require_matching_crs(*gdfs: gpd.GeoDataFrame) -> None:
@@ -304,18 +357,70 @@ def assign_plants_to_sections(
     return membership
 
 
+def _phs_counted_sections(
+    sections: pd.DataFrame,
+    members: pd.DataFrame,
+    capacity_col: str,
+    eligible_carriers: tuple[str, ...],
+) -> pd.Index:
+    """
+    Sections whose KLIEN capacity evidently includes the pumped-storage plants.
+
+    KLIEN excludes *Pumpspeicherkraftwerke* from ``E_current``, but its set of
+    pumped-storage plants is narrower than the model's ``PHS`` technology:
+    large storage groups with pumps (Sellrain-Silz, Zemm-Ziller, ...) are
+    counted as Speicherkraftwerke by the study. Where that is the case, the
+    section capacity ``capacity_col`` is close to the member capacity
+    *including* PHS and far above the eligible members alone. The nearer
+    match decides per section.
+
+    Parameters
+    ----------
+    sections
+        Frame indexed by section id with the ``capacity_col`` column.
+    members
+        Membership rows joined with ``carrier`` and ``p_nom``, with a
+        weighted capacity column ``w``.
+    capacity_col
+        Section column holding the KLIEN current capacity in MW.
+    eligible_carriers
+        Carriers eligible by default.
+
+    Returns
+    -------
+    :
+        Section ids where PHS members share the section energy.
+    """
+    capacity = sections[capacity_col].dropna()
+    by_section = (
+        members.groupby(["section", "carrier"])["w"].sum().unstack(fill_value=0)
+    )
+    by_section = by_section.reindex(capacity.index, fill_value=0.0)
+    default = by_section.reindex(columns=list(eligible_carriers), fill_value=0.0).sum(
+        axis=1
+    )
+    with_phs = default + by_section.get("PHS", 0.0)
+    counted = capacity.index[(with_phs - capacity).abs() < (default - capacity).abs()]
+    return counted
+
+
 def allocate_section_energy(
     sections: gpd.GeoDataFrame | pd.DataFrame,
     membership: pd.DataFrame,
     plants: pd.DataFrame,
     energy_col: str = "E_current",
     eligible_carriers: tuple[str, ...] = ELIGIBLE_CARRIERS,
+    capacity_col: str | None = None,
 ) -> tuple[pd.Series, pd.Series]:
     """
     Distribute section energy to plants, capacity-weighted.
 
     Within each section, energy is split over the member plants of eligible
-    carriers proportional to ``membership weight × p_nom``.
+    carriers proportional to ``membership weight × p_nom``. When
+    ``capacity_col`` is given, PHS members additionally take part in the
+    sections whose KLIEN capacity evidently counts them (see
+    :func:`_phs_counted_sections`); the caller decides what to do with the
+    energy attributed to PHS plants.
 
     Parameters
     ----------
@@ -330,34 +435,59 @@ def allocate_section_energy(
         Section column holding annual energy.
     eligible_carriers
         Carriers allowed to take section energy.
+    capacity_col
+        Section column holding the KLIEN current capacity; enables the
+        per-section PHS eligibility.
 
     Returns
     -------
     :
         Tuple of (energy per plant, unallocated energy per section). The
-        second series lists sections with energy but no eligible member
-        plant; together both preserve the section total.
+        second series lists the energy of sections without (enough)
+        eligible member capacity; together both preserve the section total.
     """
     energy = sections[energy_col].dropna()
 
     m = membership.merge(
         plants[["carrier", "p_nom"]], left_on="plant", right_index=True
     )
-    m = m[m["carrier"].isin(eligible_carriers)]
     m["w"] = m["weight"] * m["p_nom"]
-    m = m[m["w"] > 0]
-    m["share"] = m["w"] / m.groupby("section")["w"].transform("sum")
+    eligible = m["carrier"].isin(eligible_carriers)
+    if capacity_col is not None:
+        phs_sections = _phs_counted_sections(
+            sections, m, capacity_col, eligible_carriers
+        )
+        phs_rows = (m["carrier"] == "PHS") & m["section"].isin(phs_sections)
+        if phs_rows.any():
+            logger.info(
+                f"PHS plants share the section energy in {len(phs_sections)} "
+                f"sections whose KLIEN capacity counts them: {sorted(phs_sections)}."
+            )
+        eligible |= phs_rows
+    m = m[eligible]
+    member_capacity = m.groupby("section")["w"].sum()
+    denominator = member_capacity
+    if capacity_col is not None:
+        # a plant never takes more than the section's own full-load hours
+        # (E / C); the energy of capacity missing from the fleet stays
+        # unallocated instead of inflating the plants that are present
+        denominator = member_capacity.combine(
+            sections[capacity_col].reindex(member_capacity.index).fillna(0.0), max
+        )
+    m["share"] = m["w"] / m["section"].map(denominator)
     m["energy"] = m["section"].map(energy).fillna(0.0) * m["share"]
 
     plant_energy = m.groupby("plant")["energy"].sum()
 
-    covered = energy.index.intersection(m["section"].unique())
-    unallocated = energy.drop(covered)
+    allocated = m.groupby("section")["energy"].sum().reindex(energy.index, fill_value=0)
+    unallocated = (energy - allocated).round(6)
     unallocated = unallocated[unallocated > 0]
     if not unallocated.empty:
-        logger.warning(  # todo: raise Error instead
+        top = unallocated.sort_values(ascending=False).head(10).round(0)
+        logger.warning(
             f"{len(unallocated)} sections carry {unallocated.sum():.1f} energy "
-            "units but have no eligible plant; energy left unallocated."
+            "units without matching plant capacity in the fleet (missing or "
+            f"misplaced plants); largest: {top.to_dict()}."
         )
     return plant_energy, unallocated
 
@@ -391,6 +521,7 @@ def build_inflow_targets(
     eligible_carriers: tuple[str, ...] = ELIGIBLE_CARRIERS,
     extra_lookups: list[tuple[str, gpd.GeoDataFrame]] | None = None,
     overrides: pd.DataFrame | None = None,
+    capacity_col: str | None = None,
 ) -> tuple[pd.DataFrame, dict]:
     """
     Plant-location based section to region energy targets.
@@ -418,6 +549,10 @@ def build_inflow_targets(
     overrides
         Curated diversion-plant ``name`` → ``section`` assignments (see
         :func:`_override_membership`).
+    capacity_col
+        Section column with the KLIEN current capacity; enables the
+        per-section PHS eligibility of :func:`allocate_section_energy`.
+        PHS energy then appears as its own carrier in the targets.
 
     Returns
     -------
@@ -430,7 +565,7 @@ def build_inflow_targets(
         plants, sections, regions, extra_lookups, overrides
     )
     plant_energy, unallocated = allocate_section_energy(
-        sections, membership, plants, energy_col, eligible_carriers
+        sections, membership, plants, energy_col, eligible_carriers, capacity_col
     )
     targets = aggregate_by_region(plant_energy, plants)
     diagnostics = {
@@ -439,3 +574,282 @@ def build_inflow_targets(
         "unallocated": unallocated,
     }
     return targets, diagnostics
+
+
+def apply_catchment_corrections(
+    sections: pd.DataFrame, corrections: pd.DataFrame
+) -> pd.DataFrame:
+    """
+    Overwrite the study's capacity and energy of individually verified catchments.
+
+    The KLIEN table books, for a few catchments, capacity that is not Austrian
+    or not on that stretch (a company total, a Bavarian plant). Left as is,
+    that energy is reported as unmatched in every run although no plant is
+    missing. The curated list replaces ``C_current`` and ``E_current`` of the
+    listed catchments with the operator figures; every row carries a note
+    with the rationale and the source.
+
+    Parameters
+    ----------
+    sections
+        KLIEN catchments indexed by ``id`` with ``C_current`` and
+        ``E_current`` columns.
+    corrections
+        Frame with columns ``id``, ``C_current_new``, ``E_current_new`` and
+        ``note``.
+
+    Returns
+    -------
+    :
+        A copy of ``sections`` with the corrected values.
+
+    Raises
+    ------
+    ValueError
+        If a listed catchment id is not in the table (changed upstream
+        dataset).
+    """
+    sections = sections.copy()
+    ids = corrections["id"].astype(str)
+    missing = ids[~ids.isin(sections.index.astype(str))]
+    if not missing.empty:
+        raise ValueError(
+            f"Catchment corrections list catchments that are not in the KLIEN "
+            f"table: {missing.tolist()}. KLIEN data changed upstream; re-check "
+            "the corrections list."
+        )
+    index = pd.Series(sections.index, index=sections.index.astype(str))
+    for row in corrections.itertuples():
+        idx = index[str(row.id)]
+        logger.info(
+            f"Catchment {row.id}: C_current {sections.at[idx, 'C_current']:.1f} -> "
+            f"{row.C_current_new:.1f} MW, E_current "
+            f"{sections.at[idx, 'E_current']:.1f} -> {row.E_current_new:.1f} GWh/a."
+        )
+        sections.at[idx, "C_current"] = row.C_current_new
+        sections.at[idx, "E_current"] = row.E_current_new
+    return sections
+
+
+def select_hydro_plants(
+    ppl: pd.DataFrame, grenzkraftwerke: pd.DataFrame
+) -> pd.DataFrame:
+    """
+    Austrian hydro plants plus the German treaty halves of the Grenzkraftwerke.
+
+    Parameters
+    ----------
+    ppl
+        Calibrated powerplants table (``powerplants_s_{clusters}.csv``) with
+        ``Name``, ``Country``, ``Fueltype``, ``Technology``, ``Capacity`` and
+        ``bus`` columns, plus ``lat`` / ``lon`` / ``plz`` where available.
+    grenzkraftwerke
+        Curated border plant list (``grenzkraftwerke_AT.csv``); its ``DE``
+        rows name the German twin entries to include.
+
+    Returns
+    -------
+    :
+        Plant frame with ``bus``, ``carrier``, ``p_nom``, ``name`` and the
+        available location columns, indexed like ``ppl``.
+    """
+    hydro = ppl[ppl["Fueltype"] == "Hydro"]
+    de_twins = set(grenzkraftwerke.query("country == 'DE'")["Name"])
+    keep = (hydro["Country"] == "AT") | (
+        (hydro["Country"] == "DE") & hydro["Name"].isin(de_twins)
+    )
+    plants = hydro[keep].rename(columns={"Capacity": "p_nom", "Name": "name"})
+    plants = plants.assign(carrier=plants["Technology"].map(TECH_TO_CARRIER))
+    location = [c for c in ("lat", "lon", "plz") if c in plants.columns]
+    return plants[["bus", "carrier", "p_nom", "name", *location]]
+
+
+def read_econtrol_annual_generation(path: str) -> pd.DataFrame:
+    """
+    Read the E-Control annual hydro generation series.
+
+    Parameters
+    ----------
+    path
+        ``BStGes-JR1_Bilanz.xlsx`` (Betriebsstatistik Jahresreihe).
+
+    Returns
+    -------
+    :
+        Frame indexed by year with ``lauf`` (Laufkraftwerke) and ``speicher``
+        (Speicherkraftwerke, including pumped-storage generation) in GWh.
+
+    Raises
+    ------
+    ValueError
+        If the sheet layout does not yield the reference period, which
+        indicates a changed E-Control file format.
+    """
+    raw = pd.read_excel(path, sheet_name="Erz", header=None)
+    table = raw.iloc[ECONTROL_FIRST_ROW:, : len(ECONTROL_COLUMNS)].copy()
+    layout_error = ValueError(
+        f"Unexpected layout in {path}: expected {len(ECONTROL_COLUMNS)} columns "
+        f"and at least {MIN_REFERENCE_YEARS} years of the reference period "
+        f"{REFERENCE_PERIOD} in sheet 'Erz'. "
+        "Has the E-Control file format changed?"
+    )
+    if table.shape[1] != len(ECONTROL_COLUMNS):
+        raise layout_error
+    table.columns = ECONTROL_COLUMNS
+    table = table[pd.to_numeric(table["year"], errors="coerce").notna()]
+    table = table.apply(pd.to_numeric, errors="coerce").set_index("year")
+    table.index = table.index.astype(int)
+    table = table.sort_index()
+    table["speicher"] = table["sp_le10"] + table["sp_gt10"]
+    reference = table.loc[slice(*REFERENCE_PERIOD), ["lauf", "speicher"]].dropna()
+    if len(reference) < MIN_REFERENCE_YEARS:
+        raise layout_error
+    return table[["lauf", "speicher"]]
+
+
+def weather_year_factors(econtrol: pd.DataFrame, year: int) -> dict[str, float]:
+    """
+    Scale factors from the KLIEN reference period to one weather year.
+
+    Parameters
+    ----------
+    econtrol
+        Annual generation from :func:`read_econtrol_annual_generation`.
+    year
+        Weather year of the inflow profile (snapshots).
+
+    Returns
+    -------
+    :
+        ``{"ror": Laufkraft(year) / mean, "hydro": Speicherkraft(year) / mean}``
+        with the means taken over the years available in ``REFERENCE_PERIOD``.
+
+    Raises
+    ------
+    ValueError
+        If the weather year is not covered by the series.
+    """
+    if year not in econtrol.index or econtrol.loc[year].isna().any():
+        raise ValueError(
+            f"E-Control annual generation has no complete entry for weather "
+            f"year {year}; available years {econtrol.dropna().index.min()}-"
+            f"{econtrol.dropna().index.max()}."
+        )
+    reference = econtrol.loc[slice(*REFERENCE_PERIOD)].dropna().mean()
+    return {
+        "ror": float(econtrol.at[year, "lauf"] / reference["lauf"]),
+        "hydro": float(econtrol.at[year, "speicher"] / reference["speicher"]),
+    }
+
+
+def main(snakemake: Snakemake) -> pd.DataFrame:
+    """
+    Build the KLIEN-calibrated inflow targets from the workflow inputs.
+
+    Parameters
+    ----------
+    snakemake
+        The Snakemake workflow object.
+
+    Returns
+    -------
+    :
+        Targets per Austrian region and carrier, or an empty frame when the
+        feature is disabled.
+    """
+    if not snakemake.params.update_hydro_capacities_AT:
+        logger.info(
+            "Skipping the KLIEN hydro inflow targets for AT. config option "
+            "mods.update_hydro_capacities_AT.enable is false."
+        )
+        return pd.DataFrame(columns=OUTPUT_COLUMNS)
+
+    snapshots = get_snapshots(
+        snakemake.params.snapshots, snakemake.params.drop_leap_day
+    )
+    year = pd.DatetimeIndex(snapshots).year.unique().item()
+
+    ppl = pd.read_csv(
+        snakemake.input.powerplants, index_col=0, dtype={"plz": str}, low_memory=False
+    )
+    grenzkraftwerke = pd.read_csv(snakemake.input.grenzkraftwerke)
+    plants = select_hydro_plants(ppl, grenzkraftwerke)
+
+    sections = gpd.read_file(snakemake.input.klien_catchments)
+    sections.columns = sections.columns.str.strip()
+    sections = sections[sections["E_current"].notna()].set_index("id").to_crs(KLIEN_CRS)
+    sections = apply_catchment_corrections(
+        sections, pd.read_csv(snakemake.input.catchment_corrections)
+    )
+    regions = (
+        gpd.read_file(snakemake.input.regions_onshore)
+        .set_index("name")
+        .to_crs(KLIEN_CRS)
+    )
+    overrides = pd.read_csv(snakemake.input.diversion_overrides)
+
+    targets, diagnostics = build_inflow_targets(
+        plants, sections, regions, overrides=overrides, capacity_col="C_current"
+    )
+    # natural inflow of the model's PHS plants stays on the TYNDP PS-Open data;
+    # the KLIEN energy attributed to them would double count it
+    phs = targets["carrier"] == "PHS"
+    if phs.any():
+        logger.info(
+            f"Dropping {targets.loc[phs, 'energy'].sum():.0f} GWh/a attributed "
+            "to PHS plants (covered by the TYNDP pumped-storage inflow)."
+        )
+        targets = targets[~phs]
+    at_buses = set(plants.loc[ppl.loc[plants.index, "Country"] == "AT", "bus"])
+    foreign = targets[~targets["bus"].isin(at_buses)]
+    if not foreign.empty:
+        logger.info(
+            f"Dropping {foreign['energy'].sum():.0f} GWh/a allocated to the "
+            f"German Grenzkraftwerke halves (buses {sorted(foreign['bus'].unique())})."
+        )
+    targets = targets[targets["bus"].isin(at_buses)].rename(
+        columns={"energy": "rav_gwh"}
+    )
+
+    unmatched = diagnostics["unallocated"].sum()
+    if unmatched > 0:
+        logger.warning(
+            f"{unmatched:.0f} GWh/a ({unmatched / sections['E_current'].sum():.1%} "
+            "of the KLIEN energy) sit in sections whose capacity is missing from "
+            "the fleet; this energy is left out of the targets. Close the gap by "
+            "curating the plants of the sections listed above (missing plants, "
+            "misplaced coordinates, diversion overrides)."
+        )
+
+    econtrol = read_econtrol_annual_generation(snakemake.input.econtrol_annual)
+    factors = weather_year_factors(econtrol, year)
+    targets["year_factor"] = targets["carrier"].map(factors)
+    targets["inflow"] = targets["rav_gwh"] * 1e3 * targets["year_factor"]
+
+    logger.info(
+        f"KLIEN sections carry {sections['E_current'].sum() / 1e3:.2f} TWh/a. "
+        f"Weather year {year} factors: ror {factors['ror']:.3f}, "
+        f"hydro {factors['hydro']:.3f}."
+    )
+    for carrier, total in targets.groupby("carrier")["inflow"].sum().items():
+        logger.info(f"AT {carrier} inflow target for {year}: {total / 1e6:.2f} TWh.")
+    return targets[OUTPUT_COLUMNS]
+
+
+if __name__ == "__main__":
+    if "snakemake" not in globals():
+        from scripts._helpers import mock_snakemake
+
+        snakemake = mock_snakemake(
+            "build_hydro_inflow_targets_at",
+            run="AT_KN2040",
+            clusters="adm",
+        )
+
+    configure_logging(snakemake)
+    set_scenario_config(snakemake)
+
+    logger.info("Building KLIEN-calibrated hydro inflow targets...")
+    targets = main(snakemake)
+    targets.to_csv(snakemake.output.targets, index=False)
+    logger.info(f"Saved hydro inflow targets to {snakemake.output.targets}")

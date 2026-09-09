@@ -10,7 +10,8 @@ The realisable river hydropower pathway of the KLIEN study "Erneuerbare
 Energiepotenziale in Oesterreich fuer 2030 und 2040" (Resch et al. 2026,
 served by GTIF Austria) defines a country-wide buildout factor
 ``C_pathway(year) / C_current``. The factor is applied to the calibrated
-Austrian brownfield ror capacity from ``powerplants_s_{clusters}-overwrite.csv``.
+Austrian brownfield ror capacity from the calibrated ``powerplants_s_{clusters}.csv``
+(output of ``overwrite_powerplants_at``).
 Factors are anchored at ``KLIEN_BASE_YEAR`` (1.0), 2040 and 2070, interpolated
 linearly in between and held flat afterwards. The ``wocc`` climate scenario
 falls back to ``mocc`` (RCP4.5) because the study publishes pathways only for
@@ -191,7 +192,7 @@ def main(snakemake: Snakemake) -> pd.DataFrame:
     klien.columns = klien.columns.str.strip()
 
     brownfield_mw = (
-        pd.read_csv(snakemake.input.powerplants_overwrite, index_col=0)
+        pd.read_csv(snakemake.input.powerplants, index_col=0)
         .query(
             "Country == 'AT' and Fueltype == 'Hydro' and Technology == 'Run-Of-River'"
         )["Capacity"]
