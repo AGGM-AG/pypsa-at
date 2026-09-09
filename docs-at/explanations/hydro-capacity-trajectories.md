@@ -88,6 +88,7 @@ flowchart LR
     ECB["E-Control Bestandsstatistik<br/><span style='font-size:11px'>capacity by plant type</span>"]
     REG["E-Control Anlagenregister<br/><span style='font-size:11px'>small hydro plants</span>"]
     CUR["Curated lists<br/><span style='font-size:11px'>duplicates, corrections, missing plants,<br/>catchment pins and corrections</span>"]
+    RES["<b>KLIEN residual plants</b><br/><span style='font-size:11px'>capacity the study counts<br/>but no source holds</span>"]
     GEO["GeoNames postal codes<br/><span style='font-size:11px'>centroid per postal code</span>"]
     KLC["KLIEN catchments<br/><span style='font-size:11px'>capacity and generation<br/>per catchment, pathways</span>"]
     ECJ["E-Control Betriebsstatistik<br/><span style='font-size:11px'>annual generation by year</span>"]
@@ -101,6 +102,7 @@ flowchart LR
     CUR --> FLT
     FLT --> COR
     KLC --> COR
+    KLC --> RES --> FLT
     FLT --> TGT
     KLC --> TGT
     CUR --> TGT
@@ -165,6 +167,7 @@ The corrections are applied in a fixed order, each step on the result of the pre
 | **Add missing plants** | Appends plants with coordinates, so the catchment lookup in Part 3 places them on the right river. Plants known only from the Anlagenregister carry its id and locality, because the register publishes neither operator names nor build years. | Missing-plants list |
 | **Replace the small-hydro fleet** | Drops the incidental ppm plants ≤ 10 MW and adds every *Kleinwasserkraft bis 10 MW* plant of the Anlagenregister individually, mapped to its region by postal code and placed at the centroid of that postal code. | E-Control Anlagenregister, GeoNames postal codes |
 | **Scale small hydro to E-Control** | The register's small-hydro class and E-Control's size-class accounting differ by ≈ 12.5 %. The added plants are scaled uniformly to the E-Control bottleneck capacity below 10 MW (1,543 MW), preserving the regional distribution. | E-Control Bestandsstatistik |
+| **Add KLIEN residual plants** | Runs the catchment allocation of Part 3 on the fleet so far and adds, per catchment, one synthetic run-of-river plant for the capacity the study counts but no source holds, sized at the catchment's own full-load hours (see [Closing the remaining gap](#closing-the-remaining-gap-klien-residual-plants)). | KLIEN catchments |
 
 ### Why only the small plants of the Anlagenregister are used
 
@@ -199,14 +202,16 @@ generators (whose nominal power is the peak inflow) are not part of this compari
 
 | Technology | Model component | powerplantmatching | Calibrated fleet | E-Control 2025 |
 |------------|-----------------|-------------------:|-----------------:|---------------:|
-| Run-of-river | `ror` generator | 2,395 MW (67 plants) | 6,740 MW (3,700 plants) | 6,146 MW Laufkraftwerke |
+| Run-of-river | `ror` generator | 2,395 MW (67 plants) | 7,129 MW (3,810 plants, of which 110 residual plants with 389 MW) | 6,146 MW Laufkraftwerke |
 | Reservoir | `hydro discharger` link | 6,248 MW (76) | 3,103 MW (54) | 3,442 MW Speicherkraftwerke without pumped storage |
 | Pumped storage | `PHS discharger` link | 6,120 MW (21) | 6,294 MW (23) | 6,172 MW Pumpspeicherkraftwerke |
 
-The run-of-river surplus of ≈ 0.6 GW has three known contributions: ppm nameplate versus
+The run-of-river surplus of ≈ 1 GW has four known contributions: ppm nameplate versus
 E-Control bottleneck capacities, the ÖBB 16.7 Hz railway plants (≈ 175 MW) and the
 industrial self-suppliers (≈ 40 MW), which E-Control's public-grid statistics do not count
-but which turbine the same rivers. The reservoir/pumped-storage boundary is soft: E-Control, KLIEN and ppm
+but which turbine the same rivers, and the 389 MW of KLIEN residual plants, capacity the
+study asserts and no public source confirms. With the residual plants the fleet follows the
+KLIEN study, and E-Control becomes the cross-check rather than the anchor. The reservoir/pumped-storage boundary is soft: E-Control, KLIEN and ppm
 classify mixed storage groups with pumps (Silz, Zemm, Naßfeld) differently, which shifts
 roughly a gigawatt between the two rows depending on the source.
 
@@ -284,9 +289,9 @@ With the default settings (medium ambition, RCP 4.5):
 | Horizon | Growth factor | Upper limit |
 |---------|---------------|-------------|
 | 2025 | 1.000 | calibrated brownfield fleet |
-| 2030 | 1.066 | ≈ 7.2 GW |
-| 2040 | 1.198 | ≈ 8.1 GW |
-| 2050 | 1.227 | ≈ 8.3 GW |
+| 2030 | 1.066 | ≈ 7.6 GW |
+| 2040 | 1.198 | ≈ 8.5 GW |
+| 2050 | 1.227 | ≈ 8.7 GW |
 
 ### Why only run-of-river is overridden
 
@@ -482,17 +487,17 @@ generating 30.5 TWh):
 
 | Quantity | Model (2013 weather year) | E-Control Betriebsstatistik 2013 |
 |----------|--------------------------:|---------------------------------:|
-| Run-of-river energy | 32.3 TWh | 30.5 TWh Laufkraft |
+| Run-of-river energy | 34.1 TWh | 30.5 TWh Laufkraft |
 | Reservoir inflow energy | 10.1 TWh | 15.2 TWh Speicherkraft incl. pumped-storage generation |
-| Run-of-river full-load hours | 4,800 h | 5,470 h |
+| Run-of-river full-load hours | 4,790 h | 5,470 h |
 
-The run-of-river energy is 12 % short in full-load hours. Part of the shortfall has a
-known address: 1.7 TWh/a (3.9 %) of the KLIEN energy sits in catchments whose capacity is
-not in the fleet and is left out of the targets by the cap in step 5. Closing all of it
-would raise the run-of-river energy towards ≈ 34 TWh and ≈ 5,050 full-load hours. The
-rest of the difference to E-Control's 5,470 hours is fleet vintage: the ratio compares the
-2025 fleet with the 2013 statistic, and plants added since 2013 sit mostly in alpine
-valleys with fewer hours than the Danube chain. The four Danube regions (AT121, AT126, AT130, AT313) sit at
+The model now reproduces the study's long-term energy in every catchment: with the
+residual plants, only 3 GWh/a of the KLIEN energy stay unallocated. The run-of-river energy
+exceeds E-Control's 2013 generation by 12 %, which is the fleet vintage (the 2025 fleet is
+1 GW larger than the 2013 one) plus the plants E-Control does not count. In full-load hours
+the model sits 12 % below E-Control's 2013 figure for the same reason: the plants added
+since 2013, and the residual plants, sit mostly in alpine valleys with fewer hours than the
+Danube chain. The four Danube regions (AT121, AT126, AT130, AT313) sit at
 5,950–6,350 hours, consistent with the catchment values and the operators' figures for the
 Danube chain.
 
@@ -549,11 +554,13 @@ compare the fleet with the catchment capacity, check whether the plants' coordin
 fall inside a catchment polygon, and look for plants geocoded to the operator's address,
 before suspecting the inflow data.
 
-### Open items in the fleet
+### Closing the remaining gap: KLIEN residual plants
 
 After three curation rounds against operator data, plus the postal-code placement and the
-catchment corrections, 1.7 TWh/a remain spread over 130 catchments, none above 120 GWh/a.
-What is left falls into three kinds:
+catchment corrections, 1.7 TWh/a remained spread over 130 catchments, none above 120 GWh/a.
+Removing the 12.5 % downscaling of the register fleet would recover only 0.3 TWh of it, so
+the remainder is capacity the study counts that exists in neither powerplantmatching nor
+the Anlagenregister. What is left falls into three kinds:
 
 | Catchment | Gap | Cause |
 |-----------|-----|-------|
@@ -565,6 +572,21 @@ What is left falls into three kinds:
 The two artefacts already corrected (lower Enns, Inn border) show the pattern to look for
 when a gap survives operator research: a company total or a foreign plant booked on one
 stretch.
+
+Rather than chase the long tail plant by plant, the fleet represents the study's missing
+capacity explicitly. For every catchment with unallocated energy, the last fleet step adds
+one synthetic run-of-river plant sized to that energy at the catchment's own full-load
+hours, placed at a point inside the catchment and assigned to the region that contains it
+(a border catchment whose point falls outside Austria goes to the Austrian region with the
+largest overlap). With the current fleet that is 110 plants with 389 MW carrying
+1.69 TWh/a, the largest on the Möll above Obervellach (32 MW), the Mur at Zeltweg (18 MW),
+the Ill at Feldkirch (17 MW) and the Kamp (16 MW). The allocation then matches the study in
+every catchment, no real plant runs above the study's hours, and the step is
+self-correcting: every later curation that adds a real plant shrinks or removes its
+residual. The synthetic plants are listed per catchment with capacity and energy in a
+separate output, so that what the study asserts and public sources do not confirm stays
+visible; the step can be switched off, in which case the unmatched energy is left out of
+the targets as before.
 
 Two entries carry an AGGM derivation instead of a published capacity, stated as such in
 their notes: Uttendorf I (27 MW, Uttendorf II subtracted from the 93 MW OpenStreetMap
@@ -591,23 +613,22 @@ inflow do not overlap.
 Whether the floor can be met depends on the weather year, because the inflow targets scale
 with it while the fleet does not. The table shows, per weather year, the natural inflow of
 the calibrated 2025 fleet and the run-of-river capacity the optimizer would have to add in
-2030 to reach the floor; the KLIEN corridor allows 445 MW of additions by 2030. The
+2030 to reach the floor; the KLIEN corridor allows 471 MW of additions by 2030. The
 efficiency weights are applied, so the table is in delivered electricity.
 
 | Weather year | Natural inflow, 2025 fleet | Additional ror needed for 43.5 TWh | Feasible in 2030 |
 |---|---:|---:|:---:|
-| 2003, 2025, 2011, 2006, 2022 | 36.2–38.8 TWh | 1,170–1,960 MW | no |
-| 2005, 2007, 2004, 2018, 2015 | 40.3–41.3 TWh | 520–750 MW | no |
-| 2017, 2008, 2010, 2021 | 41.8–42.7 TWh | 180–370 MW | within the corridor |
-| 2001, 2002 | 43.0, 43.1 TWh | 110, 80 MW | within the corridor |
-| 2019, 2016, 2000, 2023 | 43.8–44.9 TWh | 0 MW | yes |
-| 2009, 2020, 2014, 2013 | 45.1–46.8 TWh | 0 MW | yes |
-| 2012, 2024 | 48.7, 50.2 TWh | 0 MW | yes |
+| 2003, 2025, 2011, 2006, 2022 | 37.6–40.3 TWh | 800–1,580 MW | no |
+| 2005, 2007, 2004, 2018, 2015 | 41.9–42.9 TWh | 140–370 MW | within the corridor |
+| 2017, 2008, 2010, 2021, 2001, 2002 | 43.5–44.9 TWh | 0 MW | yes |
+| 2019, 2016, 2000, 2023, 2009, 2020 | 45.6–47.3 TWh | 0 MW | yes |
+| 2014, 2013 | 47.7, 48.6 TWh | 0 MW | yes |
+| 2012, 2024 | 50.6, 52.1 TWh | 0 MW | yes |
 
-With the configured 2013 weather year the fleet delivers 46.8 TWh of natural inflow and the
-floor leaves 3.3 TWh of slack. Ten of the 26 years, every dry or average year with a
-run-of-river factor below 0.97, cannot meet it with any buildout the corridor permits; a hard
-floor makes such a year infeasible, which is the intended signal rather than a defect. The
+With the configured 2013 weather year the fleet delivers 48.6 TWh of natural inflow and the
+floor leaves 5 TWh of slack. Five dry years, 2003, 2025, 2011, 2006 and 2022, cannot meet it
+with any buildout the corridor permits (471 MW); a hard floor makes such a year infeasible,
+which is the intended signal rather than a defect. The
 pumped-storage column follows E-Control's natural inflow of the respective year (2.5 to
 4.7 TWh), so the table needs no proxy for years after 2017. The table is in delivered
 electricity: the calibrated energies are generation, the store inflows are grossed up by the
@@ -619,6 +640,7 @@ because the PEMMDB climate years end in 2017.
 
 | Setting | Meaning |
 |---------|---------|
+| `mods.update_hydro_capacities_AT.klien_residual_plants` | Adds the synthetic run-of-river plants for the capacity the KLIEN study counts but no source holds (see [Closing the remaining gap](#closing-the-remaining-gap-klien-residual-plants)). |
 | `mods.update_hydro_capacities_AT.fix_store_volumes` | Caps the volume of the Austrian reservoir and pumped-storage stores at the existing value (no new storage volume). |
 | `mods.update_hydro_capacities_AT.enable` | Master switch for all three Austrian calibration steps. When off, the ppm fleet is used as is, the Austrian corridor keeps its PEMMDB value and the inflow energy stays on the capacity-proportional PEMMDB split. |
 | `mods.klien_potential_limits.ambition` | Pathway ambition (`low` / `medium` / `high`), shared with the KLIEN PV and wind limits. |

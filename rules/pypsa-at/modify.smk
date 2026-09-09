@@ -337,19 +337,27 @@ rule overwrite_powerplants_at:
         grenzkraftwerke="data/pypsa-at/grenzkraftwerke_AT.csv",
         missing_hydro_plants="data/pypsa-at/missing_hydro_plants_AT.csv",
         bestandsstatistik_typ=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx",
+        klien_catchments=f"{KLIEN_POTENTIALS['folder']}/catchments_hydro.geojson",
+        catchment_corrections="data/pypsa-at/hydro_catchment_corrections_AT.csv",
+        diversion_overrides="data/pypsa-at/hydro_diversion_overrides_AT.csv",
+        regions_onshore=resources("regions_onshore_base_s_{clusters}.geojson"),
     output:
         powerplants=resources("powerplants_s_{clusters}.csv"),
+        residual_plants=resources("hydro_residual_plants_{clusters}.csv"),
     log:
         logs("overwrite_powerplants_s_{clusters}.log"),
     threads: 1
     resources:
-        mem_mb=1000,
+        mem_mb=4000,
     params:
         add_biogas_to_power_plants_AT=config_provider(
             "mods", "existing_capacities", "add_biogas_to_power_plants_AT"
         ),
         update_hydro_capacities_AT=config_provider(
             "mods", "update_hydro_capacities_AT", "enable"
+        ),
+        klien_residual_plants=config_provider(
+            "mods", "update_hydro_capacities_AT", "klien_residual_plants"
         ),
         threshold_capacity=config_provider("existing_capacities", "threshold_capacity"),
         clustering=config_provider("mods", "modify_nuts3_shapes"),

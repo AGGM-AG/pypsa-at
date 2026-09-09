@@ -574,3 +574,59 @@ def test_phs_inflow_targets_follow_fleet_capacity(econtrol_file):
         [0.75 * out["rav_gwh"].sum(), 0.25 * out["rav_gwh"].sum()]
     )
     assert out["year_factor"].iloc[0] > 1.0
+
+
+def test_residual_plants_size_capacity_at_catchment_full_load_hours():
+    from build_hydro_inflow_targets import KLIEN_CRS, residual_plants
+    from shapely.geometry import box
+
+    # two square catchments; the second one lies outside the Austrian region
+    sections = gpd.GeoDataFrame(
+        {"C_current": [100.0, 40.0], "E_current": [400.0, 200.0]},
+        geometry=[box(0, 0, 10, 10), box(20, 0, 30, 10)],
+        index=pd.Index([51200, 60303], name="id"),
+        crs=KLIEN_CRS,
+    )
+    regions = gpd.GeoDataFrame(
+        {"name": ["AT121", "AT313", "DE2"]},
+        geometry=[box(0, 0, 10, 10), box(20, 0, 25, 10), box(25, 0, 40, 10)],
+        crs=KLIEN_CRS,
+    ).set_index("name")
+    unallocated = pd.Series({51200: 100.0, 60303: 50.0, 70800: 0.0})
+
+    out = residual_plants(sections, unallocated, regions)
+
+    assert out["section"].tolist() == ["51200", "60303"]
+    # 100 GWh at 4,000 h -> 25 MW; 50 GWh at 5,000 h -> 10 MW
+    assert out["capacity_mw"].tolist() == pytest.approx([25.0, 10.0])
+    assert out["energy_gwh"].tolist() == pytest.approx([100.0, 50.0])
+    # the second point lies in the German half: largest Austrian overlap wins
+    assert out["bus"].tolist() == ["AT121", "AT313"]
+    assert out["lat"].notna().all() and out["lon"].notna().all()
+
+
+def test_residual_plants_empty_when_everything_is_allocated():
+    from build_hydro_inflow_targets import KLIEN_CRS, residual_plants
+    from shapely.geometry import box
+
+    sections = gpd.GeoDataFrame(
+        {"C_current": [100.0], "E_current": [400.0]},
+        geometry=[box(0, 0, 10, 10)],
+        index=pd.Index([51200], name="id"),
+        crs=KLIEN_CRS,
+    )
+    regions = gpd.GeoDataFrame(
+        {"name": ["AT121"]}, geometry=[box(0, 0, 10, 10)], crs=KLIEN_CRS
+    ).set_index("name")
+
+    out = residual_plants(sections, pd.Series({51200: 0.0}), regions)
+
+    assert out.empty
+    assert out.columns.tolist() == [
+        "section",
+        "bus",
+        "capacity_mw",
+        "energy_gwh",
+        "lat",
+        "lon",
+    ]

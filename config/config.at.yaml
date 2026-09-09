@@ -368,6 +368,11 @@ mods:
     # vintages get e_nom_max = 0, so no storage volume can be added regardless of
     # the PEMMDB store corridors. Turbine and pump links stay extendable.
     fix_store_volumes: true
+    # Add one synthetic run-of-river plant per KLIEN catchment for the capacity the
+    # study counts but neither powerplantmatching nor the Anlagenregister holds, sized at
+    # the catchment's full-load hours, so the inflow targets reproduce the study's
+    # long-term energy in every catchment. Listed in hydro_residual_plants_{clusters}.csv.
+    klien_residual_plants: true
 
   tyndp_h2_import_scenario: "DE" # One of DE (Distributed Energy), NT (National Trends), GA (Global Ambition).
                            # Only used when H2 imports is enabled

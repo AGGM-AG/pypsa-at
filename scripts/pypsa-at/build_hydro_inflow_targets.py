@@ -598,6 +598,108 @@ def build_inflow_targets(
     return targets, diagnostics
 
 
+def residual_plants(
+    sections: gpd.GeoDataFrame,
+    unallocated: pd.Series,
+    regions: gpd.GeoDataFrame,
+    capacity_col: str = "C_current",
+    energy_col: str = "E_current",
+    min_capacity_mw: float = 0.1,
+) -> pd.DataFrame:
+    """
+    Size one synthetic plant per catchment for the study's unmatched capacity.
+
+    After curation, some catchments still hold less capacity in the fleet
+    than the KLIEN study counts, so part of their energy stays unallocated
+    (see :func:`allocate_section_energy`). This turns that energy back into
+    capacity at the catchment's own full-load hours, i.e. the megawatts the
+    study asserts and no public source confirms, and places them at a point
+    inside the catchment so that the allocation picks them up like any other
+    plant. Adding these plants to the fleet closes the gap without running
+    any real plant above the study's hours.
+
+    Parameters
+    ----------
+    sections
+        KLIEN catchments indexed by ``id`` with ``capacity_col``,
+        ``energy_col`` and ``geometry`` (projected CRS).
+    unallocated
+        Unallocated energy per catchment id (GWh/a), the ``unallocated``
+        diagnostic of :func:`build_inflow_targets`.
+    regions
+        Model regions indexed by bus name, same CRS as ``sections``; only
+        buses of the sections' country are used (``AT...``).
+    capacity_col, energy_col
+        Section columns with the study's capacity (MW) and energy (GWh/a).
+    min_capacity_mw
+        Residuals below this size are dropped.
+
+    Returns
+    -------
+    :
+        Frame with ``section``, ``bus``, ``capacity_mw``, ``energy_gwh``,
+        ``lat`` and ``lon`` (EPSG:4326), one row per catchment.
+    """
+    _require_matching_crs(sections, regions)
+    gap = unallocated[unallocated > 0].rename("energy_gwh").to_frame()
+    gap = gpd.GeoDataFrame(
+        gap.join(sections[[capacity_col, energy_col, "geometry"]], how="inner"),
+        geometry="geometry",
+        crs=sections.crs,
+    )
+    gap["capacity_mw"] = gap["energy_gwh"] * gap[capacity_col] / gap[energy_col]
+    gap = gap[gap["capacity_mw"] >= min_capacity_mw]
+    if gap.empty:
+        return pd.DataFrame(
+            columns=["section", "bus", "capacity_mw", "energy_gwh", "lat", "lon"]
+        )
+    at_regions = regions[regions.index.str.startswith("AT")]
+    points = gpd.GeoDataFrame(
+        gap.drop(columns="geometry"),
+        geometry=gap.geometry.representative_point(),
+        crs=sections.crs,
+    )
+    inside = gpd.sjoin(
+        points[["geometry"]],
+        at_regions[["geometry"]].reset_index(names="bus"),
+        how="left",
+        predicate="within",
+    )
+    bus = inside.groupby(level=0)["bus"].first()
+    # a representative point of a border catchment may lie outside every
+    # Austrian region: fall back to the Austrian region with the largest overlap
+    missing = bus[bus.isna()].index
+    if len(missing):
+        overlap = gpd.overlay(
+            gpd.GeoDataFrame(
+                gap.loc[missing, ["geometry"]], crs=sections.crs
+            ).reset_index(names="section"),
+            at_regions[["geometry"]].reset_index(names="bus"),
+            how="intersection",
+        )
+        overlap["area"] = overlap.area
+        best = overlap.sort_values("area").groupby("section")["bus"].last()
+        bus.loc[missing] = best.reindex(missing).to_numpy()
+    lonlat = points.geometry.to_crs("EPSG:4326")
+    out = pd.DataFrame(
+        {
+            "section": gap.index.astype(str),
+            "bus": bus.reindex(gap.index).to_numpy(),
+            "capacity_mw": gap["capacity_mw"].to_numpy(),
+            "energy_gwh": gap["energy_gwh"].to_numpy(),
+            "lat": lonlat.y.to_numpy(),
+            "lon": lonlat.x.to_numpy(),
+        }
+    )
+    unplaced = out["bus"].isna()
+    if unplaced.any():
+        raise ValueError(
+            "KLIEN residual plants could not be assigned to an Austrian region: "
+            f"catchments {out.loc[unplaced, 'section'].tolist()}."
+        )
+    return out.reset_index(drop=True)
+
+
 def apply_catchment_corrections(
     sections: pd.DataFrame, corrections: pd.DataFrame
 ) -> pd.DataFrame:

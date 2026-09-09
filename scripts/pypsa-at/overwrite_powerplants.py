@@ -877,10 +877,99 @@ def reclassify_hydro_technologies_at(
     return ppl
 
 
+KLIEN_RESIDUAL_NAME_PREFIX = "KLIEN residual "
+KLIEN_RESIDUAL_DATEIN = 2000.0
+KLIEN_RESIDUAL_COLUMNS = ["section", "bus", "capacity_mw", "energy_gwh", "lat", "lon"]
+
+
+def add_klien_residual_plants_at(
+    ppl: pd.DataFrame,
+    klien_catchments_file: str,
+    catchment_corrections_file: str,
+    regions_file: str,
+    diversion_overrides_file: str,
+    grenzkraftwerke_file: str,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Add synthetic run-of-river plants for the KLIEN capacity the fleet lacks.
+
+    Runs the KLIEN catchment allocation on the calibrated fleet exactly as
+    ``build_hydro_inflow_targets_at`` does, converts the energy that stays
+    unallocated per catchment back into capacity at the catchment's own
+    full-load hours and appends one ``Run-Of-River`` plant per catchment,
+    placed inside the catchment. The inflow targets built afterwards then
+    match the study's long-term energy in every catchment. The added plants
+    represent capacity the study asserts and no public source confirms; they
+    are listed in a separate table for transparency, and every later curation
+    that adds a real plant shrinks its residual automatically.
+
+    Parameters
+    ----------
+    ppl
+        Calibrated powerplants table (after all other Austrian hydro steps).
+    klien_catchments_file
+        KLIEN catchment GeoJSON (``catchments_hydro.geojson``).
+    catchment_corrections_file
+        Curated catchment corrections CSV.
+    regions_file
+        Onshore model regions GeoJSON of the clustering.
+    diversion_overrides_file
+        Curated catchment pins CSV.
+    grenzkraftwerke_file
+        Border plants CSV (names the German twins that join the allocation).
+
+    Returns
+    -------
+    :
+        Tuple of the powerplants table with the residual plants appended and
+        the residual plant table (``KLIEN_RESIDUAL_COLUMNS``).
+    """
+    import build_hydro_inflow_targets as bhit
+    import geopandas as gpd
+
+    plants = bhit.select_hydro_plants(ppl, pd.read_csv(grenzkraftwerke_file))
+    sections = gpd.read_file(klien_catchments_file)
+    sections.columns = sections.columns.str.strip()
+    sections = (
+        sections[sections["E_current"].notna()].set_index("id").to_crs(bhit.KLIEN_CRS)
+    )
+    sections = bhit.apply_catchment_corrections(
+        sections, pd.read_csv(catchment_corrections_file)
+    )
+    regions = gpd.read_file(regions_file).set_index("name").to_crs(bhit.KLIEN_CRS)
+    overrides = pd.read_csv(diversion_overrides_file)
+    _, diagnostics = bhit.build_inflow_targets(
+        plants, sections, regions, overrides=overrides, capacity_col="C_current"
+    )
+    residual = bhit.residual_plants(sections, diagnostics["unallocated"], regions)
+    if residual.empty:
+        logger.info("KLIEN residual plants: the fleet matches every catchment.")
+        return ppl, residual[KLIEN_RESIDUAL_COLUMNS]
+    new_ppls = _new_powerplant_rows(
+        names=KLIEN_RESIDUAL_NAME_PREFIX + residual["section"],
+        fueltype="Hydro",
+        technology="Run-Of-River",
+        date_in=KLIEN_RESIDUAL_DATEIN,
+        capacity_mw=residual["capacity_mw"].to_numpy(),
+        bus=residual["bus"].to_numpy(),
+    ).assign(lat=residual["lat"].to_numpy(), lon=residual["lon"].to_numpy())
+    logger.info(
+        f"Added {len(new_ppls)} KLIEN residual run-of-river plants with "
+        f"{residual['capacity_mw'].sum():.0f} MW carrying "
+        f"{residual['energy_gwh'].sum():.0f} GWh/a of KLIEN energy that the "
+        "curated fleet does not hold; largest: "
+        f"{residual.nlargest(5, 'capacity_mw').set_index('section')['capacity_mw'].round(1).to_dict()}."
+    )
+    return pd.concat([ppl, new_ppls], ignore_index=True), residual[
+        KLIEN_RESIDUAL_COLUMNS
+    ]
+
+
 def overwrite_powerplants(snakemake):
     """Orchestrator function."""
     _ppl = pd.read_csv(snakemake.input.powerplants, index_col=0)
     ppl_overwrite = overwrite_nuclear_dateout(_ppl, CH_NUCLEAR_DATEOUT)
+    residual = pd.DataFrame(columns=KLIEN_RESIDUAL_COLUMNS)
 
     if snakemake.params.add_biogas_to_power_plants_AT:
         ppl_overwrite = overwrite_biogas_to_power_plants_at(
@@ -918,10 +1007,26 @@ def overwrite_powerplants(snakemake):
         ppl_overwrite = scale_kleinwasserkraft_to_bestandsstatistik_at(
             ppl_overwrite, snakemake.input.bestandsstatistik_typ
         )
+        if snakemake.params.klien_residual_plants:
+            ppl_overwrite, residual = add_klien_residual_plants_at(
+                ppl_overwrite,
+                klien_catchments_file=snakemake.input.klien_catchments,
+                catchment_corrections_file=snakemake.input.catchment_corrections,
+                regions_file=snakemake.input.regions_onshore,
+                diversion_overrides_file=snakemake.input.diversion_overrides,
+                grenzkraftwerke_file=snakemake.input.grenzkraftwerke,
+            )
+        else:
+            logger.info(
+                "Skipping KLIEN residual plants. config option "
+                "mods.update_hydro_capacities_AT.klien_residual_plants is false."
+            )
     else:
         logger.info(
             "Skipping Austrian hydro technology reclassification. config option mods.update_hydro_capacities_AT.enable is false."
         )
+    # written even when disabled so that the DAG does not depend on the config
+    residual.to_csv(snakemake.output.residual_plants, index=False)
     return ppl_overwrite
 
 
