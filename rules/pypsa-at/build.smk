@@ -385,3 +385,26 @@ rule patch_transport_demand_at:
         "Patching transport demand using Statistik Austria Nutzenergieanalyse"
     script:
         scripts("pypsa-at/patch_transport_demand_at.py")
+
+
+rule build_onwind_brownfield_at:
+    input:
+        wind_production=f"{WIND_POWER_AT['folder']}/wind_prodction_at.xlsx",
+        nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
+        costs=lambda w: resources(f"costs_2025_processed.csv"),
+        at_regions=resources("statistik_at_regions.csv"),
+    output:
+        wind_brownfield=resources("onwind_brownfield_{clusters}_at.csv"),
+    log:
+        logs("onwind_brownfield_at_{clusters}.log"),
+    benchmark:
+        benchmarks("onwind_brownfield_at_{clusters}")
+    threads: 1
+    resources:
+        mem_mb=2000,
+    params:
+        admin_levels=config_provider("clustering", "administrative"),
+    message:
+        "Building at onwind brownfield capacities"
+    script:
+        scripts("pypsa-at/build_onwind_brownfield_at.py")
