@@ -18,7 +18,7 @@ PyPSA-AT adds all known biogas-to-power plants explicitly from the Austrian
 
 1. **`overwrite_powerplants_at`** rule → `overwrite_biogas_to_power_plants_at`
    (`scripts/pypsa-at/overwrite_powerplants.py`): each Anlagenregister plant is mapped from PLZ to NUTS3 and added to the powerplants table.
-    The result is written to `powerplants_s_{clusters}-overwrite.csv`.
+    The result is written to `powerplants_s_{clusters}.csv`.
 2. **`add_existing_baseyear`** (upstream) turns these `powerplantmatching` .csv into network components:
    - Plants **< 2 MW** are tagged `biogas`; larger plants remain `solid biomass`.
      - This filter does not apply to the added plants from the Anlagenregister, which are added after the filter gate. 

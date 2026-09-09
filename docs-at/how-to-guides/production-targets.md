@@ -30,6 +30,16 @@ The biomass target also covers gas-fired electricity. The 2030 EAG constraint
 requires Austrian electricity produced from gas to be covered by domestically
 produced biogas or renewable gas.
 
+The `hydro` source counts natural inflow only: the run-of-river generators and the
+inflow generators that fill the reservoir and pumped-storage stores. The turbine output
+of pumped storage is deliberately not part of it, because a floor on turbine output would
+reward pumping and turbining water for no other reason than meeting the floor.
+E-Control's hydro statistic, against which the EAG progress is measured, does include
+generation from pumped water (3–4 TWh/a). The configured Austrian floor for 2030 is
+therefore the EAG target minus a fixed 4 TWh credit for that share (47 − 4 = 43 TWh).
+Which weather years can meet it is discussed in
+[Hydropower Capacities and Inflows](../explanations/hydro-capacity-trajectories.md#the-eag-hydro-target).
+
 ## Adding Sources
 
 To add a generator-based source, add its model carriers to
