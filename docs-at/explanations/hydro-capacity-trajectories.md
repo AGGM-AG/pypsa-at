@@ -33,13 +33,9 @@ how much the optimizer may add.
 
 !!! info "Terminology"
     **Catchment** (German *Einzugsgebiet*): the KLIEN hydropower study divides every Austrian
-    river into stretches, for example "Faggenbach", "Traun bei Krems" or "Donau unterhalb
-    Staatsgrenze", and publishes for each stretch the polygon of the land area draining into
-    it. There are 289 such catchments; 249 of them carry the installed capacity and the mean
-    annual generation of the plants on the stretch. Wherever this page says "catchment", it
-    means one such polygon with its two numbers; the five-digit ids (51200, 30407, ...) are
-    the study's own. Catchments range from a few to several thousand square kilometres, and
-    those of border rivers such as the Danube cannot be attributed to a single Bundesland.
+    river into stretches and publishes for each stretch the polygon of the land area
+    draining into it. There are 289 such catchments; 249 of them carry the installed capacity
+    and the mean annual generation of the plants on the stretch.
 
     **Regelarbeitsvermögen (RAV)**: the mean annual generation a plant would deliver with the
     discharge of the 1991–2020 reference period. It is the study's energy figure per
@@ -124,39 +120,32 @@ flowchart LR
 
 The brownfield fleet is the fleet of **2025**: powerplantmatching (ppm) as of its current
 release, the Anlagenregister with feed-in data up to 2025, and the E-Control
-Bestandsstatistik 2025 as the reference. The upstream fleet comes from
-[powerplantmatching](https://github.com/PyPSA/powerplantmatching), a merge of several
-European plant databases. For Austrian hydropower it has systematic defects:
+Bestandsstatistik 2025 as the reference. For Austrian hydropower, ppm has seven kinds of
+defects (impact on the Austrian fleet in parentheses):
 
-| Defect | Examples | Effect in the model |
-|--------|----------|---------------------|
-| **Wrong technology** | The Danube, Drau, Mur, Inn, Salzach and Ill chains are labelled *Reservoir*. | Only 2.4 GW of run-of-river instead of ≈ 6.1 GW, 6.2 GW of reservoirs instead of ≈ 3.4 GW. Because run-of-river inflow is normalised by run-of-river capacity, this alone cut the Austrian river energy from ≈ 34 TWh to ≈ 13 TWh. |
-| **Border plants counted twice** | The Inn and Danube *Grenzkraftwerke* shared 50/50 with Bavaria appear at full capacity in Austria, four of them again in Germany. | ≈ 0.3 GW too much in Austria, ≈ 0.2 GW in Germany. |
-| **Duplicate entries** | Kaprun and Malta appear as *Hauptstufe* and *Main Stage*; Verbund's Bavarian Inn plant Feldkirchen appears a second time as an Austrian plant in the Mölltal. | ≈ 1 GW of phantom capacity in two alpine valleys. |
-| **Wrong capacities** | Rodund I and II merged into one entry, Limberg above its nameplate, Prutz and Reisseck above the operator's figures; Kirchbichl still at its pre-2020 capacity; Gaming at 14 MW instead of 5.6 MW. | Regions with more (or less) capacity than the river can feed. |
-| **Wrong location** | Plants geocoded to a same-named village (St. Pantaleon on the Salzach instead of the Enns), to the operator's address (Böckstein, Wald, Weyer, Altenmarkt, Gaming in Vienna). | Capacity in the wrong region; the river energy of the true site has no plant to land on. |
-| **Missing plants** | The EVN Kamp chain, the Lech plants in Außerfern, the Salzburg AG city plants, the Sill plants in Innsbruck, the Traun chain, Rodund II, Obervermuntwerk I and Lutz Oberstufe, Partenstein, Plankenau, Wagrain-St. Johann, Schwarzach in the Defereggental, all ÖBB railway plants (Spullersee, Braz, Schneiderau, Uttendorf I, Fulpmes) and the industrial self-suppliers Kitzloch and Wiesberg, which are in no public register. | Regions whose inflow is physically infeasible with the remaining capacity. |
-| **Missing small hydro** | Only 22 plants below 10 MW. | The ≈ 1.5 GW small-hydro fleet and its regional distribution are absent. |
+- **Wrong technology**: the Danube, Drau, Mur, Inn, Salzach and Ill chains are labelled
+  *Reservoir* (2.9 GW run-of-river booked as reservoirs).
+- **Border plants counted twice**: the Inn and Danube *Grenzkraftwerke* shared with Bavaria
+  appear at full capacity (0.3 GW too much in Austria, 0.2 GW in Germany).
+- **Duplicate entries**: Kaprun and Malta appear as *Hauptstufe* and *Main Stage*, the
+  Bavarian Inn plant Feldkirchen a second time in the Mölltal (1.0 GW of phantom capacity).
+- **Wrong capacities**: merged, outdated or overstated nameplates (0.3 GW net).
+- **Wrong location**: plants geocoded to a same-named village or to the operator's address
+  (0.2 GW in the wrong region).
+- **Missing plants**: about twenty plants above 10 MW, among them all ÖBB railway plants and
+  the industrial self-suppliers (1.1 GW).
+- **Missing small hydro**: only 22 plants below 10 MW (1.5 GW).
 
-### The curated lists
+### Curated data update files
 
-Plant-level corrections cannot be derived from any single dataset, so they live in six
-reviewed lists. A **curated entry** is one row of these lists: it names the plant as ppm
-spells it, the region and capacity the row expects to find (so a changed upstream dataset is
-detected), the correction to apply, and a note with the rationale and the source URL
-(operator plant pages, Wikipedia plant articles, the Anlagenregister). The lists are reviewed
-data, not configuration.
+No available dataset supplies these corrections, so PyPSA-AT fixes them by hand in six
+reviewed data files: duplicates to drop, technology reclassifications and relocations,
+border-plant treaty shares, missing plants, catchment pins and catchment corrections. Every
+entry names the plant as ppm spells it, the capacity and region it expects to find (a guard
+against changed upstream data), the correction, and a note with the rationale and the
+source. The files are reviewed data, not configuration.
 
-| List | One entry says |
-|------|----------------|
-| **Duplicates** | "This entry duplicates that plant (in this country); drop it." The kept twin must exist, otherwise the workflow stops. |
-| **Reclassification and relocation** | "This plant has this technology, not that one", optionally with a corrected capacity, region and coordinates. |
-| **Border plants** | "This plant is shared with Bavaria by this treaty share; scale it, or add the German half where it is missing." |
-| **Missing plants** | "This plant exists with this technology, capacity, commissioning year and coordinates." |
-| **Catchment pins** | "This plant's energy belongs to this KLIEN catchment, whatever its coordinates say" (used in Part 3). |
-| **Catchment corrections** | "The study's capacity and energy of this catchment are wrong; use these operator figures instead" (used in Part 3). |
-
-### How the fleet is calibrated
+### Hydro powerplant calibration steps
 
 The corrections are applied in a fixed order, each step on the result of the previous one:
 
@@ -170,78 +159,40 @@ The corrections are applied in a fixed order, each step on the result of the pre
 | **Add missing plants** | Appends plants with coordinates, so the catchment lookup in Part 3 places them on the right river. It runs after the register step, which would otherwise drop curated plants of 10 MW or less again. Plants known only from the Anlagenregister carry its id and locality, because the register publishes neither operator names nor build years. | Missing-plants list |
 | **Add KLIEN residual plants** | Runs the catchment allocation of Part 3 on the fleet so far and adds, per catchment, one synthetic run-of-river plant for the capacity the study counts but no source holds, sized at the catchment's own full-load hours (see [Closing the remaining gap](#closing-the-remaining-gap-klien-residual-plants)). | KLIEN catchments |
 
-### Why only the small plants of the Anlagenregister are used
-
-The E-Control Anlagenregister lists every subsidised generation plant in Austria with
-technology class, bottleneck capacity, postal code and annual feed-in (see
-[E-Control Anlagenregister](../how-to-guides/anlagenregister.md) for the dataset). For
-hydropower the model uses only its *Kleinwasserkraft bis 10 MW* class, for three reasons:
-
-- **Small plants are what ppm lacks.** ppm holds 22 Austrian hydro plants below 10 MW; the
-  register holds about 3,600 with 1.8 GW. Above 10 MW, ppm misses about twenty plants,
-  few enough to curate one by one.
-- **Large plants are registered at the company address**, not at the site. Per-region
-  register totals above 10 MW are off by hundreds of megawatts in Salzburg, Vorarlberg and
-  Tyrol, so the register cannot place large plants. ÖBB's 16.7 Hz railway plants
-  (Spullersee, Braz, Stubach) are not in the register at all.
-- **Large plants are registered once per marketing contract**, with the full capacity
-  repeated on every entry (Malta Hauptstufe appears four times with 730 MW). Small plants
-  have one entry.
-
-The pipeline for the used part is short: take every register plant of the small-hydro class,
-map its postal code to the model region, place it at the postal code centroid, use the first year with feed-in inside the
-register's six-year window as commissioning year (older plants get 2000), and scale the class
-uniformly to E-Control's capacity below 10 MW. Large plants are curated one by one from
-operator sources instead.
-
 ### Result
 
-The calibrated fleet against the E-Control Bestandsstatistik 2025 (data status May 2026).
-All values are turbine capacities: for run-of-river the generator capacity, for reservoir
-and pumped storage the capacity of the turbine link. Pump capacities and the inflow
-generators (whose nominal power is the peak inflow) are not part of this comparison.
+```plotly
+{
+  "data": [
+    {"type": "bar", "name": "powerplantmatching", "x": ["Run-of-river", "Reservoir", "Pumped storage"], "y": [2395, 6248, 6120], "marker": {"color": "#9AA5B1"}},
+    {"type": "bar", "name": "E-Control Bestandsstatistik 2025", "x": ["Run-of-river", "Reservoir", "Pumped storage"], "y": [6146, 3442, 6172], "marker": {"color": "#C08A26"}},
+    {"type": "bar", "name": "KLIEN study (run-of-river and reservoir combined)", "x": ["Run-of-river", "Reservoir", "Pumped storage"], "y": [10660, null, 5096], "marker": {"color": "#1baf7a"}},
+    {"type": "bar", "name": "PyPSA-AT calibrated fleet", "x": ["Run-of-river", "Reservoir", "Pumped storage"], "y": [7129, 3103, 6294], "marker": {"color": "#1F6FB2"}}
+  ],
+  "layout": {
+    "title": {"text": "Austrian hydropower capacity by technology and source (MW)"},
+    "barmode": "group",
+    "yaxis": {"title": {"text": "MW"}},
+    "legend": {"orientation": "h", "y": -0.2},
+    "margin": {"t": 50, "b": 90}
+  }
+}
+```
 
-| Technology | Model component | powerplantmatching | Calibrated fleet | E-Control 2025 |
-|------------|-----------------|-------------------:|-----------------:|---------------:|
-| Run-of-river | `ror` generator | 2,395 MW (67 plants) | 7,129 MW (3,810 plants, of which 110 residual plants with 389 MW) | 6,146 MW Laufkraftwerke |
-| Reservoir | `hydro discharger` link | 6,248 MW (76) | 3,103 MW (54) | 3,442 MW Speicherkraftwerke without pumped storage |
-| Pumped storage | `PHS discharger` link | 6,120 MW (21) | 6,294 MW (23) | 6,172 MW Pumpspeicherkraftwerke |
-
-The run-of-river surplus of ≈ 1 GW has four known contributions: ppm nameplate versus
-E-Control bottleneck capacities, the ÖBB 16.7 Hz railway plants (≈ 175 MW) and the
-industrial self-suppliers (≈ 40 MW), which E-Control's public-grid statistics do not count
-but which turbine the same rivers, and the 389 MW of KLIEN residual plants, capacity the
-study asserts and no public source confirms. With the residual plants the fleet follows the
-KLIEN study, and E-Control becomes the cross-check rather than the anchor. The reservoir/pumped-storage boundary is soft: E-Control, KLIEN and ppm
-classify mixed storage groups with pumps (Silz, Zemm, Naßfeld) differently, which shifts
-roughly a gigawatt between the two rows depending on the source.
-
-### Guards
-
-Every curated entry must match *exactly one* Austrian hydro plant of the expected name (and,
-for reclassifications, the expected old technology) with a capacity within 1 MW. Where two ppm
-entries share a name, the capacity decides. Any other outcome stops the workflow, because it
-means the upstream dataset changed and the entry has to be re-verified; the same holds for a
-catchment pin whose plant name is not in the fleet, since a renamed plant would otherwise
-send its energy to the wrong catchment unnoticed. A region mismatch
-only warns, since coarser clusterings relabel regions. The small-hydro scaling stops if its
-factor deviates more than 15 % from one, and the postal-code mapping stops if more than 0.1 %
-of the class capacity cannot be placed.
+The KLIEN study counts run-of-river and reservoir plants together (10.7 GW) and excludes
+pumped storage; the calibrated fleet holds 10.2 GW in those two technologies, the
+difference being storage groups with pumps that the study counts as reservoirs and the
+model as pumped storage. The fleet follows the study rather than E-Control because the
+inflow energy of Part 3 is scaled with the study's capacities: a fleet that matches the
+study catchment by catchment turbines the study's energy at the study's full-load hours.
+E-Control remains the cross-check; its lower run-of-river figure does not count the ÖBB
+railway plants and the industrial self-suppliers, which turbine the same rivers.
 
 ## Part 2: Capacity corridors
 
-### Why hydro needs corridors
-
-Hydropower capacities are extendable: the optimizer decides how much to build, the same way it
-decides on wind or solar. Unlike wind and solar, hydro buildout is tightly limited in
-reality. Usable river stretches and reservoir sites are finite, and most of Europe's potential
-is developed. Without an upper bound the optimizer would build implausible amounts, because in
-the model every added run-of-river turbine receives a proportional share of the river inflow,
-"free water".
-
-The corridors therefore define, per country, technology and planning horizon, an upper bound:
-existing plants are always allowed, and new capacity may be added up to the corridor value.
-Whether the corridor is used remains an optimization result.
+Corridors bound, per country, technology and planning horizon, how much capacity the
+optimizer may add. Existing plants are always allowed; whether a corridor is used remains an
+optimization result.
 
 ### All countries: PEMMDB
 
@@ -259,7 +210,7 @@ PEMMDB reports capacities in MW and storage volumes in GWh; the volumes are conv
 the network's MWh when the corridors are built.
 
 A corridor is a **national** value. For a country split into several model regions
-(Austria, Germany, Italy) the constraint sums the components of all regions of the country
+(Germany, Italy) the constraint sums the components of all regions of the country
 and bounds the sum; where the buildout lands inside the country is left to the optimizer.
 The first planning horizon carries no PEMMDB value and gets a zero corridor, and a corridor
 below the existing fleet has the same effect: both mean "no buildout beyond the existing
@@ -267,25 +218,19 @@ fleet" (installed capacity always remains allowed). Germany, for example, has PE
 corridors for all three technologies, with headroom of roughly 0.1 GW run-of-river, 0.4 GW
 reservoir and 1.8 GW pumped-storage turbine capacity by 2030.
 
-### Austria: a growth factor from the KLIEN study
+### Austria: KLIEN study
 
-The PEMMDB values are not calibrated for Austria. The Austrian run-of-river corridor is
-therefore taken from the *realisable* hydropower pathway of the KLIEN study
-[*Erneuerbare Energiepotenziale in Österreich für 2030 und 2040*](https://gtif-austria.info/narratives/tf2-hydropower)
-(Resch et al. 2026, AIT / Umweltbundesamt, CC BY 4.0), the same study that provides the
-Austrian [PV and wind potential limits](renewable-energy-potentials/klien-potentials.md). The
-study quantifies, per catchment, how much additional river hydropower is realistically
+The Austrian run-of-river corridor is taken from the realisable hydropower pathway of the
+KLIEN study [*Erneuerbare Energiepotenziale in Österreich für 2030 und 2040*](https://gtif-austria.info/narratives/tf2-hydropower).
+The study quantifies, per catchment, how much additional river hydropower is realistically
 developable under three ambition pathways (low / medium / high) and two climate scenarios
 (RCP 4.5 / RCP 8.5), for today, 2040 and 2070.
 
 The corridor is built as a **growth factor, not an absolute value**: the study's Austria-wide
-realisable capacity for a pathway year is divided by the study's current capacity (10,660 MW),
-and the factor is applied to the calibrated run-of-river fleet from Part 1. This avoids mixing
-two definitions of "today's fleet". The study and the model do not delineate river hydropower
-identically, but the *relative* growth is transferable. Factors are anchored at 2025 (factor
-one), 2040 and 2070, interpolated linearly in between and held flat afterwards. Every
-planning horizon after the first gets the corridor value; the first horizon keeps its zero
-corridor, i.e. "no buildout".
+realisable capacity for a pathway year is divided by the study's current capacity (10.6 GW),
+and the factor is applied to the calibrated **run-of-river fleet**. Factors are anchored at
+2025 (factor one), 2040 and 2070, interpolated linearly in between. The base year always
+receives factor 1.0.
 
 With the default settings (medium ambition, RCP 4.5):
 
@@ -296,27 +241,9 @@ With the default settings (medium ambition, RCP 4.5):
 | 2040 | 1.198 | ≈ 8.5 GW |
 | 2050 | 1.227 | ≈ 8.7 GW |
 
-### Why only run-of-river is overridden
-
-The Austrian reservoir and pumped-storage corridors are the PEMMDB values for the Austrian
-market node, applied as national totals over all Austrian regions like in every other
-country:
-
-- **Reservoir**: Austria's storage sites are essentially built out and the KLIEN pathway
-  contains no meaningful new reservoir capacity. The PEMMDB reservoir turbine corridor
-  (2,787 MW, flat over all horizons) sits below the calibrated fleet, which the constraint
-  treats as "no buildout", the desired behaviour. The storage *volume* is not left to the
-  corridor data at all: the Austrian reservoir and pumped-storage stores get an upper
-  bound equal to their existing volume (zero for the new vintages of later horizons), so
-  no volume can be added even if a future PEMMDB release reports more than the model
-  holds. Turbine and pump links stay extendable.
-- **Pumped storage**: buildout is real (Limberg III, Reißeck II+, Tauernmoos) and is not
-  covered by the river-catchment assessment. The PEMMDB corridor allows 6,058 MW of turbine
-  and 5,533 MW of pump capacity in 2030 and 8,533 / 7,433 MW from 2040, i.e. roughly
-  +2.2 GW of turbine capacity over the calibrated fleet by 2040.
-- The study's realisable potential is dominated by revitalisation and efficiency gains on
-  existing plants plus small-hydro additions, which appear in the model as new run-of-river
-  capacity.
+Reservoir turbines and pumped-storage turbines and pumps remain expandable within their
+PEMMDB corridors (roughly +2.2 GW of pumped-storage turbine capacity by 2040, none for
+reservoir turbines); the storage volumes are fixed at the existing values.
 
 ## Part 3: Inflows
 
