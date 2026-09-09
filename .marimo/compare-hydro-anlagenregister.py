@@ -539,7 +539,7 @@ def _(mo):
     carriers, all technologies summed) **before** the
     `mods.update_hydro_capacities_AT` pipeline (raw powerplantmatching,
     bus-assigned `powerplants_s_adm.csv`) vs. **after**
-    (`powerplants_s_adm-overwrite.csv`: technology reclassification,
+    (`powerplants_s_adm.csv`: technology reclassification,
     Grenzkraftwerke treaty shares, nameplate fixes, and the
     Anlagenregister Kleinwasserkraft fleet scaled to the E-Control
     Bestandsstatistik).
@@ -564,11 +564,11 @@ def _(Path, nuts3_names, pd):
         )
 
     _before = sorted(Path(".").glob("resources/*/*/powerplants_s_adm.csv"))
-    _after = sorted(Path(".").glob("resources/*/*/powerplants_s_adm-overwrite.csv"))
+    _after = sorted(Path(".").glob("resources/*/*/powerplants_s_adm.csv"))
     if not (_before and _after):
         raise FileNotFoundError(
             "needs a workflow run providing powerplants_s_adm.csv and "
-            "powerplants_s_adm-overwrite.csv under resources/"
+            "powerplants_s_adm.csv under resources/"
         )
     _before_df = _load_at_hydro(_before[-1])
     _after_df = _load_at_hydro(_after[-1])

@@ -12,10 +12,13 @@ def _(mo):
     Prototype of the effect of the planned calibration steps (targets & scaling
     layer only — the **profile shape stays the ERA5/atlite one**):
 
-    - **Before** — the current AT inflow totals built by
+    - **Before** — the AT inflow totals built by
       `build_inflow_totals_per_region` (TYNDP/PEMMDB country totals distributed
       to regions by capacity), read from
-      `resources/hydro-capacities-update/AT_KN2040/`.
+      `resources/hydro-capacities-update/AT_KN2040/`. **Caveat:** since the
+      calibration is wired into the workflow, that file already carries the
+      KLIEN targets for AT ror/hydro when `mods.update_hydro_capacities_AT` is
+      enabled; a true TYNDP "before" needs a run predating the wiring.
     - **After** — KLIEN study existing generation (`E_current`, GWh/a
       Regelarbeitsvermögen per river-section catchment, discharge reference
       1991–2020) mapped to NUTS3, split into `ror`/`hydro` by the regional
@@ -50,7 +53,7 @@ def _(mo):
        74 Speicher plants), **excluding** the 24 Pumpspeicherkraftwerke
        (total incl. PS would be 53.3 TWh/a; Tabelle 15). The `ror`/`hydro`
        split here uses regional capacity shares from
-       `powerplants_s_adm-overwrite.csv` — caveat: KLIEN's Speicher/PS
+       `powerplants_s_adm.csv` — caveat: KLIEN's Speicher/PS
        boundary (PS EPL ≈ 15,756 − 10,660 ≈ 5.1 GW) differs from the model's
        `Technology` labels (PHS ≈ 6.1 GW) by ~1 GW of borderline storage
        plants; the real implementation should reconcile plant classification
@@ -314,6 +317,7 @@ def _():
 
     import geopandas as gpd
     import marimo as mo
+    import matplotlib.dates as mdates
     import matplotlib.pyplot as plt
     import numpy as np
     import pandas as pd
@@ -322,7 +326,22 @@ def _():
     sys.path[:0] = [".", "scripts", "scripts/pypsa-at"]
     import build_hydro_inflow_targets as bhit
 
-    return Path, bhit, gpd, mo, np, pd, plt, shutil, urllib, xr
+    from mods.network.hydro import _redistribute_peaks as redistribute_peaks
+
+    return (
+        Path,
+        bhit,
+        gpd,
+        mdates,
+        mo,
+        np,
+        pd,
+        plt,
+        redistribute_peaks,
+        shutil,
+        urllib,
+        xr,
+    )
 
 
 @app.cell
@@ -350,10 +369,13 @@ def _(Path):
     C_AFTER = "#1F6FB2"
     C_CLIP = "#C08A26"
     C_INK = "#3A4550"
+    # categorical carrier colours (dataviz slots 1-3, fixed order)
+    C_CARRIER = {"ror": "#2a78d6", "hydro": "#eb6834", "PHS": "#1baf7a"}
     return (
         CACHE,
         C_AFTER,
         C_BEFORE,
+        C_CARRIER,
         C_CLIP,
         C_INK,
         ECONTROL_URL,
@@ -385,7 +407,15 @@ def _(gpd, klien_geojson_path):
     sections = gpd.read_file(klien_geojson_path)
     sections.columns = [c.strip() for c in sections.columns]
     sections = sections[
-        ["id", "ABSCHNITT", "BUNDESLAND", "FLAECHEKM2", "E_current", "geometry"]
+        [
+            "id",
+            "ABSCHNITT",
+            "BUNDESLAND",
+            "FLAECHEKM2",
+            "E_current",
+            "C_current",
+            "geometry",
+        ]
     ]
     # 249 of 289 sections carry data; the rest are foreign catchments
     sections = sections[sections["E_current"].notna()].to_crs(3416)
@@ -394,7 +424,7 @@ def _(gpd, klien_geojson_path):
 
 
 @app.cell
-def _(NUTS3_SHAPES, RESOURCES, TECH_TO_CARRIER, gpd, pd, xr):
+def _(NUTS3_SHAPES, Path, RESOURCES, bhit, gpd, pd, xr):
     nuts3_at = (
         gpd.read_file(NUTS3_SHAPES)
         .query("country == 'AT'")[["index", "name", "geometry"]]
@@ -408,16 +438,20 @@ def _(NUTS3_SHAPES, RESOURCES, TECH_TO_CARRIER, gpd, pd, xr):
     )
 
     _ppl = pd.read_csv(
-        RESOURCES / "powerplants_s_adm-overwrite.csv",
+        RESOURCES / "powerplants_s_adm.csv",
         dtype={"plz": str},
         low_memory=False,
     )
-    plants_at = _ppl.query("Country == 'AT' and Fueltype == 'Hydro'").copy()
-    plants_at["carrier"] = plants_at["Technology"].map(TECH_TO_CARRIER)
-    plants_at = plants_at.rename(columns={"Capacity": "p_nom", "Name": "name"})[
-        ["bus", "carrier", "p_nom", "lat", "lon", "plz", "name"]
-    ]
-    cap = plants_at.groupby(["bus", "carrier"])["p_nom"].sum().unstack(fill_value=0)
+    # AT fleet plus the German Grenzkraftwerke halves, as in the workflow rule
+    plants_at = bhit.select_hydro_plants(
+        _ppl, pd.read_csv(Path("data/pypsa-at/grenzkraftwerke_AT.csv"))
+    )
+    cap = (
+        plants_at[plants_at["bus"].str.startswith("AT")]
+        .groupby(["bus", "carrier"])["p_nom"]
+        .sum()
+        .unstack(fill_value=0)
+    )
 
     profile = xr.open_dataarray(RESOURCES / "profile_inflow_adm.nc")
     profile_at = profile.sel(
@@ -461,8 +495,13 @@ def _(Path, bhit, nuts3_at, pd, plants_at, sections):
         sections.set_index("id"),
         nuts3_at.set_index("bus"),
         overrides=diversion_overrides,
+        capacity_col="C_current",  # cap at the section's own full-load hours
     )
-    targets_gwh = _targets.rename(columns={"energy": "target_gwh"})
+    # the German twins' share and the PHS-attributed energy are dropped, as
+    # in the workflow rule
+    targets_gwh = _targets[
+        _targets["bus"].str.startswith("AT") & (_targets["carrier"] != "PHS")
+    ].rename(columns={"energy": "target_gwh"})
     return diag_pb, targets_gwh
 
 
@@ -774,6 +813,317 @@ def _(
     _ax.legend(frameon=False, fontsize=8)
     _ax.spines[["top", "right"]].set_visible(False)
     _ax.grid(axis="y", alpha=0.25)
+    _fig.tight_layout()
+    _fig
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Step 4 — `p_max_pu` per technology and NUTS3 region, before and after `_redistribute_peaks`
+
+    `patch_inflows` (`mods/network/hydro.py`) turns the hourly inflow into
+    `p_max_pu` time series:
+
+    - **ror** generators: `p_max_pu = inflow / p_nom`. Hours above 1 are
+      capped and their energy is redistributed over the other hours by
+      `_redistribute_peaks` — the real function is called below. A region
+      whose annual energy exceeds `p_nom × 8760 h` cannot be redistributed;
+      the function raises and the callout below shows the message.
+    - **hydro inflow** / **PHS inflow** generators: `p_nom` is set to the
+      maximum hourly inflow and `p_max_pu = inflow / max(inflow)`. The
+      profile never exceeds 1 and no redistribution is applied, so before
+      and after are identical for these two carriers.
+
+    The *basis* selects which annual energies are pushed through the ERA5
+    shape: the KLIEN-calibrated targets of the selected weather year (PHS
+    unchanged) or the TYNDP totals of the current run.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo, nuts3_at):
+    region_names = nuts3_at.set_index("bus")["name"].sort_index()
+    pmax_basis_sel = mo.ui.dropdown(
+        options={
+            "KLIEN-calibrated (after)": "after_mwh",
+            "TYNDP (before)": "before_mwh",
+        },
+        value="KLIEN-calibrated (after)",
+        label="Inflow basis",
+    )
+    pmax_region_sel = mo.ui.dropdown(
+        options={f"{_b} {_n}": _b for _b, _n in region_names.items()},
+        value=f"AT322 {region_names['AT322']}",
+        label="NUTS3 region (detail)",
+    )
+    pmax_tech_sel = mo.ui.dropdown(
+        options=["ror", "hydro", "PHS"],
+        value="ror",
+        label="Technology (overview grid)",
+    )
+    mo.hstack([pmax_basis_sel, pmax_region_sel, pmax_tech_sel], justify="start", gap=2)
+    return pmax_basis_sel, pmax_region_sel, pmax_tech_sel, region_names
+
+
+@app.cell
+def _(cap, comp, pmax_basis_sel, profile_at, redistribute_peaks):
+    _energy = (
+        comp.set_index(["bus", "carrier"])[pmax_basis_sel.value]
+        .unstack(fill_value=0.0)
+        .reindex(index=profile_at.columns, columns=["ror", "hydro", "PHS"])
+        .fillna(0.0)
+    )
+    # hourly inflow in MW per carrier (time x region): annual MWh x ERA5 shape
+    inflow_mw = {c: profile_at.mul(_energy[c], axis="columns") for c in _energy}
+
+    # p_max_pu as patch_inflows defines it per carrier
+    _p_nom_ror = cap["ror"].reindex(profile_at.columns).fillna(0.0)
+    pmax_raw = {
+        "ror": inflow_mw["ror"]
+        .div(_p_nom_ror.where(_p_nom_ror > 0), axis="columns")
+        .fillna(0.0)
+    }
+    for _c in ["hydro", "PHS"]:
+        _peak = inflow_mw[_c].max()
+        pmax_raw[_c] = inflow_mw[_c].div(_peak.where(_peak > 0)).fillna(0.0)
+
+    redist_error = None
+    try:
+        _ror_redist = redistribute_peaks(pmax_raw["ror"])
+    except ValueError as _err:
+        # production raises; here keep the feasible regions redistributed and
+        # only clip the infeasible ones so the plots stay informative
+        redist_error = str(_err)
+        _feasible = pmax_raw["ror"].columns[pmax_raw["ror"].sum() < len(profile_at)]
+        _ror_redist = pmax_raw["ror"].clip(0, 1)
+        _ror_redist[_feasible] = redistribute_peaks(pmax_raw["ror"][_feasible])
+    pmax_redist = dict(pmax_raw, ror=_ror_redist)
+    return inflow_mw, pmax_raw, pmax_redist, redist_error
+
+
+@app.cell(hide_code=True)
+def _(mo, redist_error):
+    mo.callout(
+        mo.md(
+            "**`_redistribute_peaks` raised** — the ror panels show the "
+            f"profile clipped at 1 instead:\n\n```\n{redist_error}\n```"
+        ),
+        kind="danger",
+    ) if redist_error else None
+    return
+
+
+@app.cell(hide_code=True)
+def _(
+    C_AFTER,
+    C_BEFORE,
+    C_CLIP,
+    cap,
+    inflow_mw,
+    mdates,
+    plt,
+    pmax_basis_sel,
+    pmax_raw,
+    pmax_redist,
+    pmax_region_sel,
+    region_names,
+):
+    _bus = pmax_region_sel.value
+    _fig, _axes = plt.subplots(3, 1, figsize=(9.5, 8), sharex=True)
+    for _ax, _car in zip(_axes, ["ror", "hydro", "PHS"]):
+        _raw, _red = pmax_raw[_car][_bus], pmax_redist[_car][_bus]
+        if _car == "ror":
+            _p_nom = cap["ror"].get(_bus, 0.0)
+            _ax.plot(
+                _raw.index,
+                _raw,
+                color=C_BEFORE,
+                lw=0.8,
+                label="before: inflow / p_nom",
+            )
+            _ax.plot(
+                _red.index,
+                _red,
+                color=C_AFTER,
+                lw=0.8,
+                label="after _redistribute_peaks",
+            )
+            _ax.axhline(1, color=C_CLIP, lw=1, ls="--", label="p_max_pu = 1")
+            _ax.set_title(
+                f"ror — p_nom {_p_nom:,.0f} MW · "
+                f"{_raw.sum():,.0f} h target, {_red.sum():,.0f} h after "
+                f"redistribution, {(_raw.clip(0, 1)).sum():,.0f} h if clipped",
+                loc="left",
+                fontsize=10,
+            )
+        else:
+            _ax.plot(
+                _red.index,
+                _red,
+                color=C_AFTER,
+                lw=0.8,
+                label=f"{_car} inflow: inflow / max(inflow) — no redistribution",
+            )
+            _ax.set_title(
+                f"{_car} inflow — generator p_nom = max inflow "
+                f"{inflow_mw[_car][_bus].max():,.0f} MW · "
+                f"turbine p_nom {cap.get(_car, {}).get(_bus, 0.0):,.0f} MW",
+                loc="left",
+                fontsize=10,
+            )
+        _ax.set_ylabel("p_max_pu")
+        _ax.legend(frameon=False, fontsize=8, loc="upper right")
+        _ax.spines[["top", "right"]].set_visible(False)
+        _ax.grid(axis="y", alpha=0.25)
+    _axes[-1].xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+    _fig.suptitle(
+        f"{_bus} {region_names[_bus]} — hourly p_max_pu "
+        f"({pmax_basis_sel.selected_key})",
+        x=0.01,
+        ha="left",
+        fontsize=11,
+    )
+    _fig.tight_layout()
+    _fig
+    return
+
+
+@app.cell(hide_code=True)
+def _(
+    C_AFTER,
+    C_BEFORE,
+    C_CLIP,
+    mdates,
+    np,
+    plt,
+    pmax_raw,
+    pmax_redist,
+    pmax_tech_sel,
+    region_names,
+):
+    _car = pmax_tech_sel.value
+    _raw, _red = pmax_raw[_car], pmax_redist[_car]
+    _buses = [b for b in _red.columns if _red[b].sum() > 0]
+    _ncol = 5
+    _nrow = int(np.ceil(len(_buses) / _ncol))
+    _fig, _axes = plt.subplots(
+        _nrow, _ncol, figsize=(12, 1.9 * _nrow + 0.6), sharex=True, sharey=True
+    )
+    for _ax, _b in zip(_axes.flat, _buses):
+        if _car == "ror":
+            _ax.plot(_raw.index, _raw[_b], color=C_BEFORE, lw=0.5)
+        _ax.plot(_red.index, _red[_b], color=C_AFTER, lw=0.5)
+        _ax.axhline(1, color=C_CLIP, lw=0.7, ls="--")
+        _ax.set_title(
+            f"{_b} {region_names.get(_b, '')[:14]} · {_red[_b].sum():,.0f} h",
+            fontsize=7.5,
+            loc="left",
+        )
+        _ax.tick_params(labelsize=7)
+        _ax.spines[["top", "right"]].set_visible(False)
+    for _ax in _axes.flat[len(_buses) :]:
+        _ax.set_axis_off()
+    _ymax = float(np.nanmax(_raw[_buses].to_numpy())) if _car == "ror" else 1.0
+    _axes.flat[0].set_ylim(0, min(max(1.2, _ymax), 3.0))
+    _axes.flat[0].xaxis.set_major_locator(mdates.MonthLocator(bymonth=[1, 7]))
+    _axes.flat[0].xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+    _legend = (
+        "grey: before redistribution · blue: after _redistribute_peaks · "
+        "dashed: p_max_pu = 1 (y clipped at 3)"
+        if _car == "ror"
+        else "blue: inflow / max(inflow) (no redistribution) · dashed: p_max_pu = 1"
+    )
+    _fig.suptitle(
+        f"{_car}: hourly p_max_pu per NUTS3 region — {_legend}",
+        x=0.01,
+        ha="left",
+        fontsize=10,
+    )
+    _fig.tight_layout()
+    _fig
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Step 5 — hourly energy per technology
+
+    What the fleet turbines or receives with the chosen basis, summed to
+    weeks: **ror** is the delivered generation `p_max_pu × p_nom` after
+    redistribution (the only carrier whose profile can lose energy), **hydro
+    inflow** and **PHS inflow** are the natural inflows into the reservoirs —
+    their dispatch is an optimisation result. Austria and the selected region.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(
+    C_CARRIER,
+    C_INK,
+    cap,
+    inflow_mw,
+    mdates,
+    pd,
+    plt,
+    pmax_basis_sel,
+    pmax_redist,
+    pmax_region_sel,
+    region_names,
+):
+    _p_nom_ror = cap["ror"].reindex(pmax_redist["ror"].columns).fillna(0.0)
+    _energy_mw = {
+        "ror": pmax_redist["ror"].mul(_p_nom_ror, axis="columns"),
+        "hydro inflow": inflow_mw["hydro"],
+        "PHS inflow": inflow_mw["PHS"],
+    }
+    _colors = [C_CARRIER["ror"], C_CARRIER["hydro"], C_CARRIER["PHS"]]
+    _bus = pmax_region_sel.value
+    _fig, _axes = plt.subplots(2, 1, figsize=(9.5, 6.5), sharex=True)
+    for _ax, (_label, _sel) in zip(
+        _axes, [("Austria", None), (f"{_bus} {region_names[_bus]}", _bus)]
+    ):
+        _weekly = (
+            pd.DataFrame(
+                {
+                    k: (v.sum(axis=1) if _sel is None else v[_sel])
+                    for k, v in _energy_mw.items()
+                }
+            )
+            .resample("W")
+            .sum()
+            / 1e3
+        )  # GWh per week
+        _ax.stackplot(
+            _weekly.index,
+            _weekly.T.to_numpy(),
+            labels=_weekly.columns,
+            colors=_colors,
+            alpha=0.9,
+            lw=0,
+        )
+        _tot = _weekly.sum() / 1e3  # TWh/a
+        _ax.set_title(
+            f"{_label} — " + " · ".join(f"{k} {v:.1f} TWh" for k, v in _tot.items()),
+            loc="left",
+            fontsize=10,
+            color=C_INK,
+        )
+        _ax.set_ylabel("GWh / week")
+        _ax.spines[["top", "right"]].set_visible(False)
+        _ax.grid(axis="y", alpha=0.25)
+    _axes[0].legend(frameon=False, fontsize=8, loc="upper right")
+    _axes[-1].xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+    _fig.suptitle(
+        f"Weekly hydro energy per technology ({pmax_basis_sel.selected_key})",
+        x=0.01,
+        ha="left",
+        fontsize=11,
+    )
     _fig.tight_layout()
     _fig
     return
