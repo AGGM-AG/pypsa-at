@@ -290,14 +290,16 @@ solving:
       hydro:
         AT:
           # EAG target: 47 TWh/a hydropower generation in 2030. The model counts natural
-          # inflow only (ror, hydro inflow, PHS inflow); the turbine output of
-          # pumped storage is excluded so that the optimizer cannot pump and turbine
-          # water just to reach 47 TWh/a. E-Control's Betriebsstatistik, on which the
-          # EAG progress is measured, includes 3-4 TWh/a of generation from pumped
-          # water; that share is credited as a fixed 4 TWh, hence 47 - 4 = 43. I chose
-          # 4 TWh (3.5 TWh/a in average between 2013 and 2025) because of expected
-          # PHS charger build out until 2030.
-          2030: 43
+          # inflow only (ror, hydro inflow, PHS inflow), each inflow weighted by the
+          # turbine efficiency of the store it feeds so that the floor is stated in
+          # delivered electricity; the turbine output of pumped storage is excluded so
+          # that the optimizer cannot pump and turbine water just to reach 47 TWh/a.
+          # E-Control's Betriebsstatistik, on which the EAG progress is measured,
+          # includes generation from pumped water: 3.5 TWh/a on average 2013-2025
+          # (pumping series, share of pumped water calibrated on the 2025
+          # Bestandsstatistik; 3.7 TWh/a for 2020-2025, 4.3 TWh/a maximum in 2022).
+          # That share is credited as a fixed 3.5 TWh, hence 47 - 3.5 = 43.5.
+          2030: 43.5
       biomass:
         AT:
           2030: 5.6

@@ -33,10 +33,14 @@ produced biogas or renewable gas.
 The `hydro` source counts natural inflow only: the run-of-river generators and the
 inflow generators that fill the reservoir and pumped-storage stores. The turbine output
 of pumped storage is deliberately not part of it, because a floor on turbine output would
-reward pumping and turbining water for no other reason than meeting the floor.
+reward pumping and turbining water for no other reason than meeting the floor. To state
+the floor in delivered electricity, every generator on a store bus is weighted by the
+efficiency of the turbine link of that store (0.90 for reservoirs, 0.87 for pumped
+storage with the default cost data); generators on an electricity bus count fully.
 E-Control's hydro statistic, against which the EAG progress is measured, does include
-generation from pumped water (3–4 TWh/a). The configured Austrian floor for 2030 is
-therefore the EAG target minus a fixed 4 TWh credit for that share (47 − 4 = 43 TWh).
+generation from pumped water, 3.5 TWh/a on average over 2013–2025. The configured Austrian
+floor for 2030 is therefore the EAG target minus a fixed 3.5 TWh credit for that share
+(47 − 3.5 = 43.5 TWh).
 Which weather years can meet it is discussed in
 [Hydropower Capacities and Inflows](../explanations/hydro-capacity-trajectories.md#the-eag-hydro-target).
 

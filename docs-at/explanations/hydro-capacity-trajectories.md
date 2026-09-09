@@ -557,16 +557,21 @@ model enforces it as a production floor for Austria in that horizon. The floor c
 natural inflow only: the run-of-river generators and the inflow generators of the reservoir
 and pumped-storage stores. The turbine output of pumped storage is not part of it, because a
 floor on turbine output would reward pumping and turbining water for no other reason than
-meeting the floor. E-Control's hydro statistic, against which the EAG progress is measured,
-does include generation from pumped water, 3 to 4 TWh a year. That share is credited as a
-fixed 4 TWh, so the configured floor is 47 − 4 = 43 TWh. The credit is only honest once the
-pumped-storage natural inflow itself is calibrated (see the open item above); with the
-PEMMDB value it is counted twice.
+meeting the floor. The inflow generators sit upstream of the turbine links, so each is
+weighted by the efficiency of the turbine of its store (0.90 for reservoirs, 0.87 for
+pumped storage), which states the floor in delivered electricity. E-Control's hydro
+statistic, against which the EAG progress is measured, does include generation from pumped
+water: 3.5 TWh a year on average over 2013 to 2025 (derived from E-Control's pumping
+series, 2.0 TWh in 2000 rising to 3.7 TWh over 2020 to 2025 and 4.3 TWh in 2022). That
+share is credited as a fixed 3.5 TWh, so the configured floor is 47 − 3.5 = 43.5 TWh. The
+credit is only honest once the pumped-storage natural inflow itself is calibrated (see the
+open item above); with the PEMMDB value it is counted twice.
 
 Whether the floor can be met depends on the weather year, because the inflow targets scale
 with it while the fleet does not. The table shows, per weather year, the natural inflow of
 the calibrated 2025 fleet and the run-of-river capacity the optimizer would have to add in
-2030 to reach 43 TWh; the KLIEN corridor allows 440 MW of additions by 2030.
+2030 to reach the floor; the KLIEN corridor allows 445 MW of additions by 2030. The
+efficiency weights are applied, so the table is in delivered electricity.
 
 | Weather year | Natural inflow, 2025 fleet | Additional ror needed for 43 TWh | Feasible in 2030 |
 |---|---:|---:|:---:|
@@ -602,7 +607,7 @@ because the PEMMDB climate years end in 2017.
 | `data.econtrol-betriebsstatistik` | E-Control Betriebsstatistik (annual generation by plant type) for the weather-year factors. |
 | `data.anlagenregister` | Plant-level Anlagenregister for the small-hydro fleet (see [E-Control Anlagenregister](../how-to-guides/anlagenregister.md)). |
 | `data.geonames-postal-codes-at` | GeoNames postal code centroids (CC BY 4.0) that locate the register plants. |
-| `solving.constraints.limits_volume_min.hydro.AT` | The EAG hydro production floor, 43 TWh for 2030 (see [The EAG hydro target](#the-eag-hydro-target)). |
+| `solving.constraints.limits_volume_min.hydro.AT` | The EAG hydro production floor, 43.5 TWh for 2030 (see [The EAG hydro target](#the-eag-hydro-target)). |
 
 !!! note "Data availability"
     The KLIEN hydro catchments (an 82 MB GeoJSON), both E-Control statistics and the

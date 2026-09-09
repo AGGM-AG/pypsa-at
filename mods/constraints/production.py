@@ -26,6 +26,53 @@ LINK_CARRIERS = {
 }
 LINK_EAG_ADDITIONS = {"biomass": (["gas"], [])}
 
+ELECTRICITY_CARRIERS = ["AC", "low voltage"]
+
+
+def inflow_turbine_weights(n: pypsa.Network, generators: pd.Index) -> pd.Series:
+    """
+    Weight generators on store buses by the efficiency of their turbine link.
+
+    The hydro inflow generators (``hydro inflow``, ``PHS inflow``) feed a
+    store bus, and their energy reaches the grid only through the discharger
+    link of that store, whose efficiency is below one. A production target
+    stated in delivered electricity (E-Control counts generation at the
+    terminals) therefore weights such a generator by that efficiency.
+    Generators on an electricity bus (``ror``, wind, solar) get weight one.
+
+    Parameters
+    ----------
+    n
+        Network with buses, links and generators.
+    generators
+        Generator names to weight.
+
+    Returns
+    -------
+    :
+        Weights indexed by generator name (index named ``Generator``).
+
+    Raises
+    ------
+    ValueError
+        If a generator sits on a non-electricity bus without a turbine link
+        into an electricity bus, so its energy could never reach the grid.
+    """
+    electricity_buses = n.buses.index[n.buses.carrier.isin(ELECTRICITY_CARRIERS)]
+    turbines = n.links[n.links.bus1.isin(electricity_buses)]
+    turbine_efficiency = turbines.groupby("bus0")["efficiency"].mean()
+    weights = pd.Series(1.0, index=pd.Index(generators, name="Generator"))
+    on_store = ~n.generators.loc[generators, "bus"].isin(electricity_buses)
+    store_buses = n.generators.loc[generators[on_store], "bus"]
+    missing = store_buses[~store_buses.isin(turbine_efficiency.index)]
+    if not missing.empty:
+        raise ValueError(
+            "Generators on a store bus without a turbine link into an "
+            f"electricity bus: {missing.index.tolist()}."
+        )
+    weights[on_store.to_numpy()] = store_buses.map(turbine_efficiency).to_numpy()
+    return weights
+
 
 def _production_expression(n: pypsa.Network, source: str, region: str):
     """
@@ -47,7 +94,9 @@ def _production_expression(n: pypsa.Network, source: str, region: str):
 
     Notes
     -----
-    Time-varying link efficiencies are ignored.
+    Time-varying link efficiencies are ignored. Generators on store buses
+    (the hydro inflow generators) are weighted by the efficiency of the
+    turbine link of that store, see :func:`inflow_turbine_weights`.
     """
     weightings = n.snapshot_weightings.generators
 
@@ -57,7 +106,10 @@ def _production_expression(n: pypsa.Network, source: str, region: str):
             & n.generators.carrier.isin(GENERATOR_CARRIERS[source])
             & n.generators.active
         ].index
-        return n.model["Generator-p"].loc[:, generators].mul(weightings).sum()
+        weights = inflow_turbine_weights(n, generators)
+        return (
+            n.model["Generator-p"].loc[:, generators].mul(weights).mul(weightings).sum()
+        )
     elif source in LINK_CARRIERS:
         from_carriers, to_carriers = LINK_CARRIERS[source]
         from_buses = n.buses[
