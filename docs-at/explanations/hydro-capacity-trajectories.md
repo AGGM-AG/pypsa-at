@@ -633,7 +633,9 @@ because the PEMMDB climate years end in 2017.
 | `solving.constraints.limits_volume_min.hydro.AT` | The EAG hydro production floor, 43.5 TWh for 2030 (see [The EAG hydro target](#the-eag-hydro-target)). |
 
 !!! note "Data availability"
-    The KLIEN hydro catchments (an 82 MB GeoJSON), both E-Control statistics and the
-    GeoNames postal codes are not mirrored on Zenodo yet; the `archive` source of these
-    datasets carries a placeholder. Fresh clones need the `build` or `primary` source, which
-    downloads from the GTIF share, from e-control.at and from geonames.org.
+    The KLIEN hydro catchments (an 82 MB GeoJSON) are not mirrored on Zenodo yet; the
+    `archive` source of the KLIEN dataset carries a placeholder, and fresh clones need the
+    `build` source, which downloads from the GTIF share. The GeoNames postal codes and the
+    two E-Control statistics are downloaded from geonames.org and e-control.at at run time
+    (`primary` source); the E-Control files are deliberately not mirrored, because the
+    licence of E-Control's publications is unclear.

@@ -224,13 +224,13 @@ data:
     source: archive
     version: latest
   econtrol-bestandsstatistik:
-    source: build
+    source: primary  # downloaded from e-control.at, no Zenodo mirror (licence unclear)
     version: latest
   econtrol-betriebsstatistik:
-    source: build
+    source: primary  # downloaded from e-control.at, no Zenodo mirror (licence unclear)
     version: latest
   geonames-postal-codes-at:
-    source: primary
+    source: primary  # downloaded from geonames.org, no Zenodo mirror for now
     version: latest
   kfz-bestand-at:
     source: primary

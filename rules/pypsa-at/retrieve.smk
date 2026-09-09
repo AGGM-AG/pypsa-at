@@ -193,7 +193,7 @@ if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
             copy2(input["ods"], output["ods"])
 
 
-if ECONTROL_BESTANDSSTATISTIK["source"] in ["build", "archive"]:
+if ECONTROL_BESTANDSSTATISTIK["source"] == "primary":
 
     rule retrieve_econtrol_bestandsstatistik:
         input:
@@ -208,7 +208,7 @@ if ECONTROL_BESTANDSSTATISTIK["source"] in ["build", "archive"]:
             copy2(input["typ"], output["typ"])
 
 
-if ECONTROL_BETRIEBSSTATISTIK["source"] in ["build", "archive"]:
+if ECONTROL_BETRIEBSSTATISTIK["source"] == "primary":
 
     rule retrieve_econtrol_betriebsstatistik:
         input:
@@ -239,18 +239,6 @@ if GEONAMES_POSTAL_CODES_AT["source"] == "primary":
                     open(output["postal_codes"], "wb") as dst,
                 ):
                     dst.write(src.read())
-
-elif GEONAMES_POSTAL_CODES_AT["source"] == "archive":
-
-    rule retrieve_geonames_postal_codes_at:
-        input:
-            postal_codes=storage(f"{GEONAMES_POSTAL_CODES_AT['url']}/AT.txt"),
-        output:
-            postal_codes=f"{GEONAMES_POSTAL_CODES_AT['folder']}/AT.txt",
-        message:
-            "Retrieving the mirrored GeoNames postal code centroids for Austria"
-        run:
-            copy2(input["postal_codes"], output["postal_codes"])
 
 
 rule retrieve_heat_demand_at:

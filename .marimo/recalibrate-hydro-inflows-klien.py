@@ -68,8 +68,9 @@ def _(mo):
        `f_hydro = Speicher(year)/mean(Speicher 1991–2020)` (E-Control
        Speicher incl. pumped-storage generation — caveat).
 
-    Downloads on first run (cached in `data/klien-hydro/`): KLIEN hydro
-    GeoJSON (~82 MB) from the GTIF share, E-Control `BStGes-JR1_Bilanz.xlsx`.
+    Reads the KLIEN catchment GeoJSON and the E-Control `BStGes-JR1_Bilanz.xlsx`
+    from the workflow's dataset folders (`data/klien_potentials/`,
+    `data/econtrol-betriebsstatistik/`), which the retrieve rules fill.
 
     Run from the repository root:
     `pixi run marimo edit .marimo/recalibrate-hydro-inflows-klien.py`
@@ -310,9 +311,7 @@ def _(comp, nuts3_at, plt):
 
 @app.cell
 def _():
-    import shutil
     import sys
-    import urllib.request
     from pathlib import Path
 
     import geopandas as gpd
@@ -338,8 +337,6 @@ def _():
         pd,
         plt,
         redistribute_peaks,
-        shutil,
-        urllib,
         xr,
     )
 
@@ -348,16 +345,9 @@ def _():
 def _(Path):
     RESOURCES = Path("resources/hydro-capacities-update/AT_KN2040")
     NUTS3_SHAPES = Path("resources/nuts3_shapes.geojson")
-    CACHE = Path("data/klien-hydro")
-
-    KLIEN_BASE = (
-        "https://workspace-ui-public.gtif-austria.hub-otc.eox.at"
-        "/api/public/share/public-4wazei3y-02/KLIEN-studie"
-    )
-    KLIEN_GEOJSON_URL = f"{KLIEN_BASE}/hydro/hydro_EEPOT_W23.geojson"
-    ECONTROL_URL = (
-        "https://www.e-control.at/documents/1785851/1811609/BStGes-JR1_Bilanz.xlsx"
-    )
+    # dataset folders filled by the workflow's retrieve rules (any source/version)
+    KLIEN_GEOJSON_GLOB = "data/klien_potentials/*/*/catchments_hydro.geojson"
+    ECONTROL_GLOB = "data/econtrol-betriebsstatistik/*/*/BStGes-JR1_Bilanz.xlsx"
 
     TECH_TO_CARRIER = {
         "Run-Of-River": "ror",
@@ -372,14 +362,13 @@ def _(Path):
     # categorical carrier colours (dataviz slots 1-3, fixed order)
     C_CARRIER = {"ror": "#2a78d6", "hydro": "#eb6834", "PHS": "#1baf7a"}
     return (
-        CACHE,
         C_AFTER,
         C_BEFORE,
         C_CARRIER,
         C_CLIP,
         C_INK,
-        ECONTROL_URL,
-        KLIEN_GEOJSON_URL,
+        ECONTROL_GLOB,
+        KLIEN_GEOJSON_GLOB,
         NUTS3_SHAPES,
         RESOURCES,
         TECH_TO_CARRIER,
@@ -387,18 +376,21 @@ def _(Path):
 
 
 @app.cell
-def _(CACHE, ECONTROL_URL, KLIEN_GEOJSON_URL, shutil, urllib):
-    def _download(url: str, dest):
-        if dest.exists() and dest.stat().st_size > 0:
-            return dest
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=300) as r, open(dest, "wb") as f:
-            shutil.copyfileobj(r, f)
-        return dest
+def _(ECONTROL_GLOB, KLIEN_GEOJSON_GLOB, Path):
+    def _dataset_file(pattern: str, rule: str) -> Path:
+        # newest match wins when several sources/versions are present
+        matches = sorted(Path().glob(pattern), key=lambda p: p.stat().st_mtime)
+        if not matches:
+            raise FileNotFoundError(
+                f"No file matches {pattern!r}; run the workflow rule {rule} first "
+                "(pixi run snakemake <rule> -c1)."
+            )
+        return matches[-1]
 
-    klien_geojson_path = _download(KLIEN_GEOJSON_URL, CACHE / "hydro_EEPOT_W23.geojson")
-    econtrol_path = _download(ECONTROL_URL, CACHE / "BStGes-JR1_Bilanz.xlsx")
+    klien_geojson_path = _dataset_file(
+        KLIEN_GEOJSON_GLOB, "retrieve_klien_hydro_pathway / retrieve_klien_potentials"
+    )
+    econtrol_path = _dataset_file(ECONTROL_GLOB, "retrieve_econtrol_betriebsstatistik")
     return econtrol_path, klien_geojson_path
 
 
