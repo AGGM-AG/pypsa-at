@@ -226,6 +226,12 @@ data:
   econtrol-bestandsstatistik:
     source: build
     version: latest
+  econtrol-betriebsstatistik:
+    source: build
+    version: latest
+  geonames-postal-codes-at:
+    source: primary
+    version: latest
   kfz-bestand-at:
     source: primary
     version: "2025"
@@ -283,7 +289,13 @@ solving:
           2030: 17
       hydro:
         AT:
-          2030: 37  # Should be 47 TWh but that is too much for the networks constraints
+          # EAG target: 47 TWh/a hydropower generation in 2030. The model counts natural
+          # inflow only (ror, hydro inflow, PHS inflow generators); the turbine output of
+          # pumped storage is excluded so that the optimizer cannot pump and turbine
+          # water just to satisfy the floor. E-Control's hydro statistic, on which the
+          # EAG progress is measured, includes 3-4 TWh/a of generation from pumped
+          # water; that share is credited as a fixed 4 TWh, hence 47 - 4 = 43.
+          2030: 43
       biomass:
         AT:
           2030: 5.6
