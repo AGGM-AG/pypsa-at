@@ -157,6 +157,9 @@ def apply_onwind_brownfield(n: pypsa.Network, snakemake: Snakemake) -> None:
         n.generators.loc[base_year_components.index, "p_nom_min"] = (
             base_year_components.capacity
         )
+        n.generators.loc[base_year_components.index, "p_nom"] = n.generators.loc[
+            base_year_components.index, "p_nom_min"
+        ]
     else:
         _check_extendable(base_year_components, False)
         n.generators.loc[base_year_components.index, "p_nom"] = np.maximum(
