@@ -12,9 +12,8 @@ def test_onwind_brownfield_capacity(nc):
         lifetime = network.generators.loc[
             network.generators.carrier.eq("onwind"), "lifetime"
         ].iloc[0]
-        expected = brownfield.loc[
-            brownfield.year.add(lifetime).gt(year) & (brownfield.capacity > 0),
-            "capacity",
+        expected = brownfield[
+            brownfield.year.add(lifetime).gt(year) & (brownfield.capacity > 0)
         ]
 
         base_year = min([int(year) for year in nc.networks.keys()])
