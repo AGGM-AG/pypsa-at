@@ -216,6 +216,7 @@ use rule modify_prenetwork as modify_prenetwork_at with:
         nuts3_buildings=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_buildings.csv",
         nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
         nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
+        onwind_brownfield=resources("onwind_brownfield_{clusters}_at.csv"),
         gas_input_nodes_simplified=resources(
             "gas_input_locations_s_{clusters}_simplified.csv"
         ),
@@ -230,6 +231,18 @@ use rule modify_prenetwork as modify_prenetwork_at with:
             resources("heat_demand_nea_at_{clusters}.csv"),
             [],
         ),
+        code_files=[
+            "mods/network/common.py",
+            "mods/network/gas.py",
+            "mods/network/onwind.py",
+            "mods/network/potentials.py",
+            "mods/network/trajectories.py",
+            "mods/network/electricity.py",
+            "mods/network/h2.py",
+            "mods/demand/heat_demand.py",
+            "mods/constants.py",
+            "mods/utils.py",
+        ],
     params:
         **rules.modify_prenetwork.params,
         klien_potential_limits_technologies=config_provider(
