@@ -85,6 +85,7 @@ ANLAGENREGISTER = dataset_version("anlagenregister")
 KFZ_BESTAND_AT = dataset_version("kfz-bestand-at")
 STATISTIK_AT_REGIONS = dataset_version("statistik-at-regions")
 HEAT_DEMAND_DATASET = dataset_version("heat_demand_at")
+FFE_INDUSTRY_LOAD_PROFILES = dataset_version("ffe_industry_load_profiles")
 HEAT_DEMAND_DATASETS = {
     "WEM": {year: f"WEM_{year}.tif" for year in (2021, 2030, 2050)},
     "Transition": {year: f"Transition_{year}.tif" for year in (2030, 2050)},
@@ -118,6 +119,11 @@ if config["foresight"] == "myopic":
 if config["foresight"] == "perfect":
 
     include: "rules/solve_perfect.smk"
+
+
+resources_shared = path_provider("resources/", RDIR, True, [])
+logs_shared = path_provider("logs/", RDIR, True, [])
+benchmarks_shared = path_provider("benchmarks/", RDIR, True, [])
 
 
 include: "rules/pypsa-at/retrieve.smk"  # PyPSA-AT specific data retrieval
