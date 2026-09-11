@@ -50,6 +50,12 @@ def _add_missing_components(
         Lifetime for onwind components
     efficiency
         Efficiency for onwind components
+    marginal_cost
+        Marginal cost for onwind components
+    capital_cost
+        Capital cost for onwind components
+    capital_cost
+        Onight cost for onwind components
 
     Returns
     -------

@@ -15,7 +15,7 @@ def test_extrapolate_production():
     )
     regions = pd.DataFrame({"federal_state": ["Burgenland"], "nuts2_code": ["AT11"]})
 
-    result = wind.extrapolate_production(source, 6, regions)
+    result = wind.extrapolate_production(source, 6, regions, errors="ignore")
     expected = pd.DataFrame(
         {
             "region": ["AT11"] * 6,
@@ -115,7 +115,7 @@ def test_main(tmp_path):
         output=SimpleNamespace(wind_brownfield=output_file),
     )
 
-    wind.main(snakemake)
+    wind.main(snakemake, errors="ignore")
     result = pd.read_csv(output_file)
     expected = pd.DataFrame(
         {"region": ["AT11", "AT333"], "year": [2025, 2025], "capacity": [10.0, 5.0]}

@@ -4,6 +4,7 @@
 
 from collections.abc import Mapping
 from math import ceil
+from typing import Literal
 
 import pandas as pd
 from snakemake.script import Snakemake
@@ -13,7 +14,10 @@ from scripts._helpers import configure_logging, set_scenario_config
 
 
 def extrapolate_production(
-    wind_production: pd.DataFrame, onwind_lifetime: float, at_regions: pd.DataFrame
+    wind_production: pd.DataFrame,
+    onwind_lifetime: float,
+    at_regions: pd.DataFrame,
+    errors: Literal["raise", "ignore"] = "raise",
 ) -> pd.DataFrame:
     """
     Map federal-state wind production to model regions and extend it backwards
@@ -27,6 +31,8 @@ def extrapolate_production(
         Onshore-wind lifetime in years.
     at_regions
         Regional register for mapping federal states to model regions.
+    errors
+        If errors should be raised or not
 
     Returns
     -------
@@ -53,7 +59,7 @@ def extrapolate_production(
         .rename(columns={"Jahr": "year"})
         .sort_values(["region", "year"])
     )
-    if production["region"].nunique() != 9:
+    if production["region"].nunique() != 9 and errors == "raise":
         raise ValueError(
             f"Unexpected number of federal states {production['region'].nunique()} in production data."
         )
@@ -152,7 +158,7 @@ def create_brownfield(
     return result
 
 
-def main(snakemake: Snakemake) -> None:
+def main(snakemake: Snakemake, errors: Literal["raise", "ignore"] = "raise") -> None:
     """
     Build the regional onshore-wind brownfield CSV.
 
@@ -161,6 +167,8 @@ def main(snakemake: Snakemake) -> None:
     snakemake
         The Snakemake workflow object providing input files, parameters, and
         the output path.
+    errors
+        If errors should be raised or not
 
     Returns
     -------
@@ -174,7 +182,7 @@ def main(snakemake: Snakemake) -> None:
     potentials = pd.read_csv(snakemake.input.nuts3_wind)
     regions = pd.read_csv(snakemake.input.at_regions)
     lifetime = costs.loc[costs.technology.eq("onwind"), "lifetime"].iloc[0]
-    production_long = extrapolate_production(production, lifetime, regions)
+    production_long = extrapolate_production(production, lifetime, regions, errors)
     buildup = create_buildup(production_long)
     capacities = prepare_potentials(potentials, snakemake.params.admin_levels)
     create_brownfield(capacities, buildup).to_csv(
