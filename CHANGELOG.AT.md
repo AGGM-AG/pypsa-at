@@ -54,12 +54,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Updated README features section and restructured CHANGELOG to Keep a Changelog format ([#124](https://github.com/AGGM-AG/pypsa-at/pull/124))
 - Updated PHS modeling by exchanging StorageUnits with 2x Links + Bus + Store + Generator ([#131](https://github.com/AGGM-AG/pypsa-at/pull/131))
 - Changed Inflow data source to PEMMDB data with ERA5 profiles ([#146](https://github.com/AGGM-AG/pypsa-at/pull/146))
-- Added Austrian biogas-to-power plants from Anlagenregister as brownfield capacities ([#157](https://github.com/AGGM-AG/pypsa-at/pull/157/)) 
-- The AGGM flow directions of Austrian gas pipelines now apply only up to `mods.threshold_year_for_gas_grid_expansion`. From the following planning horizon on, both flow directions stay extendable, so a corridor may be turned, decommissioned or rebuilt in either direction
+- Added Austrian biogas-to-power plants from Anlagenregister as brownfield capacities ([#157](https://github.com/AGGM-AG/pypsa-at/pull/157/))
+- Updated Austrian brownfield gas grid data ([#207](https://github.com/AGGM-AG/pypsa-at/pull/207))
 
 ### Fixed
 - Fixed double subtraction of brownfield capacities in `modify_prenetwork` and `solve_network` and added a new test for this case. ([#101](https://github.com/AGGM-AG/pypsa-at/pull/101))
 - Fixed bidirectional links of gaseous energy carriers via config.at.yaml. Will be in an upstream merge to PyPSA-Eur to fix there. ([#105](https://github.com/AGGM-AG/pypsa-at/pull/105))
 - Fixed issues with wrong bus matching for h2 imports ([#134](https://github.com/AGGM-AG/pypsa-at/pull/134))
 - Fixed tests for integration of brownfield gas pipeline data ([#159](https://github.com/AGGM-AG/pypsa-at/pull/159))
-- Fixed bidirectional links of carrier 'gas_pipeline' to allow asymmetric link pairs and truly monodirectional pipelines.
+- Fixed bidirectional links of carrier 'gas_pipeline' to allow asymmetric link pairs and truly monodirectional pipelines. ([#207](https://github.com/AGGM-AG/pypsa-at/pull/207))

@@ -270,6 +270,8 @@ rule modify_brownfield_gas_network_AT:
         logs("modify_brownfield_gas_network_AT_{clusters}.log"),
     resources:
         mem_mb=4000,
+    params:
+        length_factor=config_provider("links", "length_factor"),
     script:
         scripts("pypsa-at/modify_brownfield_gas_network_AT.py")
 

@@ -217,65 +217,25 @@ def restore_asymmetric_pipeline_capacities(
     n: pypsa.Network, snakemake: Snakemake
 ) -> None:
     """
-    Resize asymmetric directional flow capacities in existing gas pipelines.
+    Resize the reverse legs of Austrian one-way and asymmetric gas pipelines.
 
-    AGGM supplies compressor-limited corridors with a smaller capacity in one
-    direction, carried through the clustered gas network as
-    ``p_min_pu = -reverse capacity / p_nom``. ``prepare_sector_network`` builds
-    one Link from that row with the correct asymmetric bounds, but
-    ``lossy_bidirectional_links`` then splits every gas pipeline into forward leg
-    and reverse leg, and the reverse leg copies ``p_nom`` from the
-    forward one. That split is otherwise wanted: it bills the pipe once and
-    draws compressor electricity at whichever end is actually sending. Only the
-    copied capacity is wrong, so this resets it to the reverse capacity the
-    corridor really has.
-
-    A distinctly monodirectional pipeline needs the same correction. AGGM marks it
-    ``p_min_pu = 0``, so its reverse capacity is zero and the copied ``p_nom``
-    invents a flow direction the corridor does not have. The reverse leg is
-    therefore resized to zero like any other, which leaves the Link in place to
-    carry the compressor bus wiring but unable to transport gas.
+    ``lossy_bidirectional_links`` copies ``p_nom`` onto every reverse leg. Up to
+    ``mods.threshold_year_for_gas_grid_expansion`` this resets those legs to the
+    AGGM reverse capacity (zero for one-way pipes) and fixes them. Afterwards it
+    does nothing, so reversing a corridor is free (known limitation, follow-up
+    ticket).
 
     Parameters
     ----------
     n
-        The pre-network to be modified in place.
+        Pre-network, modified in place.
     snakemake
-        The Snakemake workflow object providing config and the clustered gas
-        network resource.
-
-    Returns
-    -------
-    :
-        Updates ``p_nom`` and its bounds on the affected reverse legs in place.
+        Provides the config and the clustered gas network.
 
     Raises
     ------
     ValueError
-        If a corridor present in the network has no reverse leg to resize.
-
-    Notes
-    -----
-    The directional capacities describe the compressors that stand in the grid
-    today, so they only apply while the grid is fixed. Up to and including
-    ``mods.threshold_year_for_gas_grid_expansion`` the corridors are brownfield
-    and keep the direction provided in ``AGGM_gas_network_base_AT35.csv``. In the
-    next planning horizon after the threshold year
-    the model may invest in the gas grid, and a corridor is then free to be
-    turned, decommissioned or rebuilt in either direction. Both legs stay
-    extendable there, which lets
-    ``solve_network.add_lossy_bidirectional_link_constraints`` tie the pair
-    together, so the two directions grow and shrink as one pipe.
-
-    The reverse legs are fixed and unextendable within the brownfield horizons
-    so that the same constraint leaves them alone. It synchronises a reverse leg
-    with its forward part whenever both are extendable, which would even the
-    asymmetry out again.
-
-    Only corridors touching Austria are resized. AGGM data is authoritative for
-    the Austrian grid alone, and the upstream Sci2Grid corridors carry one-way
-    flags of their own whose reverse legs are part of the European supply this
-    modification has no remit over.
+        If a corridor in the network has no reverse leg.
     """
     mods = snakemake.config["mods"]
     if not mods.get("modify_brownfield_gas_network_AT"):
@@ -287,12 +247,13 @@ def restore_asymmetric_pipeline_capacities(
 
     pyear = int(snakemake.wildcards.planning_horizons)
     threshold_year = int(mods["threshold_year_for_gas_grid_expansion"])
+    # TODO: reversing a corridor is free after the threshold year; pricing the
+    # reversal is left to a follow-up ticket
     if pyear > threshold_year:
         logger.info(
-            f"Skip restoring asymmetric gas pipeline capacities in {pyear} because "
-            f"the gas grid may be expanded after {threshold_year}. Both flow "
-            "directions stay extendable, so the model may turn, decommission or "
-            "rebuild a corridor in either direction."
+            f"Skip restoring asymmetric gas pipeline capacities in {pyear}, after the "
+            f"threshold year {threshold_year}. One-way and asymmetric corridors regain "
+            "their full reverse capacity at no cost (known limitation)."
         )
         return
 
@@ -331,9 +292,11 @@ def restore_asymmetric_pipeline_capacities(
             f"Asymmetric gas pipelines without a reverse leg to resize: {list(missing)}."
         )
 
+    # p_min_pu lies in (-1, 0] here, so its magnitude is the reverse share of
+    # p_nom. Negating it instead would put -0.0 on the one-way reverse legs.
     reverse_capacity = pd.Series(
         (
-            -directional.loc[corridors, "p_min_pu"]
+            directional.loc[corridors, "p_min_pu"].abs()
             * directional.loc[corridors, "p_nom"]
         ).to_numpy(),
         index=reverse_legs,

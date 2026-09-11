@@ -15,7 +15,7 @@ The values for capacities given for transport corridors between Austrian regions
 PyPSA-AT is hosted and maintained by the [Austrian Gas Grid Management GmbH](https://www.aggm.at/en/). This means that PyPSA-AT can be supplied directly with expert knowledge of the complete Austrian brownfield gas grid. 
 In collaboration with those experts, a dataset for Austria was generated and added to PyPSA-AT in the `/data/pypsa-at/` folder. 
 
-The dataset is maintained at NUTS3 resolution (35 Austrian regions, file `AGGM_gas_network_base_AT35.csv`). It holds the capacities of the links between regions ("transport corridors"), the reverse capacity of asymmetric corridors, and the year each corridor was commissioned. Data on pipeline diameter is not added and will not be added due to reasons of confidentiality. Corridor lengths are not supplied either; they are computed from the distance between the region centroids by `calculate_corridor_lengths`, the same way `cluster_gas_network` derives them for the rest of Europe. 
+The dataset is maintained at NUTS3 resolution (35 Austrian regions, file `AGGM_gas_network_base_AT35.csv`). It holds the capacities of the links between regions ("transport corridors"), the reverse capacity of asymmetric corridors, and the year each corridor was commissioned. Data on pipeline diameter is not added and will not be added due to reasons of confidentiality. Corridor lengths are not supplied either; they are computed from the straight-line distance between the region centroids, multiplied by the length factor for links set in the config (`links: length_factor`) to account for the detours of real pipeline routes. This is the same method `cluster_gas_network` uses for the rest of Europe. Every corridor in the file needs a transport capacity: if a row has a capacity of zero, the workflow stops with an error that names the row, so the file can be corrected. 
 
 For a NUTS2 run (ten Austrian regions), `aggregate_gas_pipeline_corridors_to_nuts2` derives the coarser network from the same file: each corridor's buses are remapped to their NUTS2 parent region, corridors that then start and end in the same region are dropped, and all corridors between the same pair of regions are merged into one by summing each flow direction on its own. It does not matter which region a NUTS3 row names first: the merged corridor always points along its stronger flow direction. 
 
@@ -41,21 +41,21 @@ IT0, each rated 16 672 MW north-south against 6 015 MW south-north, so 50 GW aga
 total.
 
 PyPSA-Eur labels a corridor either bidirectional or monodirectional and nothing in between, then
-loses even that: `lossy_bidirectional_links` in `scripts/prepare_sector_network.py` splits every
+proceeds to treat all corridors the same: `lossy_bidirectional_links` in `scripts/prepare_sector_network.py` splits every
 carrier listed under `sector.transmission_efficiency.enable` into a forward and a reverse Link,
-zeroes `p_min_pu`, and copies `p_nom` onto the reverse leg. The split is wanted, because the
-reverse leg is free (`capital_cost = 0`, `length = 0`) and the corridor is billed once. The copied
-capacity is not: a compressor-limited corridor comes out symmetric, and a monodirectional one
-gains a reverse direction it does not have.
+zeroes `p_min_pu`, and copies `p_nom` onto the reverse leg. The split is wanted and necessary, because the
+reverse leg is free (`capital_cost = 0`, `length = 0`) and the corridor is billed only once. The copied
+capacity is not implemented correctly however: a compressor-limited corridor comes out symmetric, and a monodirectional one
+gains a reverse direction it does not have, doubling both costs and capacity in the corridor.
 
-The AGGM dataset adds a `p_nom_reverse` column, set only on bidirectional rows and never larger
-than `p_nom`. `apply_reverse_flow_limits` converts it into the PyPSA bound and drops the column:
+The AGGM dataset adds a `p_nom_reverse` column, set only on bidirectional corridors, with the forward leg always the bigger capacity one (`p_nom`  > `p_nom_reverse`).  
+`apply_reverse_flow_limits` converts it into the PyPSA bound and drops the column:
 
 | `p_min_pu` | Corridor | Reverse capacity |
-|---|---|---|
-| `-1` | symmetric, bidirectional | equal to `p_nom` |
-| between `-1` and `0` | asymmetric | `-p_min_pu x p_nom` |
-| `0` | monodirectional | none |
+|------------|---|---|
+| `-1`       | symmetric, bidirectional | equal to `p_nom` |
+| `[-1,0]`   | asymmetric | `-p_min_pu x p_nom` |
+| `0`        | monodirectional | none |
 
 `restore_asymmetric_pipeline_capacities` in `mods/network/gas.py` then runs during
 `modify_prenetwork`, for Austrian corridors only:
@@ -66,9 +66,9 @@ than `p_nom`. `apply_reverse_flow_limits` converts it into the PyPSA bound and d
 3. Fix those legs with `p_nom_extendable = False`, so
    `add_lossy_bidirectional_link_constraints` does not tie them back to the forward leg.
 
-This holds up to `threshold_year_for_gas_grid_expansion` (see below). From the next planning
-horizon on the model may invest in the grid, so both legs stay extendable and a corridor is free
-to be turned, decommissioned or rebuilt in either direction.
+This holds up to `threshold_year_for_gas_grid_expansion` (see below). In later planning horizons
+the directional limits no longer apply: every corridor can carry gas in both directions up to its
+full capacity, and reversing a pipeline does not yet carry a cost in the model.
 
 ---
 # Extendable pipeline capacity and new pipelines 
@@ -79,7 +79,7 @@ In addition to the data update, two more tightly linked changes to the gas netwo
 In config.at.yaml: 
 ```yaml 
 mods: 
-  threshold_year_for_gas_grid_expansion: 2035
+  threshold_year_for_gas_grid_expansion: 2070
 ```
 
 ## No new methane pipelines before the threshold year
