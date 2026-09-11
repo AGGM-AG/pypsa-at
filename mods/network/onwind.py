@@ -31,6 +31,9 @@ def _add_missing_components(
     current_year: int,
     lifetime: int,
     efficiency: float,
+    marginal_cost: float,
+    capital_cost: float,
+    onight_cost: float,
 ) -> None:
     """
     Add missing brownfield components to the network
@@ -53,6 +56,8 @@ def _add_missing_components(
     :
         Network is modified inplace.
     """
+    if missing_components.empty:
+        return
     if (missing_components.year == current_year).any():
         raise ValueError(
             f"Missing base year generators for a region with non-zero brownfield: {missing_components[missing_components.year == current_year]}"
@@ -70,6 +75,9 @@ def _add_missing_components(
     new_components["p_nom_extendable"] = False
     new_components["carrier"] = "onwind"
     new_components["efficiency"] = efficiency
+    new_components["marginal_cost"] = marginal_cost
+    new_components["capital_cost"] = capital_cost
+    new_components["onight_cost"] = onight_cost
     new_components = new_components.set_index("name")
 
     n.add(
@@ -122,6 +130,9 @@ def apply_onwind_brownfield(n: pypsa.Network, snakemake: Snakemake) -> None:
 
     lifetime = at_onwind.lifetime.iloc[0]
     efficiency = at_onwind.efficiency.iloc[0]
+    marginal_cost = at_onwind.marginal_cost.iloc[0]
+    capital_cost = at_onwind.capital_cost.iloc[0]
+    onight_cost = at_onwind.onight_cost.iloc[0]
     brownfield = brownfield[
         (brownfield.year + lifetime > current_year) & (brownfield.capacity > 0)
     ]
@@ -168,4 +179,13 @@ def apply_onwind_brownfield(n: pypsa.Network, snakemake: Snakemake) -> None:
         )
 
     # Add onwind components where brownfield exists
-    _add_missing_components(n, missing_components, current_year, lifetime, efficiency)
+    _add_missing_components(
+        n,
+        missing_components,
+        current_year,
+        lifetime,
+        efficiency,
+        marginal_cost,
+        capital_cost,
+        onight_cost,
+    )

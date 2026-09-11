@@ -391,7 +391,9 @@ rule build_onwind_brownfield_at:
     input:
         wind_production=f"{WIND_POWER_AT['folder']}/wind_prodction_at.xlsx",
         nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
-        costs=lambda w: resources(f"costs_2025_processed.csv"),
+        costs=lambda w: resources(
+            f"costs_{config_provider('scenario', 'planning_horizons',0)(w)}_processed.csv"
+        ),
         at_regions=resources("statistik_at_regions.csv"),
     output:
         wind_brownfield=resources("onwind_brownfield_{clusters}_at.csv"),

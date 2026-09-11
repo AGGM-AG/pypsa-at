@@ -53,6 +53,10 @@ def extrapolate_production(
         .rename(columns={"Jahr": "year"})
         .sort_values(["region", "year"])
     )
+    if production["region"].nunique() != 9:
+        raise ValueError(
+            f"Unexpected number of federal states {production['region'].nunique()} in production data."
+        )
 
     production["production"] = (
         production.groupby("region")["production"]
