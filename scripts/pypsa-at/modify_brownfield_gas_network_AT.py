@@ -25,16 +25,38 @@ logger = logging.getLogger(__name__)
 LENGTH_FACTOR = 1.25
 
 
+def _reverse_direction(df: pd.DataFrame, flip: pd.Series) -> pd.DataFrame:
+    """
+    Turn the flagged corridors around by swapping their buses and their two capacities.
+
+    Parameters
+    ----------
+    df
+        Corridors with ``bus0``, ``bus1``, ``p_nom`` and a filled ``p_nom_reverse``.
+    flip
+        Boolean mask of the corridors to turn around.
+
+    Returns
+    -------
+    :
+        A copy of ``df`` in which the flagged corridors point the other way.
+    """
+    df = df.copy()
+    for first, second in (("bus0", "bus1"), ("p_nom", "p_nom_reverse")):
+        df.loc[flip, [first, second]] = df.loc[flip, [second, first]].to_numpy()
+    return df
+
+
 def aggregate_gas_pipeline_corridors_to_nuts2(df: pd.DataFrame) -> pd.DataFrame:
     """
     Aggregate AT gas pipeline corridors from NUTS3 (AT35) to NUTS2 (AT10) resolution.
 
-    Remaps ``bus0``/``bus1`` from AT NUTS3 codes to their NUTS2 parents via
-    `mods.clustering.utils._map_at_nuts3_to_nuts2`,  drops corridors that collapse onto a single
-    NUTS2 region (self-loops), and collapses parallel corridors between the
-    same NUTS2 bus pair by reusing `scripts.cluster_gas_network.reindex_pipes`
-    and `scripts.cluster_gas_network.aggregate_parallel_pipes` — the same
-    parallel-corridor collapse used to build in the PyPSA-Eur workflow.
+    Remaps ``bus0``/``bus1`` to their NUTS2 parents via
+    `mods.clustering.utils._map_at_nuts3_to_nuts2`, drops corridors that
+    collapse onto a single NUTS2 region (self-loops), and merges all remaining
+    corridors between the same pair of regions into one, reusing
+    `scripts.cluster_gas_network.aggregate_parallel_pipes` and
+    `scripts.cluster_gas_network.reindex_pipes`.
 
     Parameters
     ----------
@@ -47,40 +69,52 @@ def aggregate_gas_pipeline_corridors_to_nuts2(df: pd.DataFrame) -> pd.DataFrame:
     Returns
     -------
     :
-        The same columns aggregated to AT NUTS2 (AT10) resolution, reindexed
-        to unique ``"gas pipeline BUS0 -> BUS1"`` / ``"... <-> ..."`` labels.
+        The same columns at AT NUTS2 (AT10) resolution, one row per region pair,
+        labelled ``"gas pipeline BUS0 <-> BUS1"`` or ``"... -> ..."`` and oriented
+        along the corridor's stronger direction, so ``p_nom_reverse`` never
+        exceeds ``p_nom``.
 
     Notes
     -----
+    Corridors merge by summing each physical flow direction on its own. Blank
+    ``p_nom_reverse`` entries are first resolved to the reverse capacity the row
+    implies (the full ``p_nom`` for a bidirectional pipe, zero for a one-way
+    one), and every row is turned to one orientation per region pair before
+    summing. Grouping on the labels ``reindex_pipes`` builds from the rows as
+    written would keep rows apart that name the regions in opposite order, or
+    that mix one-way and bidirectional pipes.
+
+    ``p_nom_reverse`` is summed here because the strategy mapping of
+    ``aggregate_parallel_pipes`` silently drops columns it does not know.
+
     ``build_year`` uses ``0`` as an "unknown year" sentinel in the AGGM input
     data. Averaging that in with real years would bias the mean towards 0, so
     zeros are treated as missing for the aggregation and only restored where
     every merged corridor segment had an unknown year.
-
-    ``p_nom_reverse`` is aggregated here rather than by
-    ``aggregate_parallel_pipes``, whose strategy mapping silently drops columns
-    it does not know. Parallel pipes merge by summing each flow direction on
-    its own, so blank entries are first resolved to the reverse capacity the
-    row implies: the full ``p_nom`` for a bidirectional pipe, zero for a
-    one-way one.
     """
     columns = df.columns
     df = df.copy()
     df["bus0"] = df["bus0"].map(_map_at_nuts3_to_nuts2)
     df["bus1"] = df["bus1"].map(_map_at_nuts3_to_nuts2)
-    df = df.loc[df["bus0"] != df["bus1"]]
+    df = df.loc[df["bus0"] != df["bus1"]].copy()
 
-    df["bidirectional"] = df["p_min_pu"] == -1
     df["build_year"] = df["build_year"].astype(float).replace(0, np.nan)
-    reverse_capacity = df["p_nom_reverse"].fillna(-df["p_min_pu"] * df["p_nom"])
+    df["p_nom"] = df["p_nom"].astype(float)
+    df["p_nom_reverse"] = df["p_nom_reverse"].fillna(-df["p_min_pu"] * df["p_nom"])
 
-    reindex_pipes(df)
-    # reindex_pipes relabels in place without reordering rows, so the corridor
-    # labels transfer to the reverse capacities positionally
-    reverse_capacity.index = df.index
+    # one orientation per region pair, so parallel rows share a label whichever
+    # region AGGM wrote first and whether they are one-way or not
+    df = _reverse_direction(df, df["bus0"] > df["bus1"])
+    df.index = "gas pipeline " + df["bus0"] + " <-> " + df["bus1"]
+    reverse_capacity = df["p_nom_reverse"].groupby(level=0).sum()
 
     df = aggregate_parallel_pipes(df)
-    df["p_nom_reverse"] = reverse_capacity.groupby(level=0).sum()
+    df["p_nom_reverse"] = reverse_capacity
+
+    # point each merged corridor along its stronger direction
+    df = _reverse_direction(df, df["p_nom_reverse"] > df["p_nom"])
+    df["bidirectional"] = df["p_nom_reverse"] > 0
+    reindex_pipes(df)
 
     df["build_year"] = df["build_year"].fillna(0).round().astype(int)
     return df[columns]

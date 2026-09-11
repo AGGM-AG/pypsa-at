@@ -17,7 +17,7 @@ In collaboration with those experts, a dataset for Austria was generated and add
 
 The dataset is maintained at NUTS3 resolution (35 Austrian regions, file `AGGM_gas_network_base_AT35.csv`). It holds the capacities of the links between regions ("transport corridors"), the reverse capacity of asymmetric corridors, and the year each corridor was commissioned. Data on pipeline diameter is not added and will not be added due to reasons of confidentiality. Corridor lengths are not supplied either; they are computed from the distance between the region centroids by `calculate_corridor_lengths`, the same way `cluster_gas_network` derives them for the rest of Europe. 
 
-For a NUTS2 run (ten Austrian regions), `aggregate_gas_pipeline_corridors_to_nuts2` derives the coarser network from the same file: each corridor's buses are remapped to their NUTS2 parent region, corridors that then start and end in the same region are dropped, and parallel corridors between the same pair of regions are merged by summing each flow direction on its own. 
+For a NUTS2 run (ten Austrian regions), `aggregate_gas_pipeline_corridors_to_nuts2` derives the coarser network from the same file: each corridor's buses are remapped to their NUTS2 parent region, corridors that then start and end in the same region are dropped, and all corridors between the same pair of regions are merged into one by summing each flow direction on its own. It does not matter which region a NUTS3 row names first: the merged corridor always points along its stronger flow direction. 
 
 Only those two AT clusterings are supported; any other raises an error in the rule. 
 

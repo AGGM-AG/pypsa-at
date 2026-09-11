@@ -372,6 +372,67 @@ class TestAggregateReverseCapacities:
         row = result.iloc[0]
         assert -row["p_min_pu"] * row["p_nom"] == pytest.approx(2 * 6015.0)
 
+    def test_mirrored_corridors_merge_into_one(self):
+        """Rows naming the same region pair in opposite order become one corridor."""
+        corridors = corridor_frame(
+            [
+                ("AT314", "AT121", 6900.0, None, -1),
+                ("AT121", "AT314", 288.0, None, -1),
+            ]
+        )
+
+        result = aggregate_gas_pipeline_corridors_to_nuts2(corridors)
+
+        assert len(result) == 1
+        assert result["p_nom"].iloc[0] == pytest.approx(6900.0 + 288.0)
+        assert result["p_nom_reverse"].iloc[0] == pytest.approx(6900.0 + 288.0)
+
+    def test_mirrored_corridors_sum_each_physical_direction(self):
+        """
+        Merging mirrored rows adds up the capacity per physical direction, and
+        the corridor points along its stronger one.
+        """
+        corridors = corridor_frame(
+            [
+                ("AT313", "AT124", 15547.0, 12000.0, -1),  # strong towards AT12
+                ("AT121", "AT312", 3450.0, None, -1),  # symmetric, written AT12 first
+            ]
+        )
+
+        result = aggregate_gas_pipeline_corridors_to_nuts2(corridors)
+        row = result.iloc[0]
+
+        assert len(result) == 1
+        assert (row["bus0"], row["bus1"]) == ("AT31", "AT12")
+        assert row["p_nom"] == pytest.approx(15547.0 + 3450.0)
+        assert row["p_nom_reverse"] == pytest.approx(12000.0 + 3450.0)
+
+    def test_one_way_and_bidirectional_rows_merge(self):
+        """A one-way and a bidirectional row on the same region pair become one corridor."""
+        corridors = corridor_frame(
+            [
+                ("AT315", "AT323", 2000.0, None, 0),
+                ("AT313", "AT322", 500.0, None, -1),
+            ]
+        )
+
+        result = aggregate_gas_pipeline_corridors_to_nuts2(corridors)
+
+        assert result.index.tolist() == ["gas pipeline AT31 <-> AT32"]
+        assert result["p_nom"].iloc[0] == pytest.approx(2000.0 + 500.0)
+        assert result["p_nom_reverse"].iloc[0] == pytest.approx(500.0)
+
+    def test_one_way_corridor_keeps_its_direction(self):
+        """A one-way corridor stays one-way and keeps pointing the way AGGM wrote it."""
+        corridors = corridor_frame([("CZ", "AT125", 256.0, None, 0)])
+
+        result = aggregate_gas_pipeline_corridors_to_nuts2(corridors)
+
+        assert result.index.tolist() == ["gas pipeline CZ -> AT12"]
+        assert result["p_nom"].iloc[0] == pytest.approx(256.0)
+        assert result["p_nom_reverse"].iloc[0] == pytest.approx(0.0)
+        assert result["p_min_pu"].iloc[0] == 0
+
 
 class TestAGGMGasNetworkCapacityData:
     """Data integrity tests for the AGGM brownfield gas network capacity input files."""
@@ -474,6 +535,19 @@ class TestAGGMGasNetworkCapacityData:
                 f"Corridor {corridor} has one-way rows in both directions: "
                 f"{list(group.index)}. Merge them into one row with p_nom_reverse."
             )
+
+    def test_nuts2_aggregation_leaves_one_corridor_per_region_pair(self, source_file):
+        """
+        The derived NUTS2 network holds a single corridor per pair of regions,
+        however the NUTS3 rows feeding it are oriented.
+        """
+        result = aggregate_gas_pipeline_corridors_to_nuts2(source_file)
+        region_pair = result.apply(
+            lambda c: " <-> ".join(sorted((c["bus0"], c["bus1"]))), axis=1
+        )
+
+        split = result.index[region_pair.duplicated(keep=False)]
+        assert split.empty, f"Region pairs split over several corridors: {list(split)}"
 
     def test_capacities_are_added_to_csv(self, raw, aggm_data):
         """All AGGM capacities are actually added to the clustered gas network csv."""
