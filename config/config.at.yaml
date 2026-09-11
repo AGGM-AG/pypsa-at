@@ -4,7 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 
 run:
-  prefix: test-onwind-clustering-nuts3
+  prefix: test-wind-at35
   name:
   - AT_KN2040
   scenarios:
@@ -233,6 +233,9 @@ data:
     source: primary
     version: v1
   ffe_industry_load_profiles:
+    source: primary
+    version: latest
+  wind-production-at:
     source: primary
     version: latest
 
