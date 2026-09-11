@@ -4,7 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 
 run:
-  prefix: test-onwind-clustering-nuts3
+  prefix: gas-network-data-update
   name:
   - AT_KN2040
   scenarios:
@@ -51,7 +51,7 @@ clustering:
   mode: administrative
   administrative:
     level: 0 # countries
-    AT: 3 # 10 regions if NUTS 2, 35 if NUTS 3
+    AT: 2 # 10 regions if NUTS 2, 35 if NUTS 3
     DE: 3 # NUTS3 as a proxy for 5 regions
     DK: 1 # +1 Sjaelland
     GB: 1 # +1 Northern Ireland
@@ -303,7 +303,7 @@ solving:
 mods:
 
   # AT10 or NUTS3 administrative clustering
-  modify_nuts3_shapes: AT35DE5
+  modify_nuts3_shapes: AT10DE5
 
   # use improved Austrian gas grid capacities
   # provided by AGGM experts
