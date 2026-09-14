@@ -213,6 +213,107 @@ def make_gas_pipelines_unextendable(n: pypsa.Network, snakemake: Snakemake) -> N
         n.links.loc[n.links.carrier.isin(to_fix), "p_nom_extendable"] = False
 
 
+def restore_asymmetric_pipeline_capacities(
+    n: pypsa.Network, snakemake: Snakemake
+) -> None:
+    """
+    Resize the reverse legs of Austrian one-way and asymmetric gas pipelines.
+
+    ``lossy_bidirectional_links`` copies ``p_nom`` onto every reverse leg. Up to
+    ``mods.threshold_year_for_gas_grid_expansion`` this resets those legs to the
+    AGGM reverse capacity (zero for one-way pipes) and fixes them. Afterwards it
+    does nothing, so reversing a corridor is free (known limitation, follow-up
+    ticket).
+
+    Parameters
+    ----------
+    n
+        Pre-network, modified in place.
+    snakemake
+        Provides the config and the clustered gas network.
+
+    Raises
+    ------
+    ValueError
+        If a corridor in the network has no reverse leg.
+    """
+    mods = snakemake.config["mods"]
+    if not mods.get("modify_brownfield_gas_network_AT"):
+        logger.info(
+            "Skip restoring asymmetric gas pipeline capacities because the "
+            "brownfield gas network modification is disabled."
+        )
+        return
+
+    pyear = int(snakemake.wildcards.planning_horizons)
+    threshold_year = int(mods["threshold_year_for_gas_grid_expansion"])
+    # TODO: reversing a corridor is free after the threshold year; pricing the
+    # reversal is left to a follow-up ticket
+    if pyear > threshold_year:
+        logger.info(
+            f"Skip restoring asymmetric gas pipeline capacities in {pyear}, after the "
+            f"threshold year {threshold_year}. One-way and asymmetric corridors regain "
+            "their full reverse capacity at no cost (known limitation)."
+        )
+        return
+
+    gas_network = pd.read_csv(snakemake.input.clustered_gas_network, index_col=0)
+    austrian = gas_network["bus0"].str.startswith("AT") | gas_network[
+        "bus1"
+    ].str.startswith("AT")
+    # interval (-1, 0] contains every corridor whose reverse direction carries less than its
+    # forward direction, from a compressor-limited one down to a one-way pipe at
+    # exactly 0. A symmetric corridor sits at -1 and is left alone.
+    constrained = gas_network["p_min_pu"].between(-1, 0, inclusive="right")
+    directional = gas_network[austrian & constrained]
+    if directional.empty:
+        logger.info(
+            "No Austrian gas pipelines with a constrained reverse direction in "
+            "the clustered gas network."
+        )
+        return
+
+    gas_pipes = n.links[n.links["carrier"] == "gas pipeline"]
+    is_reversed = gas_pipes.get("reversed", pd.Series(False, index=gas_pipes.index))
+    if not is_reversed.fillna(False).any():
+        logger.info(
+            "Gas pipelines were not split into separate flow directions, so the "
+            "asymmetric bounds of the corridors themselves still apply."
+        )
+        return
+
+    # corridors outside the modeled scope never made it into the network
+    corridors = directional.index.intersection(gas_pipes.index)
+    reverse_legs = corridors + "-reversed"
+
+    missing = reverse_legs.difference(gas_pipes.index)
+    if not missing.empty:
+        raise ValueError(
+            f"Asymmetric gas pipelines without a reverse leg to resize: {list(missing)}."
+        )
+
+    # p_min_pu lies in (-1, 0] here, so its magnitude is the reverse share of
+    # p_nom. Negating it instead would put -0.0 on the one-way reverse legs.
+    reverse_capacity = pd.Series(
+        (
+            directional.loc[corridors, "p_min_pu"].abs()
+            * directional.loc[corridors, "p_nom"]
+        ).to_numpy(),
+        index=reverse_legs,
+    )
+
+    for attribute in ("p_nom", "p_nom_min", "p_nom_max"):
+        n.links.loc[reverse_legs, attribute] = reverse_capacity
+    n.links.loc[reverse_legs, "p_nom_extendable"] = False
+
+    one_way = reverse_capacity == 0
+    logger.info(
+        f"Restored the reverse capacity of {len(reverse_legs)} Austrian gas pipeline(s), "
+        f"totalling {reverse_capacity.sum() / 1e3:.1f} GW, of which {one_way.sum()} "
+        f"one-way corridor(s) were closed in the reverse direction."
+    )
+
+
 def override_gas_storage_capacities(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
     Override gas Store e_nom_min with validated storage capacities.

@@ -220,6 +220,7 @@ use rule modify_prenetwork as modify_prenetwork_at with:
             "gas_input_locations_s_{clusters}_simplified.csv"
         ),
         gas_storage_capacities="data/pypsa-at/gas_input_locations_s_AT35DE16_updated.csv",
+        clustered_gas_network=resources("gas_network_base_s_{clusters}.csv"),
         h2_imports_tyndp=branch(
             config_provider("sector", "h2_topology_tyndp"),
             resources("h2_import_potentials_{clusters}_{planning_horizons}.csv"),
@@ -260,14 +261,17 @@ ruleorder: modify_prenetwork_at > modify_prenetwork  # AT wins for the final .nc
 rule modify_brownfield_gas_network_AT:
     input:
         clustered_gas_network_raw=resources("gas_network_base_s_{clusters}_raw.csv"),
-        brownfield_gas_network_AT10=("data/pypsa-at/AGGM_gas_network_base_AT10.csv"),
         brownfield_gas_network_AT35=("data/pypsa-at/AGGM_gas_network_base_AT35.csv"),
+        regions_onshore=resources("regions_onshore_base_s_{clusters}.geojson"),
+        regions_offshore=resources("regions_offshore_base_s_{clusters}.geojson"),
     output:
         clustered_gas_network=resources("gas_network_base_s_{clusters}.csv"),
     log:
         logs("modify_brownfield_gas_network_AT_{clusters}.log"),
     resources:
         mem_mb=4000,
+    params:
+        length_factor=config_provider("links", "length_factor"),
     script:
         scripts("pypsa-at/modify_brownfield_gas_network_AT.py")
 
