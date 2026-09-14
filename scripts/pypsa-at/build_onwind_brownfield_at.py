@@ -181,7 +181,7 @@ def main(snakemake: Snakemake, errors: Literal["raise", "ignore"] = "raise") -> 
     )
     potentials = pd.read_csv(snakemake.input.nuts3_wind)
     regions = pd.read_csv(snakemake.input.at_regions)
-    lifetime = costs.loc[costs.technology.eq("onwind"), "lifetime"].iloc[0]
+    lifetime = costs.loc[costs.technology.eq("onwind"), "lifetime"].unique().item()
     production_long = extrapolate_production(production, lifetime, regions, errors)
     buildup = create_buildup(production_long)
     capacities = prepare_potentials(potentials, snakemake.params.admin_levels)

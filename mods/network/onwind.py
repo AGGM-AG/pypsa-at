@@ -108,6 +108,32 @@ def _add_missing_components(
     n.generators_t["p_max_pu"][new_profiles.columns] = new_profiles
 
 
+def _get_unique_value(s: pd.Series, tol: float = 1e-6) -> float:
+    """
+    Return the unique values (within a tolerance) of a Series.
+
+    Parameters
+    ----------
+    s
+        The series to process.
+    tol
+        Optional tolerance.
+
+    Returns
+    -------
+    :
+        The unique value of the series.
+
+    Raises
+    ------
+    ValueError
+        If the Series contains more than one unique value.
+    """
+    s_values = s.unique()
+    if abs(s_values.max() - s_values.min()) > 1e-6:
+        raise ValueError("Non-constant marginal cost for onwind in the dataset")
+    return s_values.mean()
+
 def apply_onwind_brownfield(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
     Replace Austrian onshore-wind capacity with the prepared brownfield data.
@@ -134,11 +160,11 @@ def apply_onwind_brownfield(n: pypsa.Network, snakemake: Snakemake) -> None:
     brownfield = pd.read_csv(snakemake.input.onwind_brownfield)
     at_onwind = n.generators.query("(carrier == 'onwind') & index.str.startswith('AT')")
 
-    lifetime = at_onwind.lifetime.iloc[0]
-    efficiency = at_onwind.efficiency.iloc[0]
-    marginal_cost = at_onwind.marginal_cost.iloc[0]
-    capital_cost = at_onwind.capital_cost.iloc[0]
-    onight_cost = at_onwind.onight_cost.iloc[0]
+    lifetime = _get_unique_value(at_onwind[at_onwind.build_year < 2025].marginal_cost)
+    efficiency = _get_unique_value(at_onwind[at_onwind.build_year < 2025].efficiency)
+    marginal_cost = _get_unique_value(at_onwind[at_onwind.build_year < 2025].marginal_cost)
+    capital_cost = _get_unique_value(at_onwind[at_onwind.build_year < 2025].capital_cost)
+    onight_cost = _get_unique_value(at_onwind[at_onwind.build_year < 2025].onight_cost)
     brownfield = brownfield[
         (brownfield.year + lifetime > current_year) & (brownfield.capacity > 0)
     ]
