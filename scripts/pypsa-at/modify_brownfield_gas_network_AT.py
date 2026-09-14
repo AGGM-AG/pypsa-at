@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from pypsa.geo import haversine_pts
 
-from mods.clustering.utils import _map_at_nuts3_to_nuts2
+from mods.clustering.utils import map_at_nuts3_to_nuts2
 from scripts._helpers import configure_logging
 from scripts.cluster_gas_network import (
     aggregate_parallel_pipes,
@@ -72,8 +72,8 @@ def aggregate_gas_pipeline_corridors_to_nuts2(df: pd.DataFrame) -> pd.DataFrame:
     """
     columns = df.columns
     df = df.copy()
-    df["bus0"] = df["bus0"].map(_map_at_nuts3_to_nuts2)
-    df["bus1"] = df["bus1"].map(_map_at_nuts3_to_nuts2)
+    df["bus0"] = df["bus0"].map(map_at_nuts3_to_nuts2)
+    df["bus1"] = df["bus1"].map(map_at_nuts3_to_nuts2)
     df = df.loc[df["bus0"] != df["bus1"]].copy()
 
     # 0 marks an unknown build year; keep it out of the mean

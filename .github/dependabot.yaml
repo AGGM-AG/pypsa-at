@@ -7,6 +7,10 @@ updates:
   directory: /
   schedule:
     interval: daily
+  labels:
+  - dependencies
+  - github_actions
+  - sourcery-ignore  # skip Sourcery reviews on automated action bumps (see .sourcery.yaml)
   groups:
     # open a single pull-request for all GitHub actions updates
     github-actions:

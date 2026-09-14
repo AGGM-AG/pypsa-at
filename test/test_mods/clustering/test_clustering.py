@@ -7,7 +7,7 @@
 import pytest
 
 from mods.clustering.constants import DE5_GROUPS
-from mods.clustering.utils import _map_at_nuts3_to_nuts2, _map_de_nuts1_to_de5
+from mods.clustering.utils import _map_de_nuts1_to_de5, map_at_nuts3_to_nuts2
 from test.conftest import require_config
 
 
@@ -69,7 +69,7 @@ class TestMapAtNuts3ToNuts2:
         ],
     )
     def test_mapping(self, code, expected):
-        assert _map_at_nuts3_to_nuts2(code) == expected
+        assert map_at_nuts3_to_nuts2(code) == expected
 
 
 class TestMapDeNuts1ToDe5:

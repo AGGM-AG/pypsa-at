@@ -140,7 +140,7 @@ if config.get("industry", {}).get("demand_profiles", {}).get("enable", False):
                 planning_horizons=config["scenario"]["planning_horizons"],
                 allow_missing=True,
             ),
-            ffe_profiles="data/pypsa-at/ffe_industry_load_profiles.json",
+            ffe_profiles=f"{FFE_INDUSTRY_LOAD_PROFILES['folder']}/ffe_industry_load_profiles.json",
             snapshot_weightings=resources(
                 "snapshot_weightings_base_s_{clusters}_elec_{opts}_{sector_opts}.csv"
             ),

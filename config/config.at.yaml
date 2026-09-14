@@ -232,6 +232,9 @@ data:
   heat_demand_at:
     source: primary
     version: v1
+  ffe_industry_load_profiles:
+    source: primary
+    version: latest
 
 pypsa_eur:
   StorageUnit: []

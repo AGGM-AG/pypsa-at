@@ -41,6 +41,7 @@ jobs:
         token: ${{ secrets.PIXI_CI_ACTION_TOKEN }}
         branch: update-locked-environment
         title: "[github-actions.ci] Update locked envs"
+        labels: sourcery-ignore # skip Sourcery reviews on lockfile-only PRs (see .sourcery.yaml)
         body: |
           Automatically generated PR to update the pixi lockfile.
 
