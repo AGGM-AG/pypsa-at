@@ -90,6 +90,7 @@ HEAT_DEMAND_DATASETS = {
     "WEM": {year: f"WEM_{year}.tif" for year in (2021, 2030, 2050)},
     "Transition": {year: f"Transition_{year}.tif" for year in (2030, 2050)},
 }
+WIND_POWER_AT = dataset_version("wind-production-at")
 
 
 include: "rules/collect.smk"

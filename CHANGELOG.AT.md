@@ -46,6 +46,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - EAG limits for solar, wind, hydro and bioass added ([#179](https://github.com/AGGM-AG/pypsa-at/pull/179))
 - Added Austrian regional vehicle-stock and NEA-based road transport demand data ([#188](https://github.com/AGGM-AG/pypsa-at/pull/188))
 - Heat demand totals based on NEA data and spatial disaggregation based on austrian heatmap ([#182](https://github.com/AGGM-AG/pypsa-at/pull/182))
+- Added Austrian onshore-wind brownfield capacity vintages based on historical generation and KLIEN potentials ([#208](https://github.com/AGGM-AG/pypsa-at/pull/208))
 
 ### Changed
 - Blocked imports of Russian methane via Ukraine and TurkStream ([#129](https://github.com/AGGM-AG/pypsa-at/pull/129))
