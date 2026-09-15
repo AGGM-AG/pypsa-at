@@ -308,3 +308,8 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "nc" in getattr(item, "fixturenames", ()):
             item.add_marker(pytest.mark.AT)
+
+
+@pytest.fixture(scope="session")
+def is_testrun(nc) -> bool:
+    return any(n.meta["run"]["prefix"] == "test-sector-myopic-at10" for n in nc)

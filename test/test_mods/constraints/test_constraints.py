@@ -18,6 +18,7 @@ from mods.constraints.production import (
     GENERATOR_CARRIERS,
     LINK_CARRIERS,
     _add_eag_entries,
+    inflow_turbine_weights,
 )
 from mods.utils import get_relevant_links_and_lines
 from scripts.prepare_sector_network import determine_emission_sectors
@@ -70,12 +71,26 @@ def test_production_targets(nc):
                             nice_names=False,
                         )
                         bus = supply.index.get_level_values("bus")
-                        production = supply[
+                        selected = supply[
                             bus.str.startswith(region)
                             & supply.index.get_level_values("carrier").isin(
                                 GENERATOR_CARRIERS[source]
                             )
-                        ].sum()
+                        ]
+                        generators = n.generators.index[
+                            n.generators.bus.str.startswith(region)
+                            & n.generators.carrier.isin(GENERATOR_CARRIERS[source])
+                        ]
+                        weights = inflow_turbine_weights(n, generators)
+                        bus_weight = weights.groupby(
+                            n.generators.loc[generators, "bus"].to_numpy()
+                        ).mean()
+                        production = (
+                            selected
+                            * selected.index.get_level_values("bus")
+                            .map(bus_weight)
+                            .to_numpy()
+                        ).sum()
                     if sense == "<=":
                         assert production <= target + 1e-3, (
                             f"{year} {source} {region}: {production / 1e6:.6f} TWh/a above "
@@ -86,6 +101,61 @@ def test_production_targets(nc):
                             f"{year} {source} {region}: {production / 1e6:.6f} TWh/a below "
                             f"minimum {target / 1e6}"
                         )
+
+
+class TestInflowTurbineWeights:
+    """inflow_turbine_weights weights store-bus generators by their turbine efficiency."""
+
+    def _network(self):
+        n = pypsa.Network()
+        n.add("Bus", "AT1", carrier="AC")
+        n.add("Bus", "AT1 hydro bus", carrier="hydro store")
+        n.add("Bus", "AT1 PHS bus", carrier="PHS store")
+        n.add("Generator", "AT1 ror", bus="AT1", carrier="ror")
+        n.add(
+            "Generator", "AT1 hydro inflow", bus="AT1 hydro bus", carrier="hydro inflow"
+        )
+        n.add("Generator", "AT1 PHS inflow", bus="AT1 PHS bus", carrier="PHS inflow")
+        n.add(
+            "Link",
+            "AT1 hydro discharger",
+            bus0="AT1 hydro bus",
+            bus1="AT1",
+            carrier="hydro discharger",
+            efficiency=0.9,
+        )
+        n.add(
+            "Link",
+            "AT1 PHS discharger",
+            bus0="AT1 PHS bus",
+            bus1="AT1",
+            carrier="PHS discharger",
+            efficiency=0.866,
+        )
+        n.add(
+            "Link",
+            "AT1 PHS charger",
+            bus0="AT1",
+            bus1="AT1 PHS bus",
+            carrier="PHS charger",
+            efficiency=0.866,
+        )
+        return n
+
+    def test_weights_follow_turbine_efficiency(self):
+        n = self._network()
+        weights = inflow_turbine_weights(n, n.generators.index)
+        assert weights.index.name == "Generator"
+        assert weights["AT1 ror"] == 1.0
+        assert weights["AT1 hydro inflow"] == pytest.approx(0.9)
+        # the charger points into the store bus and must not count
+        assert weights["AT1 PHS inflow"] == pytest.approx(0.866)
+
+    def test_store_bus_without_turbine_raises(self):
+        n = self._network()
+        n.remove("Link", "AT1 hydro discharger")
+        with pytest.raises(ValueError, match="without a turbine link"):
+            inflow_turbine_weights(n, n.generators.index)
 
 
 class TestComputeElectricityFraction:

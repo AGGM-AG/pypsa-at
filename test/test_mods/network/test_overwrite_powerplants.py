@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
 """
-Tests for scripts/pypsa-at/overwrite_powerplants.py function overwrite_biogas_to_power_plants_AT
+Tests for scripts/pypsa-at/overwrite_powerplants.py function overwrite_biogas_to_power_plants_at
 """
 
 import pathlib
@@ -11,7 +11,7 @@ import textwrap
 
 import pandas as pd
 import pytest
-from overwrite_powerplants import overwrite_biogas_to_power_plants_AT
+from overwrite_powerplants import overwrite_biogas_to_power_plants_at
 
 from mods.clustering.utils import map_at_nuts3_to_nuts2
 
@@ -77,7 +77,7 @@ def ppl():
 @pytest.fixture
 def result(request, ppl, anlagenregister_file, postal_to_nuts_file):
     clustering = getattr(request, "param", "AT35DE5")
-    return overwrite_biogas_to_power_plants_AT(
+    return overwrite_biogas_to_power_plants_at(
         ppl,
         anlagenregister_file,
         postal_to_nuts_file,
@@ -166,7 +166,7 @@ def test_guard_raises_on_small_at_bioenergy(anlagenregister_file, postal_to_nuts
         }
     )
     with pytest.raises(ValueError, match="powerplantmatching"):
-        overwrite_biogas_to_power_plants_AT(
+        overwrite_biogas_to_power_plants_at(
             ppl,
             anlagenregister_file,
             postal_to_nuts_file,
@@ -178,7 +178,7 @@ def test_guard_raises_on_small_at_bioenergy(anlagenregister_file, postal_to_nuts
 def test_guard_raises_on_high_threshold(ppl, anlagenregister_file, postal_to_nuts_file):
     """threshold_capacity > 5 MW would filter out small biogas plants -> ValueError."""
     with pytest.raises(ValueError, match="threshold_capacity"):
-        overwrite_biogas_to_power_plants_AT(
+        overwrite_biogas_to_power_plants_at(
             ppl,
             anlagenregister_file,
             postal_to_nuts_file,

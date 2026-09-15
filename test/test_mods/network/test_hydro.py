@@ -10,6 +10,7 @@ import pytest
 import xarray as xr
 from pypsa import Network
 
+from mods.utils import inflow_turbine_weights
 from test.conftest import require_config
 
 _NON_RETIRING_HYDRO_CARRIERS = [
@@ -114,12 +115,197 @@ def test_inflows_match_pemmdb_totals(nc, project_root):
                 .mul(weightings, axis=0)
                 .sum()
             )
+            # store inflows are grossed up by the turbine efficiency when patched,
+            # so the calibrated energy per unit refers to p_nom x efficiency
+            effective_p_nom = n.generators["p_nom"].copy()
+            effective_p_nom[columns] *= inflow_turbine_weights(n, columns).to_numpy()
             expected = _energy(
                 _per_unit(
                     _snapshot_profiles(n, inflow, resource_carrier, model_carrier),
-                    n.generators["p_nom"],
+                    effective_p_nom,
                 ),
                 weightings,
                 clip,
             )
             _assert_energy_matches(actual, expected, tol)
+
+
+class TestFixStoreVolumes:
+    """fix_store_volumes caps hydro and PHS stores of the given countries."""
+
+    def _network(self):
+        n = Network()
+        n.add("Bus", "AT1 hydro bus", carrier="hydro store")
+        n.add("Bus", "AT1 PHS bus", carrier="PHS store")
+        n.add("Bus", "DE1 hydro bus", carrier="hydro store")
+        n.add("Bus", "AT1 gas bus", carrier="gas")
+        n.add(
+            "Store",
+            "AT1 hydro store",
+            bus="AT1 hydro bus",
+            carrier="hydro store",
+            e_nom_min=3200.0,
+            e_nom_extendable=True,
+        )
+        n.add(
+            "Store",
+            "AT1 PHS store",
+            bus="AT1 PHS bus",
+            carrier="PHS store",
+            e_nom_min=0.0,
+            e_nom_extendable=True,
+        )
+        n.add(
+            "Store",
+            "DE1 hydro store",
+            bus="DE1 hydro bus",
+            carrier="hydro store",
+            e_nom_min=300.0,
+            e_nom_extendable=True,
+        )
+        n.add(
+            "Store",
+            "AT1 gas store",
+            bus="AT1 gas bus",
+            carrier="gas store",
+            e_nom_min=0.0,
+            e_nom_extendable=True,
+        )
+        return n
+
+    def test_only_hydro_stores_of_listed_countries_are_capped(self):
+        from mods.network.hydro import fix_store_volumes
+
+        n = self._network()
+        fix_store_volumes(n, ["AT"])
+
+        # base-year vintage keeps its existing volume, new vintage gets zero
+        assert n.stores.at["AT1 hydro store", "e_nom_max"] == pytest.approx(3200.0)
+        assert n.stores.at["AT1 PHS store", "e_nom_max"] == pytest.approx(0.0)
+        assert np.isinf(n.stores.at["DE1 hydro store", "e_nom_max"])
+        assert np.isinf(n.stores.at["AT1 gas store", "e_nom_max"])
+
+
+class TestPatchComponentInflows:
+    """Store inflows are grossed up by the turbine efficiency of their store."""
+
+    def _network(self):
+        n = Network()
+        n.set_snapshots(pd.date_range("2013-01-01", periods=4, freq="h"))
+        n.add("Bus", "AT1", carrier="AC")
+        n.add("Bus", "AT1 hydro bus", carrier="hydro store")
+        n.add(
+            "Generator", "AT1 hydro inflow", bus="AT1 hydro bus", carrier="hydro inflow"
+        )
+        n.add("Generator", "AT1 ror", bus="AT1", carrier="ror", p_nom=100.0)
+        n.add(
+            "Link",
+            "AT1 hydro discharger",
+            bus0="AT1 hydro bus",
+            bus1="AT1",
+            carrier="hydro discharger",
+            efficiency=0.8,
+        )
+        return n
+
+    def _inflow(self, n, values):
+        return xr.DataArray(
+            np.array(values, dtype=float)[:, None, None],
+            dims=["time", "countries", "carrier"],
+            coords={
+                "time": n.snapshots.to_numpy(),
+                "countries": ["AT1"],
+                "carrier": ["hydro"],
+            },
+        )
+
+    def test_store_inflow_is_grossed_up_by_turbine_efficiency(self):
+        from mods.network.hydro import _patch_component_inflows
+
+        n = self._network()
+        idx, inflows = _patch_component_inflows(
+            n, self._inflow(n, [10, 20, 40, 30]), "hydro", "hydro inflow"
+        )
+        gen = "AT1 hydro inflow"
+        assert idx.tolist() == [gen]
+        # calibrated 100 MWh of generation need 125 MWh into the store at 0.8
+        assert n.generators.at[gen, "p_nom"] == pytest.approx(40 / 0.8)
+        delivered = (n.generators_t.p_max_pu[gen] * n.generators.at[gen, "p_nom"]).sum()
+        assert delivered == pytest.approx(100 / 0.8)
+        assert inflows[gen].sum() == pytest.approx(100 / 0.8)
+        assert n.generators_t.p_max_pu[gen].max() == pytest.approx(1.0)
+
+    def test_ror_inflow_is_not_scaled(self):
+        from mods.network.hydro import _patch_component_inflows
+
+        n = self._network()
+        inflow = self._inflow(n, [10, 20, 40, 30]).assign_coords(carrier=["ror"])
+        _patch_component_inflows(n, inflow, "ror", "ror")
+        assert (n.generators_t.p_max_pu["AT1 ror"] * 100.0).sum() == pytest.approx(100)
+
+
+class TestRedistributePeaks:
+    """Unit tests for the p_max_pu peak redistribution guard."""
+
+    def test_feasible_column_conserves_energy(self):
+        from mods.network.hydro import _redistribute_peaks
+
+        df = pd.DataFrame({"a": [2.0, 0.4, 0.2, 0.2, 0.2]})
+        out = _redistribute_peaks(df)
+        assert out["a"].max() <= 1.0
+        assert out["a"].sum() == pytest.approx(3.0, abs=0.011)
+
+    def test_infeasible_column_raises(self):
+        from mods.network.hydro import _redistribute_peaks
+
+        # total 6.0 > feasible maximum 5.0 -> would loop forever unguarded
+        df = pd.DataFrame({"a": [3.0, 2.0, 0.5, 0.25, 0.25]})
+        with pytest.raises(ValueError, match="feasible maximum"):
+            _redistribute_peaks(df)
+
+    def test_infeasible_column_error_names_the_column(self):
+        from mods.network.hydro import _redistribute_peaks
+
+        df = pd.DataFrame(
+            {
+                "infeasible": [3.0, 2.0, 0.5, 0.25, 0.25],
+                "feasible": [2.0, 0.4, 0.2, 0.2, 0.2],
+            }
+        )
+        with pytest.raises(ValueError, match="infeasible"):
+            _redistribute_peaks(df)
+
+    def test_feasible_frame_with_zero_column_keeps_columns_independent(self):
+        from mods.network.hydro import _redistribute_peaks
+
+        df = pd.DataFrame(
+            {
+                "feasible": [2.0, 0.4, 0.2, 0.2, 0.2],
+                "zero": [0.0, 0.0, 0.0, 0.0, 0.0],
+            }
+        )
+        out = _redistribute_peaks(df)
+        assert out["feasible"].sum() == pytest.approx(3.0, abs=0.011)
+        assert (out["zero"] == 0.0).all()
+        assert out.notna().all().all()
+
+    def test_max_iter_falls_back_to_energy_conserving_waterfill(self, caplog):
+        from mods.network.hydro import _redistribute_peaks
+
+        df = pd.DataFrame({"a": [2.0, 0.4, 0.2, 0.2, 0.2]})
+        with caplog.at_level("INFO"):
+            out = _redistribute_peaks(df, max_iter=1)
+        assert out["a"].max() <= 1.0
+        assert out["a"].sum() == pytest.approx(3.0, abs=0.011)
+        assert "waterfill" in caplog.text
+
+    def test_near_bound_column_conserves_energy(self):
+        from mods.network.hydro import _redistribute_peaks
+
+        # 99.99% of the feasible maximum: proportional redistribution stalls
+        n, total = 100, 100 * 0.9999
+        profile = pd.Series(range(1, n + 1), dtype=float)
+        df = pd.DataFrame({"a": profile / profile.sum() * total})
+        out = _redistribute_peaks(df)
+        assert out["a"].max() <= 1.0
+        assert out["a"].sum() == pytest.approx(total, abs=0.011)
