@@ -244,6 +244,9 @@ data:
   ffe_industry_load_profiles:
     source: primary
     version: latest
+  wind-production-at:
+    source: primary
+    version: latest
 
 pypsa_eur:
   StorageUnit: []
