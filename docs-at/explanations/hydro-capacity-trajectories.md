@@ -547,27 +547,30 @@ pumped-storage plants, 3.5 TWh/a on average, and the model follows the law's fig
 Whether the floor can be met depends on the weather year, because the inflow targets scale
 with it while the fleet does not, and the law's figure is a snapshot for 2030 rather than a
 normalised value. The table shows, per weather year, the delivered natural inflow of the
-calibrated 2025 fleet and the run-of-river capacity the optimizer would have to add in 2030
-to reach 47 TWh; the KLIEN corridor allows 471 MW of additions by 2030.
+calibrated 2025 fleet, counted as the floor counts it (inflow generators weighted by
+their turbine efficiency), and the run-of-river capacity the optimizer would have to add in
+2030 to reach 47 TWh; the KLIEN corridor allows 471 MW of additions by 2030.
 
 | Weather year | Delivered natural inflow, 2025 fleet | Additional ror needed for 47 TWh | Feasible in 2030 |
 |---|---:|---:|:---:|
-| 2003, 2025, 2011, 2006, 2022 | 36.4–39.0 TWh | 1,930–2,850 MW | no |
-| 2005, 2007, 2004, 2018, 2015 | 40.6–41.5 TWh | 1,320–1,500 MW | no |
-| 2017, 2008, 2010, 2021, 2001, 2002 | 42.3–43.6 TWh | 720–1,040 MW | no |
-| 2016, 2019 | 44.3 TWh | 580–600 MW | no |
-| 2000, 2023, 2009, 2020, 2014 | 45.2–46.1 TWh | 190–390 MW | within the corridor |
-| 2013 | 47.0 TWh | 0 MW | yes, without slack |
-| 2012, 2024 | 48.9, 50.5 TWh | 0 MW | yes |
+| 2003, 2025, 2011, 2006, 2022 | 37.6–40.3 TWh | 1,660–2,520 MW | no |
+| 2005, 2007, 2004, 2018, 2015 | 41.9–42.9 TWh | 980–1,200 MW | no |
+| 2017, 2008, 2010, 2021, 2001 | 43.5–44.7 TWh | 490–770 MW | no |
+| 2002, 2019, 2016 | 44.9–45.7 TWh | 290–450 MW | within the corridor |
+| 2000, 2023, 2009 | 46.5–46.9 TWh | 30–110 MW | within the corridor |
+| 2020, 2014 | 47.3, 47.7 TWh | 0 MW | yes |
+| 2013 | 48.6 TWh | 0 MW | yes, 1.6 TWh of slack |
+| 2012, 2024 | 50.6, 52.1 TWh | 0 MW | yes |
 
-With the configured 2013 weather year the fleet delivers 47.0 TWh and meets the floor with
-no slack; any buildout the optimizer chooses is additional. Only the two wettest years
-exceed it on their own, five average-to-wet years reach it with buildout inside the
-corridor, and eighteen of the 26 years, every dry or average one, cannot meet it with any
-buildout the corridor permits. That is the honest picture: E-Control's monitoring reports
-hydropower behind its linear path in every year but the wet 2024. A hard floor makes a dry
-year infeasible, which is the intended signal rather than a defect; the pumped-storage
-column follows E-Control's natural inflow of the respective year.
+The additional capacity is stated at the fleet's run-of-river full-load hours of the
+respective year (3,700–5,200 h). With the configured 2013 weather year the fleet delivers
+48.6 TWh and meets the floor with 1.6 TWh of slack; any buildout the optimizer chooses is
+additional. Five wet years reach it on their own, six average-to-wet years reach it with
+buildout inside the corridor, and fifteen of the 26 years, every dry or below-average one,
+cannot meet it with any buildout the corridor permits. That is the honest picture:
+E-Control's monitoring reports hydropower behind its linear path in every year but the wet
+2024. A hard floor makes a dry year infeasible, which is the intended signal rather than a
+defect; the pumped-storage column follows E-Control's natural inflow of the respective year.
 
 ## Configuration
 
