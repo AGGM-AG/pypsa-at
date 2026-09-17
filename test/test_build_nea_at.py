@@ -1,10 +1,6 @@
-import importlib
-
+import build_nea_at as bna
 import pandas as pd
 import pytest
-
-bna = importlib.import_module("scripts.pypsa-at.build_nea_at")
-
 
 CATEGORIES = [
     "Raumheizung und Klimaanlagen",

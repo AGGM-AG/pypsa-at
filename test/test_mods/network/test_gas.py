@@ -4,21 +4,16 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Integration tests for mods/network/gas.py — gas storage capacity overrides."""
 
-from importlib import import_module
-
 import pandas as pd
 import pypsa
 import pytest
+from modify_brownfield_gas_network_AT import update_gas_transport_data
 from pypsa import NetworkCollection
 
 from evals.utils import filter_by
 from mods.clustering.utils import combine_regions_by_clustering
 from mods.network.gas import _TANAP_PIPELINE_CAPACITY
 from test.conftest import require_config
-
-update_gas_transport_data = import_module(
-    "scripts.pypsa-at.modify_brownfield_gas_network_AT"
-).update_gas_transport_data
 
 GAS_NETWORK_COLUMNS = [
     "bus0",
