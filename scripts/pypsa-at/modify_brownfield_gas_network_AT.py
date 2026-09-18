@@ -23,9 +23,31 @@ from scripts.cluster_gas_network import (
 logger = logging.getLogger(__name__)
 
 
+def corridor_names(df: pd.DataFrame) -> pd.Series:
+    """
+    Name each corridor after its buses and flow direction.
+
+    Parameters
+    ----------
+    df
+        Corridors with ``bus0``, ``bus1`` and ``p_min_pu``.
+
+    Returns
+    -------
+    :
+        ``"gas pipeline BUS0 <-> BUS1"`` for a bidirectional corridor and
+        ``"... -> ..."`` for a one-way one. Parallel strands on the same bus
+        pair and direction are numbered in file order.
+    """
+    connector = np.where(df["p_min_pu"] == -1, " <-> ", " -> ")
+    base = "gas pipeline " + df["bus0"] + connector + df["bus1"]
+    strand = base.groupby(base).cumcount() + 1
+    return base.where(strand == 1, base + " (" + strand.astype(str) + ")")
+
+
 def read_aggm_gas_network(path: str | Path) -> pd.DataFrame:
     """
-    Read the AGGM gas network file and reject corridors with zero capacity.
+    Read the AGGM gas network file and reject corridors without a capacity.
 
     Parameters
     ----------
@@ -35,14 +57,20 @@ def read_aggm_gas_network(path: str | Path) -> pd.DataFrame:
     Returns
     -------
     :
-        Corridors indexed by name.
+        Corridors indexed by the names of :func:`corridor_names`, with a finite
+        ``p_nom`` above 0. An ``unknown`` build year becomes ``NaN``.
     """
-    df = pd.read_csv(path, index_col=0)
-    zero_capacity = df.index[df["p_nom"] == 0]
-    if not zero_capacity.empty:
+    df = pd.read_csv(path, na_values={"build_year": ["unknown"]})
+    df.index = corridor_names(df)
+    # blank cells and text become NaN, which fails the check below like any
+    # other capacity that is not a positive number
+    df["p_nom"] = pd.to_numeric(df["p_nom"], errors="coerce")
+
+    invalid = df.index[~(np.isfinite(df["p_nom"]) & (df["p_nom"] > 0))]
+    if not invalid.empty:
         raise ValueError(
-            f"Gas pipeline corridors with p_nom = 0 in {path}: {list(zero_capacity)}. "
-            "Check the file: give each of these corridors its capacity or remove the row."
+            f"Gas pipeline corridors without a positive capacity in {path}: "
+            f"{list(invalid)}. Check the file: p_nom must be a number above 0."
         )
     return df
 
@@ -76,8 +104,6 @@ def aggregate_gas_pipeline_corridors_to_nuts2(df: pd.DataFrame) -> pd.DataFrame:
     df["bus1"] = df["bus1"].map(map_at_nuts3_to_nuts2)
     df = df.loc[df["bus0"] != df["bus1"]].copy()
 
-    # 0 marks an unknown build year; keep it out of the mean
-    df["build_year"] = df["build_year"].astype(float).replace(0, np.nan)
     df["p_nom"] = df["p_nom"].astype(float)
     df["p_nom_reverse"] = df["p_nom_reverse"].fillna(-df["p_min_pu"] * df["p_nom"])
 
@@ -96,7 +122,6 @@ def aggregate_gas_pipeline_corridors_to_nuts2(df: pd.DataFrame) -> pd.DataFrame:
     df["bidirectional"] = df["p_nom_reverse"] > 0
     reindex_pipes(df)
 
-    df["build_year"] = df["build_year"].fillna(0).round().astype(int)
     return df[columns]
 
 

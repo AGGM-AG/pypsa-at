@@ -33,6 +33,7 @@ aggregate_gas_pipeline_corridors_to_nuts2 = (
 )
 apply_reverse_flow_limits = _modify_brownfield_gas_network_AT.apply_reverse_flow_limits
 read_aggm_gas_network = _modify_brownfield_gas_network_AT.read_aggm_gas_network
+corridor_names = _modify_brownfield_gas_network_AT.corridor_names
 calculate_corridor_lengths = (
     _modify_brownfield_gas_network_AT.calculate_corridor_lengths
 )
@@ -227,8 +228,7 @@ def corridor_frame(rows: list[tuple]) -> pd.DataFrame:
         rows, columns=["bus0", "bus1", "p_nom", "p_nom_reverse", "p_min_pu"]
     )
     df["p_nom_reverse"] = df["p_nom_reverse"].astype(float)
-    connector = df["p_min_pu"].map({-1: " <-> "}).fillna(" -> ")
-    df.index = "gas pipeline " + df["bus0"] + connector + df["bus1"]
+    df.index = corridor_names(df)
     for column in ("p_nom_diameter", "max_pressure_bar", "diameter_mm", "length"):
         df[column] = 0
     df["build_year"] = 1974
@@ -236,14 +236,72 @@ def corridor_frame(rows: list[tuple]) -> pd.DataFrame:
     return df
 
 
+class TestCorridorNames:
+    """Tests for corridor_names."""
+
+    def test_bidirectional_corridor_uses_a_two_way_connector(self):
+        """A corridor with p_min_pu -1 is named with <->."""
+        corridors = corridor_frame([("AT225", "AT213", 16672.0, 6015.0, -1)])
+
+        assert corridor_names(corridors).tolist() == ["gas pipeline AT225 <-> AT213"]
+
+    def test_one_way_corridor_uses_a_one_way_connector(self):
+        """A corridor with p_min_pu 0 is named with ->."""
+        corridors = corridor_frame([("AT126", "HU", 6378.0, None, 0)])
+
+        assert corridor_names(corridors).tolist() == ["gas pipeline AT126 -> HU"]
+
+    def test_parallel_strands_are_numbered(self):
+        """Strands on the same bus pair and direction get a counter."""
+        corridors = corridor_frame(
+            [
+                ("AT127", "AT126", 575.0, None, -1),
+                ("AT127", "AT126", 1725.0, None, -1),
+                ("AT127", "AT126", 6900.0, None, -1),
+            ]
+        )
+
+        assert corridor_names(corridors).tolist() == [
+            "gas pipeline AT127 <-> AT126",
+            "gas pipeline AT127 <-> AT126 (2)",
+            "gas pipeline AT127 <-> AT126 (3)",
+        ]
+
+    def test_opposite_bus_order_is_its_own_corridor(self):
+        """Rows written in opposite bus order are separate corridors, not strands."""
+        corridors = corridor_frame(
+            [
+                ("AT127", "AT126", 575.0, None, -1),
+                ("AT126", "AT127", 16672.0, 6015.0, -1),
+            ]
+        )
+
+        assert corridor_names(corridors).tolist() == [
+            "gas pipeline AT127 <-> AT126",
+            "gas pipeline AT126 <-> AT127",
+        ]
+
+    def test_names_are_unique(self):
+        """Every corridor of a frame gets its own name."""
+        corridors = corridor_frame(
+            [
+                ("AT127", "AT126", 575.0, None, -1),
+                ("AT127", "AT126", 1725.0, None, -1),
+                ("AT126", "HU", 6378.0, None, 0),
+            ]
+        )
+
+        assert corridor_names(corridors).is_unique
+
+
 class TestReadAGGMGasNetwork:
     """Tests for read_aggm_gas_network."""
 
     @staticmethod
     def write(tmp_path, corridors: pd.DataFrame) -> str:
-        """Save corridors as a CSV file like the AGGM file."""
+        """Save corridors as a CSV file like the AGGM file, which carries no names."""
         path = tmp_path / "AGGM_gas_network.csv"
-        corridors.to_csv(path)
+        corridors.to_csv(path, index=False)
         return str(path)
 
     def test_valid_file_is_read_unchanged(self, tmp_path):
@@ -254,12 +312,17 @@ class TestReadAGGMGasNetwork:
 
         pd.testing.assert_frame_equal(result, corridors)
 
-    def test_zero_capacity_raises(self, tmp_path):
-        """A zero-capacity corridor raises and is named in the error."""
+    @pytest.mark.parametrize(
+        "p_nom",
+        [0.0, -5.0, None, "n/a", float("inf")],
+        ids=["zero", "negative", "blank", "text", "inf"],
+    )
+    def test_capacity_without_a_positive_number_raises(self, tmp_path, p_nom):
+        """Only a finite capacity above 0 is accepted; the row is named in the error."""
         corridors = corridor_frame(
             [
                 ("AT225", "AT213", 16672.0, 6015.0, -1),
-                ("DE2", "AT342", 0.0, None, 0),
+                ("DE2", "AT342", p_nom, None, 0),
             ]
         )
 
@@ -273,6 +336,15 @@ class TestReadAGGMGasNetwork:
 
         with pytest.raises(ValueError, match="Check the file"):
             read_aggm_gas_network(path)
+
+    def test_unknown_build_year_reads_as_nan(self, tmp_path):
+        """An unknown commissioning year is read as NaN, not as a number."""
+        corridors = corridor_frame([("AT225", "AT213", 16672.0, 6015.0, -1)])
+        corridors["build_year"] = "unknown"
+
+        result = read_aggm_gas_network(self.write(tmp_path, corridors))
+
+        assert result["build_year"].isna().all()
 
     def test_maintained_file_is_accepted(self, project_root):
         """The shipped AGGM file has no zero-capacity corridor."""
@@ -489,6 +561,34 @@ class TestAggregateReverseCapacities:
         row = result.iloc[0]
         assert -row["p_min_pu"] * row["p_nom"] == pytest.approx(2 * 6015.0)
 
+    def test_unknown_build_years_stay_unknown(self):
+        """Merging corridors of unknown year keeps the year unknown."""
+        corridors = corridor_frame(
+            [
+                ("AT127", "AT313", 575.0, None, -1),
+                ("AT127", "AT313", 1725.0, None, -1),
+            ]
+        )
+        corridors["build_year"] = np.nan
+
+        result = aggregate_gas_pipeline_corridors_to_nuts2(corridors)
+
+        assert result["build_year"].isna().all()
+
+    def test_known_build_years_ignore_unknown_strands(self):
+        """A merged corridor averages the years it knows."""
+        corridors = corridor_frame(
+            [
+                ("AT127", "AT313", 575.0, None, -1),
+                ("AT127", "AT313", 1725.0, None, -1),
+            ]
+        )
+        corridors["build_year"] = [np.nan, 1974.0]
+
+        result = aggregate_gas_pipeline_corridors_to_nuts2(corridors)
+
+        assert result["build_year"].iloc[0] == pytest.approx(1974.0)
+
     def test_mirrored_corridors_merge_into_one(self):
         """Rows naming a region pair in opposite order merge."""
         corridors = corridor_frame(
@@ -554,9 +654,8 @@ class TestAGGMGasNetworkCapacityData:
     @pytest.fixture(params=["AT10", "AT35"])
     def aggm_data(self, request, project_root) -> pd.DataFrame:
         """AGGM network at AT10 (derived from AT35) and AT35 resolution."""
-        at35 = pd.read_csv(
-            project_root / "data" / "pypsa-at" / "AGGM_gas_network_base_AT35.csv",
-            index_col=0,
+        at35 = read_aggm_gas_network(
+            project_root / "data" / "pypsa-at" / "AGGM_gas_network_base_AT35.csv"
         )
         if request.param == "AT10":
             return aggregate_gas_pipeline_corridors_to_nuts2(at35)
@@ -565,9 +664,8 @@ class TestAGGMGasNetworkCapacityData:
     @pytest.fixture
     def source_file(self, project_root) -> pd.DataFrame:
         """The maintained AT35 AGGM file."""
-        return pd.read_csv(
-            project_root / "data" / "pypsa-at" / "AGGM_gas_network_base_AT35.csv",
-            index_col=0,
+        return read_aggm_gas_network(
+            project_root / "data" / "pypsa-at" / "AGGM_gas_network_base_AT35.csv"
         )
 
     @pytest.fixture
@@ -592,6 +690,19 @@ class TestAGGMGasNetworkCapacityData:
         """Check that each corridor index and name are unique."""
         assert aggm_data.index.is_unique
         assert aggm_data["name"].is_unique
+
+    def test_names_match_buses_and_direction(self, source_file):
+        """The corridor names of the shipped file follow from its own columns."""
+        pd.testing.assert_index_equal(
+            source_file.index, pd.Index(corridor_names(source_file))
+        )
+
+    def test_build_years_are_unknown_or_plausible(self, aggm_data):
+        """A commissioning year is either unknown or a plausible four-digit year."""
+        known = aggm_data["build_year"].dropna()
+
+        assert pd.api.types.is_numeric_dtype(aggm_data["build_year"])
+        assert known.between(1900, 2100).all(), f"Implausible: {list(known.unique())}"
 
     def test_capacities_are_valid(self, aggm_data):
         """Transport capacities are numeric, non-negative and not NaN"""

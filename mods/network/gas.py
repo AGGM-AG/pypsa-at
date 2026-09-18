@@ -221,9 +221,7 @@ def restore_asymmetric_pipeline_capacities(
 
     ``lossy_bidirectional_links`` copies ``p_nom`` onto every reverse leg. Up to
     ``mods.threshold_year_for_gas_grid_expansion`` this resets those legs to the
-    AGGM reverse capacity (zero for one-way pipes) and fixes them. Afterwards it
-    does nothing, so reversing a corridor is free (known limitation, follow-up
-    ticket).
+    reverse capacity (zero for one-way pipes) and fixes them.
 
     Parameters
     ----------
@@ -247,8 +245,6 @@ def restore_asymmetric_pipeline_capacities(
 
     pyear = int(snakemake.wildcards.planning_horizons)
     threshold_year = int(mods["threshold_year_for_gas_grid_expansion"])
-    # TODO: reversing a corridor is free after the threshold year; pricing the
-    # reversal is left to a follow-up ticket
     if pyear > threshold_year:
         logger.info(
             f"Skip restoring asymmetric gas pipeline capacities in {pyear}, after the "
