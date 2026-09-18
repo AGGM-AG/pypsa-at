@@ -27,6 +27,7 @@ from mods.network.h2 import (
     add_methane_pyrolysis_plasma,
 )
 from mods.network.hydro import process_hydro
+from mods.network.onwind import apply_onwind_brownfield
 from mods.network.potentials import apply_klien_potential_limits
 from mods.network.trajectories import apply_pemmdb_trajectories
 
@@ -101,6 +102,7 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     restore_asymmetric_pipeline_capacities(n, snakemake)
 
     apply_pemmdb_trajectories(n, snakemake, costs)
+    apply_onwind_brownfield(n, snakemake)
     override_gas_storage_capacities(n, snakemake)
     apply_klien_potential_limits(n, snakemake)
     apply_tyndp_transmission_lower_bounds(n, snakemake)
