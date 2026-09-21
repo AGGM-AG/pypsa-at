@@ -62,6 +62,13 @@ def test_build_trajectories_capacity(nc: NetworkCollection) -> None:
         for (region,), actual in trajectories.groupby(["region"]):
             if (actual["value"] == 0).all():
                 continue
+            if region not in PYPSA_TO_TYNDP_LOCATIONS:
+                # the regional AT ror rows of the KLIEN corridor have no PEMMDB
+                # counterpart; they are covered by test_build_trajectories_klien_ror_at
+                assert _uses_klien_ror_corridor(n, int(year)) and region.startswith(
+                    "AT"
+                )
+                continue
             actual = actual[["carrier", "variable", "sense", "value"]].reset_index(
                 drop=True
             )
@@ -128,32 +135,37 @@ def test_build_trajectories_capacity(nc: NetworkCollection) -> None:
 
 def test_build_trajectories_klien_ror_at(nc: NetworkCollection) -> None:
     """
-    Tests whether the AT ror upper bound in trajectories_{cluster}.csv matches the KLIEN corridor.
+    Tests whether the AT ror upper bounds in trajectories_{cluster}.csv match the KLIEN corridor.
 
     The corridor is the klien_ror_trajectory_{clusters}.csv resource file built by
-    ``build_klien_hydro_trajectory_at``. The base planning horizon keeps its PEMMDB row
-    and is therefore not compared.
+    ``build_klien_hydro_trajectory_at``, one row per Austrian region and horizon. The
+    base planning horizon keeps its national PEMMDB row and is therefore not compared.
     """
     require_config(nc, "mods", "update_hydro_capacities_AT", enable=False)
     for year, n in nc.networks.items():
         if not _uses_klien_ror_corridor(n, int(year)):
             continue
-        corridor = pd.DataFrame.from_dict(
-            n.meta["resources"]["klien_ror_trajectory"]
-        ).set_index("year")
+        corridor = pd.DataFrame.from_dict(n.meta["resources"]["klien_ror_trajectory"])
+        corridor = corridor[corridor["year"] == int(year)].set_index("region")
         trajectories = pd.DataFrame.from_dict(n.meta["resources"]["trajectories"])
         trajectories = trajectories[trajectories["year"] == int(year)].set_index(
             ["region", "carrier", "variable", "sense"]
         )
-        assert int(year) in corridor.index, f"KLIEN corridor has no entry for {year}"
-        assert AT_ROR_MAX in trajectories.index, f"AT ror p_nom_max row missing {year}"
-        expected = corridor.loc[int(year), "value"]
-        actual = trajectories.loc[AT_ROR_MAX, "value"]
-        assert actual == pytest.approx(expected), (
-            f"AT ror p_nom_max {year}: trajectories {actual} != KLIEN corridor {expected}"
+        assert not corridor.empty, f"KLIEN corridor has no entry for {year}"
+        assert AT_ROR_MAX not in trajectories.index, (
+            f"national AT ror p_nom_max row still present in {year}"
         )
-        # the corridor must grow from the calibrated fleet, never shrink it
-        assert expected >= corridor.loc[int(year), "brownfield_mw"]
+        for region, row in corridor.iterrows():
+            key = (region, "ror", "Generator-p_nom", "max")
+            assert key in trajectories.index, (
+                f"{region} ror p_nom_max row missing {year}"
+            )
+            assert trajectories.loc[key, "value"] == pytest.approx(row["value"]), (
+                f"{region} ror p_nom_max {year}: trajectories "
+                f"{trajectories.loc[key, 'value']} != KLIEN corridor {row['value']}"
+            )
+            # the corridor must grow from the calibrated fleet, never shrink it
+            assert row["value"] >= row["existing_ror_mw"]
 
 
 def test_storage_volumes_are_converted_to_mwh():
@@ -179,9 +191,13 @@ def _corridor_snakemake(tmp_path, enabled: bool = True):
     from types import SimpleNamespace
 
     corridor = tmp_path / "klien_ror_trajectory.csv"
-    pd.DataFrame({"year": [2025, 2030], "value": [6000.0, 6400.0]}).to_csv(
-        corridor, index=False
-    )
+    pd.DataFrame(
+        {
+            "year": [2025, 2025, 2030, 2030],
+            "region": ["AT121", "AT130", "AT121", "AT130"],
+            "value": [5000.0, 1000.0, 5300.0, 1100.0],
+        }
+    ).to_csv(corridor, index=False)
     return SimpleNamespace(
         params=SimpleNamespace(
             update_hydro_capacities_AT=enabled, planning_horizons=[2025, 2030]
@@ -202,15 +218,36 @@ def _trajectories(ror_min_2030: float) -> pd.Series:
     return pd.Series([0.0, 7000.0, ror_min_2030], index=index, name="value")
 
 
-def test_klien_corridor_overrides_only_later_horizons(tmp_path):
+def test_klien_corridor_replaces_the_national_row_in_later_horizons(tmp_path):
     from build_capacity_trajectories import apply_klien_hydro_buildout_at
 
     out = apply_klien_hydro_buildout_at(
         _trajectories(0.0), _corridor_snakemake(tmp_path)
     )
 
+    # the base year keeps its national PEMMDB row
     assert out[("2025", "AT", "ror", "Generator-p_nom", "max")] == 0.0
-    assert out[("2030", "AT", "ror", "Generator-p_nom", "max")] == pytest.approx(6400.0)
+    assert ("2025", "AT121", "ror", "Generator-p_nom", "max") not in out.index
+    # later horizons carry one row per region and no national row
+    assert ("2030", "AT", "ror", "Generator-p_nom", "max") not in out.index
+    assert out[("2030", "AT121", "ror", "Generator-p_nom", "max")] == pytest.approx(
+        5300.0
+    )
+    assert out[("2030", "AT130", "ror", "Generator-p_nom", "max")] == pytest.approx(
+        1100.0
+    )
+    assert out.index.names == ["year", "region", "carrier", "variable", "sense"]
+    assert out.index.is_monotonic_increasing
+
+
+def test_klien_corridor_disabled_keeps_the_national_row(tmp_path):
+    from build_capacity_trajectories import apply_klien_hydro_buildout_at
+
+    out = apply_klien_hydro_buildout_at(
+        _trajectories(0.0), _corridor_snakemake(tmp_path, enabled=False)
+    )
+
+    assert out[("2030", "AT", "ror", "Generator-p_nom", "max")] == pytest.approx(7000.0)
 
 
 def test_klien_corridor_below_lower_bound_raises(tmp_path):

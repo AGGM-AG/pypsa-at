@@ -355,12 +355,7 @@ def test_select_hydro_plants_keeps_at_fleet_and_de_grenzkraftwerke_twins():
 @pytest.fixture
 def econtrol_file(tmp_path) -> str:
     """Synthetic ``BStGes-JR1_Bilanz.xlsx`` with the sheet ``Erz`` layout."""
-    from build_hydro_inflow_targets import (
-        BIL_COLUMNS,
-        BIL_FIRST_ROW,
-        ECONTROL_COLUMNS,
-        ECONTROL_FIRST_ROW,
-    )
+    from build_hydro_inflow_targets import ECONTROL_COLUMNS, ECONTROL_FIRST_ROW
 
     years = [1985, 1990, 1995, *range(2000, 2026)]  # annual only from 2000
     rows = [[None] * len(ECONTROL_COLUMNS) for _ in range(ECONTROL_FIRST_ROW)]
@@ -368,6 +363,7 @@ def econtrol_file(tmp_path) -> str:
         lauf = 30_000.0 if year != 2013 else 33_000.0
         speicher_gt10 = 12_000.0 if year != 2013 else 15_000.0
         pumped_storage = 6_000.0 if year != 2013 else 8_000.0
+        pumped_gen = 4_000.0 if year != 2013 else 5_000.0
         rows.append(
             [
                 year,
@@ -378,23 +374,55 @@ def econtrol_file(tmp_path) -> str:
                 50.0,
                 speicher_gt10,
                 pumped_storage,
+                500.0 + speicher_gt10,
+                50.0 + pumped_storage,
+                pumped_gen,
+                lauf + 500.0 + speicher_gt10,
             ]
         )
     rows.append(["Quelle: E-Control"] + [None] * (len(ECONTROL_COLUMNS) - 1))
-    # sheet "Bil": pumping consumption 4,000 GWh, 5,000 in 2013
-    balance = [[None] * len(BIL_COLUMNS) for _ in range(BIL_FIRST_ROW)]
-    for year in years:
-        pumping = 4_000.0 if year != 2013 else 5_000.0
-        balance.append(
-            [year, 60_000.0, 20_000.0, 80_000.0, 20_000.0, 60_000.0, pumping, 56_000.0]
-        )
     path = tmp_path / "BStGes-JR1_Bilanz.xlsx"
     with pd.ExcelWriter(path) as writer:
         pd.DataFrame(rows).to_excel(writer, sheet_name="Erz", header=False, index=False)
-        pd.DataFrame(balance).to_excel(
-            writer, sheet_name="Bil", header=False, index=False
+    return str(path)
+
+
+def _write_capacity_file(tmp_path, lauf: dict[int, float] | None = None) -> str:
+    """Synthetic ``BeStGes-JR_KWEPL.xlsx`` (sheet ``Leistung``); 6,000 MW Laufkraft unless overridden."""
+    from build_hydro_inflow_targets import CAPACITY_COLUMNS, CAPACITY_FIRST_ROW
+
+    lauf = lauf or {}
+    years = [1985, 1990, 1995, *range(2000, 2026)]
+    rows = [[None] * len(CAPACITY_COLUMNS) for _ in range(CAPACITY_FIRST_ROW)]
+    for year in years:
+        cap = lauf.get(year, 6_000.0)
+        rows.append(
+            [
+                year,
+                1_000.0,
+                cap - 1_000.0,
+                cap,
+                100.0,
+                10.0,
+                2_400.0,
+                990.0,
+                2_500.0,
+                1_000.0,
+                cap + 2_500.0,
+            ]
+        )
+    rows.append(["Quelle: E-Control"] + [None] * (len(CAPACITY_COLUMNS) - 1))
+    path = tmp_path / "BeStGes-JR_KWEPL.xlsx"
+    with pd.ExcelWriter(path) as writer:
+        pd.DataFrame(rows).to_excel(
+            writer, sheet_name="Leistung", header=False, index=False
         )
     return str(path)
+
+
+@pytest.fixture
+def capacity_file(tmp_path) -> str:
+    return _write_capacity_file(tmp_path)
 
 
 def test_read_econtrol_annual_generation(econtrol_file):
@@ -402,16 +430,13 @@ def test_read_econtrol_annual_generation(econtrol_file):
 
     econtrol = read_econtrol_annual_generation(econtrol_file)
 
-    from build_hydro_inflow_targets import PUMPED_WATER_SHARE
-
     assert econtrol.columns.tolist() == ["lauf", "speicher", "phs_natural"]
     assert econtrol.index.min() == 1985 and econtrol.index.max() == 2025
     assert econtrol.at[2013, "lauf"] == pytest.approx(33_000.0)
-    assert econtrol.at[2013, "speicher"] == pytest.approx(15_500.0)
-    # pumped-storage generation 8,050 minus the pumped-water share of 5,000 GWh pumping
-    assert econtrol.at[2013, "phs_natural"] == pytest.approx(
-        8_050.0 - 5_000.0 * PUMPED_WATER_SHARE
-    )
+    # Speicherkraftwerke 15,500 GWh without the 8,050 GWh of the pumped-storage plants
+    assert econtrol.at[2013, "speicher"] == pytest.approx(7_450.0)
+    # pumped-storage generation 8,050 minus the published 5,000 GWh from pumped water
+    assert econtrol.at[2013, "phs_natural"] == pytest.approx(3_050.0)
 
 
 def test_read_econtrol_annual_generation_raises_on_changed_layout(tmp_path):
@@ -425,32 +450,104 @@ def test_read_econtrol_annual_generation_raises_on_changed_layout(tmp_path):
         read_econtrol_annual_generation(str(path))
 
 
-def test_weather_year_factors_relative_to_reference_period(econtrol_file):
+def test_read_econtrol_capacity(capacity_file):
+    from build_hydro_inflow_targets import read_econtrol_capacity
+
+    capacity = read_econtrol_capacity(capacity_file)
+
+    assert capacity.columns.tolist() == ["lauf", "speicher"]
+    assert capacity.at[2013, "lauf"] == pytest.approx(6_000.0)
+    # Speicherkraftwerke 2,500 MW without the 1,000 MW pumped-storage plants
+    assert capacity.at[2013, "speicher"] == pytest.approx(1_500.0)
+
+
+def test_read_econtrol_capacity_raises_on_changed_layout(tmp_path):
+    from build_hydro_inflow_targets import read_econtrol_capacity
+
+    path = tmp_path / "broken.xlsx"
+    pd.DataFrame([[2013, 1.0]]).to_excel(
+        path, sheet_name="Leistung", header=False, index=False
+    )
+    with pytest.raises(ValueError, match="Unexpected layout"):
+        read_econtrol_capacity(str(path))
+
+
+def test_mid_year_capacity_averages_neighbouring_year_ends():
+    from build_hydro_inflow_targets import mid_year_capacity
+
+    capacity = pd.DataFrame(
+        {"lauf": [90.0, 100.0, 120.0, 140.0]}, index=pd.Index([1995, 2000, 2001, 2002])
+    )
+
+    out = mid_year_capacity(capacity)
+
+    # no predecessor for 1995 and 2000: year-end value kept
+    assert out["lauf"].tolist() == pytest.approx([90.0, 100.0, 110.0, 130.0])
+
+
+def test_weather_year_factors_relative_to_reference_period(
+    econtrol_file, capacity_file
+):
     from build_hydro_inflow_targets import (
         read_econtrol_annual_generation,
+        read_econtrol_capacity,
         weather_year_factors,
     )
 
     econtrol = read_econtrol_annual_generation(econtrol_file)
-    factors = weather_year_factors(econtrol, 2013)
+    capacity = read_econtrol_capacity(capacity_file)
+    factors = weather_year_factors(econtrol, 2013, capacity)
 
-    # available reference years 1995, 2000-2020: 21 at 30000 + one at 33000
+    # a constant fleet: the full-load-hour ratio equals the generation ratio over
+    # the available reference years 1995, 2000-2020 (21 at the base value, one at 2013)
     assert factors["ror"] == pytest.approx(33_000.0 / ((21 * 30_000.0 + 33_000.0) / 22))
-    assert factors["hydro"] == pytest.approx(
-        15_500.0 / ((21 * 12_500.0 + 15_500.0) / 22)
-    )
-    assert weather_year_factors(econtrol, 2000)["ror"] < 1.0
+    assert factors["hydro"] == pytest.approx(7_450.0 / ((21 * 6_450.0 + 7_450.0) / 22))
+    assert factors["PHS"] == pytest.approx(3_050.0 / ((21 * 2_050.0 + 3_050.0) / 22))
+    assert weather_year_factors(econtrol, 2000, capacity)["ror"] < 1.0
 
 
-def test_weather_year_factors_unknown_year_raises(econtrol_file):
+def test_weather_year_factors_remove_fleet_growth(econtrol_file, tmp_path):
     from build_hydro_inflow_targets import (
         read_econtrol_annual_generation,
+        read_econtrol_capacity,
         weather_year_factors,
     )
 
     econtrol = read_econtrol_annual_generation(econtrol_file)
-    with pytest.raises(ValueError, match="weather year 1950"):
-        weather_year_factors(econtrol, 1950)
+    flat = read_econtrol_capacity(_write_capacity_file(tmp_path))
+    grown = read_econtrol_capacity(
+        _write_capacity_file(tmp_path, lauf={2013: 6_600.0, 2014: 6_600.0})
+    )
+
+    # the same 2013 generation from a larger fleet is less water per megawatt
+    assert (
+        weather_year_factors(econtrol, 2013, grown)["ror"]
+        < weather_year_factors(econtrol, 2013, flat)["ror"]
+    )
+    # the 2013 fleet enters as the mean of the 2012 and 2013 year ends (6,300 MW);
+    # 2014 runs on 6,600 MW, 2015 on the mean of 6,600 and 6,000
+    hours = {
+        2013: 33_000.0 / 6_300.0,
+        2014: 30_000.0 / 6_600.0,
+        2015: 30_000.0 / 6_300.0,
+    }
+    reference = (19 * 30_000.0 / 6_000.0 + sum(hours.values())) / 22
+    assert weather_year_factors(econtrol, 2013, grown)["ror"] == pytest.approx(
+        hours[2013] / reference
+    )
+
+
+def test_weather_year_factors_unknown_year_raises(econtrol_file, capacity_file):
+    from build_hydro_inflow_targets import (
+        read_econtrol_annual_generation,
+        read_econtrol_capacity,
+        weather_year_factors,
+    )
+
+    econtrol = read_econtrol_annual_generation(econtrol_file)
+    capacity = read_econtrol_capacity(capacity_file)
+    with pytest.raises(ValueError, match="no complete entry"):
+        weather_year_factors(econtrol, 1950, capacity)
 
 
 def test_phs_shares_section_energy_only_where_klien_counts_it():
@@ -544,14 +641,15 @@ def test_catchment_corrections_overwrite_capacity_and_energy():
         apply_catchment_corrections(sections, corrections.assign(id=[99999]))
 
 
-def test_phs_inflow_targets_follow_fleet_capacity(econtrol_file):
+def test_phs_inflow_targets_follow_fleet_capacity(econtrol_file, capacity_file):
     from build_hydro_inflow_targets import (
-        PUMPED_WATER_SHARE,
         phs_inflow_targets,
         read_econtrol_annual_generation,
+        read_econtrol_capacity,
     )
 
     econtrol = read_econtrol_annual_generation(econtrol_file)
+    capacity = read_econtrol_capacity(capacity_file)
     plants = pd.DataFrame(
         {
             "bus": ["AT322", "AT341", "AT212", "DE2"],
@@ -560,17 +658,48 @@ def test_phs_inflow_targets_follow_fleet_capacity(econtrol_file):
         }
     )
 
-    out = phs_inflow_targets(econtrol, 2013, plants, {"AT322", "AT341", "AT212"})
+    out = phs_inflow_targets(
+        econtrol, 2013, plants, {"AT322", "AT341", "AT212"}, capacity
+    )
 
     assert out["carrier"].eq("PHS").all()
     assert out["bus"].tolist() == ["AT322", "AT341"]
-    # 2013: 8,050 - 5,000 x share; every other reference year 6,050 - 4,000 x share
-    natural_2013 = 8_050.0 - 5_000.0 * PUMPED_WATER_SHARE
-    assert out["inflow"].sum() == pytest.approx(natural_2013 * 1e3)
+    # 2013: 8,050 - 5,000 from pumped water; every other reference year 6,050 - 4,000
+    assert out["inflow"].sum() == pytest.approx(3_050.0 * 1e3)
     assert out["rav_gwh"].tolist() == pytest.approx(
         [0.75 * out["rav_gwh"].sum(), 0.25 * out["rav_gwh"].sum()]
     )
     assert out["year_factor"].iloc[0] > 1.0
+
+
+def test_catchment_region_map_weights_sections_by_austrian_capacity():
+    from build_hydro_inflow_targets import catchment_region_map
+
+    membership = pd.DataFrame(
+        {
+            "plant": [1, 2, 3, 4, 5],
+            "section": ["A", "A", "A", "B", "C"],
+            "weight": [1.0, 1.0, 0.5, 1.0, 1.0],
+        }
+    )
+    plants = pd.DataFrame(
+        {
+            "bus": ["AT121", "AT313", "AT313", "DE2", "AT130"],
+            "carrier": ["ror", "ror", "PHS", "ror", "ror"],
+            "p_nom": [300.0, 100.0, 200.0, 50.0, 0.0],
+        },
+        index=[1, 2, 3, 4, 5],
+    )
+
+    out = catchment_region_map(membership, plants, {"AT121", "AT313", "AT130"})
+
+    assert out.columns.tolist() == ["section", "bus", "weight"]
+    # section A: 300 MW in AT121, 100 + 0.5 x 200 MW in AT313
+    assert out.set_index(["section", "bus"])["weight"].to_dict() == pytest.approx(
+        {("A", "AT121"): 0.6, ("A", "AT313"): 0.4}
+    )
+    # the German twin does not locate section B, a zero-capacity plant not section C
+    assert "B" not in out["section"].tolist() and "C" not in out["section"].tolist()
 
 
 def test_residual_plants_size_capacity_at_catchment_full_load_hours():

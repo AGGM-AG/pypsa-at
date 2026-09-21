@@ -145,7 +145,7 @@ class TestInflowTurbineWeights:
     def test_weights_follow_turbine_efficiency(self):
         n = self._network()
         weights = inflow_turbine_weights(n, n.generators.index)
-        assert weights.index.name == "Generator"
+        assert weights.index.name == "name"
         assert weights["AT1 ror"] == 1.0
         assert weights["AT1 hydro inflow"] == pytest.approx(0.9)
         # the charger points into the store bus and must not count
@@ -156,6 +156,23 @@ class TestInflowTurbineWeights:
         n.remove("Link", "AT1 hydro discharger")
         with pytest.raises(ValueError, match="without a turbine link"):
             inflow_turbine_weights(n, n.generators.index)
+
+    def test_production_expression_has_one_term_per_generator_and_snapshot(self):
+        from mods.constraints.production import _production_expression
+
+        n = self._network()
+        n.set_snapshots(pd.date_range("2013-01-01", periods=3, freq="h"))
+        n.snapshot_weightings.loc[:, :] = 2.0
+        n.generators["p_nom"] = 10.0
+        n.generators["marginal_cost"] = 1.0
+        n.optimize.create_model()
+
+        expr = _production_expression(n, "hydro", "AT")
+
+        # the weights align on the generator dimension: one term per generator
+        # and snapshot, not one per generator squared (the linopy broadcast)
+        assert expr.nterm == 3 * 3
+        assert expr.coeffs.sum().item() == pytest.approx(3 * 2.0 * (1.0 + 0.9 + 0.866))
 
 
 class TestComputeElectricityFraction:

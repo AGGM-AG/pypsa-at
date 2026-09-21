@@ -24,8 +24,19 @@ _NON_RETIRING_HYDRO_CARRIERS = [
 
 
 def test_hydro_capacity_never_decreases(nc):
-    """Test that hydro (ror/reservoir/PHS) has a 100-year lifetime and must never retire."""
-    capacity = nc.statistics.installed_capacity(
+    """
+    Test that hydro (ror/reservoir/PHS) capacity never retires between horizons.
+
+    Vintages below ``existing_capacities.threshold_capacity`` are dropped by
+    ``add_brownfield``, so a decrease of at most that size is allowed.
+    """
+    threshold = max(
+        n.meta["existing_capacities"]["threshold_capacity"]
+        for _, n in nc.networks.items()
+    )
+    # optimal capacity: the existing fleet plus the vintages actually built;
+    # installed capacity (p_nom) would count an unbuilt extendable vintage
+    capacity = nc.statistics.optimal_capacity(
         carrier=_NON_RETIRING_HYDRO_CARRIERS,
         groupby=["carrier", "location"],
         aggregate_across_components=True,
@@ -38,8 +49,9 @@ def test_hydro_capacity_never_decreases(nc):
 
     for carrier, group in capacity.groupby(["carrier", "location"]):
         series = group.droplevel("carrier").sort_index()
-        assert (series.diff().dropna() >= 0).all(), (
-            f"'{carrier}' capacity decreased: {series}"
+        assert (series.diff().dropna() >= -threshold).all(), (
+            f"'{carrier}' capacity decreased by more than the {threshold} MW "
+            f"brownfield threshold: {series}"
         )
 
 
@@ -110,6 +122,11 @@ def test_inflows_match_pemmdb_totals(nc, project_root):
             ("ror", "ror"),
         ]:
             columns = n.generators.query(f'carrier == "{model_carrier}"').index
+            if model_carrier == "ror":
+                # the vintages built by the optimiser inherit the fleet profile
+                # (see test_ror_vintages_inherit_the_fleet_profile); only the
+                # fleet carries the calibrated inflow
+                columns = columns[~columns.str.contains(r"-\d{4}$")]
             actual = (
                 n.generators_t.p_max_pu.reindex(columns=columns, fill_value=0.0)
                 .mul(weightings, axis=0)
@@ -128,6 +145,204 @@ def test_inflows_match_pemmdb_totals(nc, project_root):
                 clip,
             )
             _assert_energy_matches(actual, expected, tol)
+
+
+def test_ror_vintages_inherit_the_fleet_profile(nc):
+    """Every run-of-river vintage runs at most at the fleet's availability of its bus."""
+    for year, n in nc.networks.items():
+        ror = n.generators[n.generators.carrier == "ror"]
+        vintages = ror.index[ror.index.str.contains(r"-\d{4}$")]
+        if vintages.empty:
+            continue
+        fleet = pd.Series(vintages.str.rsplit("-", n=1).str[0], index=vintages)
+        assert fleet.isin(ror.index).all(), (
+            f"{year}: vintages without a fleet generator"
+        )
+        profile = n.generators_t.p_max_pu
+        for vintage, base in fleet.items():
+            assert (profile[vintage] <= profile[base] + 1e-6).all(), (
+                f"{year}: {vintage} exceeds the availability of {base}"
+            )
+            # the yield factor is a constant: the vintage keeps the fleet's shape
+            ratio = (
+                profile[vintage][profile[base] > 0] / profile[base][profile[base] > 0]
+            )
+            assert ratio.max() - ratio.min() < 1e-6, f"{year}: {vintage} changes shape"
+        # the existing fleet is never extendable and never retires
+        assert not ror.loc[fleet.unique(), "p_nom_extendable"].any()
+        assert np.isinf(ror.loc[fleet.unique(), "lifetime"]).all()
+
+
+def test_ror_vintages_respect_their_corridor(nc):
+    """A run-of-river vintage never exceeds its regional headroom."""
+    for year, n in nc.networks.items():
+        ror = n.generators[
+            (n.generators.carrier == "ror") & (n.generators.build_year == int(year))
+        ]
+        if ror.empty:
+            continue
+        assert (ror.p_nom_opt <= ror.p_nom_max + 1e-3).all(), (
+            f"{year}: vintages above p_nom_max {ror[ror.p_nom_opt > ror.p_nom_max]}"
+        )
+        assert (ror.p_nom == 0).all(), f"{year}: vintage p_nom must be zero"
+
+
+class TestRorVintages:
+    """Run-of-river buildout: fixed fleet plus a bounded vintage per bus."""
+
+    def _fleet(self):
+        return pd.DataFrame(
+            {
+                "bus": ["AT130", "AT121", "RS1", "XK"],
+                "p_nom": [100.0, 300.0, 50.0, 10.0],
+            },
+            index=["AT130 ror", "AT121 ror", "RS1 ror", "XK ror"],
+        )
+
+    def _trajectories(self):
+        return pd.DataFrame(
+            {
+                "year": [2025, 2030, 2030, 2030, 2030],
+                "region": ["AT", "AT130", "AT121", "RS", "AT"],
+                "carrier": ["ror"] * 5,
+                "variable": ["Generator-p_nom"] * 5,
+                "sense": ["max"] * 5,
+                "value": [0.0, 110.0, 300.0, 90.0, 0.0],
+            }
+        )
+
+    def test_headroom_per_bus_follows_the_regional_and_national_rows(self):
+        from mods.network.hydro import ror_expansion_headroom
+
+        headroom = ror_expansion_headroom(self._fleet(), self._trajectories(), 2030)
+
+        # regional row: the whole headroom lands on the region's bus
+        assert headroom["AT130 ror"] == pytest.approx(10.0)
+        # a corridor equal to the fleet: nothing may be added
+        assert headroom["AT121 ror"] == pytest.approx(0.0)
+        # national row shared by the country's nodes, Kosovo pooled with Serbia
+        assert headroom["RS1 ror"] == pytest.approx(30.0 * 50.0 / 60.0)
+        assert headroom["XK ror"] == pytest.approx(30.0 * 10.0 / 60.0)
+
+    def test_headroom_is_zero_without_rows(self):
+        from mods.network.hydro import ror_expansion_headroom
+
+        headroom = ror_expansion_headroom(self._fleet(), self._trajectories(), 2025)
+        assert (headroom == 0).all()
+
+    def _network(self):
+        n = Network()
+        n.set_snapshots(pd.date_range("2013-01-01", periods=3, freq="h"))
+        for bus in ["AT130", "AT121", "RS1", "XK"]:
+            n.add("Bus", bus, carrier="AC")
+        fleet = self._fleet()
+        n.add(
+            "Generator",
+            fleet.index,
+            bus=fleet["bus"],
+            carrier="ror",
+            p_nom=fleet["p_nom"],
+            capital_cost=1.0,
+            efficiency=0.9,
+        )
+        n.generators_t.p_max_pu = pd.DataFrame(
+            {
+                "AT130 ror": [1.0, 0.5, 0.2],
+                "AT121 ror": [0.9, 0.6, 0.3],
+                "RS1 ror": [0.4, 0.4, 0.4],
+                "XK ror": [0.3, 0.3, 0.3],
+            },
+            index=n.snapshots,
+        )
+        return n
+
+    def _snakemake(self, tmp_path, corridor: bool = True):
+        from types import SimpleNamespace
+
+        trajectories = tmp_path / "trajectories.csv"
+        self._trajectories().to_csv(trajectories, index=False)
+        klien = tmp_path / "klien_ror_trajectory.csv"
+        rows = (
+            pd.DataFrame(
+                {
+                    "year": [2030, 2030],
+                    "region": ["AT130", "AT121"],
+                    "yield_factor": [0.5, 0.8],
+                }
+            )
+            if corridor
+            else pd.DataFrame(columns=["year", "region", "yield_factor"])
+        )
+        rows.to_csv(klien, index=False)
+        return SimpleNamespace(
+            wildcards=SimpleNamespace(planning_horizons="2030"),
+            input=SimpleNamespace(
+                trajectories=str(trajectories), klien_ror_trajectory=str(klien)
+            ),
+        )
+
+    def _costs(self):
+        return pd.DataFrame(
+            {"capital_cost": [5.0], "investment": [50.0]}, index=["ror"]
+        )
+
+    def test_vintages_are_added_with_headroom_and_yield(self, tmp_path):
+        from mods.network.hydro import ROR_VINTAGE_LIFETIME, add_ror_vintages
+
+        n = self._network()
+        ror_yield = add_ror_vintages(n, self._snakemake(tmp_path), self._costs())
+
+        # AT121 has no headroom, so no vintage
+        assert sorted(ror_yield.index) == [
+            "AT130 ror-2030",
+            "RS1 ror-2030",
+            "XK ror-2030",
+        ]
+        vintage = n.generators.loc["AT130 ror-2030"]
+        assert vintage["bus"] == "AT130" and vintage["carrier"] == "ror"
+        assert vintage["p_nom"] == 0.0 and vintage["p_nom_min"] == 0.0
+        assert vintage["p_nom_max"] == pytest.approx(10.0)
+        assert vintage["p_nom_extendable"]
+        assert vintage["lifetime"] == ROR_VINTAGE_LIFETIME
+        assert vintage["build_year"] == 2030
+        assert vintage["capital_cost"] == 5.0 and vintage["onight_cost"] == 50.0
+        assert vintage["efficiency"] == 0.9
+        # the fleet is untouched
+        assert n.generators.at["AT130 ror", "p_nom"] == 100.0
+        assert not n.generators.at["AT130 ror", "p_nom_extendable"]
+        # yield factor from the KLIEN corridor, one elsewhere
+        assert ror_yield["AT130 ror-2030"] == 0.5
+        assert ror_yield["RS1 ror-2030"] == 1.0
+
+    def test_no_vintage_without_headroom(self, tmp_path):
+        from mods.network.hydro import add_ror_vintages
+
+        n = self._network()
+        sm = self._snakemake(tmp_path)
+        sm.wildcards.planning_horizons = "2025"
+        ror_yield = add_ror_vintages(n, sm, self._costs())
+
+        assert ror_yield.empty
+        assert len(n.generators) == 4
+
+    def test_vintages_inherit_the_fleet_profile_times_the_yield(self, tmp_path):
+        from mods.network.hydro import _apply_ror_vintage_profiles, add_ror_vintages
+
+        n = self._network()
+        ror_yield = add_ror_vintages(n, self._snakemake(tmp_path), self._costs())
+        _apply_ror_vintage_profiles(n, ror_yield)
+
+        profile = n.generators_t.p_max_pu
+        assert profile["AT130 ror-2030"].tolist() == pytest.approx([0.5, 0.25, 0.1])
+        assert profile["RS1 ror-2030"].tolist() == pytest.approx([0.4, 0.4, 0.4])
+
+    def test_vintage_without_fleet_profile_raises(self):
+        from mods.network.hydro import _apply_ror_vintage_profiles
+
+        n = self._network()
+        n.add("Generator", "DE1 ror-2030", bus="AT130", carrier="ror")
+        with pytest.raises(ValueError, match="no fleet profile"):
+            _apply_ror_vintage_profiles(n, pd.Series({"DE1 ror-2030": 1.0}))
 
 
 class TestFixStoreVolumes:
