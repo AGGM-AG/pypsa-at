@@ -4,7 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 
 run:
-  prefix: hydro-capacities-update
+  prefix: hydro-capacities-update-complete
   name:
   - AT_KN2040
   scenarios:
@@ -227,7 +227,7 @@ data:
     source: primary  # downloaded from e-control.at, no Zenodo mirror (licence unclear)
     version: latest
   econtrol-betriebsstatistik:
-    source: primary  # downloaded from e-control.at, no Zenodo mirror (licence unclear)
+    source: primary
     version: latest
   geonames-postal-codes-at:
     source: primary  # downloaded from geonames.org, no Zenodo mirror for now
