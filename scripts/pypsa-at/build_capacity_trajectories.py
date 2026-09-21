@@ -294,14 +294,16 @@ def apply_klien_hydro_buildout_at(
     trajectories: pd.Series, snakemake: Snakemake
 ) -> pd.Series:
     """
-    Override the Austrian ``ror`` upper bound with the KLIEN-scaled corridor.
+    Replace the national Austrian ``ror`` upper bound by the regional KLIEN corridor.
 
     The corridor is built by ``build_klien_hydro_trajectory_at`` from the KLIEN
-    realisable hydropower pathway and the calibrated Austrian brownfield ror
-    fleet. The base planning horizon keeps its PEMMDB row; every later horizon
-    takes the corridor value as ``p_nom_max``. Reservoir (``hydro discharger`` /
-    ``hydro store``) and PHS keep their PEMMDB rows. Guarded by
-    ``mods.update_hydro_capacities_AT.enable``.
+    realisable hydropower pathway per catchment, located in the model regions
+    through the calibrated fleet. For every planning horizon after the base
+    year the national ``AT`` ror row is dropped and one row per Austrian
+    region is written with the region's ``p_nom_max``; the base horizon keeps
+    its PEMMDB row (zero, i.e. no buildout beyond the existing fleet).
+    Reservoir (``hydro discharger`` / ``hydro store``) and PHS keep their
+    PEMMDB rows. Guarded by ``mods.update_hydro_capacities_AT.enable``.
 
     Parameters
     ----------
@@ -313,7 +315,13 @@ def apply_klien_hydro_buildout_at(
     Returns
     -------
     :
-        The trajectories with overridden AT ror rows.
+        The trajectories with the AT ror rows replaced by regional rows.
+
+    Raises
+    ------
+    ValueError
+        If the corridor lacks a horizon, or a region's lower bound exceeds
+        its corridor.
     """
     if not snakemake.params.update_hydro_capacities_AT:
         logger.info(
@@ -322,14 +330,17 @@ def apply_klien_hydro_buildout_at(
         )
         return trajectories
 
-    corridor = pd.read_csv(snakemake.input.klien_ror_trajectory, index_col="year")
-    base_year = min(snakemake.params.planning_horizons)
+    corridor = pd.read_csv(snakemake.input.klien_ror_trajectory)
+    base_year = min(int(year) for year in snakemake.params.planning_horizons)
 
     trajectories = trajectories.copy()
+    names = trajectories.index.names
     for year in snakemake.params.planning_horizons:
+        year = int(year)
         if year == base_year:
             continue
-        if year not in corridor.index:
+        rows = corridor[corridor["year"] == year]
+        if rows.empty:
             raise ValueError(
                 f"The KLIEN ror corridor has no entry for {year}. "
                 "Check the build_klien_hydro_trajectory_at rule."
@@ -337,24 +348,40 @@ def apply_klien_hydro_buildout_at(
         idx = (str(year), "AT", "ror", "Generator-p_nom", "max")
         if idx not in trajectories.index:
             raise ValueError(
-                f"Expected AT ror trajectory row for {year} to override, "
+                f"Expected AT ror trajectory row for {year} to replace, "
                 "but it is missing. Check the PEMMDB trajectory build."
             )
-        trajectories.loc[idx] = corridor.loc[year, "value"]
+        trajectories = trajectories.drop(index=idx)
         idx_min = (str(year), "AT", "ror", "Generator-p_nom", "min")
         if (
             idx_min in trajectories.index
-            and trajectories.loc[idx_min] > trajectories.loc[idx]
+            and trajectories.loc[idx_min] > rows["value"].sum()
         ):
             raise ValueError(
                 f"The AT ror lower bound for {year} ({trajectories.loc[idx_min]:.0f} "
-                f"MW) exceeds the KLIEN corridor ({trajectories.loc[idx]:.0f} MW); "
+                f"MW) exceeds the KLIEN corridor ({rows['value'].sum():.0f} MW); "
                 "the constraint would be infeasible."
             )
-        logger.info(
-            f"KLIEN ror buildout for AT {year}: max {corridor.loc[year, 'value']:.0f} MW."
+        regional = pd.Series(
+            rows["value"].to_numpy(),
+            index=pd.MultiIndex.from_arrays(
+                [
+                    [str(year)] * len(rows),
+                    rows["region"].to_numpy(),
+                    ["ror"] * len(rows),
+                    ["Generator-p_nom"] * len(rows),
+                    ["max"] * len(rows),
+                ],
+                names=names,
+            ),
+            name=trajectories.name,
         )
-    return trajectories
+        trajectories = pd.concat([trajectories, regional])
+        logger.info(
+            f"KLIEN ror buildout for AT {year}: {len(rows)} regional rows, "
+            f"max {rows['value'].sum():.0f} MW in total."
+        )
+    return trajectories.sort_index()
 
 
 def main(snakemake: Snakemake) -> pd.DataFrame:

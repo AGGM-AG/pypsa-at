@@ -232,8 +232,10 @@ rule build_hydro_inflow_targets_at:
         catchment_corrections="data/pypsa-at/hydro_catchment_corrections_AT.csv",
         grenzkraftwerke="data/pypsa-at/grenzkraftwerke_AT.csv",
         econtrol_annual=f"{ECONTROL_BETRIEBSSTATISTIK['folder']}/BStGes-JR1_Bilanz.xlsx",
+        econtrol_capacity=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-JR_KWEPL.xlsx",
     output:
         targets=resources("hydro_inflow_targets_{clusters}.csv"),
+        catchment_regions=resources("hydro_catchment_regions_{clusters}.csv"),
     log:
         logs("hydro_inflow_targets_{clusters}.log"),
     benchmark:
@@ -256,6 +258,8 @@ rule build_klien_hydro_trajectory_at:
     input:
         powerplants=resources("powerplants_s_{clusters}.csv"),
         klien_hydro_potentials=f"{KLIEN_POTENTIALS['folder']}/catchments_hydro.csv",
+        catchment_regions=resources("hydro_catchment_regions_{clusters}.csv"),
+        hydro_inflow_targets=resources("hydro_inflow_targets_{clusters}.csv"),
     output:
         klien_ror_trajectory=resources("klien_ror_trajectory_{clusters}.csv"),
     log:
@@ -274,7 +278,7 @@ rule build_klien_hydro_trajectory_at:
             "mods", "klien_potential_limits", "climate_scenario"
         ),
     message:
-        "Building the KLIEN-scaled AT run-of-river capacity corridor"
+        "Building the KLIEN run-of-river capacity corridor per AT region"
     script:
         scripts("pypsa-at/build_klien_hydro_trajectory_at.py")
 

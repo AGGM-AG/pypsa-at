@@ -61,9 +61,17 @@ def _production_expression(n: pypsa.Network, source: str, region: str):
             & n.generators.active
         ].index
         weights = inflow_turbine_weights(n, generators)
-        return (
-            n.model["Generator-p"].loc[:, generators].mul(weights).mul(weightings).sum()
-        )
+        expr = n.model["Generator-p"].loc[:, generators].mul(weights).mul(weightings)
+        # the weights must align on the generator dimension; a misaligned index
+        # name makes linopy broadcast and multiplies the production by the
+        # number of generators
+        if expr.nterm != 1:
+            raise ValueError(
+                f"The {source} production expression has {expr.nterm} terms per "
+                "generator and snapshot instead of one; the weights do not align "
+                "with the 'name' dimension of the Generator-p variable."
+            )
+        return expr.sum()
     elif source in LINK_CARRIERS:
         from_carriers, to_carriers = LINK_CARRIERS[source]
         from_buses = n.buses[

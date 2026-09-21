@@ -28,12 +28,22 @@ Outputs
     Field                Index             Description
     ===================  ================  =========================================================
     rav_gwh              bus, carrier      Long-term mean (1991–2020) annual energy from KLIEN
-    year_factor          bus, carrier      E-Control generation of the weather year over the mean
+    year_factor          bus, carrier      Hydrology of the weather year relative to the mean
+                                           (E-Control full-load hours of the plant class)
     inflow               bus, carrier      Target inflow energy of the weather year in MWh
     ===================  ================  =========================================================
 
-    Empty (header only) when ``mods.update_hydro_capacities_AT.enable`` is
-    false, so the DAG does not depend on the configuration.
+- ``resources/hydro_catchment_regions_{clusters}.csv``:
+
+    ===================  ================  =========================================================
+    Field                Index             Description
+    ===================  ================  =========================================================
+    weight               section, bus      Share of the catchment's Austrian hydro plant capacity
+                                           that sits in the model region (sums to one per section)
+    ===================  ================  =========================================================
+
+    Both are empty (header only) when ``mods.update_hydro_capacities_AT.enable``
+    is false, so the DAG does not depend on the configuration.
 
 Location logic
 --------------
@@ -79,8 +89,10 @@ KLIEN_CRS = "EPSG:3416"
 REFERENCE_PERIOD = (1991, 2020)
 MIN_REFERENCE_YEARS = 20
 
-# E-Control annual generation series (sheet ``Erz`` of BStGes-JR1_Bilanz.xlsx):
-# first data row and the columns read, in order
+# E-Control annual generation series (sheet ``Erz`` of BStGes-JR1_Bilanz.xlsx,
+# Betriebsstatistik Jahresreihe): first data row and the columns read, in
+# order. ``pumped_gen`` is "davon Erzeugung aus Pumpspeicherung", the
+# generation from pumped water, which E-Control publishes per year.
 ECONTROL_FIRST_ROW = 10
 ECONTROL_COLUMNS = [
     "year",
@@ -91,31 +103,32 @@ ECONTROL_COLUMNS = [
     "sp_le10_psw",
     "sp_gt10",
     "sp_gt10_psw",
+    "sp_total",
+    "sp_total_psw",
+    "pumped_gen",
+    "sum_hydro",
 ]
 
-# E-Control annual electricity balance (sheet ``Bil`` of the same workbook):
-# first data row and the columns read, in order; ``pumping`` is the
-# "Verbrauch für Pumpspeicher" column.
-BIL_FIRST_ROW = 10
-BIL_COLUMNS = [
+# E-Control Brutto-Engpassleistung year series (sheet ``Leistung`` of
+# BeStGes-JR_KWEPL.xlsx, Bestandsstatistik): same class layout as ``Erz``
+# without the pumped-generation column; year-end capacity in MW.
+CAPACITY_FIRST_ROW = 10
+CAPACITY_COLUMNS = [
     "year",
-    "gross_generation",
-    "imports",
-    "supply",
-    "exports",
-    "gross_consumption",
-    "pumping",
-    "domestic_consumption",
+    "lauf_le10",
+    "lauf_gt10",
+    "lauf",
+    "sp_le10",
+    "sp_le10_psw",
+    "sp_gt10",
+    "sp_gt10_psw",
+    "sp_total",
+    "sp_total_psw",
+    "sum_hydro",
 ]
-
-# Share of the electricity consumed for pumping that comes back as generation
-# from pumped water. E-Control publishes the generation from pumped water only
-# in the Bestandsstatistik (BeStGes-2025_KW2EPLTyp.xlsx: 3,795 GWh in 2025),
-# while the Betriebsstatistik year series carries the pumping consumption
-# (5,725 GWh in 2025); the ratio of the two is applied to every year.
-PUMPED_WATER_SHARE = 3795.0 / 5725.4
 
 OUTPUT_COLUMNS = ["bus", "carrier", "rav_gwh", "year_factor", "inflow"]
+CATCHMENT_REGION_COLUMNS = ["section", "bus", "weight"]
 
 
 def _require_matching_crs(*gdfs: gpd.GeoDataFrame) -> None:
@@ -786,6 +799,25 @@ def select_hydro_plants(
     return plants[["bus", "carrier", "p_nom", "name", *location]]
 
 
+def _hydro_classes(table: pd.DataFrame) -> pd.DataFrame:
+    """
+    Reduce an E-Control class table to the three model classes.
+
+    ``lauf`` is the Laufkraftwerke column, ``speicher`` the Speicherkraftwerke
+    *without* the pumped-storage plants (the model's reservoir class; KLIEN
+    excludes pumped storage from its energy too) and ``phs`` the
+    pumped-storage plants.
+    """
+    psw = table["sp_le10_psw"].fillna(0.0) + table["sp_gt10_psw"]
+    return pd.DataFrame(
+        {
+            "lauf": table["lauf"],
+            "speicher": table["sp_le10"] + table["sp_gt10"] - psw,
+            "phs": psw,
+        }
+    )
+
+
 def read_econtrol_annual_generation(path: str) -> pd.DataFrame:
     """
     Read the E-Control annual hydro generation series.
@@ -799,9 +831,10 @@ def read_econtrol_annual_generation(path: str) -> pd.DataFrame:
     -------
     :
         Frame indexed by year with ``lauf`` (Laufkraftwerke), ``speicher``
-        (Speicherkraftwerke, including pumped-storage generation) and
+        (Speicherkraftwerke without the pumped-storage plants) and
         ``phs_natural`` (generation of the pumped-storage plants minus the
-        generation from pumped water, i.e. from their natural inflow) in GWh.
+        published generation from pumped water, i.e. from their natural
+        inflow) in GWh.
 
     Raises
     ------
@@ -811,24 +844,78 @@ def read_econtrol_annual_generation(path: str) -> pd.DataFrame:
     """
     layout_error = ValueError(
         f"Unexpected layout in {path}: expected {len(ECONTROL_COLUMNS)} columns "
-        f"in sheet 'Erz', {len(BIL_COLUMNS)} columns in sheet 'Bil' and at least "
-        f"{MIN_REFERENCE_YEARS} years of the reference period {REFERENCE_PERIOD}. "
-        "Has the E-Control file format changed?"
+        f"in sheet 'Erz' and at least {MIN_REFERENCE_YEARS} years of the "
+        f"reference period {REFERENCE_PERIOD}. Has the E-Control file format changed?"
     )
     table = _read_econtrol_sheet(path, "Erz", ECONTROL_FIRST_ROW, ECONTROL_COLUMNS)
-    balance = _read_econtrol_sheet(path, "Bil", BIL_FIRST_ROW, BIL_COLUMNS)
-    if table is None or balance is None:
+    if table is None:
         raise layout_error
-    table["speicher"] = table["sp_le10"] + table["sp_gt10"]
-    pumped_storage = table["sp_le10_psw"].fillna(0.0) + table["sp_gt10_psw"]
-    table["phs_natural"] = (
-        pumped_storage - balance["pumping"].reindex(table.index) * PUMPED_WATER_SHARE
-    )
-    columns = ["lauf", "speicher", "phs_natural"]
-    reference = table.loc[slice(*REFERENCE_PERIOD), columns].dropna()
+    classes = _hydro_classes(table)
+    classes["phs_natural"] = classes.pop("phs") - table["pumped_gen"]
+    reference = classes.loc[slice(*REFERENCE_PERIOD)].dropna()
     if len(reference) < MIN_REFERENCE_YEARS:
         raise layout_error
-    return table[columns]
+    return classes
+
+
+def read_econtrol_capacity(path: str) -> pd.DataFrame:
+    """
+    Read the E-Control year series of the installed hydro capacity.
+
+    Parameters
+    ----------
+    path
+        ``BeStGes-JR_KWEPL.xlsx`` (Bestandsstatistik, Brutto-Engpassleistung
+        by plant type and year).
+
+    Returns
+    -------
+    :
+        Frame indexed by year with the year-end capacity in MW of ``lauf``
+        (Laufkraftwerke) and ``speicher`` (Speicherkraftwerke without the
+        pumped-storage plants).
+
+    Raises
+    ------
+    ValueError
+        If the sheet layout does not yield the reference period.
+    """
+    layout_error = ValueError(
+        f"Unexpected layout in {path}: expected {len(CAPACITY_COLUMNS)} columns "
+        f"in sheet 'Leistung' and at least {MIN_REFERENCE_YEARS} years of the "
+        f"reference period {REFERENCE_PERIOD}. Has the E-Control file format changed?"
+    )
+    table = _read_econtrol_sheet(path, "Leistung", CAPACITY_FIRST_ROW, CAPACITY_COLUMNS)
+    if table is None:
+        raise layout_error
+    capacity = _hydro_classes(table)[["lauf", "speicher"]]
+    if len(capacity.loc[slice(*REFERENCE_PERIOD)].dropna()) < MIN_REFERENCE_YEARS:
+        raise layout_error
+    return capacity
+
+
+def mid_year_capacity(capacity: pd.DataFrame) -> pd.DataFrame:
+    """
+    Capacity in operation over a year, from the year-end series.
+
+    The generation of a year is produced by the fleet between two year ends,
+    so the mean of the previous and the current year-end capacity is used.
+    Years without a predecessor in the series (the five-year steps before
+    2000) keep their year-end value.
+
+    Parameters
+    ----------
+    capacity
+        Year-end capacity per class from :func:`read_econtrol_capacity`.
+
+    Returns
+    -------
+    :
+        Mid-year capacity per class, same index and columns.
+    """
+    previous = capacity.reindex(capacity.index - 1)
+    previous.index = capacity.index
+    return ((capacity + previous) / 2).fillna(capacity)
 
 
 def _read_econtrol_sheet(
@@ -849,9 +936,20 @@ def _read_econtrol_sheet(
     return table.sort_index()
 
 
-def weather_year_factors(econtrol: pd.DataFrame, year: int) -> dict[str, float]:
+def weather_year_factors(
+    econtrol: pd.DataFrame, year: int, capacity: pd.DataFrame
+) -> dict[str, float]:
     """
     Scale factors from the KLIEN reference period to one weather year.
+
+    The factor is meant to carry the hydrology of the year only. The
+    E-Control generation of a year also reflects the fleet of that year, so
+    the run-of-river and reservoir factors are built on full-load hours
+    (generation over the mid-year capacity of the class): a year in which
+    the Laufkraftwerke ran 5 % more hours than in the reference mean gets a
+    factor of 1.05, whatever the fleet did meanwhile. The pumped-storage
+    factor stays a ratio of the natural-inflow generation, because no
+    capacity series exists for the natural inflow of those plants.
 
     Parameters
     ----------
@@ -859,35 +957,91 @@ def weather_year_factors(econtrol: pd.DataFrame, year: int) -> dict[str, float]:
         Annual generation from :func:`read_econtrol_annual_generation`.
     year
         Weather year of the inflow profile (snapshots).
+    capacity
+        Year-end capacity from :func:`read_econtrol_capacity`.
 
     Returns
     -------
     :
-        ``{"ror": Laufkraft(year) / mean, "hydro": Speicherkraft(year) / mean,
-        "PHS": natural pumped-storage generation(year) / mean}`` with the
-        means taken over the years available in ``REFERENCE_PERIOD``.
+        ``{"ror": FLH_Laufkraft(year) / mean, "hydro": FLH_Speicherkraft(year)
+        / mean, "PHS": natural pumped-storage generation(year) / mean}`` with
+        the means taken over the years available in ``REFERENCE_PERIOD``.
 
     Raises
     ------
     ValueError
-        If the weather year is not covered by the series.
+        If the weather year is not covered by both series.
     """
-    if year not in econtrol.index or econtrol.loc[year].isna().any():
+    hours = econtrol[["lauf", "speicher"]] / mid_year_capacity(capacity).reindex(
+        econtrol.index
+    )
+    series = pd.concat(
+        [hours.add_suffix("_flh"), econtrol[["phs_natural"]]], axis=1
+    ).dropna()
+    if year not in series.index:
         raise ValueError(
-            f"E-Control annual generation has no complete entry for weather "
-            f"year {year}; available years {econtrol.dropna().index.min()}-"
-            f"{econtrol.dropna().index.max()}."
+            f"E-Control annual generation and capacity have no complete entry "
+            f"for weather year {year}; available years {series.index.min()}-"
+            f"{series.index.max()}."
         )
-    reference = econtrol.loc[slice(*REFERENCE_PERIOD)].dropna().mean()
+    reference = series.loc[slice(*REFERENCE_PERIOD)].mean()
     return {
-        "ror": float(econtrol.at[year, "lauf"] / reference["lauf"]),
-        "hydro": float(econtrol.at[year, "speicher"] / reference["speicher"]),
-        "PHS": float(econtrol.at[year, "phs_natural"] / reference["phs_natural"]),
+        "ror": float(series.at[year, "lauf_flh"] / reference["lauf_flh"]),
+        "hydro": float(series.at[year, "speicher_flh"] / reference["speicher_flh"]),
+        "PHS": float(series.at[year, "phs_natural"] / reference["phs_natural"]),
     }
 
 
+def catchment_region_map(
+    membership: pd.DataFrame, plants: pd.DataFrame, at_buses: set[str]
+) -> pd.DataFrame:
+    """
+    Locate every catchment in the model regions through its Austrian plants.
+
+    The KLIEN pathway is published per catchment; to turn it into regional
+    capacity corridors each catchment needs a region. Its Austrian hydro
+    plants give that: the catchment is placed where its plant capacity is,
+    which resolves border rivers and straddling polygons the way the energy
+    allocation does (the energy follows the dam, not the catchment area).
+
+    Parameters
+    ----------
+    membership
+        Plant to section weights from :func:`assign_plants_to_sections`.
+    plants
+        Plant frame with ``bus``, ``carrier`` and ``p_nom``, indexed like
+        the ``plant`` column of ``membership``.
+    at_buses
+        Buses that belong to Austria; plants elsewhere (the German treaty
+        halves) do not locate a catchment.
+
+    Returns
+    -------
+    :
+        Frame with ``CATCHMENT_REGION_COLUMNS``; the weights sum to one per
+        section. Sections without an Austrian plant are absent.
+    """
+    m = membership.merge(
+        plants[["bus", "p_nom"]], left_on="plant", right_index=True, how="inner"
+    )
+    m = m[m["bus"].isin(at_buses)]
+    m["w"] = m["weight"] * m["p_nom"]
+    by_region = m.groupby(["section", "bus"], as_index=False)["w"].sum()
+    by_region = by_region[by_region["w"] > 0]
+    by_region["weight"] = by_region["w"] / by_region.groupby("section")["w"].transform(
+        "sum"
+    )
+    out = by_region[CATCHMENT_REGION_COLUMNS].copy()
+    out["section"] = out["section"].astype(str)
+    return out.sort_values(["section", "bus"]).reset_index(drop=True)
+
+
 def phs_inflow_targets(
-    econtrol: pd.DataFrame, year: int, plants: pd.DataFrame, at_buses: set[str]
+    econtrol: pd.DataFrame,
+    year: int,
+    plants: pd.DataFrame,
+    at_buses: set[str],
+    capacity: pd.DataFrame,
 ) -> pd.DataFrame:
     """
     Natural inflow of the Austrian pumped-storage plants from E-Control.
@@ -895,11 +1049,11 @@ def phs_inflow_targets(
     The KLIEN catchment energy excludes pumped-storage plants and the PEMMDB
     *PS Open* inflow for Austria is about twice what E-Control attributes to
     natural inflow. The national figure is E-Control's generation of
-    pumped-storage plants minus the generation from pumped water, taken as
-    the reference-period mean and scaled to the weather year like the other
-    carriers. It is spread over the Austrian regions in proportion to the
-    pumped-storage turbine capacity of the calibrated fleet, because the
-    statistic knows no regions.
+    pumped-storage plants minus the published generation from pumped water,
+    taken as the reference-period mean and scaled to the weather year like
+    the other carriers. It is spread over the Austrian regions in proportion
+    to the pumped-storage turbine capacity of the calibrated fleet, because
+    the statistic knows no regions.
 
     Parameters
     ----------
@@ -912,6 +1066,8 @@ def phs_inflow_targets(
         ``carrier`` and ``p_nom``.
     at_buses
         Buses that belong to Austria.
+    capacity
+        Year-end capacity from :func:`read_econtrol_capacity`.
 
     Returns
     -------
@@ -922,7 +1078,7 @@ def phs_inflow_targets(
     share = phs.groupby("bus")["p_nom"].sum()
     share = share / share.sum()
     reference = econtrol.loc[slice(*REFERENCE_PERIOD), "phs_natural"].dropna().mean()
-    factor = weather_year_factors(econtrol, year)["PHS"]
+    factor = weather_year_factors(econtrol, year, capacity)["PHS"]
     targets = pd.DataFrame(
         {
             "bus": share.index,
@@ -935,7 +1091,7 @@ def phs_inflow_targets(
     return targets[OUTPUT_COLUMNS]
 
 
-def main(snakemake: Snakemake) -> pd.DataFrame:
+def main(snakemake: Snakemake) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Build the KLIEN-calibrated inflow targets from the workflow inputs.
 
@@ -947,15 +1103,19 @@ def main(snakemake: Snakemake) -> pd.DataFrame:
     Returns
     -------
     :
-        Targets per Austrian region and carrier, or an empty frame when the
-        feature is disabled.
+        Tuple of the targets per Austrian region and carrier and the
+        catchment to region map, both empty frames when the feature is
+        disabled.
     """
     if not snakemake.params.update_hydro_capacities_AT:
         logger.info(
             "Skipping the KLIEN hydro inflow targets for AT. config option "
             "mods.update_hydro_capacities_AT.enable is false."
         )
-        return pd.DataFrame(columns=OUTPUT_COLUMNS)
+        return (
+            pd.DataFrame(columns=OUTPUT_COLUMNS),
+            pd.DataFrame(columns=CATCHMENT_REGION_COLUMNS),
+        )
 
     snapshots = get_snapshots(
         snakemake.params.snapshots, snakemake.params.drop_leap_day
@@ -1016,11 +1176,15 @@ def main(snakemake: Snakemake) -> pd.DataFrame:
         )
 
     econtrol = read_econtrol_annual_generation(snakemake.input.econtrol_annual)
-    factors = weather_year_factors(econtrol, year)
+    capacity = read_econtrol_capacity(snakemake.input.econtrol_capacity)
+    factors = weather_year_factors(econtrol, year, capacity)
     targets["year_factor"] = targets["carrier"].map(factors)
     targets["inflow"] = targets["rav_gwh"] * 1e3 * targets["year_factor"]
     targets = pd.concat(
-        [targets[OUTPUT_COLUMNS], phs_inflow_targets(econtrol, year, plants, at_buses)],
+        [
+            targets[OUTPUT_COLUMNS],
+            phs_inflow_targets(econtrol, year, plants, at_buses, capacity),
+        ],
         ignore_index=True,
     )
 
@@ -1031,7 +1195,15 @@ def main(snakemake: Snakemake) -> pd.DataFrame:
     )
     for carrier, total in targets.groupby("carrier")["inflow"].sum().items():
         logger.info(f"AT {carrier} inflow target for {year}: {total / 1e6:.2f} TWh.")
-    return targets[OUTPUT_COLUMNS]
+
+    catchment_regions = catchment_region_map(
+        diagnostics["membership"], plants, at_buses
+    )
+    logger.info(
+        f"{catchment_regions['section'].nunique()} of {len(sections)} KLIEN "
+        "catchments are located in a model region through their plants."
+    )
+    return targets[OUTPUT_COLUMNS], catchment_regions
 
 
 if __name__ == "__main__":
@@ -1048,6 +1220,7 @@ if __name__ == "__main__":
     set_scenario_config(snakemake)
 
     logger.info("Building KLIEN-calibrated hydro inflow targets...")
-    targets = main(snakemake)
+    targets, catchment_regions = main(snakemake)
     targets.to_csv(snakemake.output.targets, index=False)
+    catchment_regions.to_csv(snakemake.output.catchment_regions, index=False)
     logger.info(f"Saved hydro inflow targets to {snakemake.output.targets}")

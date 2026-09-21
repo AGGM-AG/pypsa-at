@@ -200,12 +200,15 @@ if ECONTROL_BESTANDSSTATISTIK["source"] == "primary":
             typ=storage(
                 f"{ECONTROL_BESTANDSSTATISTIK['url']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx"
             ),
+            kwepl=storage(f"{ECONTROL_BESTANDSSTATISTIK['url']}/BeStGes-JR_KWEPL.xlsx"),
         output:
             typ=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx",
+            kwepl=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-JR_KWEPL.xlsx",
         message:
-            "Retrieving E-Control Bestandsstatistik Kraftwerkspark (capacity by plant type)"
+            "Retrieving E-Control Bestandsstatistik Kraftwerkspark (capacity by plant type and year)"
         run:
             copy2(input["typ"], output["typ"])
+            copy2(input["kwepl"], output["kwepl"])
 
 
 if ECONTROL_BETRIEBSSTATISTIK["source"] == "primary":

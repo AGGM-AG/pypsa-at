@@ -7,10 +7,15 @@ import xarray as xr
 from pypsa import Network
 from snakemake.script import Snakemake
 
+from mods.constants import PROXIES
 from mods.utils import inflow_turbine_weights
 from scripts.add_electricity import add_missing_carriers, load_and_aggregate_powerplants
 
 logger = getLogger(__name__)
+
+# Lifetime of a run-of-river vintage added by the optimiser. The existing fleet
+# keeps the upstream infinite lifetime and is recreated in every horizon.
+ROR_VINTAGE_LIFETIME = 100
 
 
 def process_hydro(n: Network, snakemake: Snakemake, costs: pd.DataFrame):
@@ -42,7 +47,8 @@ def process_hydro(n: Network, snakemake: Snakemake, costs: pd.DataFrame):
     hydro_config = snakemake.params.update_hydro_capacities_AT
     if hydro_config.get("enable") and hydro_config.get("fix_store_volumes"):
         fix_store_volumes(n, ["AT"])
-    patch_inflows(n, snakemake, ppl)
+    ror_yield = add_ror_vintages(n, snakemake, costs)
+    patch_inflows(n, snakemake, ppl, ror_yield)
 
 
 def fix_store_volumes(n: Network, countries: list[str]) -> None:
@@ -299,12 +305,147 @@ def add_phs_hydro(
             )
 
         if "ror" in carriers:
+            # the existing run-of-river fleet is fixed at its capacity in every
+            # horizon (upstream semantics: infinite lifetime, recreated from the
+            # electricity network each horizon, never carried by add_brownfield);
+            # buildout happens in separate vintages, see ``add_ror_vintages``
             ror_idx = n.generators.query('carrier == "ror"').index
-            n.generators.loc[ror_idx, "p_nom_min"] = (
-                n.generators.loc[ror_idx, "p_nom"] if is_base_year else 0
-            )
-            n.generators.loc[ror_idx, "p_nom_extendable"] = True
-            n.generators.loc[ror_idx, "lifetime"] = 100
+            n.generators.loc[ror_idx, "p_nom_extendable"] = False
+            n.generators.loc[ror_idx, "lifetime"] = np.inf
+
+
+def ror_expansion_headroom(
+    fleet: pd.DataFrame, trajectories: pd.DataFrame, year: int
+) -> pd.Series:
+    """
+    Run-of-river capacity that may be added per bus in a planning horizon.
+
+    The ``ror`` upper bounds of the trajectories give, per region, the
+    capacity the region may hold in ``year``. The headroom above the existing
+    fleet of that region is distributed over its buses in proportion to their
+    existing run-of-river capacity: a regional row (the KLIEN corridor of an
+    Austrian NUTS3 region) maps to one bus and gets the whole headroom; a
+    national PEMMDB row is shared by the country's nodes. Kosovo shares the
+    Serbian row as in the trajectory constraint.
+
+    Parameters
+    ----------
+    fleet
+        Static frame of the existing (non-extendable) ``ror`` generators with
+        ``bus`` and ``p_nom``.
+    trajectories
+        Trajectories as built by ``build_capacity_trajectories`` with columns
+        ``year``, ``region``, ``carrier``, ``variable``, ``sense``, ``value``.
+    year
+        Planning horizon.
+
+    Returns
+    -------
+    :
+        Headroom in MW indexed like ``fleet``; zero where nothing may be added.
+    """
+    rows = trajectories[
+        (trajectories["year"].astype(int) == int(year))
+        & (trajectories["carrier"] == "ror")
+        & (trajectories["variable"] == "Generator-p_nom")
+        & (trajectories["sense"] == "max")
+    ]
+    headroom = pd.Series(0.0, index=fleet.index)
+    if rows.empty or fleet.empty:
+        return headroom
+    buses = fleet["bus"].unique()
+    # same region key as the trajectory constraint: every bus that starts with
+    # the row's region, plus the proxied countries (Kosovo shares Serbia's row)
+    mapping = {
+        region: [bus for bus in buses if bus.startswith(region)]
+        for region in rows["region"].unique()
+    }
+    for proxy, source in PROXIES.items():
+        if source in mapping and proxy in buses:
+            mapping[source].append(proxy)
+    for row in rows.itertuples():
+        members = fleet[fleet["bus"].isin(mapping[row.region])]
+        existing = members["p_nom"].sum()
+        room = max(float(row.value) - existing, 0.0)
+        if room <= 0 or existing <= 0:
+            continue
+        headroom[members.index] += room * members["p_nom"] / existing
+    return headroom
+
+
+def add_ror_vintages(
+    n: Network, snakemake: Snakemake, costs: pd.DataFrame
+) -> pd.Series:
+    """
+    Add an extendable run-of-river vintage per bus with corridor headroom.
+
+    Every bus whose region may add run-of-river capacity in this horizon gets
+    a generator ``{bus} ror-{year}`` with ``p_nom = 0`` and ``p_nom_max``
+    equal to the bus' headroom (see :func:`ror_expansion_headroom`). The
+    vintage has a finite lifetime and an explicit build year, so
+    ``add_brownfield`` carries it into the next horizon at its optimised
+    capacity, while the existing fleet stays fixed. The cumulative bound over
+    all vintages of a region is enforced by the trajectory constraint.
+
+    For Austrian buses the KLIEN corridor also states a yield factor: the
+    energy per added megawatt the study attributes to the region relative to
+    the existing fleet, capped at one. The vintage's availability is the
+    existing profile times that factor (applied in :func:`patch_inflows`).
+
+    Parameters
+    ----------
+    n
+        The pre-network to be modified in place.
+    snakemake
+        The Snakemake workflow object; ``input.trajectories`` and
+        ``input.klien_ror_trajectory`` are read, ``wildcards.planning_horizons``
+        gives the year.
+    costs
+        Processed cost DataFrame for the current planning horizon.
+
+    Returns
+    -------
+    :
+        Yield factor per added vintage, indexed by generator name; empty when
+        no vintage was added.
+    """
+    year = int(snakemake.wildcards.planning_horizons)
+    fleet = n.generators[
+        (n.generators.carrier == "ror") & ~n.generators.p_nom_extendable
+    ]
+    trajectories = pd.read_csv(snakemake.input.trajectories)
+    headroom = ror_expansion_headroom(fleet, trajectories, year)
+    headroom = headroom[headroom > 0]
+    if headroom.empty:
+        logger.info(f"No run-of-river corridor headroom in {year}; no vintage added.")
+        return pd.Series(dtype=float)
+
+    vintages = fleet.loc[headroom.index].copy()
+    vintages.index = vintages.index + f"-{year}"
+    vintages["p_nom"] = 0.0
+    vintages["p_nom_min"] = 0.0
+    vintages["p_nom_opt"] = 0.0
+    vintages["p_nom_max"] = headroom.to_numpy()
+    vintages["p_nom_extendable"] = True
+    vintages["lifetime"] = ROR_VINTAGE_LIFETIME
+    vintages["build_year"] = year
+    vintages["capital_cost"] = costs.at["ror", "capital_cost"]
+    vintages["onight_cost"] = costs.at["ror", "investment"]
+    n.add("Generator", vintages.index, **vintages)
+
+    ror_yield = pd.Series(1.0, index=vintages.index)
+    corridor = pd.read_csv(snakemake.input.klien_ror_trajectory)
+    if not corridor.empty:
+        factors = corridor[corridor["year"].astype(int) == year].set_index("region")[
+            "yield_factor"
+        ]
+        ror_yield[:] = factors.reindex(vintages["bus"]).fillna(1.0).to_numpy()
+    logger.info(
+        f"Added {len(vintages)} run-of-river vintages for {year} with "
+        f"{headroom.sum():.0f} MW of corridor headroom; yield factor below one "
+        f"for {ror_yield.index[ror_yield < 1].tolist()}."
+    )
+    return ror_yield
 
 
 def _modify_inflow_snapshots(n: Network, inflow: xr.DataArray) -> xr.DataArray:
@@ -471,9 +612,12 @@ def _patch_component_inflows(
         the store, i.e. calibrated energy divided by the turbine efficiency.
     """
     component_name = "generators"
-    idx = (
-        n.components[component_name].static.query(f'carrier == "{model_carrier}"').index
-    )
+    static = n.components[component_name].static
+    idx = static.index[static["carrier"] == model_carrier]
+    if model_carrier == "ror":
+        # the extendable vintages of ``add_ror_vintages`` have no inflow of
+        # their own; they receive the fleet's profile in ``patch_inflows``
+        idx = idx[~static.loc[idx, "p_nom_extendable"]]
     inflows = (
         inflow.sel(carrier=inflow_carrier)
         .to_dataframe(name="inflow")
@@ -518,7 +662,45 @@ def _patch_component_inflows(
     return (idx, inflows)
 
 
-def patch_inflows(n: Network, snakemake: Snakemake, ppl: pd.DataFrame) -> None:
+def _apply_ror_vintage_profiles(n: Network, ror_yield: pd.Series) -> None:
+    """
+    Give every run-of-river vintage the profile of the fleet at its bus.
+
+    Parameters
+    ----------
+    n
+        The pre-network with the fleet's ``p_max_pu`` already patched.
+    ror_yield
+        Yield factor per vintage name (``{bus} ror-{year}``); the vintage's
+        availability is the fleet generator's (``{bus} ror``) times the factor.
+
+    Raises
+    ------
+    ValueError
+        If a vintage has no fleet profile to inherit.
+    """
+    if ror_yield.empty:
+        return
+    base = pd.Series(ror_yield.index.str.rsplit("-", n=1).str[0], index=ror_yield.index)
+    missing = base[~base.isin(n.generators_t.p_max_pu.columns)]
+    if not missing.empty:
+        raise ValueError(
+            f"Run-of-river vintages {missing.index.tolist()} have no fleet "
+            "profile to inherit; the inflow data lacks their region."
+        )
+    profiles = n.generators_t.p_max_pu[base.to_numpy()].mul(
+        ror_yield.to_numpy(), axis="columns"
+    )
+    profiles.columns = ror_yield.index
+    n.generators_t.p_max_pu[ror_yield.index] = profiles
+
+
+def patch_inflows(
+    n: Network,
+    snakemake: Snakemake,
+    ppl: pd.DataFrame,
+    ror_yield: pd.Series | None = None,
+) -> None:
     """
     Apply inflows to hydro components in the network.
 
@@ -530,6 +712,9 @@ def patch_inflows(n: Network, snakemake: Snakemake, ppl: pd.DataFrame) -> None:
         The Snakemake workflow object providing inputs, params, and config.
     ppl
         Aggregated powerplants data
+    ror_yield
+        Yield factor per run-of-river vintage from :func:`add_ror_vintages`;
+        the vintages inherit the fleet profile times this factor.
 
     Returns
     -------
@@ -546,6 +731,8 @@ def patch_inflows(n: Network, snakemake: Snakemake, ppl: pd.DataFrame) -> None:
     )
     _patch_component_inflows(n, inflow, "PHS", "PHS inflow")
     _patch_component_inflows(n, inflow, "ror", "ror")
+    if ror_yield is not None:
+        _apply_ror_vintage_profiles(n, ror_yield)
 
     # modify average capacity factor for hydro
     p = snakemake.params.renewable["hydro"].copy()

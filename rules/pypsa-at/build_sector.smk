@@ -44,6 +44,8 @@ use rule prepare_sector_network as prepare_sector_network_at with:
         powerplants=resources("powerplants_s_{clusters}.csv"),
         inflow=resources("inflow_per_region_{clusters}.nc"),
         hydro_capacities=ancient("data/hydro_capacities.csv"),
+        trajectories=resources("trajectories_{clusters}.csv"),
+        klien_ror_trajectory=resources("klien_ror_trajectory_{clusters}.csv"),
         industrial_demand_profiles=branch(
             config_provider("industry", "demand_profiles", "enable"),
             resources(
@@ -64,6 +66,7 @@ use rule prepare_sector_network as prepare_sector_network_at with:
             "mods/network/hydro.py",
             "mods/network/potentials.py",
             "mods/network/trajectories.py",
+            "mods/constraints/trajectories.py",
             "mods/demand/industrial_demand.py",
             "mods/demand/annual.py",
             "mods/constants.py",

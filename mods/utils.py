@@ -360,7 +360,10 @@ def inflow_turbine_weights(n: pypsa.Network, generators: pd.Index) -> pd.Series:
     Returns
     -------
     :
-        Weights indexed by generator name (index named ``Generator``).
+        Weights indexed by generator name. The index is named ``name``, the
+        component dimension of the optimisation variables, so that a linopy
+        expression multiplied with the weights aligns on the generators
+        instead of broadcasting over them.
 
     Raises
     ------
@@ -371,7 +374,7 @@ def inflow_turbine_weights(n: pypsa.Network, generators: pd.Index) -> pd.Series:
     electricity_buses = n.buses.index[n.buses.carrier.isin(ELECTRICITY_CARRIERS)]
     turbines = n.links[n.links.bus1.isin(electricity_buses)]
     turbine_efficiency = turbines.groupby("bus0")["efficiency"].mean()
-    weights = pd.Series(1.0, index=pd.Index(generators, name="Generator"))
+    weights = pd.Series(1.0, index=pd.Index(generators, name="name"))
     on_store = ~n.generators.loc[generators, "bus"].isin(electricity_buses)
     store_buses = n.generators.loc[generators[on_store], "bus"]
     missing = store_buses[~store_buses.isin(turbine_efficiency.index)]
