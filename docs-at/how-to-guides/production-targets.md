@@ -42,7 +42,7 @@ generation to rise by 5 TWh/a from the 2020 production, which is about 42 TWh on
 Statistik Austria basis that counts the natural inflow of pumped-storage plants but not
 generation from pumped water; the configured Austrian floor for 2030 is therefore 47 TWh.
 Which weather years can meet it is discussed in
-[Hydropower Capacities and Inflows](../explanations/hydro-capacity-trajectories.md#the-eag-hydro-target).
+[EAG §4(4) — Renewable Expansion Targets](../explanations/regulatory-requirements/eag-renewable-expansion-targets.md).
 
 ## Adding Sources
 

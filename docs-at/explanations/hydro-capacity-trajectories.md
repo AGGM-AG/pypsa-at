@@ -28,8 +28,8 @@ An inflow time series is the product of two things that are built separately:
 - an **annual energy** per region and technology in MWh, which scales the profile.
 
 The capacity side has two layers as well: the **brownfield fleet**, the plants that exist
-today, and a **capacity corridor** per country, technology and planning horizon that bounds
-how much the optimizer may add.
+today, and a **capacity corridor** per country, technology and planning horizon (per model
+region for Austrian run-of-river) that bounds how much the optimizer may add.
 
 !!! info "Terminology"
     **Catchment** (German *Einzugsgebiet*): the KLIEN hydropower study divides every Austrian
@@ -107,9 +107,9 @@ flowchart LR
 
 1. The **fleet** is corrected against E-Control data and operator sources
    ([Part 1](#part-1-the-austrian-brownfield-fleet)).
-2. The Austrian **run-of-river corridor** becomes a KLIEN growth factor applied to the
-   calibrated fleet; reservoir and pumped storage keep their PEMMDB corridors
-   ([Part 2](#part-2-capacity-corridors)).
+2. The Austrian **run-of-river corridor** becomes a per-region headroom from the KLIEN
+   catchment pathway on top of the calibrated fleet; reservoir and pumped storage keep their
+   PEMMDB corridors ([Part 2](#part-2-capacity-corridors)).
 3. The Austrian **run-of-river and reservoir energies** are replaced by per-region targets
    built from the KLIEN catchments, and the pumped-storage natural inflow by E-Control's
    pumped-storage statistic ([Part 3](#part-3-inflows)).
@@ -120,21 +120,15 @@ flowchart LR
 
 The brownfield fleet is the fleet of **2025**: powerplantmatching (ppm) as of its current
 release, the Anlagenregister with feed-in data up to 2025, and the E-Control
-Bestandsstatistik 2025 as the reference. For Austrian hydropower, ppm has seven kinds of
-defects (impact on the Austrian fleet in parentheses):
+Bestandsstatistik 2025 as the reference. For Austrian hydropower, ppm has several kinds of
+defects:
 
-- **Wrong technology**: the Danube, Drau, Mur, Inn, Salzach and Ill chains are labelled
-  *Reservoir* (2.9 GW run-of-river booked as reservoirs).
-- **Border plants counted twice**: the Inn and Danube *Grenzkraftwerke* shared with Bavaria
-  appear at full capacity (0.3 GW too much in Austria, 0.2 GW in Germany).
-- **Duplicate entries**: Kaprun and Malta appear as *Hauptstufe* and *Main Stage*, the
-  Bavarian Inn plant Feldkirchen a second time in the Mölltal (1.0 GW of phantom capacity).
+- **Wrong technology**: the Danube, Drau, Mur, Inn, Salzach and Ill chains are labelled *Reservoir*.
+- **Border plants counted twice**: the Inn and Danube *Grenzkraftwerke* appear at full capacity in AT and DE.
+- **Duplicate entries**: Kaprun and Malta appear as *Hauptstufe* and *Main Stage*.
 - **Wrong capacities**: merged, outdated or overstated nameplates (0.3 GW net).
-- **Wrong location**: plants geocoded to a same-named village or to the operator's address
-  (0.2 GW in the wrong region).
-- **Missing plants**: about twenty plants above 10 MW, among them all ÖBB railway plants and
-  the industrial self-suppliers (1.1 GW).
-- **Missing small hydro**: only 22 plants below 10 MW (1.5 GW).
+- **Wrong location**: plants geocoded to a same-named village or to the operator's address .
+- **Missing plants**: about twenty plants above 10 MW and hundreds of plants below 10 MW.
 
 ### Curated data update files
 
@@ -157,7 +151,7 @@ The corrections are applied in a fixed order, each step on the result of the pre
 | **Replace the small-hydro fleet** | Drops the incidental ppm plants ≤ 10 MW and adds every *Kleinwasserkraft bis 10 MW* plant of the Anlagenregister individually, mapped to its region by postal code and placed at the centroid of that postal code. | E-Control Anlagenregister, GeoNames postal codes |
 | **Scale small hydro to E-Control** | The register's small-hydro class and E-Control's size-class accounting differ by ≈ 12.5 %. The added plants are scaled uniformly to the E-Control bottleneck capacity below 10 MW (1,543 MW), preserving the regional distribution. | E-Control Bestandsstatistik |
 | **Add missing plants** | Appends plants with coordinates, so the catchment lookup in Part 3 places them on the right river. It runs after the register step, which would otherwise drop curated plants of 10 MW or less again. Plants known only from the Anlagenregister carry its id and locality, because the register publishes neither operator names nor build years. | Missing-plants list |
-| **Add KLIEN residual plants** | Runs the catchment allocation of Part 3 on the fleet so far and adds, per catchment, one synthetic run-of-river plant for the capacity the study counts but no source holds, sized at the catchment's own full-load hours (see [Closing the remaining gap](#closing-the-remaining-gap-klien-residual-plants)). | KLIEN catchments |
+| **Add KLIEN residual plants** | Runs the catchment allocation of Part 3 on the fleet so far and adds, per catchment, one synthetic run-of-river plant for the capacity the study counts but no source holds, sized at the catchment's own full-load hours. | KLIEN catchments |
 
 ### Result
 
@@ -226,20 +220,53 @@ The study quantifies, per catchment, how much additional river hydropower is rea
 developable under three ambition pathways (low / medium / high) and two climate scenarios
 (RCP 4.5 / RCP 8.5), for today, 2040 and 2070.
 
-The corridor is built as a **growth factor, not an absolute value**: the study's Austria-wide
-realisable capacity for a pathway year is divided by the study's current capacity (10.6 GW),
-and the factor is applied to the calibrated **run-of-river fleet**. Factors are anchored at
-2025 (factor one), 2040 and 2070, interpolated linearly in between. The base year always
-receives factor 1.0.
+The corridor is built **per model region, as a headroom on top of the calibrated fleet**.
+Every catchment is located in the model regions through the plants it contains, with the
+same plant-to-catchment membership the inflow allocation of Part 3 uses, so border rivers and
+catchments that straddle regions follow the dams. The study's capacity increment between today
+and the pathway year then becomes the run-of-river headroom of the region:
+
+```
+value(region, year) = existing run-of-river capacity(region) + ΔC(region, year)
+```
+
+The whole increment counts as run-of-river: the study does not split it by technology, and the
+reservoir turbines keep their PEMMDB corridor. Capacities are interpolated linearly per
+catchment between 2025 (the study's current state), 2040 and 2070 and held flat afterwards,
+so the regional headrooms sum to the study's national increment in every year. Catchments
+without a plant of the fleet cannot be located; the build stops if such a catchment carries
+more than one megawatt of increment (today five catchments with 0.1 MW in total are dropped
+with a warning).
 
 With the default settings (medium ambition, RCP 4.5):
 
-| Horizon | Growth factor | Upper limit |
-|---------|---------------|-------------|
-| 2025 | 1.000 | calibrated brownfield fleet |
-| 2030 | 1.066 | ≈ 7.6 GW |
-| 2040 | 1.198 | ≈ 8.5 GW |
-| 2050 | 1.227 | ≈ 8.7 GW |
+| Horizon | National increment | AT run-of-river upper bound (sum of the regions) |
+|---------|-------------------:|-------------------------------------------------:|
+| 2025 | 0 MW | 7,129 MW (calibrated brownfield fleet) |
+| 2030 | +704 MW | 7,834 MW |
+| 2040 | +2,113 MW | 9,242 MW |
+| 2050 | +2,421 MW | 9,551 MW |
+
+Where the growth lands is the study's choice, not the optimizer's: by 2040 the largest
+headrooms are AT335 Tiroler Unterland (500 MW), AT334 Tiroler Oberland (303 MW), AT322
+Pinzgau-Pongau (246 MW), AT341 Bludenz-Bregenzer Wald (141 MW), AT332 Innsbruck (109 MW),
+AT212 Oberkärnten (88 MW) and AT313 Mühlviertel (65 MW); Vienna (AT130) may add 14 MW. The
+earlier national bound had let the optimizer place its entire increment in Vienna, where the
+Danube profile is worth 6,000 hours to every added megawatt.
+
+In the network the existing fleet of a region is fixed at its capacity in every horizon, and a
+separate vintage per horizon (`{region} ror-{year}`) carries the headroom as its maximum; the
+trajectory constraint bounds the fleet plus all vintages of the region, so the headroom is
+cumulative over the horizons. A new megawatt does not automatically run at the fleet's hours.
+The study's marginal energy per added megawatt, ΔE/ΔC of the region's catchments (3,433 hours
+nationally in the reference period), is compared with the full-load hours of the region's
+existing fleet, and the vintage receives the fleet's profile times `min(1, marginal / existing)`.
+That factor is one in most regions, because the study's remaining stretches yield more hours
+than the small plants that dominate the existing regional fleets; it is 0.46 in AT334 and
+0.51 in AT335, where the remaining stretches yield about 2,000 hours against 4,000–4,600 for
+the existing fleet, and 0.83–0.95 in AT323, AT225, AT313 and AT121. Other countries get the
+same vintage structure with the node's share of the national PEMMDB headroom, at the fleet's
+hours.
 
 Reservoir turbines and pumped-storage turbines and pumps remain expandable within their
 PEMMDB corridors (roughly +2.2 GW of pumped-storage turbine capacity by 2040, none for
@@ -257,18 +284,6 @@ the regions of the country in proportion to the installed capacity of the *calib
 For run-of-river the national energy is first scaled by the ratio of model run-of-river
 capacity to the PEMMDB run-of-river plus pondage capacity, so a fleet correction directly
 changes the river energy of the country.
-
-### Why this is wrong for Austria
-
-Two things go wrong with the capacity-proportional split:
-
-- The reservoir energy is not capacity-normalised and stays at 2.6 TWh/a for Austria, while
-  the KLIEN data attributes roughly 10 TWh/a to the Austrian reservoir plants. With the
-  calibrated fleet the run-of-river energy (34.3 TWh/a) is plausible, but only by coincidence
-  of the normalisation.
-- Splitting by capacity ignores that a megawatt on the Danube turbines far more water than a
-  megawatt in an alpine valley. Regional full-load hours come out uniform, which they are
-  not.
 
 ### The KLIEN catchment data
 
@@ -288,65 +303,68 @@ Inn at the Bavarian border, where the study's 108 MW include Verbund's Nußdorf 
 lies in Bavaria. Without the corrections, 0.65 TWh/a of phantom energy would be reported as
 unmatched in every run.
 
+### From runoff profile to hourly inflow
+
+The figures in this subsection come from `.marimo/review-hydro-slides.py`, run on the
+365H reference run `hydro-capacities-update-complete` (weather year 2013, 24 snapshots of
+365 hours). The hourly curves are the resources the run was built from; the last panel of
+each step figure is the solved network.
+
+**The profile is built from runoff.** `build_inflow_profile` takes the hourly ERA5 runoff of
+the cutout, applies atlite's smoothing, aggregates it over each model region and normalises
+it so that every region's profile sums to one over the weather
+year. The same profile serves every country. The result is the share of the year's water
+that arrives in each hour, not a quantity: the profile of a Danube region and that of a
+small alpine valley both sum to one.
+
+**The profile depicts timing, not amount.** A June peak does not mean "much water"; it means
+"a large share of this year's water arrives now". The cutout year decides when the snowmelt
+and the summer floods happen, and it carries no megawatt-hour of its own. In the figure
+below, panel a shows the AT322 profile summing to one, and panel c shows that the cumulative
+share is the same curve whichever annual energy it is later multiplied with: half of the
+year's water has arrived by 21 June in 2013, in a dry year as in a wet one.
+
+![Panel a: the AT322 ERA5 runoff profile for 2013 as shares that sum to one over the year. Panel b: the same shape scaled to MW with the KLIEN energy times the E-Control year factor of a dry (2003), the model (2013) and a wet (2024) year. Panel c: the cumulative share of the annual energy, identical for the three scalings.](../assets/hydro/04_profile_is_timing_not_amount_AT322.png)
+
+**The amount comes from the KLIEN energy.** The catchment Regelarbeitsvermögen is allocated
+to the plants and rolled up per region and technology (next subsection). Multiplied with the
+profile it gives the hourly inflow in MW (step 2 of the figure below). For run-of-river the
+availability is `p_max_pu = inflow / p_nom`, so that `p_max_pu × p_nom` is the power the
+river makes available in that hour; hours in which the inflow exceeds the turbine capacity
+are capped at one and the capped energy is redistributed over the other hours, so the annual
+energy is conserved (step 3). The reservoir
+and pumped-storage inflow feeds an inflow generator whose nominal power is the peak inflow
+(step 4); the store absorbs the peaks, so nothing is redistributed there. Step 5 is what the
+solved network sees once the hours are aggregated to its snapshots.
+
+![Five steps from the ERA5 runoff profile to the solved network for AT322 Pinzgau-Pongau: the normalised profile, the hourly inflow per carrier in MW, the run-of-river availability before and after the peak redistribution, the store inflow generators, and the available power per snapshot in the solved network.](../assets/hydro/02_inflow_steps_AT322.png)
+
+**Dry and wet years share the shape.** The KLIEN energy is a long-term mean, so it is scaled
+per carrier with the hydrology of the weather year taken from E-Control: the full-load hours
+of the Laufkraftwerke for run-of-river, those of the Speicherkraftwerke without pumped storage
+for reservoirs, and the natural inflow of the pumped-storage plants (see
+[Weather-year scaling](#weather-year-scaling)). The same 2013 shape then represents the dry
+year 2003, the model year 2013 or the wet year 2024; only the scale changes (panel b of the
+first figure). The current run uses the weather year 2013 with a run-of-river factor of 1.05.
+The last figure puts the 2025 fleet through every E-Control year since 2000 and compares the
+delivered natural inflow with the 47 TWh EAG hydro floor of 2030 (see [EAG §4(4) — Renewable Expansion Targets](regulatory-requirements/eag-renewable-expansion-targets.md));
+stacked on top is the energy the KLIEN run-of-river corridor would add by 2030 and 2040 if the
+added capacity ran at the fleet's full-load hours.
+
+![Delivered natural inflow of the 2025 fleet for every E-Control weather year from 2000 to 2025, split into run-of-river, reservoir and pumped storage, against the 47 TWh EAG floor; the energy of the KLIEN run-of-river corridor headroom for 2030 and 2040 is stacked on top.](../assets/hydro/03_weather_years_vs_eag_target.png)
+
 ### Allocation: energy follows the plants
 
 Rather than splitting catchment energy by the area a region shares with the catchment, the
 energy of each catchment is given to the plants inside it and then rolled up by the plants'
-region:
-
-1. **Locate every plant in a catchment.** Plants with coordinates (all reservoir and
-   pumped-storage capacity, three quarters of the run-of-river capacity) are placed by
-   point-in-polygon. A point in several overlapping catchments is split evenly. This resolves
-   border rivers correctly: the energy follows the dam, not the catchment area.
-2. **Place the small plants at their postal code.** The Anlagenregister publishes no
-   coordinates, so the small-hydro plants stand at the centroid of their postal code (GeoNames)
-   and are then placed like any other plant. This matters because of the cap in step 5: a
-   valley with a cluster of small plants only receives its catchment energy if the plants
-   are located *in* that catchment. Spreading them over the whole region by area, the earlier
-   approach, left about 2.4 TWh/a of small-hydro valleys unmatched. Plants whose postal code
-   is unknown to GeoNames fall back to the region, spread over its catchments by area.
-3. **Pin plants the polygons cannot place.** The catchment-pin list assigns plants by name to
-   the catchment they physically turbine, overriding point-in-polygon. Two cases need it:
-   stations that turbine water dammed in a different catchment (Prutz sits on the Inn but
-   turbines the Faggenbach water dammed at Gepatsch; Silz sits on the Inn but turbines the
-   Kühtai reservoirs, which the study books on the Ötztaler Ache), and the border plants,
-   whose coordinates lie in the border river outside every catchment polygon and would
-   otherwise be spread over every catchment touching their region.
-4. **Share the border plants with Germany.** KLIEN counts the full border plants on the Inn
-   and Danube, while the fleet carries only the Austrian half. The German twin entries take
-   part in the allocation and their share (≈ 1.6 TWh/a) is dropped from the Austrian targets.
-   Germany keeps its PEMMDB energy.
-5. **Split catchment energy by capacity, capped at the catchment's full-load hours.** Within
-   a catchment the energy is divided over the member plants in proportion to their capacity,
-   but no plant receives more than the catchment's own energy per megawatt. Where the fleet
-   holds less capacity than the study counts for the catchment, the energy of the missing
-   capacity stays unallocated and is reported with the largest catchments. This keeps missing
-   or misplaced plants from inflating the full-load hours of the plants that are present. The
-   gap has to be closed by curation, never by rescaling: a national rescale was tried and
-   pushed the Danube regions to 7,300 full-load hours.
-6. **Count pumped storage only where KLIEN counts it.** The study's pumped-storage exclusion
-   is narrower than the model's `PHS` technology: large storage groups with pumps such as
-   Sellrain-Silz (Ötztaler Ache) and the Zemm-Ziller group are counted as Speicherkraftwerke.
-   Per catchment, pumped-storage members are made eligible when the catchment capacity is
-   closer to the member capacity *with* them than without. The energy attributed to them is
-   then dropped (≈ 1.2 TWh/a), because their natural inflow comes from the E-Control
-   pumped-storage statistic below; leaving them out would push the same energy onto the
-   few small run-of-river plants in those valleys.
-7. **Roll up to region and technology.** Plant energies are summed by region and carrier. The
-   run-of-river / reservoir split falls out of the plant list; no capacity-share heuristic is
-   needed.
+region using the plants postal code or coordinates. 
 
 ### Pumped storage: natural inflow from E-Control
 
-The KLIEN catchment energy excludes pumped-storage plants, and the study's own figure for
-them (≈ 9 TWh) includes generation from pumped water, so it cannot serve as natural inflow.
-The PEMMDB *PS Open* inflow for Austria (7.6 TWh in the 2013 climate year) turned out to be
-about twice what E-Control attributes to natural inflow. The Austrian pumped-storage inflow
-is therefore taken from E-Control: the generation of the pumped-storage plants minus the
-generation from pumped water. E-Control publishes the latter only in the Bestandsstatistik
-(3.8 TWh in 2025), while the year series carries the electricity consumed for pumping; the
-2025 ratio of the two, 0.66, is applied to every year. The resulting natural generation is
-3.5 TWh/a on average over the reference period and 4.5 TWh in the wet year 2013, scaled to
+The Austrian pumped-storage inflow is therefore taken from E-Control: the generation of the pumped-storage plants minus the
+generation from pumped water, which the Betriebsstatistik year series publishes per year
+(*davon Erzeugung aus Pumpspeicherung*). The resulting natural generation is 3.15 TWh/a on
+average over the reference period and 3.6 TWh in the wet year 2013, scaled to
 the weather year like the other carriers and spread over the Austrian regions in proportion
 to the pumped-storage turbine capacity of the calibrated fleet, because the statistic knows
 no regions. Nothing is counted twice: the KLIEN energy the allocation attributes to
@@ -356,59 +374,37 @@ pumped-storage plants is dropped.
 
 The catchment energy is a long-term mean, but the ERA5 profile belongs to one weather year.
 To be consistent, the KLIEN energy is scaled to that year with the E-Control Betriebsstatistik
-annual generation series: the run-of-river factor is the Laufkraft generation of the year over
-its 1991–2020 mean, the reservoir factor likewise for Speicherkraft. For 2013 the factors are
-1.07 and 1.15. Two caveats: the E-Control series is annual only from 2000 (five-year steps
-before), so the reference mean uses the 22 available years of the period; and the
-Speicherkraft series includes pumped-storage generation. A weather year outside the series
-stops the workflow.
+and Bestandsstatistik year series. The factor is meant to carry the hydrology of the year only,
+so it is built on **full-load hours**, not on generation: the generation of a year reflects
+the fleet (installed capacity) of that year as much as its rivers.
 
-The sign and size of the factor are hydrology, not a property of the method: the KLIEN
-energy contains no weather, and the factor is simply how the rivers of that year compared
-with the 1991–2020 mean (28.4 TWh Laufkraft, 13.2 TWh Speicherkraft). 2024 was a record hydro
-year with high snowmelt and a rainy summer, 2025 followed a dry winter and spring, so the
-same fleet swings by about 35 % of its run-of-river energy between two adjacent years. Two
-caveats when reading the table: the E-Control series reflects the fleet of the respective
-year, so part of the rise over time is new capacity rather than water; and the most recent
-year carries the data status of the current statistics release and may still be revised.
+The sign and size of the factor are hydrology, not a property of the method: the KLIEN energy
+contains no weather, and the factor is simply how the rivers of that year compared with the
+1991–2020 mean from the **Betriebsstatistik**. 
+2024 was a record hydro year with high snowmelt and a rainy summer, 2025 followed a dry winter 
+and spring, so the same fleet swings by about 30 % of its run-of-river energy between two adjacent 
+years.
 
-| Year | Laufkraft | Factor ror | Speicherkraft | Factor hydro |
-|------|----------:|-----------:|--------------:|-------------:|
-| 1990 | 23.4 TWh | 0.82 | 9.1 TWh | 0.69 |
-| 1995 | 27.0 TWh | 0.95 | 11.5 TWh | 0.87 |
-| 2000 | 31.0 TWh | 1.09 | 12.4 TWh | 0.94 |
-| 2001 | 29.4 TWh | 1.03 | 12.3 TWh | 0.93 |
-| 2002 | 29.9 TWh | 1.05 | 12.3 TWh | 0.93 |
-| 2003 | 23.8 TWh | 0.84 | 11.9 TWh | 0.90 |
-| 2004 | 27.4 TWh | 0.97 | 12.5 TWh | 0.94 |
-| 2005 | 27.0 TWh | 0.95 | 12.6 TWh | 0.95 |
-| 2006 | 26.6 TWh | 0.93 | 11.5 TWh | 0.87 |
-| 2007 | 27.2 TWh | 0.96 | 12.0 TWh | 0.91 |
-| 2008 | 28.4 TWh | 1.00 | 12.4 TWh | 0.93 |
-| 2009 | 29.6 TWh | 1.04 | 14.0 TWh | 1.06 |
-| 2010 | 28.0 TWh | 0.99 | 13.6 TWh | 1.03 |
-| 2011 | 25.3 TWh | 0.89 | 12.4 TWh | 0.94 |
-| 2012 | 31.5 TWh | 1.11 | 16.1 TWh | 1.22 |
-| 2013 | 30.5 TWh | 1.07 | 15.1 TWh | 1.15 |
-| 2014 | 29.7 TWh | 1.05 | 15.0 TWh | 1.13 |
-| 2015 | 26.7 TWh | 0.94 | 13.7 TWh | 1.04 |
-| 2016 | 29.3 TWh | 1.03 | 13.6 TWh | 1.03 |
-| 2017 | 28.9 TWh | 1.02 | 13.2 TWh | 1.00 |
-| 2018 | 27.4 TWh | 0.96 | 13.8 TWh | 1.04 |
-| 2019 | 30.0 TWh | 1.05 | 14.2 TWh | 1.08 |
-| 2020 | 30.7 TWh | 1.08 | 14.7 TWh | 1.11 |
-| 2021 | 28.5 TWh | 1.00 | 14.0 TWh | 1.06 |
-| 2022 | 25.7 TWh | 0.90 | 13.3 TWh | 1.00 |
-| 2023 | 29.7 TWh | 1.04 | 14.9 TWh | 1.12 |
-| 2024 | 33.3 TWh | 1.17 | 16.1 TWh | 1.22 |
-| 2025 | 24.4 TWh | 0.86 | 12.7 TWh | 0.96 |
+| Year | Laufkraft | Capacity | Hours | Factor ror | Speicherkraft without PS | Hours | Factor hydro | PS natural inflow | Factor PHS |
+|------|----------:|---------:|------:|-----------:|-------------------------:|------:|-------------:|------------------:|-----------:|
+| 2010 | 28.0 TWh | 5,398 MW | 5,187 h |       0.99 | 6.7 TWh | 2,388 h | 0.99 | 3.5 TWh | 1.11 |
+| 2011 | 25.3 TWh | 5,429 MW | 4,663 h |       0.89 | 5.9 TWh | 2,104 h | 0.87 | 2.9 TWh | 0.92 |
+| 2012 | 31.5 TWh | 5,488 MW | 5,740 h |       1.10 | 7.8 TWh | 2,768 h | 1.15 | 3.7 TWh | 1.19 |
+| 2013 | 30.5 TWh | 5,555 MW | 5,494 h |       1.05 | 7.1 TWh | 2,545 h | 1.06 | 3.6 TWh | 1.14 |
+| 2014 | 29.7 TWh | 5,601 MW | 5,310 h |       1.02 | 6.9 TWh | 2,456 h | 1.02 | 3.8 TWh | 1.22 |
+| 2015 | 26.7 TWh | 5,642 MW | 4,735 h |       0.91 | 6.6 TWh | 2,356 h | 0.98 | 3.6 TWh | 1.15 |
+| 2016 | 29.3 TWh | 5,681 MW | 5,157 h |       0.99 | 6.9 TWh | 2,413 h | 1.00 | 3.5 TWh | 1.11 |
+| 2017 | 28.9 TWh | 5,708 MW | 5,059 h |       0.97 | 7.1 TWh | 2,265 h | 0.94 | 2.8 TWh | 0.90 |
+| 2018 | 27.4 TWh | 5,719 MW | 4,786 h |       0.92 | 7.8 TWh | 2,218 h | 0.92 | 2.5 TWh | 0.80 |
+| 2019 | 30.0 TWh | 5,760 MW | 5,204 h |       1.00 | 8.4 TWh | 2,325 h | 0.97 | 2.5 TWh | 0.80 |
+| 2020 | 30.7 TWh | 5,800 MW | 5,293 h |       1.01 | 8.4 TWh | 2,306 h | 0.96 | 3.1 TWh | 0.99 |
+| 2021 | 28.5 TWh | 5,819 MW | 4,891 h |       0.94 | 7.2 TWh | 2,044 h | 0.85 | 3.1 TWh | 1.00 |
+| 2022 | 25.7 TWh | 5,894 MW | 4,354 h |       0.83 | 6.2 TWh | 1,835 h | 0.76 | 2.8 TWh | 0.89 |
+| 2023 | 29.7 TWh | 5,976 MW | 4,963 h |       0.95 | 7.6 TWh | 2,225 h | 0.92 | 3.6 TWh | 1.15 |
+| 2024 | 33.3 TWh | 6,064 MW | 5,491 h |       1.05 | 8.4 TWh | 2,469 h | 1.03 | 4.1 TWh | 1.30 |
+| 2025 | 24.4 TWh | 6,138 MW | 3,979 h |       0.76 | 5.8 TWh | 1,688 h | 0.70 | 3.1 TWh | 0.97 |
 
-Before 2000 the series has five-year steps only (1990 and 1995 shown); 1985 and earlier
-have no Speicherkraft value and no factor. A weather year other than 2013 also needs its own
-ERA5 cutout, and the PEMMDB inflow tables that still feed pumped storage and the other
-countries cover the climate years 1982–2017 only.
-
-### Result against E-Control
+### Result against E-Control 
 
 The calibration target is the generation reported by E-Control. The model runs the 2025 fleet
 with the 2013 weather year, so the fairest comparison is the E-Control year 2013 in full-load
@@ -417,182 +413,31 @@ generating 30.5 TWh):
 
 | Quantity | Model (2013 weather year) | E-Control Betriebsstatistik 2013 |
 |----------|--------------------------:|---------------------------------:|
-| Run-of-river energy | 34.1 TWh | 30.5 TWh Laufkraft |
-| Reservoir inflow energy | 10.1 TWh | 15.2 TWh Speicherkraft incl. pumped-storage generation |
-| Run-of-river full-load hours | 4,790 h | 5,470 h |
+| Run-of-river energy | 33.4 TWh | 30.5 TWh Laufkraft |
+| Reservoir inflow energy | 9.3 TWh | 7.1 TWh Speicherkraft without pumped-storage plants |
+| Run-of-river full-load hours | 4,690 h | 5,470 h |
 
-The model now reproduces the study's long-term energy in every catchment: with the
+PyPSA-AT reproduces the KLIEN study's long-term energy in every catchment: with the
 residual plants, only 3 GWh/a of the KLIEN energy stay unallocated. The run-of-river energy
-exceeds E-Control's 2013 generation by 12 %, which is the fleet vintage (the 2025 fleet is
+exceeds E-Control's 2013 generation by 9 %, which is the fleet vintage (the 2025 fleet is
 1 GW larger than the 2013 one) plus the plants E-Control does not count. In full-load hours
-the model sits 12 % below E-Control's 2013 figure for the same reason: the plants added
+the model sits 14 % below E-Control's 2013 figure for the same reason: the plants added
 since 2013, and the residual plants, sit mostly in alpine valleys with fewer hours than the
 Danube chain. The four Danube regions (AT121, AT126, AT130, AT313) sit at
-5,950–6,350 hours, consistent with the catchment values and the operators' figures for the
-Danube chain.
+6,000–6,200 hours, consistent with the catchment values and the operators' figures for the
+Danube chain. Plants whose coordinates fall inside a catchment polygon without a KLIEN energy
+value (91 small plants, 39 MW) are spread over the catchments of their region by area, like
+plants with an unknown postal code.
 
 On the storage side, E-Control's Speicherkraft generation of 2013 (15.2 TWh) splits into
-8.0 TWh from pumped-storage plants, of which 4.5 TWh from natural inflow,
-and 7.1 TWh from the other storage plants. The model's pumped-storage inflow now equals
-the E-Control natural figure by construction. Its reservoir capacity (3,103 MW) lies between
-the E-Control 2013 and 2025 Speicherkraftwerke without pumped storage (2,795 and 3,442 MW),
-but its reservoir inflow of 10.1 TWh is 3.0 TWh above E-Control's 7.1 TWh. The
+8.0 TWh from pumped-storage plants, of which 3.6 TWh from natural inflow and 4.4 TWh from
+pumped water, and 7.1 TWh from the other storage plants. The model's pumped-storage inflow
+equals the E-Control natural figure by construction. Its reservoir capacity (3,103 MW) lies
+between the E-Control 2013 and 2025 Speicherkraftwerke without pumped storage (2,795 and
+3,442 MW), but its reservoir inflow of 9.3 TWh is 2.2 TWh above E-Control's 7.1 TWh. The
 boundary between reservoir and pumped-storage plants is drawn differently by E-Control,
 KLIEN and ppm, so part of the energy that E-Control books under pumped storage lands on the
-reservoir class here. Together the storage carriers hold 14.6 TWh of natural inflow
-against 11.6 TWh in E-Control, a remaining surplus of 3.0 TWh that sits on the
+reservoir class here. Together the storage carriers hold 12.9 TWh of natural inflow
+against 10.7 TWh in E-Control, a remaining surplus of 2.2 TWh that sits on the
 reservoir side. This is an open item.
 
-### Applying the inflow to the network
-
-Reservoir and pumped-storage inflow feed an inflow generator whose nominal power is the peak
-inflow and whose availability is the hourly inflow relative to that peak. Because the
-calibrated energy is generation (PEMMDB, KLIEN and E-Control all report electricity at the
-terminals) while the store's turbine link applies its efficiency on the way out, the inflow
-is grossed up by that efficiency (0.90 for reservoirs, 0.87 for pumped storage), so the
-electricity the turbine can deliver equals the calibrated energy. Run-of-river
-generators receive the inflow as availability relative to their capacity. Hours where the
-river delivers more than the turbines can take are capped, and the capped energy is
-redistributed proportionally over the remaining hours, so the annual energy is conserved.
-Regions whose profile is saturated in almost every hour converge slowly; after a bounded number
-of iterations the remaining surplus is spread over the free headroom of every hour instead,
-still energy-conserving.
-
-This works only while a region's annual energy stays below capacity times hours. A region
-above that bound cannot deliver its energy with any profile, so the redistribution **stops the
-workflow** instead of silently spilling. Losing energy against the calibration source is
-never the right fix. Every Austrian region that violated the bound turned out to be a data
-defect, not physics:
-
-- **Waldviertel (AT124)**: the Kamp river energy had no reservoir capacity to land on, because
-  the EVN Kamp chain was missing. Fixed by adding the plants (48,600 → 7,750 full-load hours).
-- **Tiroler Oberland (AT334)**: the Faggenbach energy was attributed to the small run-of-river
-  fleet in the Kaunertal, because Prutz sits on the Inn. Fixed by pinning Prutz to the
-  Faggenbach catchment (9,270 → 7,000 hours).
-- **Außerfern (AT331)**: 190 GWh/a of the Lech landed on 21 MW of small hydro, because the two
-  Lech plants above 10 MW (Reutte, Pinswang) are neither in ppm nor in the small-hydro class.
-  Fixed by adding them (9,400 → 4,100 hours).
-- **Innviertel (AT311)**: three defects stacked up to 7,700 hours. Four border plants sit
-  outside every catchment polygon and were spread over all catchments touching the region;
-  the Inn and Danube catchments count the full border plants while the fleet holds the
-  Austrian half; and the 52 MW Ennskraftwerk St. Pantaleon was geocoded to a same-named
-  village on the Salzach. Fixed by pinning the border plants, adding the German twins to the
-  allocation and relocating St. Pantaleon (7,700 → 5,800 hours).
-
-The general pattern when a region's run-of-river full-load hours exceed the catchment values:
-compare the fleet with the catchment capacity, check whether the plants' coordinates actually
-fall inside a catchment polygon, and look for plants geocoded to the operator's address,
-before suspecting the inflow data.
-
-### Closing the remaining gap: KLIEN residual plants
-
-After three curation rounds against operator data, plus the postal-code placement and the
-catchment corrections, 1.7 TWh/a remained spread over 130 catchments, none above 120 GWh/a.
-Removing the 12.5 % downscaling of the register fleet would recover only 0.3 TWh of it, so
-the remainder is capacity the study counts that exists in neither powerplantmatching nor
-the Anlagenregister. What is left falls into three kinds:
-
-| Catchment | Gap | Cause |
-|-----------|-----|-------|
-| Möll above Obervellach (80602) | 30 MW, 120 GWh/a | Innerfragant's Oschenik stage has storage pumps and stays pumped storage, while the study counts it as a storage plant. |
-| Kamp (60303), Möll above Winklern (80601) | 15 MW each, 70 GWh/a | EVN and KELAG plants below 10 MW registered at the company address, so they land in the wrong catchment. |
-| Rosenbach (80703) | 15 MW, 64 GWh/a | No plant of that size exists on the Rosenbach; a study attribution error without known correct values. |
-| Pölsbach, Mur at Zeltweg, Drau at Annabrücke, Ybbs and about 120 smaller catchments | ≤ 60 GWh/a each | Small plants whose register capacity falls short of the study's count, or plants of the study that are still under construction (Gemeinschaftskraftwerk Paznaun, 2027). |
-
-The two artefacts already corrected (lower Enns, Inn border) show the pattern to look for
-when a gap survives operator research: a company total or a foreign plant booked on one
-stretch.
-
-Rather than chase the long tail plant by plant, the fleet represents the study's missing
-capacity explicitly. For every catchment with unallocated energy, the last fleet step adds
-one synthetic run-of-river plant sized to that energy at the catchment's own full-load
-hours, placed at a point inside the catchment and assigned to the region that contains it
-(a border catchment whose point falls outside Austria goes to the Austrian region with the
-largest overlap). With the current fleet that is 110 plants with 389 MW carrying
-1.69 TWh/a, the largest on the Möll above Obervellach (32 MW), the Mur at Zeltweg (18 MW),
-the Ill at Feldkirch (17 MW) and the Kamp (16 MW). The allocation then matches the study in
-every catchment, no real plant runs above the study's hours, and the step is
-self-correcting: every later curation that adds a real plant shrinks or removes its
-residual. The synthetic plants are listed per catchment with capacity and energy in a
-separate output, so that what the study asserts and public sources do not confirm stays
-visible; the step can be switched off, in which case the unmatched energy is left out of
-the targets as before.
-
-Two entries carry an AGGM derivation instead of a published capacity, stated as such in
-their notes: Uttendorf I (27 MW, Uttendorf II subtracted from the 93 MW OpenStreetMap
-figure for both stages) and Kitzloch (21.9 MW from the published head and discharge of the
-Rauris plant plus the old plant, which equals the study's catchment capacity).
-
-## The EAG hydro target
-
-The Erneuerbaren-Ausbau-Gesetz requires, in § 4 (4), that renewable electricity generation
-rises by 27 TWh/a from the 2020 production to 2030, of which 5 TWh/a from hydropower. On
-the Statistik Austria accounting behind that figure, which counts the natural inflow of
-pumped-storage plants but not generation from pumped water, the 2020 production was about
-42 TWh, so the 2030 level is 47 TWh/a. The model enforces it as a production floor for
-Austria in 2030.
-
-The floor counts natural inflow only: the run-of-river generators and the inflow
-generators of the reservoir and pumped-storage stores, each weighted by the efficiency of
-the turbine of its store (0.90 for reservoirs, 0.87 for pumped storage), which states the
-floor in delivered electricity. The turbine output of pumped storage is not part of it,
-because a floor on turbine output would reward pumping and turbining water for no other
-reason than meeting the floor. This is the same basis as the target: generation from pumped
-water counts nowhere. E-Control's statutory monitoring of the EAG goes one step further and
-leaves the pumped-storage plants out entirely, natural inflow included, because its
-statistics cannot separate the two; on that basis the 2020 production was 39.0 TWh and
-the 2030 level would be 44 TWh. The two readings differ by the natural inflow of the
-pumped-storage plants, 3.5 TWh/a on average, and the model follows the law's figure of 47.
-
-Whether the floor can be met depends on the weather year, because the inflow targets scale
-with it while the fleet does not, and the law's figure is a snapshot for 2030 rather than a
-normalised value. The table shows, per weather year, the delivered natural inflow of the
-calibrated 2025 fleet, counted as the floor counts it (inflow generators weighted by
-their turbine efficiency), and the run-of-river capacity the optimizer would have to add in
-2030 to reach 47 TWh; the KLIEN corridor allows 471 MW of additions by 2030.
-
-| Weather year | Delivered natural inflow, 2025 fleet | Additional ror needed for 47 TWh | Feasible in 2030 |
-|---|---:|---:|:---:|
-| 2003, 2025, 2011, 2006, 2022 | 37.6–40.3 TWh | 1,660–2,520 MW | no |
-| 2005, 2007, 2004, 2018, 2015 | 41.9–42.9 TWh | 980–1,200 MW | no |
-| 2017, 2008, 2010, 2021, 2001 | 43.5–44.7 TWh | 490–770 MW | no |
-| 2002, 2019, 2016 | 44.9–45.7 TWh | 290–450 MW | within the corridor |
-| 2000, 2023, 2009 | 46.5–46.9 TWh | 30–110 MW | within the corridor |
-| 2020, 2014 | 47.3, 47.7 TWh | 0 MW | yes |
-| 2013 | 48.6 TWh | 0 MW | yes, 1.6 TWh of slack |
-| 2012, 2024 | 50.6, 52.1 TWh | 0 MW | yes |
-
-The additional capacity is stated at the fleet's run-of-river full-load hours of the
-respective year (3,700–5,200 h). With the configured 2013 weather year the fleet delivers
-48.6 TWh and meets the floor with 1.6 TWh of slack; any buildout the optimizer chooses is
-additional. Five wet years reach it on their own, six average-to-wet years reach it with
-buildout inside the corridor, and fifteen of the 26 years, every dry or below-average one,
-cannot meet it with any buildout the corridor permits. That is the honest picture:
-E-Control's monitoring reports hydropower behind its linear path in every year but the wet
-2024. A hard floor makes a dry year infeasible, which is the intended signal rather than a
-defect; the pumped-storage column follows E-Control's natural inflow of the respective year.
-
-## Configuration
-
-| Setting | Meaning |
-|---------|---------|
-| `mods.update_hydro_capacities_AT.klien_residual_plants` | Adds the synthetic run-of-river plants for the capacity the KLIEN study counts but no source holds (see [Closing the remaining gap](#closing-the-remaining-gap-klien-residual-plants)). |
-| `mods.update_hydro_capacities_AT.fix_store_volumes` | Caps the volume of the Austrian reservoir and pumped-storage stores at the existing value (no new storage volume). |
-| `mods.update_hydro_capacities_AT.enable` | Master switch for all three Austrian calibration steps. When off, the ppm fleet is used as is, the Austrian corridor keeps its PEMMDB value and the inflow energy stays on the capacity-proportional PEMMDB split. |
-| `mods.klien_potential_limits.ambition` | Pathway ambition (`low` / `medium` / `high`), shared with the KLIEN PV and wind limits. |
-| `mods.klien_potential_limits.climate_scenario` | Climate scenario (`wocc` / `mocc` / `stcc`), shared with the KLIEN PV and wind limits. The hydro study publishes pathways only for `mocc` (RCP 4.5) and `stcc` (RCP 8.5); `wocc` falls back to `mocc`, which is logged. |
-| `mods.trajectories.apply_trajectories` | Enables enforcement of all capacity corridors during the solve (see [Generic Capacity Trajectories](capacity-trajectories.md)). |
-| `snapshots` | The weather year of the snapshots selects the ERA5 profile year and the E-Control year factor. |
-| `data.klien_potentials` | KLIEN dataset version; `2026-v3` adds the hydro catchments. |
-| `data.econtrol-bestandsstatistik` | E-Control Bestandsstatistik (capacity by plant type) for the small-hydro scaling. |
-| `data.econtrol-betriebsstatistik` | E-Control Betriebsstatistik (annual generation by plant type and electricity balance) for the weather-year factors and the pumped-storage natural inflow. |
-| `data.anlagenregister` | Plant-level Anlagenregister for the small-hydro fleet (see [E-Control Anlagenregister](../how-to-guides/anlagenregister.md)). |
-| `data.geonames-postal-codes-at` | GeoNames postal code centroids (CC BY 4.0) that locate the register plants. |
-| `solving.constraints.limits_volume_min.hydro.AT` | The EAG hydro production floor, 47 TWh for 2030 (see [The EAG hydro target](#the-eag-hydro-target)). |
-
-!!! note "Data availability"
-    The KLIEN potentials, including the 82 MB catchment GeoJSON, are mirrored on Zenodo
-    (`archive` source, the default). The GeoNames postal codes and the two E-Control
-    statistics are downloaded from geonames.org and e-control.at at run time (`primary`
-    source); the E-Control files are deliberately not mirrored, because the licence of
-    E-Control's publications is unclear.
