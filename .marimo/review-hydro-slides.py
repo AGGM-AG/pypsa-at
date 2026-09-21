@@ -70,7 +70,7 @@ def _():
 
 @app.cell
 def _(Path):
-    PREFIX, SCENARIO = "hydro-capacities-update", "AT_KN2040"
+    PREFIX, SCENARIO = "hydro-capacities-update-complete", "AT_KN2040"
     RESOURCES = Path(f"resources/{PREFIX}/{SCENARIO}")
     RESULTS = Path(f"results/{PREFIX}/{SCENARIO}")
     NETWORK = RESULTS / "networks/base_s_adm__none_2025.nc"
@@ -84,6 +84,9 @@ def _(Path):
     )
     ECONTROL_XLSX = Path(
         "data/econtrol-betriebsstatistik/primary/2025/BStGes-JR1_Bilanz.xlsx"
+    )
+    ECONTROL_CAPACITY_XLSX = Path(
+        "data/econtrol-bestandsstatistik/primary/2025/BeStGes-JR_KWEPL.xlsx"
     )
     GRENZKRAFTWERKE = Path("data/pypsa-at/grenzkraftwerke_AT.csv")
     DIVERSION_OVERRIDES = Path("data/pypsa-at/hydro_diversion_overrides_AT.csv")
@@ -127,6 +130,7 @@ def _(Path):
         ax.set_axisbelow(True)
 
     return (
+        ECONTROL_CAPACITY_XLSX,
         BASELINE,
         CARRIERS,
         CARRIER_LABEL,
@@ -822,8 +826,11 @@ def _(EAG_TARGET_TWH, mo):
 
 
 @app.cell
-def _(AT_BUSES, ECONTROL_XLSX, RESOURCES, bhit, cap_network, pd):
+def _(
+    AT_BUSES, ECONTROL_CAPACITY_XLSX, ECONTROL_XLSX, RESOURCES, bhit, cap_network, pd
+):
     econtrol = bhit.read_econtrol_annual_generation(ECONTROL_XLSX)
+    econtrol_capacity = bhit.read_econtrol_capacity(ECONTROL_CAPACITY_XLSX)
     weather_years = [int(y) for y in econtrol.dropna().index if y >= 2000]
 
     _t = pd.read_csv(RESOURCES / "hydro_inflow_targets_adm.csv")
@@ -837,7 +844,7 @@ def _(AT_BUSES, ECONTROL_XLSX, RESOURCES, bhit, cap_network, pd):
 
     _rows = {}
     for _y in weather_years:
-        _f = bhit.weather_year_factors(econtrol, _y)
+        _f = bhit.weather_year_factors(econtrol, _y, econtrol_capacity)
         _ror = (rav_gwh["ror"] * _f["ror"]).clip(upper=_bound_ror_gwh).sum()
         _rows[_y] = {
             "ror": _ror / 1e3,
@@ -848,8 +855,13 @@ def _(AT_BUSES, ECONTROL_XLSX, RESOURCES, bhit, cap_network, pd):
     energy_by_year = pd.DataFrame(_rows).T  # TWh
     energy_by_year["flh_ror"] = energy_by_year["ror"] * 1e6 / cap_network["ror"].sum()
 
-    corridor = pd.read_csv(RESOURCES / "klien_ror_trajectory_adm.csv", index_col="year")
-    headroom_mw = (corridor["value"] - corridor["brownfield_mw"]).round(0)
+    # regional corridor: one row per year and region; headroom = value - existing fleet
+    corridor = pd.read_csv(RESOURCES / "klien_ror_trajectory_adm.csv")
+    headroom_mw = (
+        (corridor["value"] - corridor["existing_ror_mw"])
+        .groupby(corridor["year"])
+        .sum()
+    ).round(0)
     energy_by_year["headroom_2030"] = (
         headroom_mw[2030] * energy_by_year["flh_ror"] / 1e6
     )
@@ -857,7 +869,7 @@ def _(AT_BUSES, ECONTROL_XLSX, RESOURCES, bhit, cap_network, pd):
         (headroom_mw[2040] - headroom_mw[2030]) * energy_by_year["flh_ror"] / 1e6
     )
     energy_by_year["fleet"] = energy_by_year[["ror", "hydro", "PHS"]].sum(axis=1)
-    return econtrol, energy_by_year, headroom_mw
+    return econtrol, econtrol_capacity, energy_by_year, headroom_mw
 
 
 @app.cell(hide_code=True)
@@ -964,9 +976,9 @@ def _(
     _i13 = list(_e.index).index(2013)
     _top13 = _e.loc[2013, ["fleet", "headroom_2030", "headroom_2040"]].sum()
     _ax.annotate(
-        "model weather year\n(ERA5 profile 2013)",
+        "model weather year",
         xy=(_i13, _top13 + 0.3),
-        xytext=(_i13, _top13 + 5.5),
+        xytext=(_i13, _top13 + 4.0),
         ha="center",
         va="bottom",
         fontsize=8,
@@ -979,8 +991,8 @@ def _(
     _ax.set_ylim(0, 64)
     _ax.set_ylabel("natural inflow energy, delivered [TWh/a]", color=MUTED)
     _ax.set_xlabel(
-        "weather year (E-Control annual generation relative to the 1991–2020 mean "
-        "scales the KLIEN inflow targets; ERA5 profile shape stays 2013)",
+        "weather year (E-Control full-load hours relative to the 1991–2020 mean "
+        "scale the KLIEN inflow targets)",
         color=MUTED,
     )
     style_axis(_ax, "y")
@@ -1048,6 +1060,7 @@ def _(
     REGIONS,
     bhit,
     econtrol,
+    econtrol_capacity,
     inflow_steps,
     mdates,
     plt,
@@ -1092,7 +1105,7 @@ def _(
     # b — the amount: same shape, scaled by the year's energy
     _ax = _axes[1]
     for _label, _year in _years.items():
-        _f = bhit.weather_year_factors(econtrol, _year)["ror"]
+        _f = bhit.weather_year_factors(econtrol, _year, econtrol_capacity)["ror"]
         _mw = _profile * _rav_ror_mwh * _f
         _ax.plot(
             _mw.index,
@@ -1184,7 +1197,8 @@ def _(
     _r = REGIONS[0]
     _s = inflow_steps(_r)
     _t = _s["targets"]
-    _corr = pd.read_csv(RESOURCES / "klien_ror_trajectory_adm.csv", index_col="year")
+    _corr = pd.read_csv(RESOURCES / "klien_ror_trajectory_adm.csv")
+    _corr = _corr[_corr["region"] == _r].set_index("year")
 
     def _mw(df, col):
         return float(df.loc[_r].get(col, 0.0)) if col in df.columns else 0.0
@@ -1231,7 +1245,7 @@ def _(
         (
             "traj",
             f"build_klien_hydro_trajectory_at\nKLIEN buildout factor × AT ror fleet\n"
-            f"2030 ×{_corr.loc[2030, 'factor']:.3f} · 2040 ×{_corr.loc[2040, 'factor']:.3f}",
+            f"2030 +{_corr.loc[2030, 'delta_c_mw']:.0f} MW · 2040 +{_corr.loc[2040, 'delta_c_mw']:.0f} MW",
             "new",
         ),
         (

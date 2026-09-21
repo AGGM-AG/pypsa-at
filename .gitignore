@@ -112,4 +112,6 @@ CLAUDE.local.md
 !.pixi/config.toml
 
 # PyPSA-AT specific
+.marimo/*
+!.marimo/know-how
 __marimo__/
