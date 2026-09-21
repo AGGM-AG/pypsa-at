@@ -54,6 +54,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - KLIEN-calibrated Austrian hydro inflow targets (`build_hydro_inflow_targets_at`): catchment energy allocated to plants by location, shared with the German Grenzkraftwerke halves, scaled to the weather year with the E-Control Betriebsstatistik (new dataset `econtrol-betriebsstatistik`), replacing the Austrian run-of-river and reservoir totals in `build_inflow_totals_per_region`; reservoir inflow rises from ≈ 2.6 TWh to ≈ 10 TWh
 
 ### Changed
+- Austrian run-of-river corridor per NUTS3 region: the KLIEN catchment pathway is located in the model regions through the calibrated fleet, every region gets its own upper bound
+- Run-of-river buildout as separate vintages: the existing fleet stays fixed in every horizon and an extendable `{bus} ror-{year}` vintage carries the corridor headroom as `p_nom_max`
 - `overwrite_powerplants_at` now writes the calibrated fleet as `powerplants_s_{clusters}.csv` and the untouched powerplantmatching output moves to `powerplants_s_{clusters}-raw.csv`, so every rule reads the calibrated table without per-rule overrides; Austrian run-of-river inflow rises from ≈ 13 TWh to ≈ 35 TWh because the ror normalisation now sees the full fleet
 - Hydro plant corrections may relocate a plant (`bus_new`, `lat_new`, `lon_new`); the Ennskraftwerk St. Pantaleon moves from the Salzach (AT311) to the Enns (AT121)
 - KLIEN residual plants: one synthetic run-of-river plant per KLIEN catchment for the capacity the study counts but neither powerplantmatching nor the Anlagenregister holds, so the Austrian inflow targets reproduce the study's long-term energy exactly
