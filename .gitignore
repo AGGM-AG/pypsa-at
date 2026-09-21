@@ -113,4 +113,5 @@ CLAUDE.local.md
 
 # PyPSA-AT specific
 .marimo/*
+!.marimo/know-how
 __marimo__/
