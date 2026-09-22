@@ -56,6 +56,12 @@ clustering:
     DK: 1 # +1 Sjaelland
     GB: 1 # +1 Northern Ireland
     IT: 1 # +2 Sicily, Sardinia
+  cluster_network:
+    # Upstream (PyPSA-Eur #2199) appends the bus carrier to every cluster label
+    # when this is false ("AT111AC", "DE5AC", ...). simplify_network already
+    # renames all DC buses to AC, so nothing is mixed; keep the plain names that
+    # mods/, evals/ and the TYNDP node mappings rely on.
+    allow_ac_dc_mixing_in_bus_clusters: true
   temporal:
     resolution_sector: 365H
 
