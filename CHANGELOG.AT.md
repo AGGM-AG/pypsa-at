@@ -8,6 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Planned]
 
 ### Added
+- `patch_powerplants_set_at` rule restoring `Set="PP"` on the large German lignite condensing units, which powerplantmatching 0.8.x tags `Set="CHP"` and the inherited PyPSA-DE `powerplants_filter` then drops (19,965 MW → 0 MW of German lignite)
+
+### Changed
+- Bumped `powerplantmatching` to 0.8.0 and the `powerplants` dataset to 0.8.1. 0.8.0 fixes the IRENASTAT download, which previously fetched a Zenodo 403 HTML page and failed in `add_existing_baseyear`; 0.8.1 is not usable as a package because it caps `pandas <3`
 - Differentiation of open- and closed-loop PHS, reservoirs with and without inflows; improved Austrian hydro inflow time series
 - Carbon cycle model coupling for improved biomass sector accuracy
 - Optimised production paths for industry sub-sectors, replacing exogenous energy modal splits
