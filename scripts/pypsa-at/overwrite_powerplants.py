@@ -22,12 +22,13 @@ from scripts._helpers import configure_logging
 
 logger = logging.getLogger(__name__)
 
-# Real-world / operator retirement years for the four matched CH reactors
+# Real-world / operator retirement years for the matched CH reactors. Names
+# follow the powerplantmatching 0.6.1 dataset pinned in data/versions.csv
+# (0.8.x spelled them "Beznau 1"/"Beznau 2"/"Goesgen"/"Leibstadt").
 CH_NUCLEAR_DATEOUT = {
-    "Beznau 1": 2020,
-    "Beznau 2": 2020,
-    "Goesgen": 2035,  # operation to ~2040; dropped at 2040 horizon
-    "Leibstadt": 2040,  # operation to ~2045
+    "Kkb Kernkw Beznau": 2020,  # both Beznau units (one matched row)
+    "Kernkraftwerk Gosgen": 2035,  # operation to ~2040; dropped at 2040 horizon
+    "Kkl Kernkw Leibstadt Ag": 2040,  # operation to ~2045
 }
 
 
