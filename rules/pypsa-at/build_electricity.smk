@@ -46,7 +46,13 @@ use rule determine_availability_matrix as determine_availability_matrix_onwind_n
             ),
         },
     output:
-        resources_shared("availability_matrix_nuts3_{clusters}_{technology}.nc"),
+        nc=resources_shared("availability_matrix_nuts3_{clusters}_{technology}.nc"),
+        plot=branch(
+            config["atlite"]["plot_availability_matrix"],
+            then=resources_shared(
+                "availability_matrix_nuts3_{clusters}_{technology}.png"
+            ),
+        ),
     log:
         logs_shared("determine_availability_matrix_nuts3_{clusters}_{technology}.log"),
     benchmark:
