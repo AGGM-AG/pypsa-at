@@ -981,20 +981,30 @@ def additional_functionality(n, snapshots, snakemake):
 
         electricity_import_limits(n, investment_year, constraints["limits_volume_max"])
 
-    add_h2_derivate_limit(n, investment_year, constraints["limits_volume_max"])
+    # --- START: Block Maintained by PyPSA-AT ----------
+    # PyPSA-AT keeps the EU-wide oil/methanol/gas buses (unravel_carbonaceous_fuels
+    # and unravel_gasbus are disabled in modify_prenetwork), so the
+    # "EU ... -> DE ..." links this constraint indexes do not exist.
+    # add_h2_derivate_limit(n, investment_year, constraints["limits_volume_max"])
+    # --- END: Block Maintained by PyPSA-AT ----------
 
     # force_boiler_profiles_existing_per_load(n)
     force_boiler_profiles_existing_per_boiler(n)
 
-    if isinstance(constraints["co2_budget_national"], dict):
-        add_national_co2_budgets(
-            n,
-            snakemake,
-            constraints["co2_budget_national"],
-            investment_year,
-        )
-    else:
-        logger.warning("No national CO2 budget specified!")
+    # --- START: Block Maintained by PyPSA-AT ----------
+    # National CO2 budgets are enforced by mods.constraint_national_co2_budgets
+    # (scripts/pypsa-at/additional_functionality.py). The PyPSA-DE version
+    # indexes German-only links ("EU industry methanol", ...) absent in PyPSA-AT.
+    # if isinstance(constraints["co2_budget_national"], dict):
+    #     add_national_co2_budgets(
+    #         n,
+    #         snakemake,
+    #         constraints["co2_budget_national"],
+    #         investment_year,
+    #     )
+    # else:
+    #     logger.warning("No national CO2 budget specified!")
+    # --- END: Block Maintained by PyPSA-AT ----------
 
     if isinstance(constraints.get("decentral_heat_budgets"), dict):
         add_decentral_heat_budgets(
