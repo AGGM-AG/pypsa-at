@@ -65,6 +65,10 @@ clustering:
   temporal:
     resolution_sector: 365H
 
+pypsa-de:
+  # incompatible with PyPSA-AT NTC floors in mods.network.electricity
+  deactivate_early_transmission_expansion: []
+
 costs:
   use_list: true       # Whether to use the file custom_cost_fn or combine files from custom_cost_fn_list
   custom_cost_fn: data/custom_costs.csv
