@@ -49,6 +49,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added Austrian onshore-wind brownfield capacity vintages based on historical generation and KLIEN potentials ([#208](https://github.com/AGGM-AG/pypsa-at/pull/208))
 
 ### Changed
+- Merged PyPSA-DE main (incl. PyPSA-Eur 2026.08): pandas 3, PyPSA 1.3; ppm 0.6.1
 - Blocked imports of Russian methane via Ukraine and TurkStream ([#129](https://github.com/AGGM-AG/pypsa-at/pull/129))
 - modified Austrian brownfield gas grid with AGGM expert data; disabled expansion of pipelines until 2040; disabled building of new methane pipelines in the model ([#91](https://github.com/AGGM-AG/pypsa-at/pull/91))
 - Updated gas storage capacities from AGSI and AT-specific data sources ([#111](https://github.com/AGGM-AG/pypsa-at/pull/111))
