@@ -21,14 +21,14 @@ def add_capacity_limits(n, investment_year, limits_capacity, sense="maximum"):
                 if investment_year not in limits_capacity[c.name][carrier][ct].keys():
                     continue
 
-                limit = (
-                    1e3 * limits_capacity[c.name][carrier][ct][investment_year]
-                )  # GW to MW
+                limit = 1e3 * limits_capacity[c.name][carrier][ct][investment_year]
 
                 logger.info(
                     f"Adding constraint on {c.name} {carrier} capacity in {ct} to be {sense} {limit} {units}"
                 )
 
+                # --- START: Block Maintained by PyPSA-AT ----------
+                # extension to support regions in constraints
                 if ct in n.meta["countries"]:
                     location_mask = c.static.index.str[:2] == ct
                 elif ct in n.static("Bus")["location"].unique():  # clustered regions
@@ -41,6 +41,7 @@ def add_capacity_limits(n, investment_year, limits_capacity, sense="maximum"):
                     & (c.static.carrier.str[: len(carrier)] == carrier)
                     & ~c.static.carrier.str.contains("thermal")
                 )  # exclude solar thermal
+                # --- END: Block Maintained by PyPSA-AT ----------
 
                 existing_index = c.static.index[
                     valid_components & ~c.static[attr + "_nom_extendable"]
@@ -113,6 +114,71 @@ def add_capacity_limits(n, investment_year, limits_capacity, sense="maximum"):
                 else:
                     logger.error(f"sense {sense} not recognised")
                     sys.exit()
+
+
+def add_production_limits(n, investment_year, limits_production, sense="maximum"):
+
+    assert limits_production.keys() == {"Link"}, (
+        "limits_production only supports Link components"
+    )
+
+    for carrier in limits_production["Link"]:
+        for ct in limits_production["Link"][carrier]:
+            if investment_year not in limits_production["Link"][carrier][ct].keys():
+                continue
+
+            limit = 1e6 * limits_production["Link"][carrier][ct][investment_year]
+            logger.info(
+                f"Adding constraint on {'Link'} {carrier} production in {ct} to be {sense} {limit} MWh/a"
+            )
+
+            valid_components = (n.links.index.str[:2] == ct) & (
+                n.links.carrier == carrier
+            )
+            efficiency = n.links.loc[valid_components, "efficiency"]
+            lhs = (
+                n.model["Link-p"].loc[:, efficiency.index]
+                * n.snapshot_weightings.generators
+                * efficiency
+            ).sum()
+
+            cname = f"production_{sense}-{ct}-Link-{carrier.replace(' ', '-')}"
+
+            if cname in n.global_constraints.index:
+                logger.warning(
+                    f"Global constraint {cname} already exists. Dropping and adding it again."
+                )
+                n.global_constraints.drop(cname, inplace=True)
+
+            if sense == "maximum":
+                n.model.add_constraints(
+                    lhs <= limit,
+                    name=f"GlobalConstraint-{cname}",
+                )
+                n.add(
+                    "GlobalConstraint",
+                    cname,
+                    constant=limit,
+                    sense="<=",
+                    type="",
+                    carrier_attribute="",
+                )
+            elif sense == "minimum":
+                n.model.add_constraints(
+                    lhs >= limit,
+                    name=f"GlobalConstraint-{cname}",
+                )
+                n.add(
+                    "GlobalConstraint",
+                    cname,
+                    constant=limit,
+                    sense=">=",
+                    type="",
+                    carrier_attribute="",
+                )
+            else:
+                logger.error("sense {sense} not recognised")
+                sys.exit()
 
 
 def add_power_limits(n, investment_year, limits_power_max):
@@ -237,12 +303,14 @@ def h2_import_limits(n, investment_year, limits_volume_max):
             & (n.links.bus1.str[:2] != ct)
         ]
 
+        # --- START: Block Maintained by PyPSA-AT ----------
         if incoming.empty and outgoing.empty:
             logger.warning(
                 f"Skipping H2 import and export constraints "
                 f"because no pipelines exist in country {ct} and year {investment_year}."
             )
             return
+        # --- END: Block Maintained by PyPSA-AT ----------
 
         incoming_p = (
             n.model["Link-p"].loc[:, incoming] * n.snapshot_weightings.generators
@@ -294,64 +362,6 @@ def h2_import_limits(n, investment_year, limits_volume_max):
         )
 
 
-def h2_production_limits(n, investment_year, limits_volume_min, limits_volume_max):
-    for ct in limits_volume_max["electrolysis"]:
-        if ct not in limits_volume_min["electrolysis"]:
-            logger.warning(
-                f"no lower limit for H2 electrolysis in {ct} assuming 0 TWh/a"
-            )
-            limit_lower = 0
-        else:
-            limit_lower = limits_volume_min["electrolysis"][ct][investment_year] * 1e6
-
-        limit_upper = limits_volume_max["electrolysis"][ct][investment_year] * 1e6
-
-        logger.info(
-            f"limiting H2 electrolysis in {ct} between {limit_lower / 1e6} and {limit_upper / 1e6} TWh/a"
-        )
-
-        production = n.links[
-            (n.links.carrier == "H2 Electrolysis") & (n.links.bus0.str.contains(ct))
-        ].index
-        efficiency = n.links.loc[production, "efficiency"]
-
-        lhs = (
-            n.model["Link-p"].loc[:, production]
-            * n.snapshot_weightings.generators
-            * efficiency
-        ).sum()
-
-        cname_upper = f"H2_production_limit_upper-{ct}"
-        cname_lower = f"H2_production_limit_lower-{ct}"
-
-        n.model.add_constraints(
-            lhs <= limit_upper, name=f"GlobalConstraint-{cname_upper}"
-        )
-
-        n.model.add_constraints(
-            lhs >= limit_lower, name=f"GlobalConstraint-{cname_lower}"
-        )
-
-        if cname_upper not in n.global_constraints.index:
-            n.add(
-                "GlobalConstraint",
-                cname_upper,
-                constant=limit_upper,
-                sense="<=",
-                type="",
-                carrier_attribute="",
-            )
-        if cname_lower not in n.global_constraints.index:
-            n.add(
-                "GlobalConstraint",
-                cname_lower,
-                constant=limit_lower,
-                sense=">=",
-                type="",
-                carrier_attribute="",
-            )
-
-
 def electricity_import_limits(n, investment_year, limits_volume_max):
     for ct in limits_volume_max["electricity_import"]:
         limit = limits_volume_max["electricity_import"][ct][investment_year] * 1e6
@@ -365,22 +375,26 @@ def electricity_import_limits(n, investment_year, limits_volume_max):
             (n.lines.carrier == "AC")
             & (n.lines.bus0.str[:2] != ct)
             & (n.lines.bus1.str[:2] == ct)
+            & n.lines.active
         ]
         outgoing_line = n.lines.index[
             (n.lines.carrier == "AC")
             & (n.lines.bus0.str[:2] == ct)
             & (n.lines.bus1.str[:2] != ct)
+            & n.lines.active
         ]
 
         incoming_link = n.links.index[
             (n.links.carrier == "DC")
             & (n.links.bus0.str[:2] != ct)
             & (n.links.bus1.str[:2] == ct)
+            & n.links.active
         ]
         outgoing_link = n.links.index[
             (n.links.carrier == "DC")
             & (n.links.bus0.str[:2] == ct)
             & (n.links.bus1.str[:2] != ct)
+            & n.links.active
         ]
 
         incoming_line_p = (
@@ -748,7 +762,7 @@ def add_h2_derivate_limit(n, investment_year, limits_volume_max):
             [
                 "EU renewable oil -> DE oil",
                 "EU methanol -> DE methanol",
-                # "EU renewable gas -> DE gas",
+                "EU renewable gas -> DE gas",
             ]
         ].index
         outgoing = n.links.loc[
@@ -815,11 +829,13 @@ def adapt_nuclear_output(n):
         (n.links.carrier == "nuclear") & (n.links.index.str[:2] == "DE")
     ]
 
+    # --- START: Block Maintained by PyPSA-AT ----------
     if nuclear_de_index.empty:
         logger.info(
             "No German nuclear links found in network — skipping nuclear output constraint."
         )
         return
+    # --- END: Block Maintained by PyPSA-AT ----------
 
     nuclear_gen = (
         n.model["Link-p"].loc[:, nuclear_de_index]
@@ -849,6 +865,93 @@ def adapt_nuclear_output(n):
     )
 
 
+def add_decentral_heat_budgets(n, decentral_heat_budgets, investment_year):
+    carrier_dict = {
+        "heat_pump": [
+            "rural air heat pump",
+            "rural ground heat pump",
+            "urban decentral air heat pump",
+        ],
+        "resistive_heater": [
+            "rural resistive heater",
+            "urban decentral resistive heater",
+        ],
+        "biomass_boiler": [
+            "rural biomass boiler",
+            "urban decentral biomass boiler",
+        ],
+    }
+
+    for asset_type, budget_dict in decentral_heat_budgets.items():
+        assets = n.links.index[n.links.carrier.isin(carrier_dict[asset_type])]
+
+        if assets.empty:
+            logger.warning(
+                f"No {asset_type}s found in the network. Skipping decentral {asset_type} budgets."
+            )
+            continue
+
+        if investment_year not in budget_dict["DE"].keys():
+            logger.warning(
+                f"No decentral {asset_type} budget for {investment_year} found in the config file. Skipping."
+            )
+            continue
+
+        logger.info(f"Adding decentral {asset_type} budgets")
+
+        for ct in budget_dict:
+            if ct != "DE":
+                logger.error(
+                    f"{asset_type.capitalize()} budget for countries other than `DE` is not yet supported. Found country {ct}. Please check the config file."
+                )
+
+            limit = budget_dict[ct][investment_year] * 1e6
+
+            logger.info(
+                f"Limiting decentral {asset_type} electricity consumption in country {ct} to {limit} MWh.",
+            )
+            assets = assets[assets.str.startswith(ct)]
+
+            lhs = []
+
+            efficiency = n.links.loc[assets, "efficiency"]
+
+            factor = 1
+            if asset_type == "heat_pump":
+                # For heatpumps the bus0 is heat and bus1 is electricity -> multiply by efficiency and by -1
+                efficiency = n.links_t.efficiency[assets]
+                factor = -1 * efficiency
+
+            lhs.append(
+                (
+                    factor
+                    * n.model["Link-p"].loc[:, assets]
+                    * n.snapshot_weightings.generators
+                ).sum()
+            )
+
+            lhs = sum(lhs)
+            cname = f"decentral_{asset_type}_limit-{ct}"
+            if cname in n.global_constraints.index:
+                logger.warning(
+                    f"Global constraint {cname} already exists. Dropping and adding it again."
+                )
+                n.global_constraints.drop(cname, inplace=True)
+
+            n.model.add_constraints(
+                lhs <= limit,
+                name=f"GlobalConstraint-{cname}",
+            )
+            n.add(
+                "GlobalConstraint",
+                cname,
+                constant=limit,
+                sense="<=",
+                type="",
+                carrier_attribute="",
+            )
+
+
 def additional_functionality(n, snapshots, snakemake):
     logger.info("Adding Ariadne-specific functionality")
 
@@ -863,6 +966,14 @@ def additional_functionality(n, snapshots, snakemake):
         n, investment_year, constraints["limits_capacity_max"], "maximum"
     )
 
+    add_production_limits(
+        n, investment_year, constraints["limits_production_min"], "minimum"
+    )
+
+    add_production_limits(
+        n, investment_year, constraints["limits_production_max"], "maximum"
+    )
+
     add_power_limits(n, investment_year, constraints["limits_power_max"])
 
     if snakemake.wildcards.clusters != "1":
@@ -870,18 +981,27 @@ def additional_functionality(n, snapshots, snakemake):
 
         electricity_import_limits(n, investment_year, constraints["limits_volume_max"])
 
-    if investment_year >= 2025:
-        h2_production_limits(
-            n,
-            investment_year,
-            constraints["limits_volume_min"],
-            constraints["limits_volume_max"],
-        )
-
-    # add_h2_derivate_limit(n, investment_year, constraints["limits_volume_max"])
+    add_h2_derivate_limit(n, investment_year, constraints["limits_volume_max"])
 
     # force_boiler_profiles_existing_per_load(n)
     force_boiler_profiles_existing_per_boiler(n)
+
+    if isinstance(constraints["co2_budget_national"], dict):
+        add_national_co2_budgets(
+            n,
+            snakemake,
+            constraints["co2_budget_national"],
+            investment_year,
+        )
+    else:
+        logger.warning("No national CO2 budget specified!")
+
+    if isinstance(constraints.get("decentral_heat_budgets"), dict):
+        add_decentral_heat_budgets(
+            n,
+            constraints["decentral_heat_budgets"],
+            investment_year,
+        )
 
     if investment_year == 2020:
         adapt_nuclear_output(n)

@@ -292,6 +292,11 @@ def pytest_addoption(parser) -> None:
     parser.addoption(
         "--result-path", action="store", help="Path to the ESM results folder."
     )
+    parser.addoption(
+        "--fix",
+        action="store_true",
+        help="Attempt fix of issues in the data versions layer CSV files and the default config YAML & schema JSON.",
+    )
 
 
 def pytest_configure(config):
