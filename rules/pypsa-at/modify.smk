@@ -200,6 +200,7 @@ use rule modify_prenetwork as modify_prenetwork_at with:
         nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
         nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
         onwind_brownfield=resources("onwind_brownfield_{clusters}_at.csv"),
+        biogas_plants_at=resources("biogas_plants_at_{clusters}.csv"),
         gas_input_nodes_simplified=resources(
             "gas_input_locations_s_{clusters}_simplified.csv"
         ),
@@ -216,6 +217,7 @@ use rule modify_prenetwork as modify_prenetwork_at with:
             [],
         ),
         code_files=[
+            "mods/network/biogas.py",
             "mods/network/common.py",
             "mods/network/gas.py",
             "mods/network/onwind.py",
@@ -249,6 +251,10 @@ use rule modify_prenetwork as modify_prenetwork_at with:
         admin_levels=config_provider("clustering", "administrative"),
         custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
         apply_at_heat_demand=config_provider("demand", "heat", "apply_at_demand"),
+        existing_capacities=config_provider("existing_capacities"),
+        add_biogas_to_power_plants_AT=config_provider(
+            "mods", "existing_capacities", "add_biogas_to_power_plants_AT"
+        ),
 
 
 ruleorder: modify_prenetwork_at > modify_prenetwork  # AT wins for the final .nc
@@ -327,10 +333,11 @@ ruleorder: modify_brownfield_gas_network_AT > cluster_gas_network  # AT wins for
 rule overwrite_powerplants_at:
     input:
         powerplants=resources("powerplants_s_{clusters}.csv"),
-        anlagenregister="data/pypsa-at/Anlagenregister_electricity_from_renewable_gas_AT.csv",
+        anlagenregister=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
         postal_to_nuts="data/pypsa-at/AT-Postal-to-NUTS.csv",
     output:
         powerplants=resources("powerplants_s_{clusters}-overwrite.csv"),
+        biogas_plants=resources("biogas_plants_at_{clusters}.csv"),
     log:
         logs("powerplants_s_{clusters}-overwrite.log"),
     threads: 1
