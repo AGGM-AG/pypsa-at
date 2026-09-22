@@ -179,23 +179,6 @@ use rule base_network as base_network_at with:
 ruleorder: base_network_at > base_network
 
 
-rule modify_nuts3_shapes:
-    input:
-        nuts3_shapes=resources("nuts3_shapes-raw.geojson"),
-    output:
-        nuts3_shapes=resources("nuts3_shapes.geojson"),
-    log:
-        logs("modify_nuts3_shapes.log"),
-    threads: 1
-    resources:
-        mem_mb=1500,
-    params:
-        clustering=config_provider("clustering", "mode"),
-        admin_levels=config_provider("clustering", "administrative"),
-    script:
-        scripts("pypsa-at/modify_nuts3_shapes.py")
-
-
 # modify_prenetwork: keep the upstream pypsa-de rule pristine and shadow it here
 # to inject the AT-specific inputs (KLIEN potentials, TYNDP trajectories, Ukrainian
 # gas transit) and params. The `**rules.modify_prenetwork.input/params` splats pull
@@ -300,21 +283,34 @@ rule modify_brownfield_gas_network_AT:
 # file, then let a dedicated modify_* rule (defined above) transform raw -> final.
 
 
-# build_shapes: redirect nuts3_shapes to a "-raw" file so modify_nuts3_shapes
-# can post-process it into the final nuts3_shapes.geojson. The dict-literal merge
-# overrides just that one output path; the other shape outputs are inherited.
-use rule build_shapes as build_shapes_at with:
+# build_nuts3_shapes: redirect nuts3_shapes to a "-raw" file so modify_nuts3_shapes
+# can post-process it into the final nuts3_shapes.geojson.
+use rule build_nuts3_shapes as build_nuts3_shapes_at with:
     output:
-        **{
-            **rules.build_shapes.output,
-            "nuts3_shapes": resources("nuts3_shapes-raw.geojson"),
-        },
+        nuts3_shapes=resources("nuts3_shapes-raw.geojson"),
 
 
-ruleorder: build_shapes_at > build_shapes  # AT wins for the shared shape outputs
+ruleorder: build_nuts3_shapes_at > build_nuts3_shapes  # AT wins for the raw shapes
 
 
-ruleorder: modify_nuts3_shapes > build_shapes  # AT wins for the final nuts3_shapes.geojson
+rule modify_nuts3_shapes:
+    input:
+        nuts3_shapes=resources("nuts3_shapes-raw.geojson"),
+    output:
+        nuts3_shapes=resources("nuts3_shapes.geojson"),
+    log:
+        logs("modify_nuts3_shapes.log"),
+    threads: 1
+    resources:
+        mem_mb=1500,
+    params:
+        clustering=config_provider("clustering", "mode"),
+        admin_levels=config_provider("clustering", "administrative"),
+    script:
+        scripts("pypsa-at/modify_nuts3_shapes.py")
+
+
+ruleorder: modify_nuts3_shapes > build_nuts3_shapes  # AT wins for the final nuts3_shapes.geojson
 
 
 # cluster_gas_network: redirect the clustered gas network to a "_raw" file so
