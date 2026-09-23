@@ -365,6 +365,17 @@ def test_apply_keeps_the_national_profile_shape(table, tmp_path):
         )
 
 
+def test_apply_scales_annual_targets_to_the_snapshot_period(table, tmp_path):
+    """A one-week test window receives 168/8760 of the calendar-year target."""
+    n = make_network()
+    n.snapshot_weightings.loc[:, :] = 42.0  # 4 snapshots represent one week
+    el.apply_electricity_base_load(n, make_snakemake(table, tmp_path, factor=1.0))
+    after = annual_energy(n)
+    nyears = 168 / 8760
+    assert after["AT111 electricity for residential"] == pytest.approx(1.0e6 * nyears)
+    assert after["AT333 electricity for rail"] == pytest.approx(0.5e6 * nyears)
+
+
 def test_apply_drops_austrian_road_loads_only_with_nea_transport(table, tmp_path):
     n = make_network()
     el.apply_electricity_base_load(n, make_snakemake(table, tmp_path, use_nea=True))
@@ -438,8 +449,9 @@ def test_austrian_base_loads_match_nea_table(nc):
         table = pd.DataFrame.from_dict(
             network.meta["resources"]["electricity_base_load_at"]
         )
+        nyears = network.snapshot_weightings["generators"].sum() / 8760.0
         expected = table.set_index(["region", "carrier"])["value_TWh"] * 1e6
-        expected *= cfg["scaling_factors"][str(year)]
+        expected *= cfg["scaling_factors"][str(year)] * nyears
         actual = _at_load_energy(network).reindex(expected.index)
         pd.testing.assert_series_equal(
             actual, expected, check_names=False, check_exact=False, rtol=1e-6, atol=1.0
@@ -456,7 +468,9 @@ def test_austrian_base_load_carriers_within_nea_band(nc):
         network.meta["resources"]["electricity_base_load_at"]
     )
     nea = table.groupby("carrier")["value_TWh"].sum()
+    nyears = network.snapshot_weightings["generators"].sum() / 8760.0
     actual = _at_load_energy(network).groupby(level=1).sum().reindex(nea.index) / 1e6
+    actual /= nyears
     deviation = (actual / nea - 1).abs()
     assert (deviation <= 0.10).all(), (
         f"Base year {year} deviation from NEA:\n{deviation}"
@@ -478,6 +492,13 @@ def test_no_austrian_road_loads_with_nea_transport(nc):
         assert not road.any(), "Austrian 'electricity for road' Loads still present."
 
 
+def _skip_unless_full_year(network: pypsa.Network) -> None:
+    """Annual bands cannot be checked on partial-year (test) snapshot windows."""
+    nyears = network.snapshot_weightings["generators"].sum() / 8760.0
+    if nyears < 0.99:
+        pytest.skip(f"Annual comparison needs a full-year run ({nyears:.3f} years).")
+
+
 def _at_electricity_withdrawal(network: pypsa.Network) -> pd.Series:
     """Austrian AC and low voltage withdrawal per component and carrier in TWh."""
     withdrawal = network.statistics.withdrawal(
@@ -493,6 +514,7 @@ def test_austrian_electricity_demand_matches_onip(nc):
     for year, network in nc.networks.items():
         if int(year) not in ONIP_TWH:
             continue
+        _skip_unless_full_year(network)
         withdrawal = _at_electricity_withdrawal(network)
         internal = withdrawal.index.get_level_values("carrier").isin(
             INTERNAL_LINK_CARRIERS
@@ -507,6 +529,7 @@ def test_austrian_electricity_demand_matches_onip(nc):
 def test_pipeline_compression_electricity_vs_nea(nc):
     """Warn when endogenous gas compression electricity deviates from NEA."""
     year, network = min(nc.networks.items(), key=lambda item: int(item[0]))
+    _skip_unless_full_year(network)
     withdrawal = _at_electricity_withdrawal(network)
     compression = (
         withdrawal.xs("Link", level="component").filter(like="gas pipeline").sum()

@@ -477,6 +477,9 @@ def apply_electricity_base_load(n: pypsa.Network, snakemake: Snakemake) -> None:
     The regional series are rebuilt as ``profile shape × regional NEA
     target × horizon factor``, so the national energy is calibrated to the
     NEA base year and the regions follow the prepared distribution table.
+    The NEA target is a calendar-year value and is scaled to the modelled
+    period with the snapshot weightings (``nyears``), like the annual
+    quantities in ``prepare_sector_network``.
     The rebuild removes the negative hours that the population-weighted
     heat deduction produced in regions with a small base load.
 
@@ -520,6 +523,7 @@ def apply_electricity_base_load(n: pypsa.Network, snakemake: Snakemake) -> None:
 
     table = pd.read_csv(snakemake.input.electricity_base_load_at)
     weightings = n.snapshot_weightings.generators
+    nyears = weightings.sum() / 8760.0  # NEA targets are per calendar year
 
     if snakemake.params.use_nea_transport_demand:
         regions = region_by_load(n)
@@ -550,7 +554,7 @@ def apply_electricity_base_load(n: pypsa.Network, snakemake: Snakemake) -> None:
             raise ValueError(f"The Austrian '{carrier}' Loads have no positive energy.")
         shape = profile / energy  # 1/h, integrates to one over the year
 
-        new_energy = targets.reindex(regions[loads]) * 1e6 * factor  # MWh
+        new_energy = targets.reindex(regions[loads]) * 1e6 * factor * nyears  # MWh
         new_energy.index = loads
         n.loads_t.p_set[loads] = pd.DataFrame(
             shape.to_numpy()[:, None] * new_energy.to_numpy()[None, :],
@@ -560,5 +564,6 @@ def apply_electricity_base_load(n: pypsa.Network, snakemake: Snakemake) -> None:
         n.loads.loc[loads, "p_set"] = 0.0
         logger.info(
             f"Rebuilt {len(loads)} Austrian '{carrier}' Loads: {energy / 1e6:.2f} TWh -> "
-            f"{new_energy.sum() / 1e6:.2f} TWh (NEA target x factor {factor})."
+            f"{new_energy.sum() / 1e6:.2f} TWh (NEA target x factor {factor} x "
+            f"{nyears:.3f} years)."
         )
