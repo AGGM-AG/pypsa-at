@@ -110,6 +110,7 @@ def add_phs_hydro(
                 capital_cost=costs.at["PHS", "capital_cost"] / 2,
                 onight_cost=costs.at["PHS", "investment"] / 2,
                 efficiency=np.sqrt(costs.at["PHS", "efficiency"]),
+                reversed=False,
             )
 
             n.add(
@@ -132,6 +133,7 @@ def add_phs_hydro(
                 * np.sqrt(costs.at["PHS", "efficiency"])
                 / 2,
                 efficiency=np.sqrt(costs.at["PHS", "efficiency"]),
+                reversed=False,
             )
 
             n.add(
@@ -239,6 +241,7 @@ def add_phs_hydro(
                 onight_cost=costs.at["PHS", "investment"] / 2,
                 marginal_cost=costs.at["hydro", "marginal_cost"],
                 efficiency=costs.at["hydro", "efficiency"],
+                reversed=False,
             )
 
             n.add(

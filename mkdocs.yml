@@ -29,6 +29,7 @@ nav:
       - trajectories.py: reference/mods/constraints/trajectories.md
     - Network:
       - reference/mods/network/index.md
+      - biogas.py: reference/mods/network/biogas.md
       - common.py: reference/mods/network/common.md
       - electricity.py: reference/mods/network/electricity.md
       - gas.py: reference/mods/network/gas.md

@@ -17,6 +17,7 @@ from mods.demand.electricity import (
 )
 from mods.demand.heat_demand import apply_heat_demand
 from mods.demand.industrial_demand import apply_industrial_demand_profiles
+from mods.network.biogas import add_existing_biogas_chp_at
 from mods.network.electricity import apply_tyndp_transmission_lower_bounds
 from mods.network.gas import (
     block_russian_gas_imports,
@@ -107,6 +108,7 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
 
     apply_pemmdb_trajectories(n, snakemake, costs)
     apply_onwind_brownfield(n, snakemake)
+    add_existing_biogas_chp_at(n, snakemake, costs)
     override_gas_storage_capacities(n, snakemake)
     apply_klien_potential_limits(n, snakemake)
     apply_tyndp_transmission_lower_bounds(n, snakemake)

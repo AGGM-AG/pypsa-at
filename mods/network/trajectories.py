@@ -302,6 +302,7 @@ def register_extendable_nuclear(
     template["capital_cost"] = efficiency * costs.at[carrier, "capital_cost"]
     template["marginal_cost"] = efficiency * costs.at[carrier, "VOM"]
     template["lifetime"] = costs.at[carrier, "lifetime"]
+    template["reversed"] = False  # keep the custom column bool-clean (pandas 3)
 
     for loc in nuclear_trajectories.index:
         name = f"{loc} {carrier}-{pyear}"

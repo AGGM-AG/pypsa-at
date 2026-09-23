@@ -32,5 +32,10 @@ def test_industrial_loads_match_profiles(nc):
         actual.columns = expected.columns
 
         pd.testing.assert_frame_equal(
-            actual, expected, check_exact=False, atol=1e-9, check_names=False
+            actual,
+            expected,
+            check_exact=False,
+            atol=1e-9,
+            check_names=False,
+            check_index_type=False,  # pandas 3 parses strings to datetime64[us]
         )

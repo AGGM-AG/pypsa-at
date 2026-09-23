@@ -18,6 +18,36 @@ use rule process_cost_data as process_cost_data_at with:
 ruleorder: process_cost_data_at > process_cost_data
 
 
+# powerplantmatching 0.8.x tags the large German lignite condensing units
+# Set="CHP", which the inherited PyPSA-DE powerplants_filter then drops. See
+# scripts/pypsa-at/patch_powerplants_set_at.py for the full rationale.
+rule patch_powerplants_set_at:
+    input:
+        powerplants=rules.retrieve_powerplants.output["powerplants"],
+    output:
+        powerplants=resources_shared("powerplants_set_patched.csv"),
+    log:
+        logs_shared("patch_powerplants_set_at.log"),
+    threads: 1
+    resources:
+        mem_mb=2000,
+    message:
+        "Restoring Set=PP on the large German lignite condensing units"
+    script:
+        scripts("pypsa-at/patch_powerplants_set_at.py")
+
+
+use rule build_powerplants as build_powerplants_at with:
+    input:
+        **{
+            **rules.build_powerplants.input,
+            "powerplants": rules.patch_powerplants_set_at.output["powerplants"],
+        },
+
+
+ruleorder: build_powerplants_at > build_powerplants
+
+
 rule create_onshore_regions_nuts3:
     input:
         regions=resources_shared("regions_onshore_base_s_{clusters}.geojson"),
@@ -46,7 +76,13 @@ use rule determine_availability_matrix as determine_availability_matrix_onwind_n
             ),
         },
     output:
-        resources_shared("availability_matrix_nuts3_{clusters}_{technology}.nc"),
+        nc=resources_shared("availability_matrix_nuts3_{clusters}_{technology}.nc"),
+        plot=branch(
+            config["atlite"]["plot_availability_matrix"],
+            then=resources_shared(
+                "availability_matrix_nuts3_{clusters}_{technology}.png"
+            ),
+        ),
     log:
         logs_shared("determine_availability_matrix_nuts3_{clusters}_{technology}.log"),
     benchmark:
