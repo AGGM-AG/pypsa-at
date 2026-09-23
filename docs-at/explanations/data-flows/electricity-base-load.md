@@ -2,8 +2,9 @@
 
 This diagram traces the Austrian base electricity demand (households, services,
 agriculture and rail) from the measured ENTSO-E country profile and the Austrian
-statistics to the sectoral electricity Loads used by the model. Violet nodes are
-Austrian-specific; blue nodes are inherited PyPSA-Eur steps. See
+statistics to the sectoral electricity Loads used by the model. A *Load* is the hourly
+demand series of one sector in one model region (a "node"). Violet boxes are
+Austrian-specific; blue boxes are processing stages shared with PyPSA-Eur. See
 [Data Flow Diagrams](index.md) for the diagramming convention.
 
 ```mermaid
@@ -54,8 +55,10 @@ flowchart TD
 
 ## Why the base load is regionalised in Austria
 
-PyPSA-Eur distributes the measured Austrian load with the JRC energy atlas raster.
-That raster describes *total* electricity demand including industry, while the base
+PyPSA-Eur distributes the measured Austrian load with the JRC energy atlas, a gridded
+map (1 km cells) of estimated annual electricity demand: each region receives the share
+of the national hourly profile that its cells hold of the mapped demand. That map
+describes *total* electricity demand including industry, while the base
 load that remains after the upstream deductions is mainly households, services,
 agriculture and rail. Industrial NUTS3 regions such as Linz-Wels or the Obersteiermark
 therefore received about twice the base load that Austrian statistics support, and
@@ -65,8 +68,9 @@ had to be clipped before the solve.
 
 ## AT-Specific Processing
 
-- **NEA targets.** For the NEA source year of the first planning horizon
-  (`demand.source_years`), the electricity of the NEA sectors is summed per Bundesland:
+- **NEA targets.** The NEA statistics year that represents the first modelled year
+  (2024 for 2025; configured under `demand.source_years`) is the source year. Its
+  electricity of the NEA sectors is summed per Bundesland:
   private households and services become `electricity for residential` and
   `electricity for services`, agriculture becomes `agriculture electricity` and railways
   become `electricity for rail`. For households and services the useful energy category
@@ -83,18 +87,19 @@ had to be clipped before the solve.
   purpose is used as the closest proxy for non-heating electricity. Municipalities are
   assigned to model regions through the Statistik Austria municipality register, with the
   district as fallback for municipalities merged since 2019. Rail has no Energiemosaik
-  proxy and is split by population. Setting
-  `mods.electricity_base_load.distribution_key: population` uses population for every
-  carrier and avoids the Energiemosaik download, whose licence is non-commercial
-  (CC BY-NC-SA 3.0 AT).
+  proxy and is split by population. Alternatively every carrier can be split by
+  population, which avoids the Energiemosaik download and its non-commercial licence
+  (CC BY-NC-SA 3.0 AT) at the cost of a coarser regional picture
+  (`mods.electricity_base_load.distribution_key: population`).
 - **Rebuild of the Loads.** During the modify phase every Austrian base-load carrier
   keeps the Austrian aggregate profile of its Loads, i.e. the measured ENTSO-E shape
   after the upstream deductions. The regional time series are rebuilt as that shape
-  times the regional annual target times the horizon factor from
-  `mods.electricity_base_load.scaling_factors`. The factors describe the growth of
-  household and service electricity relative to the NEA source year and are placeholders
-  of 1.0 until the UBA Transition scenario values are entered. Non-Austrian Loads are not
-  touched.
+  times the regional annual target times a horizon factor. The factors describe the
+  growth of the base load relative to the NEA source year; the current values (1.0 in
+  2025, 1.05 in 2030, 1.10 in 2040 and 2050) are calibrated so that the total Austrian
+  electricity demand meets the ÖNIP 2040 band and will be replaced by the UBA Transition
+  scenario values (`mods.electricity_base_load.scaling_factors`). Regional demand series
+  outside Austria are not touched.
 - **Road share.** The JRC-IDEES road electricity that PyPSA-AT carries as
   `electricity for road` on the low voltage bus is removed for Austria when the NEA road
   transport override is active, because the NEA electricity of *Sonstiger Landverkehr*

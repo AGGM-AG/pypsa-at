@@ -363,7 +363,8 @@ def district_regions(register: pd.DataFrame, nuts3_regions: bool) -> pd.Series:
         rows.groupby([rows["district_code"].astype(int), "nuts3_code"])["population"]
         .sum()
         .reset_index()
-        .sort_values("population")
+        # nuts3_code as secondary key keeps the choice deterministic on ties
+        .sort_values(["population", "nuts3_code"])
         .drop_duplicates("district_code", keep="last")
     )
     regions = population.set_index("district_code")["nuts3_code"]

@@ -96,6 +96,10 @@ rule build_electricity_base_load_at:
             f"{ENERGIEMOSAIK_AT['folder']}/Energiemosaik_Datenpaket_AT.zip",
             [],
         ),
+        code_files=[
+            "mods/demand/electricity.py",
+            "mods/clustering/utils.py",
+        ],
     output:
         electricity_base_load=resources("electricity_base_load_at_{clusters}.csv"),
     log:
