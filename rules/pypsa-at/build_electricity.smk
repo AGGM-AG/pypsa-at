@@ -18,6 +18,36 @@ use rule process_cost_data as process_cost_data_at with:
 ruleorder: process_cost_data_at > process_cost_data
 
 
+# powerplantmatching 0.8.x tags the large German lignite condensing units
+# Set="CHP", which the inherited PyPSA-DE powerplants_filter then drops. See
+# scripts/pypsa-at/patch_powerplants_set_at.py for the full rationale.
+rule patch_powerplants_set_at:
+    input:
+        powerplants=rules.retrieve_powerplants.output["powerplants"],
+    output:
+        powerplants=resources_shared("powerplants_set_patched.csv"),
+    log:
+        logs_shared("patch_powerplants_set_at.log"),
+    threads: 1
+    resources:
+        mem_mb=2000,
+    message:
+        "Restoring Set=PP on the large German lignite condensing units"
+    script:
+        scripts("pypsa-at/patch_powerplants_set_at.py")
+
+
+use rule build_powerplants as build_powerplants_at with:
+    input:
+        **{
+            **rules.build_powerplants.input,
+            "powerplants": rules.patch_powerplants_set_at.output["powerplants"],
+        },
+
+
+ruleorder: build_powerplants_at > build_powerplants
+
+
 rule create_onshore_regions_nuts3:
     input:
         regions=resources_shared("regions_onshore_base_s_{clusters}.geojson"),
