@@ -12,9 +12,11 @@ PyPSA-AT adds all known biogas-to-power plants explicitly from the Austrian
 The plants from the Anlagenregister become non-extendable `biogas CHP` capacity in the base year
 and are carried forward until they retire. The design choices behind this:
 
-- **Every register plant counts, whatever its size.** The register lists plants that generate
-  electricity from biogas, sewage gas or landfill gas, so the fuel is known per plant. No
-  size heuristic decides whether a plant burns biogas or solid biomass.
+- **Register plants up to 5 MW count.** The register lists plants that generate electricity
+  from biogas, sewage gas or landfill gas, so the fuel is known per plant. Above 5 MW, 
+  `Anlagenregister` entries are dropped: a handful of large sites are already present in
+  `powerplantmatching` under their true fuel type, and adding them again from the register
+  would double-count that capacity (as `gas CHP` and `biogas CHP`).
 - **Biogas is the fuel.** The plants draw from the regional biogas supply and feed the regional
   electricity grid. They therefore compete with biogas upgrading for the same biogas potential,
   and their output falls when the potential is exhausted.
@@ -22,9 +24,6 @@ and are carried forward until they retire. The design choices behind this:
   receives capacity if the sum exceeds the general threshold for existing capacities, which
   PyPSA-AT lowers to 2 MW so that the many small plants are kept. The threshold must stay
   at or below 5 MW for this to work.
-- **Electricity only.** The plants are modelled without a heat output and without a minimum
-  load, which keeps them simple and comparable to the former PyPSA-Eur representation. This
-  differs from the German biogas CHPs in PyPSA-DE, which also serve rural heat demand.
 - **Technology assumptions borrowed from solid biomass CHP.** Efficiency, costs and lifetime
   come from the central solid biomass CHP technology data, in the absence of Austrian
   plant-level data.

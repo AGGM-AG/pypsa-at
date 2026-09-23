@@ -37,6 +37,16 @@ CH_NUCLEAR_DATEOUT = {
 RENEWABLE_GAS_TECHNOLOGIES = ("Biogas", "Klärgas", "Deponiegas")
 """Anlagenregister ``techcode`` values of electricity from renewable gas."""
 
+LARGE_PLANT_THRESHOLD_MW = 5
+"""
+Capacity split between the Anlagenregister and powerplantmatching for
+Austrian biogas-to-power plants. Register plants at or below this size are
+added from the Anlagenregister; larger ones are assumed to already be
+captured by powerplantmatching under their true fuel type. For example, the
+Gratkorn paper mill is registered in the Anlagenregister as 140 MW "Biogas"
+but is already modelled via powerplantmatching as a 70 MW gas CCGT CHP.
+"""
+
 BIOGAS_BUILD_YEAR = 2003
 """Assumed build year: height of the Austrian Förderung, phase-out before 2030."""
 
@@ -119,13 +129,15 @@ def build_biogas_plants_AT(
         Plant-level Anlagenregister CSV (``anlagenregister_plants.csv`` of the
         ``anlagenregister`` dataset in ``data/versions.csv``). Electricity
         plants (``typ == "Strom"``) with a ``techcode`` in
-        ``RENEWABLE_GAS_TECHNOLOGIES`` are used.
+        ``RENEWABLE_GAS_TECHNOLOGIES`` and a capacity at or below
+        ``LARGE_PLANT_THRESHOLD_MW`` are used; larger ones are dropped, see
+        ``LARGE_PLANT_THRESHOLD_MW``.
     postal_to_nuts_file
         file that maps all Austrian postal codes (PLZ) to NUTS3 region codes.
     threshold_capacity
         capacity threshold (MW) applied downstream when aggregating existing
-        plants per node. Must be <= 5 MW, otherwise the small Austrian biogas
-        plants would be filtered out again.
+        plants per node. Must be <= ``LARGE_PLANT_THRESHOLD_MW``, otherwise
+        the small Austrian biogas plants would be filtered out again.
     clustering
         clustering identifier, either AT10 (NUTS2) or AT35 (NUTS3). Needed for
         AT10, maps powerplants accordingly using _map_at_nuts3_to_nuts2.
@@ -141,13 +153,14 @@ def build_biogas_plants_AT(
     ValueError
         If small biogas powerplants are found in the original powerplant file.
         This indicates a change in the upstream file that warrants investigation.
-        Also if ``threshold_capacity`` exceeds 5 MW, if the register holds no
-        renewable-gas plants, or if a postal code is not in the mapping.
+        Also if ``threshold_capacity`` exceeds ``LARGE_PLANT_THRESHOLD_MW``, if
+        the register holds no renewable-gas plants, or if a postal code is not
+        in the mapping.
     """
     at_small_bioenergy_ppl = ppl[
         (ppl["Country"] == "AT")
         & (ppl["Fueltype"] == "Bioenergy")
-        & (ppl["Capacity"] < 2)
+        & (ppl["Capacity"] < LARGE_PLANT_THRESHOLD_MW)
     ]
     if not at_small_bioenergy_ppl.empty:
         raise ValueError(
@@ -155,10 +168,10 @@ def build_biogas_plants_AT(
             "Go and check if dataset has changed upstream!"
         )
 
-    if threshold_capacity > 5:
+    if threshold_capacity > LARGE_PLANT_THRESHOLD_MW:
         raise ValueError(
             f"threshold_capacity for adding existing capacities per node is {threshold_capacity} MW,"
-            "but must be <= 5 MW to keep small Austrian biogas plants."
+            f"but must be <= {LARGE_PLANT_THRESHOLD_MW} MW to keep small Austrian biogas plants."
             "Change config.at.yaml setting accordingly."
         )
 
@@ -177,6 +190,16 @@ def build_biogas_plants_AT(
             f"No electricity plants with techcode in {RENEWABLE_GAS_TECHNOLOGIES} "
             f"found in {anlagenregister_file}. Has the Anlagenregister changed?"
         )
+
+    too_large = anlreg["engpassleistung_kw"] / 1000 > LARGE_PLANT_THRESHOLD_MW
+    if too_large.any():
+        logger.warning(
+            f"Dropped {int(too_large.sum())} renewable-gas plants "
+            f"({anlreg.loc[too_large, 'engpassleistung_kw'].sum() / 1e3:.1f} MW) "
+            f"above {LARGE_PLANT_THRESHOLD_MW} MW; assumed to already be "
+            "captured by powerplantmatching under their true fuel type."
+        )
+        anlreg = anlreg[~too_large]
 
     # the register holds free-text postal codes ("4600 ", "5431 Kuchl", ...);
     # take the first run of exactly four digits, like build_anlagenregister_at

@@ -12,7 +12,7 @@ import textwrap
 
 import pandas as pd
 import pytest
-from overwrite_powerplants import build_biogas_plants_AT
+from overwrite_powerplants import LARGE_PLANT_THRESHOLD_MW, build_biogas_plants_AT
 
 # Column header of the capacity in the Anlagenregister plant-level csv
 CAPACITY_COL = "engpassleistung_kw"
@@ -40,20 +40,37 @@ def postal_to_nuts_file(tmp_path):
 def anlagenregister_file(tmp_path):
     """
     Plant-level Anlagenregister sample in the format of
-    ``anlagenregister_plants.csv``: three renewable-gas power plants to map,
-    one with a free-text postal code, plus rows that must be dropped (empty
-    Plz, photovoltaics, a gas injection plant).
+    ``anlagenregister_plants.csv``: three small renewable-gas power plants to
+    map, one with a free-text postal code, plus rows that must be dropped
+    (empty Plz, photovoltaics, a gas injection plant, a plant above
+    ``LARGE_PLANT_THRESHOLD_MW`` like the real Gratkorn paper mill).
     """
     path = tmp_path / "anlagenregister_plants.csv"
     df = pd.DataFrame(
         {
-            "typ": ["Strom", "Strom", "Strom", "Strom", "Strom", "Gas"],
-            "id": [6, 4, 204, 999, 7, 8],
-            "plz": ["8761", "2022 Wullersdorf", "8010", None, "8761", "8761"],
-            "ort": ["Judenburg", "Wullersdorf", "Graz", "Nowhere", "Judenburg", "X"],
-            "techcode": ["Biogas", "Biogas", "Klärgas ", "Biogas", "Photovoltaik", ""],
-            "energietraeger": [None, None, None, None, None, "Biomethan"],
-            CAPACITY_COL: [500, 250, 140000, 70, 20, 1000],
+            "typ": ["Strom", "Strom", "Strom", "Strom", "Strom", "Strom", "Gas"],
+            "id": [6, 4, 204, 999, 7, 140, 8],
+            "plz": ["8761", "2022 Wullersdorf", "8010", None, "8761", "8010", "8761"],
+            "ort": [
+                "Judenburg",
+                "Wullersdorf",
+                "Graz",
+                "Nowhere",
+                "Judenburg",
+                "Graz",
+                "X",
+            ],
+            "techcode": [
+                "Biogas",
+                "Biogas",
+                "Klärgas ",
+                "Biogas",
+                "Photovoltaik",
+                "Biogas",
+                "",
+            ],
+            "energietraeger": [None, None, None, None, None, None, "Biomethan"],
+            CAPACITY_COL: [500, 250, 300, 70, 20, 140000, 1000],
         }
     )
     df.to_csv(path, index=False)
@@ -90,9 +107,16 @@ def result(request, ppl, anlagenregister_file, postal_to_nuts_file):
 
 @pytest.fixture
 def source(anlagenregister_file):
-    """Renewable-gas power plants with a usable Plz (the ones that must be added)."""
+    """
+    Renewable-gas power plants with a usable Plz and a capacity at or below
+    ``LARGE_PLANT_THRESHOLD_MW`` (the ones that must be added).
+    """
     df = pd.read_csv(anlagenregister_file).dropna(subset=["plz"])
-    return df[(df["typ"] == "Strom") & (df["techcode"].str.strip() != "Photovoltaik")]
+    return df[
+        (df["typ"] == "Strom")
+        & (df["techcode"].str.strip() != "Photovoltaik")
+        & (df[CAPACITY_COL] / 1000 <= LARGE_PLANT_THRESHOLD_MW)
+    ]
 
 
 @pytest.fixture
@@ -110,8 +134,9 @@ def _biogas(df):
 
 
 def test_all_valid_rows_added(result):
-    """Every renewable-gas power plant with a Plz becomes one biogas plant"""
-    assert len(_biogas(result)) == 3  # id 999 dropped (empty Plz), PV and Gas dropped
+    """Every small renewable-gas power plant with a Plz becomes one biogas plant"""
+    # id 999 dropped (empty Plz), PV and Gas dropped, id 140 dropped (> LARGE_PLANT_THRESHOLD_MW)
+    assert len(_biogas(result)) == 3
     assert len(result) == 3
 
 
@@ -119,7 +144,15 @@ def test_capacity_kw_to_mw(result):
     cap = _biogas(result).set_index("Name")["Capacity"]
     assert cap["Biogas AT 6"] == pytest.approx(0.5)
     assert cap["Biogas AT 4"] == pytest.approx(0.25)
-    assert cap["Biogas AT 204"] == pytest.approx(140.0)
+    assert cap["Biogas AT 204"] == pytest.approx(0.3)
+
+
+def test_large_plants_above_threshold_are_dropped(result):
+    """
+    Plants above LARGE_PLANT_THRESHOLD_MW are dropped, on the assumption that
+    powerplantmatching already models them under their true fuel type.
+    """
+    assert "Biogas AT 140" not in set(result["Name"])
 
 
 def test_ids_map_to_names(result):
@@ -195,7 +228,7 @@ def test_guard_raises_on_small_at_bioenergy(anlagenregister_file, postal_to_nuts
             "Name": ["Sneaky tiny biogas plant"],
             "Country": ["AT"],
             "Fueltype": ["Bioenergy"],
-            "Capacity": [1.5],  # < 2 MW threshold of powerplantmatching
+            "Capacity": [1.5],  # < LARGE_PLANT_THRESHOLD_MW (5 MW)
         }
     )
     with pytest.raises(ValueError, match="powerplantmatching"):
