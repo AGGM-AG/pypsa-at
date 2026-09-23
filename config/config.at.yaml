@@ -395,12 +395,15 @@ mods:
     apply_trajectories: true
     tol: 0.1  # slack applied to upper/lower capacity bounds (MW / MWh)
 
-  # Scales loads by name to a yearly total
-  demand:
-    electricity:
-      AT:
-        # 40 as a first guess for Energiebilanz Statistik Austria = 62.7 - NEA Industry sector - NEA heat (Raumklima u. Warmwasser)
-        2020: 40  # TWh
-        2030: 40  # TWh
-        2040: 40  # TWh
-        2050: 40  # TWh
+  # Austrian base electricity load (households, services, agriculture, rail).
+  # The NEA electricity of the source year (demand.source_years of the first
+  # planning horizon) is distributed to the model regions and scaled per
+  # planning horizon. See docs-at/explanations/data-flows/electricity-base-load.md
+  electricity_base_load:
+    enable: true
+    distribution_key: energiemosaik  # energiemosaik (CC BY-NC-SA download) | population
+    scaling_factors:  # relative to the NEA source year; TODO UBA Transition values
+      2025: 1.0
+      2030: 1.0
+      2040: 1.0
+      2050: 1.0

@@ -10,7 +10,11 @@ import pypsa
 from snakemake.script import Snakemake
 
 from mods.demand.annual import apply_annual_demand_overrides
-from mods.demand.electricity import BASE_LOAD_CARRIERS, base_load_load_splitting
+from mods.demand.electricity import (
+    BASE_LOAD_CARRIERS,
+    apply_electricity_base_load,
+    base_load_load_splitting,
+)
 from mods.demand.heat_demand import apply_heat_demand
 from mods.demand.industrial_demand import apply_industrial_demand_profiles
 from mods.network.electricity import apply_tyndp_transmission_lower_bounds
@@ -108,6 +112,7 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     apply_tyndp_transmission_lower_bounds(n, snakemake)
     add_h2_imports(n, snakemake)
     apply_heat_demand(n, snakemake)
+    apply_electricity_base_load(n, snakemake)
 
     # Apply Load clipping just before the solve step
     clip_negative_loads_for_edge_cases(n, snakemake)
@@ -148,6 +153,9 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
     investment_year = int(snakemake.wildcards.planning_horizons)
     resolution = int(cfg["clustering"]["temporal"]["resolution_sector"].rstrip("H"))
     clustering = cfg["mods"]["modify_nuts3_shapes"]
+    # the rebuilt Austrian base load (apply_electricity_base_load) has no
+    # negative hours, so the Austrian edge cases only apply without it
+    skip_at = cfg["mods"]["electricity_base_load"]["enable"]
 
     def _clip_static(carrier: str):
         idx = n.loads.index[n.loads["carrier"] == carrier]
@@ -160,6 +168,8 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
         # the base load is split into sectoral Loads (see
         # base_load_load_splitting), so negative hours from the electric
         # heating deduction sit proportionally in all of them
+        if skip_at and location.startswith("AT"):
+            return
         at_location = n.loads.index.str.startswith(f"{location} ")
         is_split = n.loads["carrier"].isin(BASE_LOAD_CARRIERS).to_numpy()
         p_set = n.loads_t["p_set"]

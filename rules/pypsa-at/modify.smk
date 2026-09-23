@@ -232,6 +232,11 @@ use rule modify_prenetwork as modify_prenetwork_at with:
             resources("heat_demand_nea_at_{clusters}.csv"),
             [],
         ),
+        electricity_base_load_at=branch(
+            config_provider("mods", "electricity_base_load", "enable"),
+            resources("electricity_base_load_at_{clusters}.csv"),
+            [],
+        ),
         code_files=[
             "mods/network/common.py",
             "mods/network/gas.py",
@@ -241,6 +246,8 @@ use rule modify_prenetwork as modify_prenetwork_at with:
             "mods/network/electricity.py",
             "mods/network/h2.py",
             "mods/demand/heat_demand.py",
+            "mods/demand/electricity.py",
+            "mods/demand/annual.py",
             "mods/constants.py",
             "mods/utils.py",
         ],
@@ -266,6 +273,10 @@ use rule modify_prenetwork as modify_prenetwork_at with:
         admin_levels=config_provider("clustering", "administrative"),
         custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
         apply_at_heat_demand=config_provider("demand", "heat", "apply_at_demand"),
+        electricity_base_load=config_provider("mods", "electricity_base_load"),
+        use_nea_transport_demand=config_provider(
+            "demand", "transport", "use_nea_demand"
+        ),
 
 
 ruleorder: modify_prenetwork_at > modify_prenetwork  # AT wins for the final .nc
