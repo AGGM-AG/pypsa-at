@@ -452,6 +452,7 @@ COLOUR_SCHEME: dict = {
     "Storage": COLOUR.grey_light,
     "DAC": COLOUR.red_chestnut,
     "Direct Air Capture": COLOUR.red_chestnut,
+    "Carbon Capture": COLOUR.red_deep,
     "co2 vent": COLOUR.grey_silver,
     "CO2 Ventilation": COLOUR.grey_silver,
     "CO2 Budget": COLOUR.grey_cool,

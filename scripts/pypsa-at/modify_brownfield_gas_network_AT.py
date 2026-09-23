@@ -79,7 +79,9 @@ def _reverse_direction(df: pd.DataFrame, flip: pd.Series) -> pd.DataFrame:
     """Swap buses and directional capacities of the rows flagged in ``flip``."""
     df = df.copy()
     for first, second in (("bus0", "bus1"), ("p_nom", "p_nom_reverse")):
-        df.loc[flip, [first, second]] = df.loc[flip, [second, first]].to_numpy()
+        # copy=True: pandas 3 may hand back a view of the block being written to
+        swapped = df.loc[flip, [second, first]].to_numpy(copy=True)
+        df.loc[flip, [first, second]] = swapped
     return df
 
 

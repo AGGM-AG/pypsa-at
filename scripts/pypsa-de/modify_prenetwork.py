@@ -135,6 +135,50 @@ def nuclear_generation_ban(n):
             n.links.drop(links, inplace=True)
 
 
+def restrict_nuclear_capacity_factor(n):
+    """
+    Restrict nuclear capacity factors to 0.9 for all nuclear generators in the network, because they run baseload and else exceed real annual generation
+    """
+    idx = n.links.query("carrier == 'nuclear'").index
+    n.links.loc[idx, "p_max_pu"] = 0.85
+
+
+def scale_DE_elec_load_to_AGEB(n):
+    idx = n.loads.query("bus.str.contains('DE') and carrier == 'electricity'").index
+    AGEB_2025 = 924144 / 3.6e3
+    DE_elec_load_2025 = (
+        n.loads_t.p_set[idx].mul(n.snapshot_weightings.generators, axis=0).sum().sum()
+        / 1e6
+    )
+    scaling_factor = AGEB_2025 / DE_elec_load_2025
+    n.loads_t.p_set[idx] *= scaling_factor
+
+
+def scale_DE_heat_load(n, DE_factor, EU_factor):
+    building_heat_carriers = [
+        "urban central heat",
+        "urban decentral heat",
+        "rural heat",
+        "residential urban decentral heat",
+        "services urban decentral heat",
+        "residential rural heat",
+        "services rural heat",
+    ]
+    heat_scale_factor = (1 - DE_factor) / (1 - EU_factor)
+    idx = n.loads.index[
+        n.loads["bus"].str.contains("DE")
+        & n.loads["carrier"].isin(building_heat_carriers)
+    ]
+    idx = n.loads_t.p_set.columns.intersection(idx)
+    logger.info(
+        f"Space heat demand before scaling: {n.loads_t.p_set[idx].mul(n.snapshot_weightings.generators.values, axis=0).sum().sum() / 1e6} TWh"
+    )
+    n.loads_t.p_set[idx] *= heat_scale_factor
+    logger.info(
+        f"Space heat demand after scaling: {n.loads_t.p_set[idx].mul(n.snapshot_weightings.generators.values, axis=0).sum().sum() / 1e6} TWh"
+    )
+
+
 def add_reversed_pipes(df):
     df_rev = df.copy().rename({"bus0": "bus1", "bus1": "bus0"}, axis=1)
     df_rev.index = df_rev.index + "-reversed"
@@ -1041,8 +1085,10 @@ def add_hydrogen_turbines(n, H2_plants):
 
     scope = H2_plants.get("enable")
 
-    if not scope:  # catch false orr missing config entries
+    # --- START: Block Maintained by PyPSA-AT ----------
+    if not scope:  # allow setting to False
         return
+    # --- END: Block Maintained by PyPSA-AT ----------
 
     if scope not in ["DE", "EU"]:
         msg = f"Invalid value in `H2_plants:enable` for adding hydrogen turbines: {scope}. Expected 'DE' or 'EU'."
@@ -1083,10 +1129,12 @@ def add_hydrogen_turbines(n, H2_plants):
     h2_plants.efficiency3 = 1
     n.add("Link", h2_plants.index, **h2_plants)
 
-    # add missing carrier entry for H2 CCGT introduced in by this function
+    # --- START: Block Maintained by PyPSA-AT ----------
+    # fix: register the new carrier to prevent linopy from complaining
     if "H2 OCGT" in n.carriers.index:
         n.carriers.loc["H2 CCGT"] = n.carriers.loc["H2 OCGT"]
         n.carriers.loc["H2 CCGT", "nice_name"] = "H2 CCGT"
+    # --- END: Block Maintained by PyPSA-AT ----------
 
 
 def force_retrofit(n, params):
@@ -1415,6 +1463,9 @@ def scale_capacity(n, scaling):
                 n.links.loc[links_i_current, "p_nom_min"] = n.links.loc[
                     links_i_current, "p_nom"
                 ]
+                # !!! eventually remove this again
+                # Do not allow further extension of assets for which the capacity has been scaled
+                n.links.loc[links_i, "p_nom_extendable"] = False
 
 
 def limit_cross_border_flows_ac(n, s_max_pu):
@@ -1423,6 +1474,54 @@ def limit_cross_border_flows_ac(n, s_max_pu):
     )
     cross_border_lines = n.lines.index[n.lines.bus0.str[:2] != n.lines.bus1.str[:2]]
     n.lines.loc[cross_border_lines, "s_max_pu"] = s_max_pu
+
+
+def scale_industry_elec_to_2025(n, industrial_energy_demand_2025):
+    """
+    Scale the electricity demand of industry in Germany to match the 2025 value from UBA.
+
+    This is necessary because the scaling of industry demand to UBA values is only applied to the total demand, but not to the individual carriers. This can lead to unrealistic electricity demand for industry in 2025 if the original PyPSA-DE network has a different split between electricity and other carriers than the UBA data.
+    """
+    ageb = 663868 / 3.6e-3
+
+    logger.info(
+        f"Scaling electricity demand of industry in Germany to respect 2025 AGEB value of {ageb} MWh."
+    )
+
+    model_demand_2025 = (
+        (pd.read_csv(industrial_energy_demand_2025, index_col=0) * 1e6)
+        .filter(like="DE", axis=0)
+        .sum()["electricity"]
+    )
+
+    delta = ageb - model_demand_2025
+
+    loads = n.loads.query(
+        "bus.str.startswith('DE') and carrier=='industry electricity'"
+    )
+
+    logger.info(
+        "Industry electricity demand in Germany before scaling: "
+        + str(loads.p_set.sum() * 8760)
+        + " MWh/a"
+    )
+    scaling_factor = 1 + (delta / (loads.p_set.sum() * 8760))
+    n.loads.loc[loads.index, "p_set"] *= scaling_factor
+    logger.info(
+        "Industry electricity demand in Germany after scaling: "
+        + str(n.loads.loc[loads.index, "p_set"].sum() * 8760)
+        + " MWh/a"
+    )
+
+
+def deactivate_early_transmission_expansion(n, current_year):
+    logger.info(f"Deactivating transmission expansion for year {current_year}.")
+    # Assumption 1: The current base network captures all existing lines already -> no expansion in 2025
+    # Assumption 2: All international transmission projects and all within Germany are in NEP or TYNDP
+    n.lines.loc[n.lines.build_year > current_year, "active"] = False
+    n.links.loc[n.links.build_year > current_year, "active"] = False
+    n.lines.s_nom_extendable = False
+    n.links.loc[n.links.carrier == "DC", "p_nom_extendable"] = False
 
 
 if __name__ == "__main__":
@@ -1460,13 +1559,16 @@ if __name__ == "__main__":
 
     nuclear_generation_ban(n)
 
+    restrict_nuclear_capacity_factor(n)
+
     first_technology_occurrence(n)
 
+    # --- START: Block Maintained by PyPSA-AT ----------
     # unravel_carbonaceous_fuels(n)
-
     # PyPSA-AT enables the gas network. Unraveling the
     # gas bus is not possible in its current implementation.
     # unravel_gasbus(n, costs)
+    # --- END: Block Maintained by PyPSA-AT ----------
 
     if snakemake.params.enable_kernnetz:
         fn = snakemake.input.wkn
@@ -1519,12 +1621,26 @@ if __name__ == "__main__":
             scale_non_energy=snakemake.params.scale_industry_non_energy,
         )
 
+    scale_industry_elec_to_2025(n, snakemake.input.industrial_demand_2025)
+    scale_DE_elec_load_to_AGEB(n)
+
+    scale_DE_heat_load(
+        n,
+        DE_factor=snakemake.params.space_heat_DE_factor[current_year],
+        EU_factor=snakemake.params.space_heat_EU_factor[current_year],
+    )
+
     if current_year in snakemake.params.limit_cross_border_flows_ac:
         limit_cross_border_flows_ac(
             n, snakemake.params.limit_cross_border_flows_ac[current_year]
         )
 
+    if current_year in snakemake.params.deactivate_early_transmission_expansion:
+        deactivate_early_transmission_expansion(n, current_year)
+
+    # --- START: Block Maintained by PyPSA-AT ----------
     # PyPSA-AT modifications:
     modify_prenetwork(n, snakemake)
+    # --- END: Block Maintained by PyPSA-AT ----------
 
     n.export_to_netcdf(snakemake.output.network)

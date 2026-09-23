@@ -833,7 +833,11 @@ class TestBrownfieldGasNetworkLinks:
         built = gas_pipelines.loc[expected_corridors.index, "p_nom"]
 
         pd.testing.assert_series_equal(
-            built, expected_corridors["p_nom"], check_names=False, check_dtype=False
+            built,
+            expected_corridors["p_nom"],
+            check_names=False,
+            check_dtype=False,
+            check_index_type=False,
         )
 
     def test_every_corridor_has_a_length(self, gas_pipelines, expected_corridors):
@@ -849,7 +853,11 @@ class TestBrownfieldGasNetworkLinks:
         built = gas_pipelines.loc[expected_corridors.index, "length"]
 
         pd.testing.assert_series_equal(
-            built, expected_corridors["length"], check_names=False, check_dtype=False
+            built,
+            expected_corridors["length"],
+            check_names=False,
+            check_dtype=False,
+            check_index_type=False,
         )
 
 
@@ -1135,7 +1143,11 @@ class TestAsymmetricGasPipelineCapacitiesInNetwork:
         built = brownfield_network.links.loc[asymmetric_corridors.index, "p_nom"]
 
         pd.testing.assert_series_equal(
-            built, asymmetric_corridors["p_nom"], check_names=False, check_dtype=False
+            built,
+            asymmetric_corridors["p_nom"],
+            check_names=False,
+            check_dtype=False,
+            check_index_type=False,
         )
 
     def test_reverse_legs_carry_the_reverse_capacity(

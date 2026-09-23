@@ -1093,6 +1093,7 @@ if (WDPA_DATASET := dataset_version("wdpa"))["source"] in [
         output:
             zip_file=f"{WDPA_DATASET['folder']}/WDPA_shp.zip",
             gpkg=f"{WDPA_DATASET['folder']}/WDPA.gpkg",
+        retries: 2
         message:
             "Downloading protected area database from WDPA"
         run:
@@ -1124,6 +1125,7 @@ if (WDPA_MARINE_DATASET := dataset_version("wdpa_marine"))["source"] in [
         output:
             zip_file=f"{WDPA_MARINE_DATASET['folder']}/WDPA_WDOECM_marine.zip",
             gpkg=f"{WDPA_MARINE_DATASET['folder']}/WDPA_WDOECM_marine.gpkg",
+        retries: 2
         # Downloading Marine protected area database from WDPA
         # extract the main zip and then merge the contained 3 zipped shapefiles
         # Website: https://www.protectedplanet.net/en/thematic-areas/marine-protected-areas
@@ -1189,17 +1191,17 @@ if (
             copy2(input["xlsx"], output["xlsx"])
 
 
-if (TYDNP_DATASET := dataset_version("tyndp"))["source"] in ["primary", "archive"]:
+if (TYNDP_DATASET := dataset_version("tyndp"))["source"] in ["primary", "archive"]:
 
     rule retrieve_tyndp:
         input:
-            line_data=storage(TYDNP_DATASET["url"] + "/Line-data.zip"),
-            nodes=storage(TYDNP_DATASET["url"] + "/Nodes.zip"),
+            line_data=storage(TYNDP_DATASET["url"] + "/Line-data.zip"),
+            nodes=storage(TYNDP_DATASET["url"] + "/Nodes.zip"),
         output:
-            line_data_zip=f"{TYDNP_DATASET['folder']}/Line-data.zip",
-            nodes_zip=f"{TYDNP_DATASET['folder']}/Nodes.zip",
-            reference_grid=f"{TYDNP_DATASET['folder']}/Line data/ReferenceGrid_Electricity.xlsx",
-            nodes=f"{TYDNP_DATASET['folder']}/Nodes/LIST OF NODES.xlsx",
+            line_data_zip=f"{TYNDP_DATASET['folder']}/Line-data.zip",
+            nodes_zip=f"{TYNDP_DATASET['folder']}/Nodes.zip",
+            reference_grid=f"{TYNDP_DATASET['folder']}/Line data/ReferenceGrid_Electricity.xlsx",
+            nodes=f"{TYNDP_DATASET['folder']}/Nodes/LIST OF NODES.xlsx",
         log:
             "logs/retrieve_tyndp.log",
         message:
@@ -1231,42 +1233,10 @@ def get_osm_archive_files(version):
     ]
 
 
-def get_osm_network_incumbent(
-    version: str = "latest",
-    source: str = "archive",
-) -> pd.Series:
-    fp = workflow.source_path("../data/versions.csv")
-    data_versions = load_data_versions(fp)
-    name = "osm"
-
-    dataset = data_versions.loc[
-        (data_versions["dataset"] == name)
-        & (data_versions["source"] == source)
-        & (data_versions["supported"])  # Limit to supported versions only
-        & (data_versions["version"] == version if "latest" != version else True)
-        & (data_versions["latest"] if "latest" == version else True)
-    ]
-
-    if dataset.empty:
-        raise ValueError(
-            f"OSM network for version '{version}' not found in data/versions.csv."
-        )
-
-    # Return single-row DataFrame as a Series
-    dataset = dataset.squeeze()
-
-    # Generate output folder path in the `data` directory
-    dataset["folder"] = Path(
-        "data", name, dataset["source"], dataset["version"]
-    ).as_posix()
-
-    return dataset
-
-
 def input_base_network_incumbent(w):
     version = config_provider("osm_network_release", "compare_to", "version")(w)
     source = config_provider("osm_network_release", "compare_to", "source")(w)
-    osm_dataset = get_osm_network_incumbent(version, source)
+    osm_dataset = dataset_version("osm", version=version, source=source)
     osm_path = osm_dataset["folder"]
     components = {"buses", "lines", "links", "converters", "transformers"}
     inputs = {c: f"{osm_path}/{c}.csv" for c in components}
@@ -1297,7 +1267,8 @@ if OSM_DATASET["source"] in ["archive"]:
 
 
 # Only create incumbent rule if it points to a different folder
-OSM_DATASET_INCUMBENT = get_osm_network_incumbent(
+OSM_DATASET_INCUMBENT = dataset_version(
+    "osm",
     version=config.get("osm_network_release", {})
     .get("compare_to", {})
     .get("version", "latest"),

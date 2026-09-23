@@ -43,8 +43,9 @@ def test_constant_buses_topology(nc):
     fuels = require_config(nc, "mods", "net_zero_electricity", "fuels")  # noqa
     expr = "carrier.isin(@fuels)"
 
-    first = nc[0].buses.query(expr).index
-    for n in nc[1:]:
+    networks = [n for _, n in nc.networks.items()]
+    first = networks[0].buses.query(expr).index
+    for n in networks[1:]:
         subsequent = n.buses.query(expr).index
         pd.testing.assert_index_equal(first, subsequent, check_order=False)
 
