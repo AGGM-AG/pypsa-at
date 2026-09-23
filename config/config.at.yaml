@@ -404,6 +404,7 @@ mods:
     distribution_key: energiemosaik  # energiemosaik (CC BY-NC-SA download) | population
     scaling_factors:  # relative to the NEA source year; TODO UBA Transition values
       2025: 1.0
-      2030: 1.0
-      2040: 1.0
-      2050: 1.0
+      2030: 1.05
+      2040: 1.10  # 10% larger exogen electricity base load by 2040
+                  # to meet UBA Transition value of 121 +-10% TWh
+      2050: 1.10
