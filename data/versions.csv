@@ -53,6 +53,7 @@ egon,2019-10-02,archive,latest supported,2026-02-23,,https://data.pypsa.org/work
 egon,2019-10-02,build,latest supported,2026-01-15,root url is extended in the retrieve rule,https://api.opendata.ffe.de/demandregio/demandregio_spatial
 emobility,28-08-2016,primary,latest supported,2025-12-02,,https://zenodo.org/records/16899168/files/emobility.zip
 emobility,28-08-2016,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/emobility/28-08-2016/emobility.zip
+energiemosaik-at,2022-03,primary,latest supported,2026-09-23,"Energiemosaik Austria municipality data package (BOKU; data year 2019, release March 2022). Licence CC BY-NC-SA 3.0 AT (non-commercial): retrieved at build time only, never committed or mirrored",https://www.energiemosaik.at/assets/downloads/Energiemosaik_Datenpaket_AT.zip
 enspreso_biomass,unknown,primary,latest supported,2025-12-02,"2019 version was changed in 2023 with negligible differences, but since the version is not frozen we label it as 'unknown'.",https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/ENSPRESO/ENSPRESO_BIOMASS.xlsx
 enspreso_biomass,2019-06-20,archive,latest supported,2026-01-13,,https://data.pypsa.org/workflows/eur/enspreso_biomass/2019-06-20/ENSPRESO_BIOMASS.xlsx
 entsoe_electricity_demand,unknown,build,latest supported,2026-02-02,API request using entsoe-py package,https://transparency.entsoe.eu/load/total/dayAhead

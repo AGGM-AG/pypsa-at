@@ -238,6 +238,9 @@ data:
   wind-production-at:
     source: primary
     version: latest
+  energiemosaik-at:
+    source: primary
+    version: 2022-03
 
 pypsa_eur:
   StorageUnit: []
