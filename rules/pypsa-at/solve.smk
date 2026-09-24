@@ -21,6 +21,11 @@ RESOURCE_META = {
         "industrial_demand_overrides_base_s_{clusters}.csv"
     ),
     "heat_demand_nea_at": resources("heat_demand_nea_at_{clusters}.csv"),
+    "electricity_base_load_at": branch(
+        config_provider("mods", "electricity_base_load", "enable"),
+        resources("electricity_base_load_at_{clusters}.csv"),
+        [],
+    ),
     "transport_data_at": branch(
         config_provider("demand", "transport", "use_nea_demand"),
         resources("transport_data_{clusters}_at.csv"),

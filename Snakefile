@@ -94,6 +94,7 @@ HEAT_DEMAND_DATASETS = {
     "Transition": {year: f"Transition_{year}.tif" for year in (2030, 2050)},
 }
 WIND_POWER_AT = dataset_version("wind-production-at")
+ENERGIEMOSAIK_AT = dataset_version("energiemosaik-at")
 
 
 include: "rules/collect.smk"

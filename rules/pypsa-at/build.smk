@@ -78,6 +78,50 @@ rule recalibrate_heat_demand_at:
         scripts("pypsa-at/recalibrate_heat_demand_at.py")
 
 
+def use_energiemosaik(w):
+    """Whether the Energiemosaik key is configured (the archive is CC BY-NC-SA)."""
+    key = config_provider("mods", "electricity_base_load", "distribution_key")(w)
+    return key == "energiemosaik"
+
+
+rule build_electricity_base_load_at:
+    input:
+        nea_at=resources("nea_at.csv"),
+        industrial_distribution_key=resources(
+            "industrial_distribution_key_base_s_{clusters}.csv"
+        ),
+        statistik_at_regions=resources("statistik_at_regions.csv"),
+        energiemosaik=branch(
+            use_energiemosaik,
+            f"{ENERGIEMOSAIK_AT['folder']}/Energiemosaik_Datenpaket_AT.zip",
+            [],
+        ),
+        code_files=[
+            "mods/demand/electricity.py",
+            "mods/clustering/utils.py",
+        ],
+    output:
+        electricity_base_load=resources("electricity_base_load_at_{clusters}.csv"),
+    log:
+        logs("build_electricity_base_load_at_{clusters}.log"),
+    benchmark:
+        benchmarks("build_electricity_base_load_at_{clusters}")
+    threads: 1
+    resources:
+        mem_mb=2000,
+    params:
+        planning_horizons=config_provider("scenario", "planning_horizons"),
+        source_years=config_provider("demand", "source_years"),
+        distribution_key=config_provider(
+            "mods", "electricity_base_load", "distribution_key"
+        ),
+        clustering=config_provider("mods", "modify_nuts3_shapes"),
+    message:
+        "Building the Austrian base electricity load table from NEA and regional keys"
+    script:
+        scripts("pypsa-at/build_electricity_base_load_at.py")
+
+
 rule modify_district_heat_share_at:
     input:
         urban_fraction_at=resources("urban_fraction_at_{clusters}.csv"),

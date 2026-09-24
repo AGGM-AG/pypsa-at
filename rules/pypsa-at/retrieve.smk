@@ -200,3 +200,22 @@ if WIND_POWER_AT["source"] == "primary":
             "Retrieving Austrian wind production"
         run:
             copy2(input.wind, output.wind)
+
+
+# Energiemosaik Austria (BOKU) municipality data package. Licence CC BY-NC-SA
+# 3.0 AT (non-commercial, share-alike): the archive is downloaded at build
+# time only and is never committed to the repository or mirrored elsewhere.
+if ENERGIEMOSAIK_AT["source"] == "primary":
+
+    rule retrieve_energiemosaik_at:
+        input:
+            archive=storage(ENERGIEMOSAIK_AT["url"]),
+        output:
+            archive=f"{ENERGIEMOSAIK_AT['folder']}/Energiemosaik_Datenpaket_AT.zip",
+        log:
+            logs("retrieve_energiemosaik_at.log"),
+        retries: 2
+        message:
+            "Retrieving the Energiemosaik Austria municipality data package"
+        run:
+            copy2(input.archive, output.archive)
