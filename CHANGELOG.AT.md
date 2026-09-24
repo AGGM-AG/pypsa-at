@@ -8,9 +8,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Planned]
 
 ### Added
+- Austrian gas-fired power plant brownfield calibrated against the E-Control Anlagenregister and Bestandsstatistik (`mods: update_gas_capacities_AT`). Corrects the `powerplantmatching` fleet from 4,596 MW to 4,569 MW operating in 2025 (−5.1 % against the Bestandsstatistik, 2,088 implied full load hours), with every capacity, date and drop sourced in `data/pypsa-at/gas_powerplant_overrides_AT.csv`. Notably restores Donaustadt (395 MW), which `add_existing_baseyear` had been dropping because powerplantmatching labels it `Steam Turbine`, splits Theiß and Mellach into their units, and adds the three missing Theiß gas turbines (+380 MW)
+- Natural gas deduplication of the Anlagenregister (−895 MW of double-counted registrations), covering the gas half of #323
 - `patch_powerplants_set_at` rule restoring `Set="PP"` on the large German lignite condensing units, which powerplantmatching 0.8.x tags `Set="CHP"` and the inherited PyPSA-DE `powerplants_filter` then drops (19,965 MW → 0 MW of German lignite)
 
 ### Changed
+- `overwrite_powerplants_at` now writes the canonical `powerplants_s_{clusters}.csv` instead of a side file; `build_powerplants_at` writes `powerplants_s_{clusters}-raw.csv`. The Austrian corrections therefore reach `add_electricity`, `build_capacity_trajectories` and the solve rules, not only `add_existing_baseyear`
 - Bumped `powerplantmatching` to 0.8.0 and the `powerplants` dataset to 0.8.1. 0.8.0 fixes the IRENASTAT download, which previously fetched a Zenodo 403 HTML page and failed in `add_existing_baseyear`; 0.8.1 is not usable as a package because it caps `pandas <3`
 - Differentiation of open- and closed-loop PHS, reservoirs with and without inflows; improved Austrian hydro inflow time series
 - Carbon cycle model coupling for improved biomass sector accuracy

@@ -1,0 +1,17 @@
+year,capacity_mw_gross,generation_gwh_gross,full_load_hours,source,note
+2010,4464.624,14307.056,3204.5,https://www.e-control.at/statistik/strom/bestandsstatistik,
+2011,5285.536,12361.823,2338.8,https://www.e-control.at/statistik/strom/bestandsstatistik,
+2012,5310.076,9656.412,1818.5,https://www.e-control.at/statistik/strom/bestandsstatistik,
+2013,5302.819,6624.725,1249.3,https://www.e-control.at/statistik/strom/bestandsstatistik,"crisis year: gas plants pushed out of merit order, outside the plausible band"
+2014,5069.264,5358.088,1057.0,https://www.e-control.at/statistik/strom/bestandsstatistik,"crisis year: gas plants pushed out of merit order, outside the plausible band"
+2015,5022.765,7738.122,1540.6,https://www.e-control.at/statistik/strom/bestandsstatistik,
+2016,5001.684,8561.489,1711.7,https://www.e-control.at/statistik/strom/bestandsstatistik,
+2017,5016.35,11064.413,2205.7,https://www.e-control.at/statistik/strom/bestandsstatistik,
+2018,5038.442,10071.774,1999.0,https://www.e-control.at/statistik/strom/bestandsstatistik,
+2019,4590.992,11396.95,2482.5,https://www.e-control.at/statistik/strom/bestandsstatistik,
+2020,4585.892,10009.58,2182.7,https://www.e-control.at/statistik/strom/bestandsstatistik,
+2021,4728.858,10751.352,2273.6,https://www.e-control.at/statistik/strom/bestandsstatistik,
+2022,4645.738,10996.998,2367.1,https://www.e-control.at/statistik/strom/bestandsstatistik,
+2023,4785.095,7558.634,1579.6,https://www.e-control.at/statistik/strom/bestandsstatistik,
+2024,4738.438,7605.204,1605.0,https://www.e-control.at/statistik/strom/bestandsstatistik,
+2025,4813.732,9538.226,1981.5,https://www.e-control.at/statistik/strom/bestandsstatistik,"calibration base year; Bestandsstatistik 2025 sheet EPL_KWTyp gives Erdgas 67 plants, 4813.732 MW, 9542.054 GWh, 1982.3 h"

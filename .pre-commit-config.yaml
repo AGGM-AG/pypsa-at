@@ -31,7 +31,7 @@ repos:
   rev: v2.4.2
   hooks:
   - id: codespell
-    args: ['--ignore-regex="(\b[A-Z]+\b)"', '--ignore-words-list=fom,appartment,bage,ore,setis,tabacco,berfore,vor,pris,bund,ons,GuD,Dezember,Juni,Juli,Produktion,WorstCase'] # Ignore capital case words, e.g. country codes
+    args: ['--ignore-regex="(\b[A-Z]+\b)"', '--ignore-words-list=fom,appartment,bage,ore,setis,tabacco,berfore,vor,pris,bund,ons,GuD,Dezember,Juni,Juli,Produktion,WorstCase,ist'] # Ignore capital case words, e.g. country codes
     types_or: [python, rst, markdown]
     files: ^(scripts|doc)/
 
