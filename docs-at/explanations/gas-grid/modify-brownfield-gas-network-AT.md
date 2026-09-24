@@ -66,22 +66,96 @@ The AGGM dataset adds a `p_nom_reverse` column, set only on bidirectional corrid
 3. Fix those legs with `p_nom_extendable = False`, so
    `add_lossy_bidirectional_link_constraints` does not tie them back to the forward leg.
 
-This holds up to `threshold_year_for_gas_grid_expansion` (see below). In later planning horizons
-the directional limits no longer apply: every corridor can carry gas in both directions up to its
-full capacity, and reversing a pipeline does not yet carry a cost in the model.
+This holds before the retrofit start year (see below), i.e. in the calibration and base years.
+From the retrofit start year on the directional limits no longer apply: the reverse leg follows
+the forward leg, so every corridor can carry gas in both directions up to its full capacity, and
+reversing a pipeline does not carry a cost in the model. Pipes are symmetric by construction and
+only the compressor stations are directional; adapting them costs far less than a retrofit and
+happens alongside it, so it is treated as free once retrofitting is allowed.
 
 ---
-# Extendable pipeline capacity and new pipelines 
-In addition to the data update, two more tightly linked changes to the gas network were added. 
+# Gas grid capacity, new pipelines and H2 retrofitting
 
-## Non-extendable pipeline capacities up to a threshold year
-`make_gas_pipelines_unextendable` in `mods/network/gas.py` runs during `modify_prenetwork` and sets both the existing pipelines (`gas pipeline`) and the candidates for new ones (`gas pipeline new`) to be non-extendable, up to and including a threshold year. This threshold year is set with the config setting `threshold_year_for_gas_grid_expansion`, which `config/config.at.yaml` ships as 2040. 
-In config.at.yaml: 
-```yaml 
-mods: 
-  threshold_year_for_gas_grid_expansion: 2070
+Two more changes keep the methane grid consistent with the AGGM planning premise: the grid stays
+at its target capacity up to a threshold year, and endogenous H2 retrofitting is coupled to that
+fixed grid instead of duplicating it.
+
+## Horizon classes
+
+`mods.threshold_year_for_gas_grid_expansion` (2040 in `config/config.at.yaml`) is the last horizon
+of the fixed grid. The retrofit start year is read from the upstream key
+`first_technology_occurrence.Link."H2 pipeline retrofitted"` (2030 in `config/config.at.yaml`):
+PyPSA-DE drops the retrofit candidates before that year, and PyPSA-AT reads the same key, so no
+second switch exists. With `sector.H2_retrofit: false` retrofitting never starts, which keeps the
+legacy behaviour of a fully fixed grid up to the threshold year.
+
+```yaml
+first_technology_occurrence:
+  Link:
+    H2 pipeline retrofitted: 2030
+
+mods:
+  threshold_year_for_gas_grid_expansion: 2040
 ```
 
-## No new methane pipelines before the threshold year
-To conform with reality, where no large scale expansion of the methane grid is planned in the near term, candidates with carrier type `gas pipeline new` cannot be built up to the threshold year. From the following planning horizon on they become extendable again, so the model may add methane pipelines where the long-term optimum calls for them.
+| Horizon | `gas pipeline` (both legs) | `gas pipeline new` | `H2 pipeline retrofitted` | Asymmetric corridors |
+|---|---|---|---|---|
+| before the retrofit start (2025) | fixed at the AGGM target | fixed | absent, dropped upstream | reverse legs resized and fixed |
+| retrofit start up to the threshold (2030, 2040) | extendable, `p_nom_min = 0`, `p_nom_max = target` | fixed | extendable, `p_nom_max = 0.6 x target - carried-over` | symmetric, reverse legs synced to the forward legs |
+| after the threshold (2050) | upstream behaviour | extendable | upstream behaviour | symmetric |
 
+`make_gas_pipelines_unextendable` in `mods/network/gas.py` implements the gas pipeline columns
+during `modify_prenetwork`; `restore_asymmetric_pipeline_capacities` the last column.
+
+## The coupling equality
+
+`add_pipe_retrofit_constraint` in `scripts/solve_network.py` adds, for every extendable forward
+`gas pipeline` leg with a retrofit candidate:
+
+```
+gas + H2 retrofitted / H2_retrofit_capacity_per_CH4 = p_nom of the gas pipeline
+```
+
+The constraint exists only for extendable gas pipelines. Fixing them, as PyPSA-AT did before,
+silently skipped the constraint for the whole network, and the optimiser could use the same
+physical pipeline as full CH4 capacity and as retrofitted H2 capacity at the same time. Keeping the
+pipelines extendable within `[0, target]` makes the equality bind: retrofitted H2 capacity gives
+way to gas capacity on the same corridor and the sum stays at the AGGM target. The reverse legs of
+both carriers are tied to their forward legs by `Link-bidirectional_sync`.
+
+## Carried-over retrofits
+
+In a myopic run the retrofits of an earlier horizon are carried over as fixed
+`H2 pipeline retrofitted` links with a build-year suffix (`... AT225 <-> AT213-2030`,
+`... AT225 <-> AT213-reversed-2030`). Upstream `add_brownfield` lowers the candidates' `p_nom_max`
+by this carry-over and means to lower the gas pipeline capacity as well, but its name mapping keeps
+the build-year suffix while gas pipelines (lifetime `inf`) never carry one. The gas grid is
+therefore left at the full target: a silent no-op.
+
+`deduct_retrofitted_gas_capacity` in `mods/network/gas.py` closes the gap in every horizon with
+carried-over retrofits, gated on `sector.H2_retrofit`:
+
+1. Map each carried-over link (build year before the horizon, both legs) to its gas pipeline leg
+   by stripping the year and swapping the carrier prefix, then sum per leg and divide by
+   `H2_retrofit_capacity_per_CH4`.
+2. Take the target capacity from the clustered gas network; both legs of a corridor get the
+   forward value, in line with the symmetric reverse legs from the retrofit start year on.
+3. Set `p_nom` and `p_nom_max` to `min(current, target - carried-over / ratio)`, clipped at zero.
+
+The `min` is the double-deduction guard: should upstream fix its mapping, the current capacity
+already equals the deducted one and nothing changes. The function is idempotent. A carried-over
+retrofit without a gas pipeline leg, or a gas pipeline without a target capacity, raises.
+
+## Known limitations
+
+- **Compressor physics.** From the retrofit start year on compressor adaptation is free and the
+  reverse leg follows the forward leg, so asymmetric and one-way corridors regain their full
+  reverse capacity. The directional limits hold only in the base years.
+- **Wasserstoff-Kernnetz overlap.** On German corridors upstream lowers the gas capacity for the
+  exogenous Kernnetz retrofits too. The `min` keeps only the larger of the two reductions, so
+  those corridors may end up less reduced than the sum of both. All Austrian corridors are exact.
+- **Upstream `add_brownfield` no-op.** Not filed upstream; the AT deduction covers it and guards
+  against a later upstream fix.
+- **AGGM build years.** The commissioning years in the AGGM dataset are not applied yet, so the
+  target capacity is horizon-independent and corridors with a future build year are present in
+  every horizon, including the base year.
