@@ -219,7 +219,9 @@ def check_retrofit_pairing(n: pypsa.Network) -> None:
     retrofitted`` candidates by position. With unequal counts linopy silently
     drops the H2 term, fixes the gas pipelines at ``p_nom`` and leaves the
     retrofits unconstrained; with a different order it couples the wrong
-    corridors. Both cases fail here instead.
+    corridors. Both cases fail here instead. The check runs in every horizon,
+    because the upstream constraint is active whenever gas pipelines are
+    extendable.
 
     Parameters
     ----------
@@ -342,7 +344,6 @@ def make_gas_pipelines_unextendable(n: pypsa.Network, snakemake: Snakemake) -> N
     n.links.loc[paired, "p_nom_extendable"] = True
     n.links.loc[paired, "p_nom_min"] = 0.0
     n.links.loc[paired, "p_nom_max"] = n.links.loc[paired, "p_nom"]
-    check_retrofit_pairing(n)
     logger.info(
         f"Fixed {is_new.sum()} candidate(s) for new gas pipelines and "
         f"{(is_existing & ~paired).sum()} gas pipeline(s) without a retrofit "

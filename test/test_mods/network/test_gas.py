@@ -1365,15 +1365,26 @@ class TestMakeGasPipelinesUnextendable:
             "gas pipeline DE1 <-> DE2-reversed": False,
         }
 
-    def test_misordered_candidates_raise(self):
-        """Candidates in a different order than the gas pipelines raise."""
+    def test_misordered_candidates_fail_the_pairing_check(self):
+        """Candidates in a different order than the gas pipelines fail the guard."""
         n = self.network(
             corridors=("AT225 <-> AT213", "DE1 <-> DE2"),
             candidates=("DE1 <-> DE2", "AT225 <-> AT213"),
         )
+        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
 
         with pytest.raises(ValueError, match="not paired one to one"):
-            make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
+            check_retrofit_pairing(n)
+
+    def test_fixed_pipelines_pass_the_pairing_check(self):
+        """Fixing the gas pipelines without a candidate restores the pairing."""
+        n = self.network(
+            corridors=("AT225 <-> AT213", "DE1 <-> DE2"),
+            candidates=("AT225 <-> AT213",),
+        )
+        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
+
+        check_retrofit_pairing(n)
 
     def test_retrofit_years_cap_existing_pipelines_at_their_capacity(self):
         """Existing pipelines may shrink but not grow in the retrofit years."""

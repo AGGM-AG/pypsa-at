@@ -17,6 +17,7 @@ from mods.network.biogas import add_existing_biogas_chp_at
 from mods.network.electricity import apply_tyndp_transmission_lower_bounds
 from mods.network.gas import (
     block_russian_gas_imports,
+    check_retrofit_pairing,
     deduct_retrofitted_gas_capacity,
     make_gas_pipelines_unextendable,
     override_gas_storage_capacities,
@@ -103,6 +104,7 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     make_gas_pipelines_unextendable(n, snakemake)
     restore_asymmetric_pipeline_capacities(n, snakemake)
     deduct_retrofitted_gas_capacity(n, snakemake)
+    check_retrofit_pairing(n)
 
     apply_pemmdb_trajectories(n, snakemake, costs)
     apply_onwind_brownfield(n, snakemake)
