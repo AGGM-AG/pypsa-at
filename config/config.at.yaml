@@ -323,6 +323,12 @@ mods:
   # provided by AGGM experts
   modify_brownfield_gas_network_AT: true
 
+  # Calibrate the Austrian gas-fired power plant brownfield against the
+  # deduplicated E-Control Anlagenregister and the Bestandsstatistik.
+  # Corrections and their sources: data/pypsa-at/gas_powerplant_overrides_AT.csv
+  update_gas_capacities_AT:
+    enable: true
+
   # threshold year for extending gas grid capacities
   # until threshold year, no extension of the gas grid is possible
   threshold_year_for_gas_grid_expansion: 2040

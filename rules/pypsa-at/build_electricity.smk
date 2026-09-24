@@ -37,15 +37,22 @@ rule patch_powerplants_set_at:
         scripts("pypsa-at/patch_powerplants_set_at.py")
 
 
+# The matched table is written to a "-raw" side file and becomes the canonical
+# powerplants_s_{clusters}.csv only after overwrite_powerplants_at has applied
+# the Austrian corrections, so that every consumer -- add_electricity, the solve
+# rules and add_existing_baseyear -- sees the same fleet.
 use rule build_powerplants as build_powerplants_at with:
     input:
         **{
             **rules.build_powerplants.input,
             "powerplants": rules.patch_powerplants_set_at.output["powerplants"],
         },
-
-
-ruleorder: build_powerplants_at > build_powerplants
+    output:
+        resources("powerplants_s_{clusters}-raw.csv"),
+    log:
+        logs("build_powerplants_s_{clusters}-raw.log"),
+    benchmark:
+        benchmarks("build_powerplants_s_{clusters}-raw")
 
 
 rule create_onshore_regions_nuts3:
