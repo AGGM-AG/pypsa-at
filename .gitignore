@@ -28,13 +28,11 @@ gurobi.log
 # Allowlist a small subset under data/pypsa-de.
 # Important: parent directories must be un-ignored for negations to take effect.
 !/data/pypsa-de/
-!/data/pypsa-at/
 /cutouts
 /tmp
-# mkdocs build
-public
 doc/_build
 _build
+/site
 
 /scripts/old
 /scripts/create_scenarios.py
@@ -103,15 +101,22 @@ figures
 dev/*
 
 # ai coding tools
-.claude/*local*
+CLAUDE.md
+.claude/
 .github/copilot-instructions.md
 CLAUDE.local.md
+# generated DAGs for docs
+doc/img/dag_*.svg
+doc/img/workflow.svg
+doc/img/intro-workflow.svg
 
 # pixi environments
 .pixi/*
 !.pixi/config.toml
 
 # PyPSA-AT specific
+!/data/pypsa-at/
 .marimo/*
 !.marimo/know-how
 __marimo__/
+public
