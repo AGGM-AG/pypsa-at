@@ -4,7 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 
 run:
-  prefix: upstream-merge-202609
+  prefix: fix-decoupled-retrofitting
   name:
   - AT_KN2040
   scenarios:
@@ -69,6 +69,14 @@ clustering:
 pypsa-de:
   # incompatible with PyPSA-AT NTC floors in mods.network.electricity
   deactivate_early_transmission_expansion: []
+
+first_technology_occurrence:
+  Link:
+    # Calibration and base years keep the AGGM gas grid fixed. From this year on
+    # gas pipelines may be retrofitted to H2 within their target capacity
+    # (see mods.threshold_year_for_gas_grid_expansion). The other PyPSA-DE
+    # entries of this section survive the merge.
+    H2 pipeline retrofitted: 2030
 
 costs:
   use_list: true       # Whether to use the file custom_cost_fn or combine files from custom_cost_fn_list
@@ -323,8 +331,12 @@ mods:
   # provided by AGGM experts
   modify_brownfield_gas_network_AT: true
 
-  # threshold year for extending gas grid capacities
-  # until threshold year, no extension of the gas grid is possible
+  # Up to and including this year no new methane pipelines can be built and
+  # the sum of gas and retrofitted H2 capacity per corridor is capped at the
+  # AGGM target capacity. Before the retrofit start year
+  # (first_technology_occurrence.Link."H2 pipeline retrofitted") the gas
+  # pipelines are fixed at the target; from then on they may shrink in favour
+  # of retrofitted H2 pipelines. After this year the gas grid is extendable.
   threshold_year_for_gas_grid_expansion: 2040
 
   # Block Russian gas imports post 2025 with two optional routes:

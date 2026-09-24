@@ -20,7 +20,11 @@ from evals.utils import filter_by
 from mods.clustering.utils import combine_regions_by_clustering
 from mods.network.gas import (
     _TANAP_PIPELINE_CAPACITY,
+    check_retrofit_pairing,
+    deduct_retrofitted_gas_capacity,
+    make_gas_pipelines_unextendable,
     restore_asymmetric_pipeline_capacities,
+    retrofit_start_year,
 )
 from test.conftest import require_config
 
@@ -889,8 +893,10 @@ class TestRestoreAsymmetricPipelineCapacities:
     def snakemake(
         path: str,
         enabled: bool = True,
-        planning_horizons: str = "2030",
+        planning_horizons: str = "2025",
         threshold_year: int = 2040,
+        retrofit_start: int = 2030,
+        h2_retrofit: bool = True,
     ) -> SimpleNamespace:
         """Minimal Snakemake stand-in."""
         return SimpleNamespace(
@@ -898,7 +904,11 @@ class TestRestoreAsymmetricPipelineCapacities:
                 "mods": {
                     "modify_brownfield_gas_network_AT": enabled,
                     "threshold_year_for_gas_grid_expansion": threshold_year,
-                }
+                },
+                "sector": {"H2_retrofit": h2_retrofit},
+                "first_technology_occurrence": {
+                    "Link": {"H2 pipeline retrofitted": retrofit_start}
+                },
             },
             input=SimpleNamespace(clustered_gas_network=path),
             wildcards=SimpleNamespace(planning_horizons=planning_horizons),
@@ -1088,6 +1098,58 @@ class TestRestoreAsymmetricPipelineCapacities:
                 self.clustered_gas_network(tmp_path),
                 planning_horizons="2040",
                 threshold_year=2040,
+                retrofit_start=2050,
+            ),
+        )
+
+        leg = n.links.loc["gas pipeline AT225 <-> AT213-reversed"]
+        assert leg["p_nom"] == pytest.approx(6015.0)
+        assert not leg["p_nom_extendable"]
+
+    def test_last_year_before_the_retrofit_start_is_still_resized(self, tmp_path):
+        """The last horizon before the retrofit start year is still resized."""
+        n = self.network()
+
+        restore_asymmetric_pipeline_capacities(
+            n,
+            self.snakemake(
+                self.clustered_gas_network(tmp_path),
+                planning_horizons="2029",
+                retrofit_start=2030,
+            ),
+        )
+
+        leg = n.links.loc["gas pipeline AT225 <-> AT213-reversed"]
+        assert leg["p_nom"] == pytest.approx(6015.0)
+        assert not leg["p_nom_extendable"]
+
+    def test_retrofit_start_year_is_left_symmetric(self, tmp_path):
+        """From the retrofit start year on the reverse legs follow the forward legs."""
+        n = self.network()
+        before = n.links[["p_nom", "p_nom_extendable"]].copy()
+
+        restore_asymmetric_pipeline_capacities(
+            n,
+            self.snakemake(
+                self.clustered_gas_network(tmp_path),
+                planning_horizons="2030",
+                retrofit_start=2030,
+            ),
+        )
+
+        pd.testing.assert_frame_equal(n.links[["p_nom", "p_nom_extendable"]], before)
+
+    def test_disabled_retrofit_keeps_the_legacy_behaviour(self, tmp_path):
+        """Without H2 retrofitting the legs are resized up to the threshold year."""
+        n = self.network()
+
+        restore_asymmetric_pipeline_capacities(
+            n,
+            self.snakemake(
+                self.clustered_gas_network(tmp_path),
+                planning_horizons="2040",
+                retrofit_start=2030,
+                h2_retrofit=False,
             ),
         )
 
@@ -1114,6 +1176,574 @@ class TestRestoreAsymmetricPipelineCapacities:
             restore_asymmetric_pipeline_capacities(
                 n, self.snakemake(self.clustered_gas_network(tmp_path))
             )
+
+
+class TestRetrofitStartYear:
+    """Tests for retrofit_start_year."""
+
+    def test_reads_the_first_occurrence_entry(self):
+        """The retrofit start year is the first occurrence of the carrier."""
+        config = {
+            "sector": {"H2_retrofit": True},
+            "first_technology_occurrence": {
+                "Link": {"H2 pipeline retrofitted": 2030, "H2 pipeline": 2025}
+            },
+        }
+
+        assert retrofit_start_year(config) == 2030
+
+    def test_disabled_retrofit_never_starts(self):
+        """Without H2 retrofitting the start year is infinite."""
+        config = {
+            "sector": {"H2_retrofit": False},
+            "first_technology_occurrence": {"Link": {"H2 pipeline retrofitted": 2030}},
+        }
+
+        assert retrofit_start_year(config) == float("inf")
+
+    @pytest.mark.parametrize(
+        "config",
+        [
+            {"sector": {"H2_retrofit": True}},
+            {"sector": {"H2_retrofit": True}, "first_technology_occurrence": None},
+            {"sector": {"H2_retrofit": True}, "first_technology_occurrence": {}},
+            {
+                "sector": {"H2_retrofit": True},
+                "first_technology_occurrence": {"Link": {"H2 pipeline": 2025}},
+            },
+        ],
+    )
+    def test_missing_entry_allows_retrofitting_from_the_start(self, config):
+        """Without the entry retrofitting is allowed in every horizon."""
+        assert retrofit_start_year(config) == 0
+
+
+class TestMakeGasPipelinesUnextendable:
+    """Tests for make_gas_pipelines_unextendable."""
+
+    @staticmethod
+    def snakemake(
+        enabled: bool = True,
+        planning_horizons: str = "2025",
+        threshold_year: int = 2040,
+        retrofit_start: int = 2030,
+        h2_retrofit: bool = True,
+    ) -> SimpleNamespace:
+        """Minimal Snakemake stand-in."""
+        return SimpleNamespace(
+            config={
+                "mods": {
+                    "modify_brownfield_gas_network_AT": enabled,
+                    "threshold_year_for_gas_grid_expansion": threshold_year,
+                },
+                "sector": {"H2_retrofit": h2_retrofit},
+                "first_technology_occurrence": {
+                    "Link": {"H2 pipeline retrofitted": retrofit_start}
+                },
+            },
+            wildcards=SimpleNamespace(planning_horizons=planning_horizons),
+        )
+
+    @staticmethod
+    def network(
+        corridors: tuple[str, ...] = ("AT225 <-> AT213",),
+        candidates: tuple[str, ...] | None = None,
+        candidates_extendable: bool = True,
+    ) -> pypsa.Network:
+        """
+        Pre-network with existing corridors, their retrofit candidates,
+        a candidate for a new gas pipeline and an H2 pipeline.
+        """
+        if candidates is None:
+            candidates = corridors
+        n = pypsa.Network()
+        buses = {b for c in corridors for b in c.split(" <-> ")}
+        n.add("Bus", [f"{b} gas" for b in buses] + [f"{b} H2" for b in buses])
+        for corridor in corridors:
+            bus0, bus1 = corridor.split(" <-> ")
+            for leg, (b0, b1) in {"": (bus0, bus1), "-reversed": (bus1, bus0)}.items():
+                n.add(
+                    "Link",
+                    f"gas pipeline {corridor}{leg}",
+                    bus0=f"{b0} gas",
+                    bus1=f"{b1} gas",
+                    p_nom=16672.0,
+                    p_nom_min=0.0,
+                    p_nom_max=16672.0,
+                    p_nom_extendable=True,
+                    carrier="gas pipeline",
+                    reversed=leg != "",
+                )
+        for corridor in candidates:
+            bus0, bus1 = corridor.split(" <-> ")
+            for leg, (b0, b1) in {"": (bus0, bus1), "-reversed": (bus1, bus0)}.items():
+                n.add(
+                    "Link",
+                    f"H2 pipeline retrofitted {corridor}{leg}-2030",
+                    bus0=f"{b0} H2",
+                    bus1=f"{b1} H2",
+                    p_nom_max=0.6 * 16672.0,
+                    p_nom_extendable=candidates_extendable,
+                    build_year=2030,
+                    carrier="H2 pipeline retrofitted",
+                    reversed=leg != "",
+                )
+        n.add(
+            "Link",
+            "gas pipeline new AT225 <-> AT213",
+            bus0="AT225 gas",
+            bus1="AT213 gas",
+            p_nom_extendable=True,
+            carrier="gas pipeline new",
+        )
+        n.add(
+            "Link",
+            "H2 pipeline AT225 <-> AT213",
+            bus0="AT225 H2",
+            bus1="AT213 H2",
+            p_nom_extendable=True,
+            carrier="H2 pipeline",
+        )
+        return n
+
+    def extendable(self, n: pypsa.Network) -> dict[str, bool]:
+        """Extendability per carrier."""
+        return n.links.groupby("carrier")["p_nom_extendable"].all().to_dict()
+
+    def test_base_year_fixes_both_carriers(self):
+        """Before the retrofit start year existing and new pipelines are fixed."""
+        n = self.network(candidates=())
+
+        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2025"))
+
+        assert self.extendable(n) == {
+            "gas pipeline": False,
+            "gas pipeline new": False,
+            "H2 pipeline": True,
+        }
+
+    @pytest.mark.parametrize("planning_horizons", ["2030", "2040"])
+    def test_retrofit_years_fix_only_new_pipelines(self, planning_horizons):
+        """From the retrofit start year up to the threshold only candidates are fixed."""
+        n = self.network()
+
+        make_gas_pipelines_unextendable(
+            n, self.snakemake(planning_horizons=planning_horizons)
+        )
+
+        assert self.extendable(n) == {
+            "gas pipeline": True,
+            "gas pipeline new": False,
+            "H2 pipeline": True,
+            "H2 pipeline retrofitted": True,
+        }
+
+    def test_gas_pipeline_with_a_fixed_candidate_is_fixed(self):
+        """A gas pipeline whose retrofit candidate is fixed cannot be retrofitted."""
+        n = self.network(candidates_extendable=False)
+
+        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
+
+        assert not n.links.loc[
+            n.links["carrier"] == "gas pipeline", "p_nom_extendable"
+        ].any()
+
+    def test_gas_pipeline_without_a_candidate_is_fixed(self):
+        """Only gas pipelines with an extendable candidate stay extendable."""
+        n = self.network(
+            corridors=("AT225 <-> AT213", "DE1 <-> DE2"),
+            candidates=("AT225 <-> AT213",),
+        )
+
+        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
+
+        gas_pipes = n.links[n.links["carrier"] == "gas pipeline"]
+        assert gas_pipes["p_nom_extendable"].to_dict() == {
+            "gas pipeline AT225 <-> AT213": True,
+            "gas pipeline AT225 <-> AT213-reversed": True,
+            "gas pipeline DE1 <-> DE2": False,
+            "gas pipeline DE1 <-> DE2-reversed": False,
+        }
+
+    def test_misordered_candidates_fail_the_pairing_check(self):
+        """Candidates in a different order than the gas pipelines fail the guard."""
+        n = self.network(
+            corridors=("AT225 <-> AT213", "DE1 <-> DE2"),
+            candidates=("DE1 <-> DE2", "AT225 <-> AT213"),
+        )
+        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
+
+        with pytest.raises(ValueError, match="not paired one to one"):
+            check_retrofit_pairing(n)
+
+    def test_fixed_pipelines_pass_the_pairing_check(self):
+        """Fixing the gas pipelines without a candidate restores the pairing."""
+        n = self.network(
+            corridors=("AT225 <-> AT213", "DE1 <-> DE2"),
+            candidates=("AT225 <-> AT213",),
+        )
+        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
+
+        check_retrofit_pairing(n)
+
+    def test_retrofit_years_cap_existing_pipelines_at_their_capacity(self):
+        """Existing pipelines may shrink but not grow in the retrofit years."""
+        n = self.network()
+        n.links.loc[n.links["carrier"] == "gas pipeline", "p_nom_min"] = 16672.0
+        n.links.loc[n.links["carrier"] == "gas pipeline", "p_nom_max"] = np.inf
+
+        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
+
+        legs = n.links[n.links["carrier"] == "gas pipeline"]
+        assert legs["p_nom_min"].to_numpy() == pytest.approx(0.0)
+        assert legs["p_nom_max"].to_numpy() == pytest.approx(legs["p_nom"].to_numpy())
+
+    def test_expansion_horizon_changes_nothing(self):
+        """After the threshold year nothing is fixed."""
+        n = self.network()
+        before = n.links["p_nom_extendable"].copy()
+
+        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2050"))
+
+        pd.testing.assert_series_equal(n.links["p_nom_extendable"], before)
+
+    def test_disabled_feature_changes_nothing(self):
+        """Nothing changes when the AGGM gas network is disabled."""
+        n = self.network()
+        before = n.links["p_nom_extendable"].copy()
+
+        make_gas_pipelines_unextendable(n, self.snakemake(enabled=False))
+
+        pd.testing.assert_series_equal(n.links["p_nom_extendable"], before)
+
+    def test_disabled_retrofit_keeps_the_legacy_behaviour(self):
+        """Without H2 retrofitting both carriers are fixed up to the threshold year."""
+        n = self.network(candidates=())
+
+        make_gas_pipelines_unextendable(
+            n, self.snakemake(planning_horizons="2040", h2_retrofit=False)
+        )
+
+        assert self.extendable(n) == {
+            "gas pipeline": False,
+            "gas pipeline new": False,
+            "H2 pipeline": True,
+        }
+
+
+class TestCheckRetrofitPairing:
+    """Tests for check_retrofit_pairing."""
+
+    @staticmethod
+    def network(gas: list[tuple[str, bool]], h2: list[tuple[str, bool]]):
+        """Forward legs only, given as (corridor, extendable) pairs."""
+        n = pypsa.Network()
+        n.add("Bus", ["a gas", "b gas", "a H2", "b H2"])
+        for corridor, extendable in gas:
+            n.add(
+                "Link",
+                f"gas pipeline {corridor}",
+                bus0="a gas",
+                bus1="b gas",
+                p_nom_extendable=extendable,
+                carrier="gas pipeline",
+            )
+        for corridor, extendable in h2:
+            n.add(
+                "Link",
+                f"H2 pipeline retrofitted {corridor}-2030",
+                bus0="a H2",
+                bus1="b H2",
+                p_nom_extendable=extendable,
+                carrier="H2 pipeline retrofitted",
+            )
+        return n
+
+    def test_paired_sets_pass(self):
+        """Equal sets in the same order pass."""
+        n = self.network([("A", True), ("B", True)], [("A", True), ("B", True)])
+
+        check_retrofit_pairing(n)
+
+    def test_fixed_links_are_ignored(self):
+        """Fixed gas pipelines and candidates do not take part in the pairing."""
+        n = self.network([("A", True), ("B", False)], [("A", True), ("B", False)])
+
+        check_retrofit_pairing(n)
+
+    def test_without_candidates_passes(self):
+        """Without extendable candidates there is nothing to pair."""
+        n = self.network([("A", True)], [("A", False)])
+
+        check_retrofit_pairing(n)
+
+    def test_unequal_counts_raise(self):
+        """A gas pipeline without an extendable candidate raises."""
+        n = self.network([("A", True), ("B", True)], [("A", True), ("B", False)])
+
+        with pytest.raises(ValueError, match="2 gas pipelines, 1 candidates"):
+            check_retrofit_pairing(n)
+
+    def test_different_order_raises(self):
+        """The same sets in a different order raise."""
+        n = self.network([("A", True), ("B", True)], [("B", True), ("A", True)])
+
+        with pytest.raises(ValueError, match="not paired one to one"):
+            check_retrofit_pairing(n)
+
+
+class TestDeductRetrofittedGasCapacity:
+    """Tests for deduct_retrofitted_gas_capacity."""
+
+    TARGET = {
+        "gas pipeline AT225 <-> AT213": 16672.0,
+        "gas pipeline DE2 -> AT342": 1269.0,
+        "gas pipeline SK -> HU": 8000.0,
+    }
+
+    @staticmethod
+    def clustered_gas_network(tmp_path, drop: str | None = None) -> str:
+        """Clustered gas network holding the target capacity of every corridor."""
+        path = tmp_path / "gas_network.csv"
+        target = pd.Series(TestDeductRetrofittedGasCapacity.TARGET, name="p_nom")
+        target.drop(drop or []).to_frame().to_csv(path)
+        return str(path)
+
+    @staticmethod
+    def snakemake(
+        path: str,
+        planning_horizons: str = "2040",
+        h2_retrofit: bool = True,
+        capacity_per_ch4: float = 0.6,
+    ) -> SimpleNamespace:
+        """Minimal Snakemake stand-in."""
+        return SimpleNamespace(
+            config={
+                "sector": {
+                    "H2_retrofit": h2_retrofit,
+                    "H2_retrofit_capacity_per_CH4": capacity_per_ch4,
+                }
+            },
+            input=SimpleNamespace(clustered_gas_network=path),
+            wildcards=SimpleNamespace(planning_horizons=planning_horizons),
+        )
+
+    @classmethod
+    def network(cls, retrofits: dict[str, tuple[float, int]] | None = None):
+        """
+        Pre-network in 2040 with both legs of every corridor.
+
+        The forward leg of the Austrian corridor carries 900 MW of retrofitted
+        H2 from two earlier horizons, its reverse leg 600 MW; the German
+        corridor carries none and the foreign one only this year's candidate.
+        """
+        n = pypsa.Network()
+        buses = ["AT225", "AT213", "DE2", "AT342", "SK", "HU"]
+        n.add("Bus", [f"{b} gas" for b in buses] + [f"{b} H2" for b in buses])
+
+        for corridor, p_nom in cls.TARGET.items():
+            bus0, _, bus1 = corridor.removeprefix("gas pipeline ").split(" ")
+            for leg, (b0, b1) in {
+                corridor: (bus0, bus1),
+                f"{corridor}-reversed": (bus1, bus0),
+            }.items():
+                n.add(
+                    "Link",
+                    leg,
+                    bus0=f"{b0} gas",
+                    bus1=f"{b1} gas",
+                    p_nom=p_nom,
+                    p_nom_max=p_nom,
+                    p_nom_extendable=True,
+                    carrier="gas pipeline",
+                )
+
+        if retrofits is None:
+            retrofits = {
+                "H2 pipeline retrofitted AT225 <-> AT213-2025": (300.0, 2025),
+                "H2 pipeline retrofitted AT225 <-> AT213-reversed-2025": (0.0, 2025),
+                "H2 pipeline retrofitted AT225 <-> AT213-2030": (600.0, 2030),
+                "H2 pipeline retrofitted AT225 <-> AT213-reversed-2030": (600.0, 2030),
+                "H2 pipeline retrofitted SK -> HU-2040": (0.0, 2040),
+                "H2 pipeline retrofitted SK -> HU-reversed-2040": (0.0, 2040),
+            }
+        for name, (p_nom, build_year) in retrofits.items():
+            n.add(
+                "Link",
+                name,
+                bus0="AT225 H2",
+                bus1="AT213 H2",
+                p_nom=p_nom,
+                build_year=build_year,
+                p_nom_extendable=build_year == 2040,
+                carrier="H2 pipeline retrofitted",
+            )
+        return n
+
+    @pytest.fixture
+    def deducted(self, tmp_path) -> pypsa.Network:
+        """Network after deduct_retrofitted_gas_capacity."""
+        n = self.network()
+        deduct_retrofitted_gas_capacity(
+            n, self.snakemake(self.clustered_gas_network(tmp_path))
+        )
+        return n
+
+    def test_forward_leg_is_reduced_by_the_carried_over_capacity(self, deducted):
+        """The forward leg loses the carried-over H2 capacity divided by the ratio."""
+        leg = deducted.links.loc["gas pipeline AT225 <-> AT213"]
+
+        assert leg["p_nom"] == pytest.approx(16672.0 - 900.0 / 0.6)
+
+    def test_reverse_leg_is_reduced_by_its_own_carried_over_capacity(self, deducted):
+        """The reverse leg is mapped and reduced on its own."""
+        leg = deducted.links.loc["gas pipeline AT225 <-> AT213-reversed"]
+
+        assert leg["p_nom"] == pytest.approx(16672.0 - 600.0 / 0.6)
+
+    @pytest.mark.parametrize(
+        "leg", ["gas pipeline AT225 <-> AT213", "gas pipeline AT225 <-> AT213-reversed"]
+    )
+    def test_upper_bound_follows_the_capacity(self, deducted, leg):
+        """p_nom_max follows p_nom."""
+        assert deducted.links.at[leg, "p_nom_max"] == pytest.approx(
+            deducted.links.at[leg, "p_nom"]
+        )
+
+    @pytest.mark.parametrize(
+        "leg",
+        [
+            "gas pipeline DE2 -> AT342",
+            "gas pipeline DE2 -> AT342-reversed",
+            "gas pipeline SK -> HU",
+            "gas pipeline SK -> HU-reversed",
+        ],
+    )
+    def test_corridors_without_carried_over_retrofits_are_untouched(
+        self, deducted, leg
+    ):
+        """Corridors without earlier retrofits, or only this year's candidate, keep their capacity."""
+        corridor = leg.removesuffix("-reversed")
+
+        assert deducted.links.at[leg, "p_nom"] == pytest.approx(self.TARGET[corridor])
+        assert deducted.links.at[leg, "p_nom_max"] == pytest.approx(
+            self.TARGET[corridor]
+        )
+
+    def test_extendability_is_untouched(self, deducted):
+        """Only capacities change."""
+        assert deducted.links.loc[
+            deducted.links["carrier"] == "gas pipeline", "p_nom_extendable"
+        ].all()
+
+    def test_capacity_is_clipped_at_zero(self, tmp_path):
+        """Carried-over retrofits beyond the target close the corridor."""
+        n = self.network(
+            {"H2 pipeline retrofitted DE2 -> AT342-2030": (1269.0, 2030)},
+        )
+
+        deduct_retrofitted_gas_capacity(
+            n, self.snakemake(self.clustered_gas_network(tmp_path))
+        )
+
+        leg = n.links.loc["gas pipeline DE2 -> AT342"]
+        assert leg["p_nom"] == pytest.approx(0.0)
+        assert leg["p_nom_max"] == pytest.approx(0.0)
+
+    def test_is_idempotent(self, tmp_path, deducted):
+        """Running twice deducts once."""
+        before = deducted.links[["p_nom", "p_nom_max"]].copy()
+
+        deduct_retrofitted_gas_capacity(
+            deducted, self.snakemake(self.clustered_gas_network(tmp_path))
+        )
+
+        pd.testing.assert_frame_equal(deducted.links[["p_nom", "p_nom_max"]], before)
+
+    def test_already_deducted_network_is_unchanged(self, tmp_path):
+        """If upstream deducts the carried-over capacity itself, nothing changes."""
+        n = self.network()
+        n.links.loc["gas pipeline AT225 <-> AT213", ["p_nom", "p_nom_max"]] = (
+            16672.0 - 900.0 / 0.6
+        )
+        n.links.loc["gas pipeline AT225 <-> AT213-reversed", ["p_nom", "p_nom_max"]] = (
+            16672.0 - 600.0 / 0.6
+        )
+        before = n.links[["p_nom", "p_nom_max"]].copy()
+
+        deduct_retrofitted_gas_capacity(
+            n, self.snakemake(self.clustered_gas_network(tmp_path))
+        )
+
+        pd.testing.assert_frame_equal(n.links[["p_nom", "p_nom_max"]], before)
+
+    def test_stronger_upstream_reduction_is_kept(self, tmp_path):
+        """A capacity already below the deducted target is kept."""
+        n = self.network()
+        n.links.loc["gas pipeline AT225 <-> AT213", ["p_nom", "p_nom_max"]] = 1000.0
+
+        deduct_retrofitted_gas_capacity(
+            n, self.snakemake(self.clustered_gas_network(tmp_path))
+        )
+
+        leg = n.links.loc["gas pipeline AT225 <-> AT213"]
+        assert leg["p_nom"] == pytest.approx(1000.0)
+        assert leg["p_nom_max"] == pytest.approx(1000.0)
+
+    def test_ratio_is_read_from_the_config(self, tmp_path):
+        """The H2 to CH4 capacity ratio scales the deduction."""
+        n = self.network()
+
+        deduct_retrofitted_gas_capacity(
+            n,
+            self.snakemake(self.clustered_gas_network(tmp_path), capacity_per_ch4=0.5),
+        )
+
+        assert n.links.at["gas pipeline AT225 <-> AT213", "p_nom"] == pytest.approx(
+            16672.0 - 900.0 / 0.5
+        )
+
+    def test_nothing_carried_over_changes_nothing(self, tmp_path):
+        """Only this year's candidates leave the gas grid untouched."""
+        n = self.network()
+        before = n.links[["p_nom", "p_nom_max"]].copy()
+
+        deduct_retrofitted_gas_capacity(
+            n,
+            self.snakemake(
+                self.clustered_gas_network(tmp_path), planning_horizons="2025"
+            ),
+        )
+
+        pd.testing.assert_frame_equal(n.links[["p_nom", "p_nom_max"]], before)
+
+    def test_disabled_retrofit_changes_nothing(self, tmp_path):
+        """Nothing changes without H2 retrofitting."""
+        n = self.network()
+        before = n.links[["p_nom", "p_nom_max"]].copy()
+
+        deduct_retrofitted_gas_capacity(
+            n, self.snakemake(self.clustered_gas_network(tmp_path), h2_retrofit=False)
+        )
+
+        pd.testing.assert_frame_equal(n.links[["p_nom", "p_nom_max"]], before)
+
+    def test_unmapped_retrofit_raises(self, tmp_path):
+        """A carried-over retrofit without a gas pipeline leg raises."""
+        n = self.network({"H2 pipeline retrofitted AT225 <-> AT999-2030": (1.0, 2030)})
+
+        with pytest.raises(ValueError, match="without a gas pipeline leg"):
+            deduct_retrofitted_gas_capacity(
+                n, self.snakemake(self.clustered_gas_network(tmp_path))
+            )
+
+    def test_missing_target_capacity_raises(self, tmp_path):
+        """A gas pipeline missing from the clustered gas network raises."""
+        n = self.network()
+        path = self.clustered_gas_network(tmp_path, drop="gas pipeline AT225 <-> AT213")
+
+        with pytest.raises(ValueError, match="without a target capacity"):
+            deduct_retrofitted_gas_capacity(n, self.snakemake(path))
 
 
 class TestAsymmetricGasPipelineCapacitiesInNetwork:
@@ -1282,3 +1912,168 @@ class TestGasPipelineDirectionsAfterExpansionThreshold:
         lower_bound = expansion_network.links.loc[forward, "p_nom_min"]
 
         assert lower_bound.to_numpy() == pytest.approx(0.0)
+
+
+class TestH2RetrofitAgainstTheFixedGasGrid:
+    """Endogenous H2 retrofitting against the fixed AGGM gas grid in the solved networks."""
+
+    @pytest.fixture(scope="class")
+    def ratio(self, nc) -> float:
+        """H2 capacity per retrofitted CH4 capacity."""
+        sector = require_config(nc, "sector", H2_retrofit=False)
+        return float(sector["H2_retrofit_capacity_per_CH4"])
+
+    @pytest.fixture(scope="class")
+    def horizons(self, nc) -> dict[str, list[str]]:
+        """Solved horizons before the retrofit start, in the retrofit window and with carry-over."""
+        mods = require_config(nc, "mods", modify_brownfield_gas_network_AT=False)
+        threshold = int(mods["threshold_year_for_gas_grid_expansion"])
+        starts = {year: retrofit_start_year(n.meta) for year, n in nc.networks.items()}
+        assert len(set(starts.values())) == 1, (
+            f"Retrofit start year differs across networks: {starts}"
+        )
+        start = next(iter(starts.values()))
+
+        years = sorted(nc.networks.keys(), key=int)
+        carried = [
+            year
+            for year in years
+            if not self.retrofits(nc.networks[year], before=int(year)).empty
+        ]
+        return {
+            "base": [y for y in years if int(y) < start],
+            "retrofit": [y for y in years if start <= int(y) <= threshold],
+            "carried": carried,
+        }
+
+    @staticmethod
+    def retrofits(n: pypsa.Network, before: int | None = None) -> pd.DataFrame:
+        """Retrofitted H2 pipeline links, optionally only those built before a year."""
+        links = n.links[n.links["carrier"] == "H2 pipeline retrofitted"]
+        if before is not None:
+            links = links[links["build_year"] < before]
+        return links
+
+    @staticmethod
+    def austrian_targets(n: pypsa.Network) -> pd.Series:
+        """AGGM target capacity per built Austrian gas pipeline corridor."""
+        merged = pd.DataFrame.from_dict(n.meta["resources"]["aggm_gas_pipeline_data"])
+        austrian = merged["bus0"].str.startswith("AT") | merged["bus1"].str.startswith(
+            "AT"
+        )
+        target = merged.loc[austrian, "p_nom"]
+        return target[target.index.isin(n.links.index)]
+
+    @staticmethod
+    def retrofit_capacity(
+        n: pypsa.Network, corridors: pd.Index, attribute: str, before: int | None = None
+    ) -> pd.Series:
+        """Sum of a retrofit attribute per gas pipeline leg, for the given corridor legs."""
+        links = TestH2RetrofitAgainstTheFixedGasGrid.retrofits(n, before)
+        legs = links.index.str.replace(r"-\d{4}$", "", regex=True).str.replace(
+            "H2 pipeline retrofitted", "gas pipeline", regex=False
+        )
+        per_leg = links[attribute].groupby(legs.to_numpy()).sum()
+        return per_leg.reindex(corridors).fillna(0.0)
+
+    def test_no_retrofit_candidates_before_the_retrofit_start(self, nc, horizons):
+        """Before the retrofit start year no retrofitted H2 pipelines exist."""
+        if not horizons["base"]:
+            pytest.skip("No planning horizon before the retrofit start year.")
+
+        for year in horizons["base"]:
+            assert self.retrofits(nc.networks[year]).empty, (
+                f"Retrofitted H2 pipelines in {year}, before the retrofit start year."
+            )
+
+    def test_gas_pipelines_are_fixed_before_the_retrofit_start(self, nc, horizons):
+        """Before the retrofit start year every gas pipeline leg is fixed."""
+        if not horizons["base"]:
+            pytest.skip("No planning horizon before the retrofit start year.")
+
+        for year in horizons["base"]:
+            links = nc.networks[year].links
+            gas_pipes = links[
+                links["carrier"].isin(["gas pipeline", "gas pipeline new"])
+            ]
+            extendable = gas_pipes.index[gas_pipes["p_nom_extendable"]]
+            assert extendable.empty, (
+                f"Extendable gas pipelines in {year}: {list(extendable)}"
+            )
+
+    def test_no_new_gas_pipelines_in_the_retrofit_years(self, nc, horizons):
+        """Up to the threshold year no new gas pipeline is built."""
+        if not horizons["retrofit"]:
+            pytest.skip("No planning horizon in the retrofit window.")
+
+        for year in horizons["retrofit"]:
+            links = nc.networks[year].links
+            new = links[links["carrier"] == "gas pipeline new"]
+            assert not new["p_nom_extendable"].any(), (
+                f"Extendable new gas pipelines in {year}"
+            )
+            assert new["p_nom_opt"].to_numpy() == pytest.approx(0.0), (
+                f"New gas pipelines built in {year}"
+            )
+
+    def test_reverse_legs_follow_the_forward_legs_in_the_retrofit_years(
+        self, nc, horizons
+    ):
+        """In the retrofit window both gas pipeline legs are extendable and synced."""
+        if not horizons["retrofit"]:
+            pytest.skip("No planning horizon in the retrofit window.")
+
+        for year in horizons["retrofit"]:
+            n = nc.networks[year]
+            forward = self.austrian_targets(n).index
+            reverse = forward + "-reversed"
+            missing = reverse.difference(n.links.index)
+            assert missing.empty, (
+                f"Corridors without a reverse leg in {year}: {list(missing)}"
+            )
+
+            legs = n.links.loc[forward.append(reverse)]
+            assert legs["p_nom_extendable"].all(), f"Fixed gas pipeline legs in {year}"
+            assert n.links.loc[reverse, "p_nom_opt"].to_numpy() == pytest.approx(
+                n.links.loc[forward, "p_nom_opt"].to_numpy(), rel=1e-4, abs=1.0
+            ), f"Reverse legs not synced to the forward legs in {year}"
+
+    def test_gas_and_retrofitted_capacity_sum_to_the_target(self, nc, horizons, ratio):
+        """Per Austrian corridor, gas capacity plus retrofitted H2 over the ratio is the target."""
+        if not horizons["retrofit"]:
+            pytest.skip("No planning horizon in the retrofit window.")
+
+        for year in horizons["retrofit"]:
+            n = nc.networks[year]
+            target = self.austrian_targets(n)
+            gas = n.links.loc[target.index, "p_nom_opt"]
+            retrofitted = self.retrofit_capacity(n, target.index, "p_nom_opt")
+            total = gas + retrofitted / ratio
+
+            assert total.to_numpy() == pytest.approx(
+                target.to_numpy(), rel=1e-4, abs=1.0
+            ), f"Gas plus retrofitted capacity misses the target in {year}"
+
+    def test_gas_capacity_is_lowered_by_carried_over_retrofits(
+        self, nc, horizons, ratio
+    ):
+        """With carried-over retrofits both gas legs start at the target minus the carry-over."""
+        if not horizons["carried"]:
+            pytest.skip("No planning horizon with carried-over retrofits.")
+
+        for year in horizons["carried"]:
+            n = nc.networks[year]
+            target = self.austrian_targets(n)
+            forward = target.index
+            legs = forward.append(forward + "-reversed")
+            carried = self.retrofit_capacity(n, legs, "p_nom", before=int(year))
+            expected = (
+                pd.Series(target.to_numpy(), index=forward)
+                .reindex(legs)
+                .fillna(pd.Series(target.to_numpy(), index=forward + "-reversed"))
+                - carried / ratio
+            ).clip(lower=0)
+
+            assert n.links.loc[legs, "p_nom"].to_numpy() == pytest.approx(
+                expected.to_numpy(), rel=1e-6, abs=1e-3
+            ), f"Carried-over retrofits not deducted from the gas grid in {year}"
