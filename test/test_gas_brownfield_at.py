@@ -14,6 +14,7 @@ full load hours of the solved networks.
 import logging
 import pathlib
 import textwrap
+import warnings
 from types import SimpleNamespace
 
 import pandas as pd
@@ -40,6 +41,14 @@ OVERRIDES = str(DATA / "gas_powerplant_overrides_AT.csv")
 TARGETS = str(DATA / "gas_calibration_targets_AT.csv")
 
 FEEDIN_YEARS = [2021, 2022, 2023, 2024, 2025, 2026]
+
+MELLACH_WERNDORF_DROP = {
+    "typ": "Strom",
+    "bundesland": "ST",
+    "id": 44405,
+    "plz": "8402",
+    "engpassleistung_kw": 430_000.0,
+}
 
 
 def register_row(plant_id, plz, techcode, mw, feedin_gwh=0.0, bundesland="ST"):
@@ -168,13 +177,32 @@ class TestGasDeduplication:
                 register_row(44405, "8402", "Fossil - Natural gas", 430.0, 2483.2),
             ]
         )
-        out = drop_curated_gas_registrations(df, drops=(("ST", 44405),))
+        out = drop_curated_gas_registrations(df, drops=(MELLACH_WERNDORF_DROP,))
         assert gas_mw(out) == 832.0
 
     def test_stale_curated_drop_raises(self):
         df = pd.DataFrame([register_row(1, "8410", "Erdgas", 832.0, 6411.0)])
         with pytest.raises(ValueError, match="matched 0 rows"):
-            drop_curated_gas_registrations(df, drops=(("ST", 44405),))
+            drop_curated_gas_registrations(df, drops=(MELLACH_WERNDORF_DROP,))
+
+    def test_renumbered_curated_drop_raises(self):
+        """The register id is a scrape row number; a shifted id must not drop a stranger."""
+        df = pd.DataFrame(
+            [register_row(44405, "8010", "Erdgas", 12.0, 30.0)],
+        )
+        with pytest.raises(ValueError, match="now points at"):
+            drop_curated_gas_registrations(df, drops=(MELLACH_WERNDORF_DROP,))
+
+    def test_curated_drop_ignores_the_gas_query_id_space(self):
+        """Strom and Gas queries share the id space."""
+        df = pd.DataFrame(
+            [
+                register_row(44405, "8402", "Fossil - Natural gas", 430.0, 2483.2),
+                {**register_row(44405, "8402", "Erdgas", 430.0), "typ": "Gas"},
+            ]
+        )
+        out = drop_curated_gas_registrations(df, drops=(MELLACH_WERNDORF_DROP,))
+        assert out["typ"].tolist() == ["Gas"]
 
     def test_composition_applies_the_curated_drops_first(self):
         """
@@ -187,7 +215,7 @@ class TestGasDeduplication:
                 register_row(44405, "8402", "Fossil - Natural gas", 430.0, 2483.2),
             ]
         )
-        out = deduplicate_gas_registrations(df, keep=(), drops=(("ST", 44405),))
+        out = deduplicate_gas_registrations(df, keep=(), drops=(MELLACH_WERNDORF_DROP,))
         assert 44405 not in out["id"].tolist(), (
             "the 430 MW Werndorf row outproduced its Wildon counterpart and would "
             "have survived a feed-in comparison"
@@ -209,6 +237,16 @@ class TestGasDeduplication:
             ]
         )
         assert gas_mw(drop_shared_capacity_gas_registrations(df)) == 0.0
+
+    def test_postal_code_spelling_is_tolerated(self):
+        """Free-text postal codes must land in one group before cleaning."""
+        df = pd.DataFrame(
+            [
+                register_row(1, "3494", "Erdgas", 815.0, 1079.5),
+                register_row(2, "3494 Theiss", "Fossil - Natural gas", 815.0, 0.0),
+            ]
+        )
+        assert gas_mw(drop_duplicate_gas_registrations(df, keep=())) == 815.0
 
 
 @pytest.fixture
@@ -276,6 +314,7 @@ class TestGasOverrides:
         assert added["Set"] == "CHP"
         assert added["Country"] == "AT"
         assert added["Fueltype"] == "Natural Gas"
+        assert out["DateOut"].dtype.kind == "f", "an empty date_out must stay NaN"
 
     def test_stale_reference_raises(self, powerplants, overrides_file, tmp_path):
         powerplants.loc[powerplants["Name"] == "Mellach", "Name"] = "Mellach GDK"
@@ -426,12 +465,16 @@ def test_at_gas_full_load_hours_are_plausible(nc):
     Fatal for the calibration base year, a warning for the later horizons:
     those are projections, and a decarbonising fleet is expected to drift out
     of a band measured on today's system.
+
+    Only the brownfield units count, i.e. links built before the base year;
+    capacity the optimiser adds would otherwise dilute the check.
     """
     low, high = GAS_FULL_LOAD_HOUR_BAND
     failures = []
     for year, n in nc.networks.items():
         links = n.links.query(
-            "carrier in ['OCGT', 'CCGT'] and bus1.str.startswith('AT')"
+            "carrier in ['OCGT', 'CCGT'] and bus1.str.startswith('AT') "
+            "and build_year < @GAS_CALIBRATION_BASE_YEAR"
         )
         if links.empty:
             continue
@@ -444,11 +487,16 @@ def test_at_gas_full_load_hours_are_plausible(nc):
         if capacity_mw <= 0:
             continue
         full_load_hours = generation_mwh / capacity_mw
+        if low <= full_load_hours <= high:
+            continue
         if int(year) == GAS_CALIBRATION_BASE_YEAR:
-            failures.append(
-                (year, full_load_hours) if not low <= full_load_hours <= high else None
+            failures.append((year, full_load_hours))
+        else:
+            warnings.warn(
+                f"Austrian gas full load hours of {full_load_hours:,.0f} h in {year} "
+                f"are outside the historical band {low:.0f}-{high:.0f} h.",
+                stacklevel=2,
             )
-    failures = [f for f in failures if f]
     assert not failures, (
         f"Austrian gas full load hours outside {low:.0f}-{high:.0f} h in the "
         f"calibration base year: {failures}"

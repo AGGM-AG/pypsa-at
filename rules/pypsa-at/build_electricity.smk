@@ -55,9 +55,6 @@ use rule build_powerplants as build_powerplants_at with:
         benchmarks("build_powerplants_s_{clusters}-raw")
 
 
-ruleorder: build_powerplants_at > build_powerplants
-
-
 rule create_onshore_regions_nuts3:
     input:
         regions=resources_shared("regions_onshore_base_s_{clusters}.geojson"),

@@ -124,16 +124,36 @@ raises: a register revision must not silently disable an exemption.
 """
 
 GAS_DEDUP_KEEP_TOLERANCE_KW = 1.0
-"""Capacity [kW] tolerance when matching :data:`GAS_DEDUP_KEEP` entries."""
+"""Capacity [kW] tolerance when matching :data:`GAS_DEDUP_KEEP` and
+:data:`GAS_DEDUP_DROP` entries."""
 
 GAS_DEDUP_DROP = (
-    ("ST", 44405),
-    ("ST", 65332),
+    {
+        "typ": "Strom",
+        "bundesland": "ST",
+        "id": 44405,
+        "plz": "8402",
+        "engpassleistung_kw": 430_000.0,
+    },
+    {
+        "typ": "Strom",
+        "bundesland": "ST",
+        "id": 65332,
+        "plz": "8402",
+        "engpassleistung_kw": 246_000.0,
+    },
 )
-"""``(bundesland, id)`` register rows to drop as cross-postal-code duplicates.
+"""Register rows to drop as cross-postal-code duplicates.
 
-The register ``id`` restarts per Bundesland query, so ``id`` alone is not
-unique and both fields are needed as the key.
+Each entry names the row by ``(typ, bundesland, id)`` and pins its ``plz`` and
+``engpassleistung_kw``. The register ``id`` is a scrape row number that
+restarts per ``typ`` and Bundesland query and shifts whenever a registration
+is added or removed, so a re-scrape can move it onto an unrelated plant; the
+pinned fields make :func:`drop_curated_gas_registrations` fail loudly in that
+case instead of dropping the wrong row.
+
+Unlike the rule-based passes this list is not restricted to natural gas rows:
+the second entry is a hard coal registration.
 
 GDK Mellach and the Fernheizkraftwerk Mellach sit on one site that the Mur
 splits between two postal codes -- Verbund's environmental statement calls it
@@ -264,10 +284,11 @@ def drop_duplicate_gas_registrations(
     """
     Collapse gas plants registered more than once under the same capacity.
 
-    Rows are grouped on ``(plz, engpassleistung_kw)``. Where a group holds more
-    than one natural gas row, only the row with the highest total feed-in is
-    kept; see :func:`_dedup_order` for the tie-break. Groups listed in ``keep``
-    are left intact.
+    Rows are grouped on ``(plz, engpassleistung_kw)`` with the postal code
+    passed through :func:`clean_plz`, since the register spells it freely.
+    Where a group holds more than one natural gas row, only the row with the
+    highest total feed-in is kept; see :func:`_dedup_order` for the tie-break.
+    Groups listed in ``keep`` are left intact.
 
     Parameters
     ----------
@@ -293,7 +314,9 @@ def drop_duplicate_gas_registrations(
     """
     tech = normalise_techcode(df["techcode"])
     is_gas = (df["typ"] == "Strom") & tech.isin(GAS_TECHCODES)
-    candidates = df[is_gas & (df["engpassleistung_kw"] >= min_kw)]
+    candidates = df[is_gas & (df["engpassleistung_kw"] >= min_kw)].assign(
+        plz=lambda d: clean_plz(d["plz"])
+    )
 
     groups = candidates.groupby(["plz", "engpassleistung_kw"], dropna=False)
     duplicated = {key: idx for key, idx in groups.groups.items() if len(idx) > 1}
@@ -340,8 +363,9 @@ def drop_shared_capacity_gas_registrations(
 
     A multi-fuel plant is registered once per fuel, each time at the *plant*
     capacity, so summing the register over fuels multiplies one plant's
-    capacity. Where a ``(plz, engpassleistung_kw)`` group mixes natural gas
-    with other combustion fuels, the fuel with the highest realised feed-in
+    capacity. Where a ``(plz, engpassleistung_kw)`` group (postal code via
+    :func:`clean_plz`) mixes natural gas with other combustion fuels, the fuel
+    with the highest realised feed-in
     over the published window is taken as the primary one; if that is not gas,
     the gas rows are dropped.
 
@@ -367,7 +391,9 @@ def drop_shared_capacity_gas_registrations(
     -------
     ``df`` without the gas rows that another fuel outproduced.
     """
-    strom = df[(df["typ"] == "Strom") & (df["engpassleistung_kw"] >= min_kw)]
+    strom = df[(df["typ"] == "Strom") & (df["engpassleistung_kw"] >= min_kw)].assign(
+        plz=lambda d: clean_plz(d["plz"])
+    )
     tech = normalise_techcode(strom["techcode"])
     is_gas = tech.isin(GAS_TECHCODES)
     is_non_thermal = tech.isin(NON_THERMAL_TECHCODES)
@@ -399,22 +425,27 @@ def drop_shared_capacity_gas_registrations(
 
 def drop_curated_gas_registrations(
     df: pd.DataFrame,
-    drops: tuple[tuple[str, int], ...] = GAS_DEDUP_DROP,
+    drops: tuple[dict, ...] = GAS_DEDUP_DROP,
+    tolerance_kw: float = GAS_DEDUP_KEEP_TOLERANCE_KW,
 ) -> pd.DataFrame:
     """
     Drop the registrations that no rule on ``(plz, capacity)`` can reach.
 
     These are plants registered under two postal codes, so they share neither
     a postal code nor, necessarily, a capacity. Each entry is identified by the
-    register key ``(bundesland, id)``; see :data:`GAS_DEDUP_DROP` for the
-    evidence behind each one.
+    register key ``(typ, bundesland, id)`` and verified against its pinned
+    ``plz`` and ``engpassleistung_kw``; see :data:`GAS_DEDUP_DROP` for the
+    evidence behind each one. This pass is not restricted to natural gas rows.
 
     Parameters
     ----------
     df
-        Plant table with ``bundesland`` and ``id`` columns.
+        Plant table with ``typ``, ``bundesland``, ``id``, ``plz`` and
+        ``engpassleistung_kw`` columns.
     drops
-        ``(bundesland, id)`` keys to remove.
+        Entries as in :data:`GAS_DEDUP_DROP`.
+    tolerance_kw
+        Capacity tolerance when verifying ``engpassleistung_kw``.
 
     Returns
     -------
@@ -423,20 +454,39 @@ def drop_curated_gas_registrations(
     Raises
     ------
     ValueError
-        If an entry matches no row or more than one row.
+        If an entry matches no row or more than one row, or if the matched row
+        does not carry the pinned postal code and capacity.
     """
-    key = df["bundesland"].astype(str) + "-" + df["id"].astype(str)
+    plz = clean_plz(df["plz"])
     to_drop = []
-    for bundesland, plant_id in drops:
-        matched = df.index[key == f"{bundesland}-{plant_id}"]
+    for entry in drops:
+        label = f"{entry['bundesland']}-{entry['id']}"
+        matched = df.index[
+            (df["typ"] == entry["typ"])
+            & (df["bundesland"].astype(str) == entry["bundesland"])
+            & (df["id"] == entry["id"])
+        ]
         if len(matched) != 1:
             raise ValueError(
-                f"GAS_DEDUP_DROP entry {bundesland}-{plant_id} matched "
-                f"{len(matched)} rows, expected exactly 1. The Anlagenregister "
-                "renumbered or removed it; re-identify the duplicate before "
+                f"GAS_DEDUP_DROP entry {label} matched {len(matched)} rows, "
+                "expected exactly 1. The Anlagenregister renumbered or removed "
+                "it; re-identify the duplicate before updating GAS_DEDUP_DROP."
+            )
+        idx = matched[0]
+        kw = df.at[idx, "engpassleistung_kw"]
+        if (
+            plz[idx] != entry["plz"]
+            or abs(kw - entry["engpassleistung_kw"]) > tolerance_kw
+        ):
+            raise ValueError(
+                f"GAS_DEDUP_DROP entry {label} now points at a {kw / 1e3:.3f} MW "
+                f"row at PLZ {plz[idx]!r}, expected "
+                f"{entry['engpassleistung_kw'] / 1e3:.3f} MW at PLZ "
+                f"{entry['plz']!r}. The register id is a scrape row number that "
+                "a re-scrape renumbers; re-identify the duplicate before "
                 "updating GAS_DEDUP_DROP."
             )
-        to_drop.extend(matched)
+        to_drop.append(idx)
 
     if to_drop:
         dropped = df.loc[to_drop]
@@ -451,7 +501,7 @@ def drop_curated_gas_registrations(
 def deduplicate_gas_registrations(
     df: pd.DataFrame,
     keep: tuple[tuple[str, float], ...] = GAS_DEDUP_KEEP,
-    drops: tuple[tuple[str, int], ...] = GAS_DEDUP_DROP,
+    drops: tuple[dict, ...] = GAS_DEDUP_DROP,
 ) -> pd.DataFrame:
     """
     Remove the natural gas double counting from the plant-level register.
@@ -462,8 +512,11 @@ def deduplicate_gas_registrations(
     first so that a cross-postal-code duplicate cannot win a feed-in
     comparison against the row that supersedes it.
 
-    Only natural gas rows are removed; see pypsa-at-planning#323 for the
-    remaining fuels.
+    The two rule-based passes only ever remove natural gas rows, so every
+    other fuel's register total is untouched; see pypsa-at-planning#323 for
+    the remaining fuels. The curated pass is fuel-agnostic and currently also
+    drops the second registration of the coal-fired Fernheizkraftwerk Mellach.
+    The before/after log line reports the natural gas total only.
 
     Parameters
     ----------

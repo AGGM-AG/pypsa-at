@@ -440,7 +440,9 @@ def apply_gas_overrides_at(
                 "Set": row["set"],
                 "Capacity": float(row["capacity_mw_net"]),
                 "DateIn": float(row["date_in"]),
-                "DateOut": row["date_out"] if pd.notna(row["date_out"]) else pd.NA,
+                "DateOut": float(row["date_out"])
+                if pd.notna(row["date_out"])
+                else float("nan"),
                 "bus": bus,
                 "autoproducer": row.get("autoproducer", False),
             }
@@ -473,11 +475,12 @@ def build_gas_deviations_at(
     ppl_raw: pd.DataFrame,
     anlagenregister_file: str,
     postal_to_nuts_file: str,
+    clustering: str = "AT35DE5",
 ) -> pd.DataFrame:
     """
     Compare the corrected fleet with powerplantmatching and the register.
 
-    Builds the three-way deviation table per NUTS3 region: the raw
+    Builds the three-way deviation table per model region: the raw
     powerplantmatching capacity, the corrected model capacity and the
     deduplicated E-Control Anlagenregister capacity. Regions whose model and
     register capacities differ by more than the looser of
@@ -501,22 +504,32 @@ def build_gas_deviations_at(
         Plant-level Anlagenregister CSV.
     postal_to_nuts_file
         PLZ to NUTS3 mapping.
+    clustering
+        Clustering identifier, either ``AT10`` (NUTS2) or ``AT35`` (NUTS3). At
+        NUTS2 the register's NUTS3 regions are mapped up so that they share
+        the model's bus keys, as in :func:`apply_gas_overrides_at`.
 
     Returns
     -------
-    One row per NUTS3 region with Austrian gas capacity in any of the sources.
+    One row per region with Austrian gas capacity in any of the sources.
     """
     register = pd.read_csv(anlagenregister_file, dtype={"plz": str}, low_memory=False)
     register = deduplicate_gas_registrations(register)
     register = map_plants_to_nuts3(register, load_postal_to_nuts(postal_to_nuts_file))
+    if clustering.startswith("AT10"):
+        register["nuts3"] = register["nuts3"].map(map_at_nuts3_to_nuts2)
     techcode = normalise_techcode(register["techcode"])
     register = register[(register["typ"] == "Strom") & techcode.isin(GAS_TECHCODES)]
-    feedin = feedin_columns(register)
+    # The latest register year is only partially populated at publication, so
+    # the feed-in column is the calibration base year where the register has it.
+    feedin = f"feedin_kwh_{GAS_CALIBRATION_BASE_YEAR}"
+    if feedin not in register.columns:
+        feedin = feedin_columns(register)[-1]
 
     per_region = register.groupby("nuts3").agg(
         capacity_mw_register=("engpassleistung_kw", lambda s: s.sum() / 1e3),
         plants_register=("engpassleistung_kw", "size"),
-        feedin_gwh_register=(feedin[-1], lambda s: s.fillna(0).sum() / 1e6),
+        feedin_gwh_register=(feedin, lambda s: s.fillna(0).sum() / 1e6),
     )
 
     def _fleet(df: pd.DataFrame, column: str) -> pd.DataFrame:
@@ -534,7 +547,7 @@ def build_gas_deviations_at(
         .join(per_region, how="outer")
         .fillna(0.0)
     )
-    out.index.name = "nuts3"
+    out.index.name = "region"
     out["delta_model_minus_register_mw"] = (
         out["capacity_mw_model"] - out["capacity_mw_register"]
     )
@@ -550,7 +563,7 @@ def build_gas_deviations_at(
     ]
     if not flagged.empty:
         logger.warning(
-            f"{len(flagged)} NUTS3 region(s) deviate from the deduplicated "
+            f"{len(flagged)} region(s) deviate from the deduplicated "
             f"Anlagenregister by more than {GAS_PLANT_TOLERANCE:.0%} and "
             f"{GAS_PLANT_TOLERANCE_MW:.0f} MW:\n"
             + flagged[
@@ -595,9 +608,10 @@ def check_gas_calibration_at(
     Only units operating in ``base_year`` are summed: a unit whose ``DateOut``
     precedes it, or whose ``DateIn`` follows it, is not in the statistic either.
 
-    Capacities are summed gross, because the Bestandsstatistik publishes
+    The ``Capacity`` column is summed, which the override file fills from
+    ``capacity_mw_net``, while the Bestandsstatistik publishes
     Brutto-Engpassleistung. Where a source gives only one figure the override
-    file records it as both net and gross, which biases the modelled total
+    file records it as both net and gross, so the modelled total is biased
     slightly low; see ``docs-at/explanations/brownfield/gas-power-plants-AT.md``.
 
     Parameters
@@ -674,7 +688,7 @@ def check_gas_calibration_at(
 
 
 GAS_DEVIATION_COLUMNS = [
-    "nuts3",
+    "region",
     "capacity_mw_ppm",
     "plants_ppm",
     "capacity_mw_model",
@@ -720,6 +734,7 @@ def gas_powerplants_AT(ppl: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         ppl,
         anlagenregister_file=snakemake.input.anlagenregister,
         postal_to_nuts_file=snakemake.input.postal_to_nuts,
+        clustering=snakemake.params.clustering,
     )
     return corrected, deviations
 

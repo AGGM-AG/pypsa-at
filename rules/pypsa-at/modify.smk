@@ -361,23 +361,5 @@ rule overwrite_powerplants_at:
         scripts("pypsa-at/overwrite_powerplants.py")
 
 
+# Both rules produce powerplants_s_{clusters}.csv; the corrected table wins.
 ruleorder: overwrite_powerplants_at > build_powerplants
-
-
-ruleorder: overwrite_powerplants_at > build_powerplants_at
-
-
-if config["foresight"] == "myopic":
-
-    # redirect powerplants input file to the patched file
-    use rule add_existing_baseyear as add_existing_baseyear_at with:
-        input:
-            **{
-                **rules.add_existing_baseyear.input,
-                "powerplants": resources("powerplants_s_{clusters}.csv"),
-            },
-
-    ruleorder: add_existing_baseyear_at > add_existing_baseyear
-    # The new rule also needs to override `add_brownfield` instead of
-    # `add_existing_baseyear` for myopic years
-    ruleorder: add_existing_baseyear_at > add_brownfield
