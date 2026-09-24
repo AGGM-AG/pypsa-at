@@ -1784,3 +1784,168 @@ class TestGasPipelineDirectionsAfterExpansionThreshold:
         lower_bound = expansion_network.links.loc[forward, "p_nom_min"]
 
         assert lower_bound.to_numpy() == pytest.approx(0.0)
+
+
+class TestH2RetrofitAgainstTheFixedGasGrid:
+    """Endogenous H2 retrofitting against the fixed AGGM gas grid in the solved networks."""
+
+    @pytest.fixture(scope="class")
+    def ratio(self, nc) -> float:
+        """H2 capacity per retrofitted CH4 capacity."""
+        sector = require_config(nc, "sector", H2_retrofit=False)
+        return float(sector["H2_retrofit_capacity_per_CH4"])
+
+    @pytest.fixture(scope="class")
+    def horizons(self, nc) -> dict[str, list[str]]:
+        """Solved horizons before the retrofit start, in the retrofit window and with carry-over."""
+        mods = require_config(nc, "mods", modify_brownfield_gas_network_AT=False)
+        threshold = int(mods["threshold_year_for_gas_grid_expansion"])
+        starts = {year: retrofit_start_year(n.meta) for year, n in nc.networks.items()}
+        assert len(set(starts.values())) == 1, (
+            f"Retrofit start year differs across networks: {starts}"
+        )
+        start = next(iter(starts.values()))
+
+        years = sorted(nc.networks.keys(), key=int)
+        carried = [
+            year
+            for year in years
+            if not self.retrofits(nc.networks[year], before=int(year)).empty
+        ]
+        return {
+            "base": [y for y in years if int(y) < start],
+            "retrofit": [y for y in years if start <= int(y) <= threshold],
+            "carried": carried,
+        }
+
+    @staticmethod
+    def retrofits(n: pypsa.Network, before: int | None = None) -> pd.DataFrame:
+        """Retrofitted H2 pipeline links, optionally only those built before a year."""
+        links = n.links[n.links["carrier"] == "H2 pipeline retrofitted"]
+        if before is not None:
+            links = links[links["build_year"] < before]
+        return links
+
+    @staticmethod
+    def austrian_targets(n: pypsa.Network) -> pd.Series:
+        """AGGM target capacity per built Austrian gas pipeline corridor."""
+        merged = pd.DataFrame.from_dict(n.meta["resources"]["aggm_gas_pipeline_data"])
+        austrian = merged["bus0"].str.startswith("AT") | merged["bus1"].str.startswith(
+            "AT"
+        )
+        target = merged.loc[austrian, "p_nom"]
+        return target[target.index.isin(n.links.index)]
+
+    @staticmethod
+    def retrofit_capacity(
+        n: pypsa.Network, corridors: pd.Index, attribute: str, before: int | None = None
+    ) -> pd.Series:
+        """Sum of a retrofit attribute per gas pipeline leg, for the given corridor legs."""
+        links = TestH2RetrofitAgainstTheFixedGasGrid.retrofits(n, before)
+        legs = links.index.str.replace(r"-\d{4}$", "", regex=True).str.replace(
+            "H2 pipeline retrofitted", "gas pipeline", regex=False
+        )
+        per_leg = links[attribute].groupby(legs.to_numpy()).sum()
+        return per_leg.reindex(corridors).fillna(0.0)
+
+    def test_no_retrofit_candidates_before_the_retrofit_start(self, nc, horizons):
+        """Before the retrofit start year no retrofitted H2 pipelines exist."""
+        if not horizons["base"]:
+            pytest.skip("No planning horizon before the retrofit start year.")
+
+        for year in horizons["base"]:
+            assert self.retrofits(nc.networks[year]).empty, (
+                f"Retrofitted H2 pipelines in {year}, before the retrofit start year."
+            )
+
+    def test_gas_pipelines_are_fixed_before_the_retrofit_start(self, nc, horizons):
+        """Before the retrofit start year every gas pipeline leg is fixed."""
+        if not horizons["base"]:
+            pytest.skip("No planning horizon before the retrofit start year.")
+
+        for year in horizons["base"]:
+            links = nc.networks[year].links
+            gas_pipes = links[
+                links["carrier"].isin(["gas pipeline", "gas pipeline new"])
+            ]
+            extendable = gas_pipes.index[gas_pipes["p_nom_extendable"]]
+            assert extendable.empty, (
+                f"Extendable gas pipelines in {year}: {list(extendable)}"
+            )
+
+    def test_no_new_gas_pipelines_in_the_retrofit_years(self, nc, horizons):
+        """Up to the threshold year no new gas pipeline is built."""
+        if not horizons["retrofit"]:
+            pytest.skip("No planning horizon in the retrofit window.")
+
+        for year in horizons["retrofit"]:
+            links = nc.networks[year].links
+            new = links[links["carrier"] == "gas pipeline new"]
+            assert not new["p_nom_extendable"].any(), (
+                f"Extendable new gas pipelines in {year}"
+            )
+            assert new["p_nom_opt"].to_numpy() == pytest.approx(0.0), (
+                f"New gas pipelines built in {year}"
+            )
+
+    def test_reverse_legs_follow_the_forward_legs_in_the_retrofit_years(
+        self, nc, horizons
+    ):
+        """In the retrofit window both gas pipeline legs are extendable and synced."""
+        if not horizons["retrofit"]:
+            pytest.skip("No planning horizon in the retrofit window.")
+
+        for year in horizons["retrofit"]:
+            n = nc.networks[year]
+            forward = self.austrian_targets(n).index
+            reverse = forward + "-reversed"
+            missing = reverse.difference(n.links.index)
+            assert missing.empty, (
+                f"Corridors without a reverse leg in {year}: {list(missing)}"
+            )
+
+            legs = n.links.loc[forward.append(reverse)]
+            assert legs["p_nom_extendable"].all(), f"Fixed gas pipeline legs in {year}"
+            assert n.links.loc[reverse, "p_nom_opt"].to_numpy() == pytest.approx(
+                n.links.loc[forward, "p_nom_opt"].to_numpy(), rel=1e-4, abs=1.0
+            ), f"Reverse legs not synced to the forward legs in {year}"
+
+    def test_gas_and_retrofitted_capacity_sum_to_the_target(self, nc, horizons, ratio):
+        """Per Austrian corridor, gas capacity plus retrofitted H2 over the ratio is the target."""
+        if not horizons["retrofit"]:
+            pytest.skip("No planning horizon in the retrofit window.")
+
+        for year in horizons["retrofit"]:
+            n = nc.networks[year]
+            target = self.austrian_targets(n)
+            gas = n.links.loc[target.index, "p_nom_opt"]
+            retrofitted = self.retrofit_capacity(n, target.index, "p_nom_opt")
+            total = gas + retrofitted / ratio
+
+            assert total.to_numpy() == pytest.approx(
+                target.to_numpy(), rel=1e-4, abs=1.0
+            ), f"Gas plus retrofitted capacity misses the target in {year}"
+
+    def test_gas_capacity_is_lowered_by_carried_over_retrofits(
+        self, nc, horizons, ratio
+    ):
+        """With carried-over retrofits both gas legs start at the target minus the carry-over."""
+        if not horizons["carried"]:
+            pytest.skip("No planning horizon with carried-over retrofits.")
+
+        for year in horizons["carried"]:
+            n = nc.networks[year]
+            target = self.austrian_targets(n)
+            forward = target.index
+            legs = forward.append(forward + "-reversed")
+            carried = self.retrofit_capacity(n, legs, "p_nom", before=int(year))
+            expected = (
+                pd.Series(target.to_numpy(), index=forward)
+                .reindex(legs)
+                .fillna(pd.Series(target.to_numpy(), index=forward + "-reversed"))
+                - carried / ratio
+            ).clip(lower=0)
+
+            assert n.links.loc[legs, "p_nom"].to_numpy() == pytest.approx(
+                expected.to_numpy(), rel=1e-6, abs=1e-3
+            ), f"Carried-over retrofits not deducted from the gas grid in {year}"
