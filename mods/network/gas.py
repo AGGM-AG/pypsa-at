@@ -6,6 +6,7 @@
 
 from logging import getLogger
 
+import numpy as np
 import pandas as pd
 import pypsa
 from snakemake.script import Snakemake
@@ -179,9 +180,43 @@ def block_russian_gas_imports(n: pypsa.Network, snakemake: Snakemake) -> None:
     logger.info("Completed blockade of Russian gas imports.")
 
 
+def retrofit_start_year(config: dict) -> float:
+    """
+    First planning horizon in which gas pipelines may be retrofitted to H2.
+
+    Reuses the upstream ``first_technology_occurrence`` entry for the
+    ``H2 pipeline retrofitted`` carrier, which PyPSA-DE drops before that
+    year. Without the entry retrofitting is allowed from the first horizon
+    on; with ``sector.H2_retrofit`` disabled it is never allowed.
+
+    Parameters
+    ----------
+    config
+        The workflow configuration.
+
+    Returns
+    -------
+    :
+        The retrofit start year, ``inf`` when retrofitting is disabled.
+    """
+    if not config["sector"].get("H2_retrofit", False):
+        return float("inf")
+    first_occurrence = config.get("first_technology_occurrence") or {}
+    return float(first_occurrence.get("Link", {}).get("H2 pipeline retrofitted", 0))
+
+
 def make_gas_pipelines_unextendable(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
-    Disallow expansion of methane pipelines - both new and existing
+    Fix the methane grid at its target capacity up to the threshold year.
+
+    Up to and including ``mods.threshold_year_for_gas_grid_expansion`` no
+    new methane pipelines (``gas pipeline new``) can be built. Existing
+    pipelines (``gas pipeline``) are fixed only before the retrofit start
+    year (see :func:`retrofit_start_year`). From the retrofit start year on
+    they stay extendable within their target capacity (``p_nom_min = 0``,
+    ``p_nom_max = p_nom``), so the upstream retrofit constraint
+    ``gas + H2 / H2_retrofit_capacity_per_CH4 = p_nom`` binds and retrofitted
+    H2 capacity gives way to gas capacity on the same corridor.
 
     Parameters
     ----------
@@ -204,13 +239,38 @@ def make_gas_pipelines_unextendable(n: pypsa.Network, snakemake: Snakemake) -> N
         )
         return
 
-    # disable extendability of gas pipelines until including year in config
     pyear = int(snakemake.wildcards.planning_horizons)
     threshold_year = int(mods["threshold_year_for_gas_grid_expansion"])
+    if pyear > threshold_year:
+        logger.info(
+            f"Skip fixing gas pipeline capacities in {pyear}, after the "
+            f"threshold year {threshold_year}."
+        )
+        return
 
-    to_fix = ["gas pipeline", "gas pipeline new"]
-    if pyear <= threshold_year:
-        n.links.loc[n.links.carrier.isin(to_fix), "p_nom_extendable"] = False
+    is_new = n.links["carrier"] == "gas pipeline new"
+    n.links.loc[is_new, "p_nom_extendable"] = False
+
+    is_existing = n.links["carrier"] == "gas pipeline"
+    retrofit_start = retrofit_start_year(snakemake.config)
+    if pyear < retrofit_start:
+        n.links.loc[is_existing, "p_nom_extendable"] = False
+        logger.info(
+            f"Fixed {is_existing.sum()} gas pipeline(s) and {is_new.sum()} candidate(s) "
+            f"for new gas pipelines in {pyear}, before the retrofit start year."
+        )
+        return
+
+    # keep the pipelines extendable within their target capacity, so that the
+    # upstream retrofit constraint couples gas and retrofitted H2 capacity
+    n.links.loc[is_existing, "p_nom_extendable"] = True
+    n.links.loc[is_existing, "p_nom_min"] = 0.0
+    n.links.loc[is_existing, "p_nom_max"] = n.links.loc[is_existing, "p_nom"]
+    logger.info(
+        f"Fixed {is_new.sum()} candidate(s) for new gas pipelines in {pyear}. "
+        f"{is_existing.sum()} gas pipeline(s) may be retrofitted to H2 within "
+        "their target capacity."
+    )
 
 
 def restore_asymmetric_pipeline_capacities(
@@ -220,8 +280,11 @@ def restore_asymmetric_pipeline_capacities(
     Resize the reverse legs of Austrian one-way and asymmetric gas pipelines.
 
     ``lossy_bidirectional_links`` copies ``p_nom`` onto every reverse leg. Up to
-    ``mods.threshold_year_for_gas_grid_expansion`` this resets those legs to the
-    reverse capacity (zero for one-way pipes) and fixes them.
+    ``mods.threshold_year_for_gas_grid_expansion`` and before the retrofit start
+    year (see :func:`retrofit_start_year`) this resets those legs to the reverse
+    capacity (zero for one-way pipes) and fixes them. From the retrofit start
+    year on the reverse leg follows the forward leg: adapting the compressor
+    stations is assumed to be free next to the retrofit itself.
 
     Parameters
     ----------
@@ -250,6 +313,15 @@ def restore_asymmetric_pipeline_capacities(
             f"Skip restoring asymmetric gas pipeline capacities in {pyear}, after the "
             f"threshold year {threshold_year}. One-way and asymmetric corridors regain "
             "their full reverse capacity at no cost (known limitation)."
+        )
+        return
+
+    retrofit_start = retrofit_start_year(snakemake.config)
+    if pyear >= retrofit_start:
+        logger.info(
+            f"Skip restoring asymmetric gas pipeline capacities in {pyear}, from the "
+            f"retrofit start year {retrofit_start:.0f} on. Reverse legs follow the "
+            "forward leg, so retrofitting shrinks both flow directions alike."
         )
         return
 
@@ -307,6 +379,95 @@ def restore_asymmetric_pipeline_capacities(
         f"Restored the reverse capacity of {len(reverse_legs)} Austrian gas pipeline(s), "
         f"totalling {reverse_capacity.sum() / 1e3:.1f} GW, of which {one_way.sum()} "
         f"one-way corridor(s) were closed in the reverse direction."
+    )
+
+
+def deduct_retrofitted_gas_capacity(n: pypsa.Network, snakemake: Snakemake) -> None:
+    """
+    Lower the gas pipeline capacity by the H2 capacity retrofitted earlier.
+
+    Upstream ``add_brownfield`` means to subtract carried-over
+    ``H2 pipeline retrofitted`` capacity from the ``gas pipeline`` legs, but
+    its name mapping keeps the build-year suffix of the retrofit while gas
+    pipelines never carry one, so nothing is deducted. This function maps
+    every carried-over retrofit (build year before the planning horizon, both
+    legs) to its gas pipeline leg and lowers ``p_nom`` and ``p_nom_max`` to
+    ``target - carried / H2_retrofit_capacity_per_CH4``, where the target is
+    the forward capacity in the clustered gas network for both legs.
+
+    The new values are the minimum of the current and the deducted capacity,
+    clipped at zero. This keeps the function idempotent and guards against a
+    double deduction should upstream fix its mapping. On corridors where
+    upstream lowers the gas capacity for other reasons (Wasserstoff-Kernnetz)
+    only the larger reduction survives.
+
+    Parameters
+    ----------
+    n
+        Pre-network, modified in place.
+    snakemake
+        Provides the config, the planning horizon and the clustered gas network.
+
+    Raises
+    ------
+    ValueError
+        If a carried-over retrofit maps to no gas pipeline leg, or a gas
+        pipeline leg has no target capacity in the clustered gas network.
+    """
+    sector = snakemake.config["sector"]
+    if not sector.get("H2_retrofit", False):
+        logger.info(
+            "Skip deducting retrofitted gas capacity because H2 retrofitting is disabled."
+        )
+        return
+
+    pyear = int(snakemake.wildcards.planning_horizons)
+    retrofits = n.links[n.links["carrier"] == "H2 pipeline retrofitted"]
+    carried = retrofits[retrofits["build_year"] < pyear]
+    if carried.empty:
+        logger.info(f"No retrofitted H2 pipelines carried over into {pyear}.")
+        return
+
+    # 'H2 pipeline retrofitted A <-> B-reversed-2030' -> 'gas pipeline A <-> B-reversed'
+    gas_legs = carried.index.str.replace(r"-\d{4}$", "", regex=True).str.replace(
+        "H2 pipeline retrofitted", "gas pipeline", regex=False
+    )
+    carried_h2 = carried["p_nom"].groupby(gas_legs.to_numpy()).sum()
+
+    gas_pipes = n.links[n.links["carrier"] == "gas pipeline"]
+    missing = carried_h2.index.difference(gas_pipes.index)
+    if not missing.empty:
+        raise ValueError(
+            "Carried-over retrofitted H2 pipelines without a gas pipeline leg: "
+            f"{list(missing)}."
+        )
+
+    legs = carried_h2.index
+    corridors = legs.str.replace("-reversed", "", regex=False)
+    gas_network = pd.read_csv(snakemake.input.clustered_gas_network, index_col=0)
+    target = gas_network["p_nom"].reindex(corridors)
+    if target.isna().any():
+        raise ValueError(
+            "Gas pipelines without a target capacity in the clustered gas network: "
+            f"{list(corridors[target.isna()])}."
+        )
+
+    ch4_per_h2 = 1 / sector["H2_retrofit_capacity_per_CH4"]
+    remaining = pd.Series(
+        (target.to_numpy() - ch4_per_h2 * carried_h2.to_numpy()).clip(min=0),
+        index=legs,
+    )
+    deducted = 0.0
+    for attribute in ("p_nom", "p_nom_max"):
+        current = n.links.loc[legs, attribute]
+        updated = np.minimum(current, remaining)
+        if attribute == "p_nom":
+            deducted = (current - updated).sum()
+        n.links.loc[legs, attribute] = updated
+
+    logger.info(
+        f"Deducted {deducted / 1e3:.1f} GW of gas pipeline capacity on {len(legs)} "
+        f"leg(s) for {len(carried)} retrofitted H2 pipeline(s) carried over into {pyear}."
     )
 
 
