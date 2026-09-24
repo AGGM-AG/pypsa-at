@@ -758,7 +758,7 @@ def apply_grenzkraftwerke_shares_at(
 def _buses_for_clustering(buses: pd.Series, clustering: str | None) -> pd.Series:
     """Map curated NUTS3 bus codes to NUTS2 when the run clusters Austria at AT10."""
     if clustering and clustering.startswith("AT10"):
-        return buses.map(map_at_nuts3_to_nuts2)
+        return buses.map(map_at_nuts3_to_nuts2, na_action="ignore")
     return buses
 
 

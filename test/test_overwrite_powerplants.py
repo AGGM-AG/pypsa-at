@@ -437,6 +437,47 @@ def test_reclassification_relocation_follows_at10_clustering(tmp_path):
     assert out["bus"].tolist() == ["AT12"]
 
 
+def test_reclassification_without_relocation_at10_clustering(tmp_path):
+    """Rows with an empty ``bus_new`` must survive the AT10 bus relabelling."""
+    from overwrite_powerplants import reclassify_hydro_technologies_at
+
+    ppl = pd.DataFrame(
+        {
+            "Name": ["Altenworth", "St Pantaleon"],
+            "Country": ["AT", "AT"],
+            "Fueltype": ["Hydro", "Hydro"],
+            "Technology": ["Reservoir", "Run-Of-River"],
+            "Capacity": [328.0, 52.0],
+            "bus": ["AT12", "AT31"],
+            "lat": [48.38, 48.0076],
+            "lon": [15.86, 12.8942],
+        }
+    )
+    path = tmp_path / "reclassification.csv"
+    pd.DataFrame(
+        {
+            "Name": ["Altenworth", "St Pantaleon"],
+            "bus": ["AT126", "AT311"],
+            "capacity_mw": [328.0, 52.0],
+            "technology_old": ["Reservoir", "Run-Of-River"],
+            "technology_new": ["Run-Of-River", "Run-Of-River"],
+            "group": ["Danube", "Enns"],
+            "note": ["", "geocoded to the wrong village"],
+            "capacity_new": [None, None],
+            "bus_new": [None, "AT121"],
+            "lat_new": [None, 48.2249],
+            "lon_new": [None, 14.5308],
+        }
+    ).to_csv(path, index=False)
+
+    out = reclassify_hydro_technologies_at(ppl, str(path), clustering="AT10DE5")
+
+    assert out.set_index("Name")["bus"].to_dict() == {
+        "Altenworth": "AT12",
+        "St Pantaleon": "AT12",
+    }
+
+
 def test_reclassification_matches_plant_without_technology(tmp_path):
     from overwrite_powerplants import reclassify_hydro_technologies_at
 
