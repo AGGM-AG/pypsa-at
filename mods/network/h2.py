@@ -61,6 +61,7 @@ def add_h2_for_industry_bus(n: pypsa.Network, nodes: pd.Index) -> None:
         carrier="H2 for industry",
         p_nom_extendable=True,
         efficiency=1.0,
+        reversed=False,
     )
     logger.info(f"Set up H2 for industry Bus + Link topology for {len(nodes)} nodes.")
 
@@ -182,6 +183,7 @@ def add_methane_pyrolysis_plasma(
         capital_cost=cost_capital,
         marginal_cost=cost_marginal,
         lifetime=lifetime,
+        reversed=False,
     )
 
     logger.info(f"Added {len(nodes)} methane pyrolysis plasma Links.")

@@ -149,7 +149,7 @@ def process_inflow_per_region(
         "PS Closed - Year Dependent": "PHS",
     }
 
-    inflow_df = inflow_df.groupby(technology_mapping, axis=1).sum()
+    inflow_df = inflow_df.T.groupby(technology_mapping).sum().T
     return inflow_df, market_info_df
 
 

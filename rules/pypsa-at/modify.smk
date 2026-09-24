@@ -179,23 +179,6 @@ use rule base_network as base_network_at with:
 ruleorder: base_network_at > base_network
 
 
-rule modify_nuts3_shapes:
-    input:
-        nuts3_shapes=resources("nuts3_shapes-raw.geojson"),
-    output:
-        nuts3_shapes=resources("nuts3_shapes.geojson"),
-    log:
-        logs("modify_nuts3_shapes.log"),
-    threads: 1
-    resources:
-        mem_mb=1500,
-    params:
-        clustering=config_provider("clustering", "mode"),
-        admin_levels=config_provider("clustering", "administrative"),
-    script:
-        scripts("pypsa-at/modify_nuts3_shapes.py")
-
-
 # modify_prenetwork: keep the upstream pypsa-de rule pristine and shadow it here
 # to inject the AT-specific inputs (KLIEN potentials, TYNDP trajectories, Ukrainian
 # gas transit) and params. The `**rules.modify_prenetwork.input/params` splats pull
@@ -217,6 +200,7 @@ use rule modify_prenetwork as modify_prenetwork_at with:
         nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
         nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
         onwind_brownfield=resources("onwind_brownfield_{clusters}_at.csv"),
+        biogas_plants_at=resources("biogas_plants_at_{clusters}.csv"),
         gas_input_nodes_simplified=resources(
             "gas_input_locations_s_{clusters}_simplified.csv"
         ),
@@ -233,6 +217,7 @@ use rule modify_prenetwork as modify_prenetwork_at with:
             [],
         ),
         code_files=[
+            "mods/network/biogas.py",
             "mods/network/common.py",
             "mods/network/gas.py",
             "mods/network/onwind.py",
@@ -266,6 +251,10 @@ use rule modify_prenetwork as modify_prenetwork_at with:
         admin_levels=config_provider("clustering", "administrative"),
         custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
         apply_at_heat_demand=config_provider("demand", "heat", "apply_at_demand"),
+        existing_capacities=config_provider("existing_capacities"),
+        add_biogas_to_power_plants_AT=config_provider(
+            "mods", "existing_capacities", "add_biogas_to_power_plants_AT"
+        ),
 
 
 ruleorder: modify_prenetwork_at > modify_prenetwork  # AT wins for the final .nc
@@ -300,21 +289,34 @@ rule modify_brownfield_gas_network_AT:
 # file, then let a dedicated modify_* rule (defined above) transform raw -> final.
 
 
-# build_shapes: redirect nuts3_shapes to a "-raw" file so modify_nuts3_shapes
-# can post-process it into the final nuts3_shapes.geojson. The dict-literal merge
-# overrides just that one output path; the other shape outputs are inherited.
-use rule build_shapes as build_shapes_at with:
+# build_nuts3_shapes: redirect nuts3_shapes to a "-raw" file so modify_nuts3_shapes
+# can post-process it into the final nuts3_shapes.geojson.
+use rule build_nuts3_shapes as build_nuts3_shapes_at with:
     output:
-        **{
-            **rules.build_shapes.output,
-            "nuts3_shapes": resources("nuts3_shapes-raw.geojson"),
-        },
+        nuts3_shapes=resources("nuts3_shapes-raw.geojson"),
 
 
-ruleorder: build_shapes_at > build_shapes  # AT wins for the shared shape outputs
+ruleorder: build_nuts3_shapes_at > build_nuts3_shapes  # AT wins for the raw shapes
 
 
-ruleorder: modify_nuts3_shapes > build_shapes  # AT wins for the final nuts3_shapes.geojson
+rule modify_nuts3_shapes:
+    input:
+        nuts3_shapes=resources("nuts3_shapes-raw.geojson"),
+    output:
+        nuts3_shapes=resources("nuts3_shapes.geojson"),
+    log:
+        logs("modify_nuts3_shapes.log"),
+    threads: 1
+    resources:
+        mem_mb=1500,
+    params:
+        clustering=config_provider("clustering", "mode"),
+        admin_levels=config_provider("clustering", "administrative"),
+    script:
+        scripts("pypsa-at/modify_nuts3_shapes.py")
+
+
+ruleorder: modify_nuts3_shapes > build_nuts3_shapes  # AT wins for the final nuts3_shapes.geojson
 
 
 # cluster_gas_network: redirect the clustered gas network to a "_raw" file so
@@ -327,17 +329,10 @@ use rule cluster_gas_network as cluster_gas_network_at with:
 ruleorder: modify_brownfield_gas_network_AT > cluster_gas_network  # AT wins for the final .csv
 
 
-# build_powerplants: redirect the powerplantmatching table to a "-raw" file so
-# overwrite_powerplants_at can post-process it into the final
-# powerplants_s_{clusters}.csv that every downstream rule reads.
-use rule build_powerplants as build_powerplants_at with:
-    output:
-        resources("powerplants_s_{clusters}-raw.csv"),
-
-
-ruleorder: build_powerplants_at > build_powerplants
-
-
+# build_powerplants_at (rules/pypsa-at/build_electricity.smk) writes the
+# powerplantmatching table to a "-raw" file so overwrite_powerplants_at can
+# post-process it into the final powerplants_s_{clusters}.csv that every
+# downstream rule reads.
 ruleorder: overwrite_powerplants_at > build_powerplants  # AT wins for the final .csv
 
 
@@ -345,7 +340,7 @@ ruleorder: overwrite_powerplants_at > build_powerplants  # AT wins for the final
 rule overwrite_powerplants_at:
     input:
         powerplants=resources("powerplants_s_{clusters}-raw.csv"),
-        anlagenregister="data/pypsa-at/Anlagenregister_electricity_from_renewable_gas_AT.csv",
+        anlagenregister=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
         postal_to_nuts="data/pypsa-at/AT-Postal-to-NUTS.csv",
         postal_centroids=f"{GEONAMES_POSTAL_CODES_AT['folder']}/AT.txt",
         hydro_duplicates="data/pypsa-at/hydro_duplicate_plants_AT.csv",
@@ -360,6 +355,7 @@ rule overwrite_powerplants_at:
         regions_onshore=resources("regions_onshore_base_s_{clusters}.geojson"),
     output:
         powerplants=resources("powerplants_s_{clusters}.csv"),
+        biogas_plants=resources("biogas_plants_at_{clusters}.csv"),
         residual_plants=resources("hydro_residual_plants_{clusters}.csv"),
     log:
         logs("overwrite_powerplants_s_{clusters}.log"),

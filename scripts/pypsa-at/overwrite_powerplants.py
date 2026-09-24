@@ -5,11 +5,15 @@
 """
 Snakemake script: overwrite attributes in the matched powerplants table.
 
-Applies the CH nuclear ``DateOut`` override, optionally adds Austrian biogas
-plants from the Anlagenregister and optionally corrects the ``Technology`` of
-misclassified Austrian hydro plants (``mods.update_hydro_capacities_AT``).
-The patched table is consumed by ``add_existing_baseyear`` and by the mods
-layer (``prepare_sector_network`` -> ``process_hydro``).
+Applies the CH nuclear ``DateOut`` override and optionally corrects the
+Austrian hydro plants (``mods.update_hydro_capacities_AT``). The patched table
+is consumed by ``add_existing_baseyear`` and by the mods layer
+(``prepare_sector_network`` -> ``process_hydro``).
+
+The Austrian biogas plants from the Anlagenregister are written to a separate
+table consumed by ``mods.network.biogas`` in ``modify_prenetwork_at``; they
+must not enter the powerplants table, where ``add_existing_baseyear`` would
+model them as solid biomass CHPs.
 """
 
 import logging
@@ -30,7 +34,10 @@ from scripts._helpers import configure_logging
 
 logger = logging.getLogger(__name__)
 
-# Real-world / operator retirement years for the four matched CH reactors
+# Real-world / operator retirement years for the matched CH reactors. Names
+# follow the powerplantmatching 0.8.1 dataset pinned in data/versions.csv
+# (0.6.1 spelled them "Kkb Kernkw Beznau"/"Kernkraftwerk Gosgen"/
+# "Kkl Kernkw Leibstadt Ag", and matched both Beznau units into one row).
 CH_NUCLEAR_DATEOUT = {
     "Beznau 1": 2020,
     "Beznau 2": 2020,
@@ -174,6 +181,33 @@ def _match_single_hydro_plant(
     return idx
 
 
+RENEWABLE_GAS_TECHNOLOGIES = ("Biogas", "Klärgas", "Deponiegas")
+"""Anlagenregister ``techcode`` values of electricity from renewable gas."""
+
+LARGE_PLANT_THRESHOLD_MW = 5
+"""
+Capacity split between the Anlagenregister and powerplantmatching for
+Austrian biogas-to-power plants. Register plants at or below this size are
+added from the Anlagenregister; larger ones are assumed to already be
+captured by powerplantmatching under their true fuel type. For example, the
+Gratkorn paper mill is registered in the Anlagenregister as 140 MW "Biogas"
+but is already modelled via powerplantmatching as a 70 MW gas CCGT CHP.
+"""
+
+BIOGAS_BUILD_YEAR = 2003
+"""Assumed build year: height of the Austrian Förderung, phase-out before 2030."""
+
+BIOGAS_PLANT_COLUMNS = [
+    "Name",
+    "Country",
+    "Fueltype",
+    "Technology",
+    "DateIn",
+    "Capacity",
+    "bus",
+]
+
+
 def overwrite_nuclear_dateout(ppl: pd.DataFrame, dateout: dict) -> pd.DataFrame:
     """
     Set ``DateOut`` on matched CH nuclear reactors that lack a phase-out year.
@@ -222,7 +256,7 @@ def overwrite_nuclear_dateout(ppl: pd.DataFrame, dateout: dict) -> pd.DataFrame:
     return ppl
 
 
-def overwrite_biogas_to_power_plants_at(
+def build_biogas_plants_AT(
     ppl: pd.DataFrame,
     anlagenregister_file: str,
     postal_to_nuts_file: str,
@@ -230,22 +264,28 @@ def overwrite_biogas_to_power_plants_at(
     clustering: str,
 ) -> pd.DataFrame:
     """
-    Add Austrian biogas powerplants from the Anlagenregister (https://anlagenregister.at/).
+    Prepare Austrian biogas powerplants from the E-Control Anlagenregister.
     Geographical mapping file from European Commission (https://gisco-services.ec.europa.eu/tercet/NUTS-2024/pc2025_AT_NUTS-2024_v1.0.zip).
 
     Parameters
     ----------
     ppl
         Powerplants table with at least ``Name``, ``Country``, ``Fueltype`` and
-        ``Capacity`` columns (as produced by ``build_powerplants``).
+        ``Capacity`` columns (as produced by ``build_powerplants``). Only used
+        to guard against small Austrian bioenergy plants appearing upstream.
     anlagenregister_file
-        input file of relevant powerplants published for Austria.
+        Plant-level Anlagenregister CSV (``anlagenregister_plants.csv`` of the
+        ``anlagenregister`` dataset in ``data/versions.csv``). Electricity
+        plants (``typ == "Strom"``) with a ``techcode`` in
+        ``RENEWABLE_GAS_TECHNOLOGIES`` and a capacity at or below
+        ``LARGE_PLANT_THRESHOLD_MW`` are used; larger ones are dropped, see
+        ``LARGE_PLANT_THRESHOLD_MW``.
     postal_to_nuts_file
         file that maps all Austrian postal codes (PLZ) to NUTS3 region codes.
     threshold_capacity
         capacity threshold (MW) applied downstream when aggregating existing
-        plants per node. Must be <= 5 MW, otherwise the small Austrian biogas
-        plants added here would be filtered out again.
+        plants per node. Must be <= ``LARGE_PLANT_THRESHOLD_MW``, otherwise
+        the small Austrian biogas plants would be filtered out again.
     clustering
         clustering identifier, either AT10 (NUTS2) or AT35 (NUTS3). Needed for
         AT10, maps powerplants accordingly using map_at_nuts3_to_nuts2.
@@ -253,19 +293,23 @@ def overwrite_biogas_to_power_plants_at(
     Returns
     -------
     :
-        A copy of ``ppl`` with added biogas powerplants for Austria from the Anlagenregister.
+        One row per Anlagenregister plant with ``Name``, ``Country``,
+        ``Fueltype``, ``Technology``, ``DateIn``, ``Capacity`` (MW) and ``bus``
+        (node), consumed by ``mods.network.biogas.add_existing_biogas_chp_at``.
 
     Raises
     ------
     ValueError
         If small biogas powerplants are found in the original powerplant file.
         This indicates a change in the upstream file that warrants investigation.
-        Also if ``threshold_capacity`` exceeds 5 MW.
+        Also if ``threshold_capacity`` exceeds ``LARGE_PLANT_THRESHOLD_MW``, if
+        the register holds no renewable-gas plants, or if a postal code is not
+        in the mapping.
     """
     at_small_bioenergy_ppl = ppl[
         (ppl["Country"] == "AT")
         & (ppl["Fueltype"] == "Bioenergy")
-        & (ppl["Capacity"] < 2)
+        & (ppl["Capacity"] < LARGE_PLANT_THRESHOLD_MW)
     ]
     if not at_small_bioenergy_ppl.empty:
         raise ValueError(
@@ -273,10 +317,10 @@ def overwrite_biogas_to_power_plants_at(
             "Go and check if dataset has changed upstream!"
         )
 
-    if threshold_capacity > 5:
+    if threshold_capacity > LARGE_PLANT_THRESHOLD_MW:
         raise ValueError(
             f"threshold_capacity for adding existing capacities per node is {threshold_capacity} MW,"
-            "but must be <= 5 MW to keep small Austrian biogas plants."
+            f"but must be <= {LARGE_PLANT_THRESHOLD_MW} MW to keep small Austrian biogas plants."
             "Change config.at.yaml setting accordingly."
         )
 
@@ -284,9 +328,41 @@ def overwrite_biogas_to_power_plants_at(
         postal_to_nuts_file, dtype=str, names=["nuts3", "plz"], header=0
     ).set_index("plz")["nuts3"]
 
-    anlreg = pd.read_csv(anlagenregister_file)
-    anlreg = anlreg.dropna(subset=["Plz"])
-    anlreg["Plz"] = anlreg["Plz"].astype("Int64").astype(str).str.zfill(4)
+    register = pd.read_csv(anlagenregister_file, low_memory=False)
+    register["techcode"] = register["techcode"].fillna("").str.strip()
+    anlreg = register[
+        (register["typ"] == "Strom")
+        & register["techcode"].isin(RENEWABLE_GAS_TECHNOLOGIES)
+    ].copy()
+    if anlreg.empty:
+        raise ValueError(
+            f"No electricity plants with techcode in {RENEWABLE_GAS_TECHNOLOGIES} "
+            f"found in {anlagenregister_file}. Has the Anlagenregister changed?"
+        )
+
+    too_large = anlreg["engpassleistung_kw"] / 1000 > LARGE_PLANT_THRESHOLD_MW
+    if too_large.any():
+        logger.warning(
+            f"Dropped {int(too_large.sum())} renewable-gas plants "
+            f"({anlreg.loc[too_large, 'engpassleistung_kw'].sum() / 1e3:.1f} MW) "
+            f"above {LARGE_PLANT_THRESHOLD_MW} MW; assumed to already be "
+            "captured by powerplantmatching under their true fuel type."
+        )
+        anlreg = anlreg[~too_large]
+
+    # the register holds free-text postal codes ("4600 ", "5431 Kuchl", ...);
+    # take the first run of exactly four digits, like build_anlagenregister_at
+    anlreg["Plz"] = (
+        anlreg["plz"].fillna("").astype(str).str.extract(r"(?<!\d)(\d{4})(?!\d)")[0]
+    )
+    without_plz = anlreg["Plz"].isna()
+    if without_plz.any():
+        logger.warning(
+            f"Dropped {int(without_plz.sum())} renewable-gas plants "
+            f"({anlreg.loc[without_plz, 'engpassleistung_kw'].sum() / 1e3:.2f} MW) "
+            "without a postal code."
+        )
+        anlreg = anlreg[~without_plz]
     anlreg["nuts"] = anlreg["Plz"].map(postal_to_nuts)
 
     missing_plz = anlreg.loc[anlreg["nuts"].isna(), "Plz"].unique()
@@ -300,21 +376,24 @@ def overwrite_biogas_to_power_plants_at(
     if clustering.startswith("AT10"):
         anlreg["nuts"] = anlreg["nuts"].map(map_at_nuts3_to_nuts2)
 
-    new_ppls = _new_powerplant_rows(
-        names="Biogas AT " + anlreg["ID"].astype(int).astype(str),
-        fueltype="Bioenergy",
-        technology="Combustion Engine",
-        # assumed build year at the height of Förderung in AT, phase out before 2030
-        date_in=2003,
-        capacity_mw=anlreg["Engpassleistung (kW <sub>el</sub>)"] / 1000,
-        bus=anlreg["nuts"].values,
+    plants = pd.DataFrame(
+        {
+            # register ids are scrape row numbers, not stable across versions
+            "Name": "Biogas AT " + anlreg["id"].astype(int).astype(str),
+            "Country": "AT",
+            "Fueltype": "Biogas",
+            "Technology": anlreg["techcode"].values,
+            "DateIn": BIOGAS_BUILD_YEAR,
+            "Capacity": anlreg["engpassleistung_kw"].to_numpy(dtype=float) / 1000,
+            "bus": anlreg["nuts"].values,
+        }
     )
 
     logger.info(
-        f"Added {len(new_ppls)} Austrian biogas plants with "
-        f"{new_ppls['Capacity'].sum():.1f} MW from Anlagenregister."
+        f"Prepared {len(plants)} Austrian biogas plants with "
+        f"{plants['Capacity'].sum():.1f} MW from Anlagenregister."
     )
-    return pd.concat([ppl, new_ppls], ignore_index=True)
+    return plants
 
 
 def _read_small_hydro_anchor_mw(bestandsstatistik_typ_file: str) -> float:
@@ -982,24 +1061,27 @@ def add_klien_residual_plants_at(
     ]
 
 
-def overwrite_powerplants(snakemake):
-    """Orchestrator function."""
-    _ppl = pd.read_csv(snakemake.input.powerplants, index_col=0)
-    ppl_overwrite = overwrite_nuclear_dateout(_ppl, CH_NUCLEAR_DATEOUT)
-    residual = pd.DataFrame(columns=KLIEN_RESIDUAL_COLUMNS)
-
-    if snakemake.params.add_biogas_to_power_plants_AT:
-        ppl_overwrite = overwrite_biogas_to_power_plants_at(
-            ppl_overwrite,
-            anlagenregister_file=snakemake.input.anlagenregister,
-            postal_to_nuts_file=snakemake.input.postal_to_nuts,
-            threshold_capacity=snakemake.params.threshold_capacity,
-            clustering=snakemake.params.clustering,
-        )
-    else:
+def biogas_plants(ppl: pd.DataFrame, snakemake) -> pd.DataFrame:
+    """Prepare the Austrian biogas plants, or an empty table when disabled."""
+    if not snakemake.params.add_biogas_to_power_plants_AT:
         logger.info(
             "Skipping Austrian biogas plant addition. config option add_biogas_to_power_plants_AT is false."
         )
+        return pd.DataFrame(columns=BIOGAS_PLANT_COLUMNS)
+    return build_biogas_plants_AT(
+        ppl,
+        anlagenregister_file=snakemake.input.anlagenregister,
+        postal_to_nuts_file=snakemake.input.postal_to_nuts,
+        threshold_capacity=snakemake.params.threshold_capacity,
+        clustering=snakemake.params.clustering,
+    )
+
+
+def overwrite_powerplants(snakemake):
+    """Patch the powerplants table and write the KLIEN residual plants."""
+    _ppl = pd.read_csv(snakemake.input.powerplants, index_col=0)
+    ppl_overwrite = overwrite_nuclear_dateout(_ppl, CH_NUCLEAR_DATEOUT)
+    residual = pd.DataFrame(columns=KLIEN_RESIDUAL_COLUMNS)
 
     if snakemake.params.update_hydro_capacities_AT:
         ppl_overwrite = drop_duplicate_hydro_plants_at(
@@ -1072,3 +1154,4 @@ if __name__ == "__main__":
 
     result = overwrite_powerplants(snakemake)
     result.to_csv(snakemake.output.powerplants)
+    biogas_plants(result, snakemake).to_csv(snakemake.output.biogas_plants, index=False)

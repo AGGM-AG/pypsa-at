@@ -112,7 +112,12 @@ def collect_imbalances(supply: pd.Series, demand: pd.Series) -> pd.DataFrame:
                 v: f"{v} from {_bc}" for v in supply_bc.index.unique("bus_carrier")
             }
             to_concat.append(rename_aggregate(supply_bc, mapper, level="bus_carrier"))
-        return pd.concat(to_concat)
+        imbalances = pd.concat(to_concat)
+        # pandas >= 3 drops ``attrs`` on concat unless all parts carry identical
+        # attrs; the pieces mix "Supply" and "Withdrawal" names, so restore the
+        # metadata (name, unit) from the first part explicitly.
+        imbalances.attrs = dict(to_concat[0].attrs)
+        return imbalances
 
     return _process_single_input_link(supply, demand, bc_in.item())
 

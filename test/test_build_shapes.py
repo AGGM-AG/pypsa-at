@@ -11,7 +11,7 @@ import pathlib
 import geopandas as gpd
 import numpy as np
 import pytest
-from build_shapes import _simplify_polys
+from _helpers import _simplify_polys
 
 path_cwd = pathlib.Path.cwd()
 

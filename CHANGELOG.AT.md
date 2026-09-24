@@ -8,6 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Planned]
 
 ### Added
+- `patch_powerplants_set_at` rule restoring `Set="PP"` on the large German lignite condensing units, which powerplantmatching 0.8.x tags `Set="CHP"` and the inherited PyPSA-DE `powerplants_filter` then drops (19,965 MW → 0 MW of German lignite)
+
+### Changed
+- Bumped `powerplantmatching` to 0.8.0 and the `powerplants` dataset to 0.8.1. 0.8.0 fixes the IRENASTAT download, which previously fetched a Zenodo 403 HTML page and failed in `add_existing_baseyear`; 0.8.1 is not usable as a package because it caps `pandas <3`
 - Differentiation of open- and closed-loop PHS, reservoirs with and without inflows; improved Austrian hydro inflow time series
 - Carbon cycle model coupling for improved biomass sector accuracy
 - Optimised production paths for industry sub-sectors, replacing exogenous energy modal splits
@@ -54,6 +58,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - KLIEN-calibrated Austrian hydro inflow targets (`build_hydro_inflow_targets_at`): catchment energy allocated to plants by location, shared with the German Grenzkraftwerke halves, scaled to the weather year with the E-Control Betriebsstatistik (new dataset `econtrol-betriebsstatistik`), replacing the Austrian run-of-river and reservoir totals in `build_inflow_totals_per_region`; reservoir inflow rises from ≈ 2.6 TWh to ≈ 10 TWh
 
 ### Changed
+- Merged PyPSA-DE main (incl. PyPSA-Eur 2026.08): pandas 3, PyPSA 1.3; ppm 0.6.1
 - Austrian run-of-river corridor per NUTS3 region: the KLIEN catchment pathway is located in the model regions through the calibrated fleet, every region gets its own upper bound
 - Run-of-river buildout as separate vintages: the existing fleet stays fixed in every horizon and an extendable `{bus} ror-{year}` vintage carries the corridor headroom as `p_nom_max`
 - `overwrite_powerplants_at` now writes the calibrated fleet as `powerplants_s_{clusters}.csv` and the untouched powerplantmatching output moves to `powerplants_s_{clusters}-raw.csv`, so every rule reads the calibrated table without per-rule overrides; Austrian run-of-river inflow rises from ≈ 13 TWh to ≈ 35 TWh because the ror normalisation now sees the full fleet
@@ -74,10 +79,3 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added Austrian biogas-to-power plants from Anlagenregister as brownfield capacities ([#157](https://github.com/AGGM-AG/pypsa-at/pull/157/))
 - Updated Austrian brownfield gas grid data ([#207](https://github.com/AGGM-AG/pypsa-at/pull/207))
 
-### Fixed
-- Fixed double subtraction of brownfield capacities in `modify_prenetwork` and `solve_network` and added a new test for this case. ([#101](https://github.com/AGGM-AG/pypsa-at/pull/101))
-- Fixed bidirectional links of gaseous energy carriers via config.at.yaml. Will be in an upstream merge to PyPSA-Eur to fix there. ([#105](https://github.com/AGGM-AG/pypsa-at/pull/105))
-- Fixed issues with wrong bus matching for h2 imports ([#134](https://github.com/AGGM-AG/pypsa-at/pull/134))
-- Fixed tests for integration of brownfield gas pipeline data ([#159](https://github.com/AGGM-AG/pypsa-at/pull/159))
-- Fixed bidirectional links of carrier 'gas_pipeline' to allow asymmetric link pairs and truly monodirectional pipelines. ([#207](https://github.com/AGGM-AG/pypsa-at/pull/207))
-- Fixed wind profile aggregation weights for AT10 clustering ([#204](https://github.com/AGGM-AG/pypsa-at/pull/204))

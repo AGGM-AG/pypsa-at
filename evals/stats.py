@@ -654,6 +654,70 @@ class ESMStatistics(StatisticsAccessor):
 
         return result.sort_index()
 
+    def _is_collection(self) -> bool:
+        """Whether the accessor is bound to a NetworkCollection."""
+        return bool(getattr(self._n, "is_collection", False))
+
+    def _per_network(
+        self, statistic: str, **kwargs: object
+    ) -> pd.DataFrame | pd.Series:
+        """
+        Evaluate a statistic per member network and stack the results.
+
+        PyPSA 1.3 cannot resolve Link port efficiencies on a NetworkCollection
+        (``_port_coefficient_attr`` is not implemented for collections), which
+        breaks the capacity statistics whenever ``at_port`` is used. Computing
+        the statistic per member network and prepending the collection index
+        level reproduces the layout of the native collection statistics.
+
+        Parameters
+        ----------
+        statistic
+            Name of the ESMStatistics method to evaluate per network.
+        **kwargs
+            Keyword arguments forwarded to the statistic.
+
+        Returns
+        -------
+        :
+            The stacked statistic with the collection index as outermost level.
+        """
+        level = self._n.index.name or DataModel.YEAR
+        parts = [
+            insert_index_level(getattr(n.statistics, statistic)(**kwargs), label, level)
+            for label, n in self._n.networks.items()
+        ]
+        parts = [part for part in parts if not part.empty]
+        if not parts:
+            return pd.Series(dtype=float)
+        return pd.concat(parts, axis=0, sort=True)
+
+    @MethodHandlerWrapper(handler_class=StatisticHandler, inject_attrs={"n": "_n"})
+    def installed_capacity(self, **kwargs: object) -> pd.DataFrame | pd.Series:
+        """
+        Installed capacity, evaluated per network on a NetworkCollection.
+
+        Thin wrapper around :meth:`pypsa.statistics.StatisticsAccessor.installed_capacity`
+        that falls back to :meth:`_per_network` when bound to a NetworkCollection and
+        ``at_port`` is requested (unsupported by PyPSA 1.3 for collections).
+
+        Parameters
+        ----------
+        **kwargs
+            Keyword arguments accepted by the PyPSA statistic.
+
+        Returns
+        -------
+        :
+            Installed capacity in MW.
+        """
+        if self._is_collection() and kwargs.get("at_port") is not None:
+            df = self._per_network("installed_capacity", **kwargs)
+            df.attrs["name"] = "Installed Capacity"
+            df.attrs["unit"] = "MW"
+            return df
+        return StatisticsAccessor.installed_capacity.func(self, **kwargs)
+
     @MethodHandlerWrapper(handler_class=StatisticHandler, inject_attrs={"n": "_n"})
     @deprecated_kwargs(
         deprecated_in="1.0",
@@ -733,6 +797,25 @@ class ESMStatistics(StatisticsAccessor):
         installed_capacity : Already installed capacity.
         technical_potential : Total ceiling (installed + remaining).
         """
+        if self._is_collection():
+            df = self._per_network(
+                "remaining_capacity",
+                components=components,
+                groupby_method=groupby_method,
+                aggregate_across_components=aggregate_across_components,
+                groupby=groupby,
+                at_port=at_port,
+                carrier=carrier,
+                bus_carrier=bus_carrier,
+                nice_names=nice_names,
+                drop_zero=drop_zero,
+                round=round,
+                storage=storage,
+            )
+            df.attrs["name"] = "Remaining Capacity"
+            df.attrs["unit"] = "MW"
+            return df
+
         if storage:
             components = ("Store", "StorageUnit")
         resolved_at_port = resolve_at_port(at_port, bus_carrier)
@@ -853,6 +936,16 @@ class ESMStatistics(StatisticsAccessor):
             round=None,
             storage=storage,
         )
+        if self._is_collection():
+            df = self._per_network("technical_potential", **shared)
+            if drop_zero is None or drop_zero:
+                df = df[df != 0]
+            if round is not None:
+                df = df.round(round)
+            df.attrs["name"] = "Technical Potential"
+            df.attrs["unit"] = "MW"
+            return df
+
         installed = self.installed_capacity(**shared)
         remaining = self.remaining_capacity(**shared)
         df = installed.add(remaining, fill_value=0)

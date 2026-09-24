@@ -25,6 +25,7 @@ run:
     - modify_existing_heating
     - build_custom_cost_at
     - custom_cost_at.csv
+  default_target_rule: all_at
 
 countries: ['AL', 'AT', 'BA', 'BE', 'BG', 'CH', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'ME', 'MK', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'SE', 'SI', 'SK', 'XK']
 
@@ -56,8 +57,18 @@ clustering:
     DK: 1 # +1 Sjaelland
     GB: 1 # +1 Northern Ireland
     IT: 1 # +2 Sicily, Sardinia
+  cluster_network:
+    # Upstream (PyPSA-Eur #2199) appends the bus carrier to every cluster label
+    # when this is false ("AT111AC", "DE5AC", ...). simplify_network already
+    # renames all DC buses to AC, so nothing is mixed; keep the plain names that
+    # mods/, evals/ and the TYNDP node mappings rely on.
+    allow_ac_dc_mixing_in_bus_clusters: true
   temporal:
     resolution_sector: 365H
+
+pypsa-de:
+  # incompatible with PyPSA-AT NTC floors in mods.network.electricity
+  deactivate_early_transmission_expansion: []
 
 costs:
   use_list: true       # Whether to use the file custom_cost_fn or combine files from custom_cost_fn_list
