@@ -1,10 +1,5 @@
-from importlib import import_module
-
 import pandas as pd
-
-combine = import_module(
-    "scripts.pypsa-at.modify_district_heat_share_at"
-).combine_district_heat_share
+from modify_district_heat_share_at import combine_district_heat_share as combine
 
 
 def test_combine_district_heat_share_updates_austrian_rows():

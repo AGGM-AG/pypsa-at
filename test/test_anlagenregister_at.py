@@ -223,3 +223,47 @@ def test_aggregate_to_nuts3(plants, postal_to_nuts):
 
     assert not any(c.startswith("feedin_kwh_") for c in agg.columns)
     assert agg["capacity_mw"].sum() == pytest.approx(5.53)
+
+
+def _water_rows(feedins: list[float], capacity_kw: float, plz: str) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "id": range(1, len(feedins) + 1),
+            "typ": "Strom",
+            "techcode": "Wasserkraft > 10 MW",
+            "plz": plz,
+            "engpassleistung_kw": capacity_kw,
+            "feedin_kwh_2024": feedins,
+        }
+    )
+
+
+def test_duplicate_water_registrations_keep_highest_feedin():
+    from build_anlagenregister_at import drop_duplicate_water_registrations
+
+    # Malta Hauptstufe style: four contracts, full capacity on each
+    df = _water_rows([1e8, 4e8, 2e8, 3e8], 730_000.0, "9854")
+
+    out = drop_duplicate_water_registrations(df, keep=set())
+
+    assert out["id"].tolist() == [2]
+
+
+def test_duplicate_water_registrations_spare_small_and_exempt_plants():
+    from build_anlagenregister_at import drop_duplicate_water_registrations
+
+    small = _water_rows([1e6, 2e6], 8_000.0, "6600")  # two 8 MW plants, plausible
+    kaprun = _water_rows([5e8, 6e8], 480_000.0, "5710").assign(id=[10, 11])
+    df = pd.concat([small, kaprun], ignore_index=True)
+
+    out = drop_duplicate_water_registrations(df, keep={("5710", 480_000.0)})
+
+    assert sorted(out["id"]) == [1, 2, 10, 11]
+
+
+def test_duplicate_water_registrations_stale_exemption_raises():
+    from build_anlagenregister_at import drop_duplicate_water_registrations
+
+    df = _water_rows([1e8, 2e8], 730_000.0, "9854")
+    with pytest.raises(ValueError, match="matches no"):
+        drop_duplicate_water_registrations(df, keep={("5710", 480_000.0)})

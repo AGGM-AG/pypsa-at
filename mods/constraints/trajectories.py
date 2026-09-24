@@ -189,7 +189,7 @@ def calculate_limit(
 
 def build_model_expression(
     n: Network, trajectories_names: pd.DataFrame, variable: str
-) -> LinearExpression:
+) -> LinearExpression | None:
     """
     Build the LinearExpression to constrain.
 
@@ -205,7 +205,8 @@ def build_model_expression(
     Return
     ------
     :
-        The aggregated LinearExpression
+        The LinearExpression aggregated per trajectory row (dimension
+        ``index``), or ``None`` when no row has an extendable component.
 
     """
     model_vars = n.model.variables[variable]
@@ -213,13 +214,22 @@ def build_model_expression(
         trajectories_names["name"].isin(model_vars.coords["name"].values)
     ]
     missing_idx = set(trajectories_names["index"]) - set(trajectories_filtered["index"])
-    missing_trajectories = trajectories_names[
-        trajectories_names["index"].isin(missing_idx)
-    ]
     if len(missing_idx) > 0:
-        raise ValueError(
-            f"Missing variables for components {missing_trajectories['name']}."
+        # rows whose components are all non-extendable have no variable to
+        # bound (e.g. a run-of-river region without a new vintage because its
+        # corridor has no headroom); they are trivially satisfied
+        missing_trajectories = trajectories_names[
+            trajectories_names["index"].isin(missing_idx)
+        ]
+        logger.info(
+            f"Skipping {len(missing_idx)} {variable} trajectory rows without an "
+            f"extendable component: {missing_trajectories['name'].tolist()}."
         )
+        trajectories_filtered = trajectories_filtered[
+            ~trajectories_filtered["index"].isin(missing_idx)
+        ]
+    if trajectories_filtered.empty:
+        return None
     expr = model_vars.sel(name=list(trajectories_filtered.name))
     grouper = xr.DataArray(
         trajectories_filtered["index"].to_numpy(), dims=["name"], name="index"
@@ -320,6 +330,10 @@ def constraint_generic_trajectories(
             continue
 
         expr = build_model_expression(n, trajectories_names, variable)
+        if expr is None:
+            continue
+        # rows without an extendable component were dropped from the expression
+        limits = limits.reindex(expr.coords["index"].to_numpy())
         carriers = group["carrier"].drop_duplicates().tolist()
         match sense:
             case "max":

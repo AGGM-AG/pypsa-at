@@ -4,7 +4,6 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Integration tests for mods/network/gas.py — gas storage capacity overrides."""
 
-from importlib import import_module
 from types import SimpleNamespace
 
 import geopandas as gpd
@@ -12,6 +11,14 @@ import numpy as np
 import pandas as pd
 import pypsa
 import pytest
+from modify_brownfield_gas_network_AT import (
+    aggregate_gas_pipeline_corridors_to_nuts2,
+    apply_reverse_flow_limits,
+    calculate_corridor_lengths,
+    corridor_names,
+    read_aggm_gas_network,
+    update_gas_transport_data,
+)
 from pypsa import NetworkCollection
 from pypsa.geo import haversine_pts
 from shapely.geometry import box
@@ -23,20 +30,6 @@ from mods.network.gas import (
     restore_asymmetric_pipeline_capacities,
 )
 from test.conftest import require_config
-
-_modify_brownfield_gas_network_AT = import_module(
-    "scripts.pypsa-at.modify_brownfield_gas_network_AT"
-)
-update_gas_transport_data = _modify_brownfield_gas_network_AT.update_gas_transport_data
-aggregate_gas_pipeline_corridors_to_nuts2 = (
-    _modify_brownfield_gas_network_AT.aggregate_gas_pipeline_corridors_to_nuts2
-)
-apply_reverse_flow_limits = _modify_brownfield_gas_network_AT.apply_reverse_flow_limits
-read_aggm_gas_network = _modify_brownfield_gas_network_AT.read_aggm_gas_network
-corridor_names = _modify_brownfield_gas_network_AT.corridor_names
-calculate_corridor_lengths = (
-    _modify_brownfield_gas_network_AT.calculate_corridor_lengths
-)
 
 GAS_NETWORK_COLUMNS = [
     "bus0",
