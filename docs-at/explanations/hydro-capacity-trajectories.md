@@ -305,7 +305,7 @@ unmatched in every run.
 
 ### From runoff profile to hourly inflow
 
-The figures in this subsection come from `.marimo/review-hydro-slides.py`, run on the
+The figures in this subsection come from `../../.marimo/know-how/review-hydro-slides.py`, run on the
 365H reference run `hydro-capacities-update-complete` (weather year 2013, 24 snapshots of
 365 hours). The hourly curves are the resources the run was built from; the last panel of
 each step figure is the solved network.
