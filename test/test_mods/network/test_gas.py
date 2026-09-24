@@ -20,6 +20,7 @@ from evals.utils import filter_by
 from mods.clustering.utils import combine_regions_by_clustering
 from mods.network.gas import (
     _TANAP_PIPELINE_CAPACITY,
+    check_retrofit_pairing,
     deduct_retrofitted_gas_capacity,
     make_gas_pipelines_unextendable,
     restore_asymmetric_pipeline_capacities,
@@ -1244,32 +1245,49 @@ class TestMakeGasPipelinesUnextendable:
         )
 
     @staticmethod
-    def network() -> pypsa.Network:
-        """Pre-network with an existing corridor, a candidate and an H2 pipeline."""
+    def network(
+        corridors: tuple[str, ...] = ("AT225 <-> AT213",),
+        candidates: tuple[str, ...] | None = None,
+        candidates_extendable: bool = True,
+    ) -> pypsa.Network:
+        """
+        Pre-network with existing corridors, their retrofit candidates,
+        a candidate for a new gas pipeline and an H2 pipeline.
+        """
+        if candidates is None:
+            candidates = corridors
         n = pypsa.Network()
-        n.add("Bus", ["AT225 gas", "AT213 gas", "AT225 H2", "AT213 H2"])
-        n.add(
-            "Link",
-            "gas pipeline AT225 <-> AT213",
-            bus0="AT225 gas",
-            bus1="AT213 gas",
-            p_nom=16672.0,
-            p_nom_min=0.0,
-            p_nom_max=16672.0,
-            p_nom_extendable=True,
-            carrier="gas pipeline",
-        )
-        n.add(
-            "Link",
-            "gas pipeline AT225 <-> AT213-reversed",
-            bus0="AT213 gas",
-            bus1="AT225 gas",
-            p_nom=16672.0,
-            p_nom_min=0.0,
-            p_nom_max=16672.0,
-            p_nom_extendable=True,
-            carrier="gas pipeline",
-        )
+        buses = {b for c in corridors for b in c.split(" <-> ")}
+        n.add("Bus", [f"{b} gas" for b in buses] + [f"{b} H2" for b in buses])
+        for corridor in corridors:
+            bus0, bus1 = corridor.split(" <-> ")
+            for leg, (b0, b1) in {"": (bus0, bus1), "-reversed": (bus1, bus0)}.items():
+                n.add(
+                    "Link",
+                    f"gas pipeline {corridor}{leg}",
+                    bus0=f"{b0} gas",
+                    bus1=f"{b1} gas",
+                    p_nom=16672.0,
+                    p_nom_min=0.0,
+                    p_nom_max=16672.0,
+                    p_nom_extendable=True,
+                    carrier="gas pipeline",
+                    reversed=leg != "",
+                )
+        for corridor in candidates:
+            bus0, bus1 = corridor.split(" <-> ")
+            for leg, (b0, b1) in {"": (bus0, bus1), "-reversed": (bus1, bus0)}.items():
+                n.add(
+                    "Link",
+                    f"H2 pipeline retrofitted {corridor}{leg}-2030",
+                    bus0=f"{b0} H2",
+                    bus1=f"{b1} H2",
+                    p_nom_max=0.6 * 16672.0,
+                    p_nom_extendable=candidates_extendable,
+                    build_year=2030,
+                    carrier="H2 pipeline retrofitted",
+                    reversed=leg != "",
+                )
         n.add(
             "Link",
             "gas pipeline new AT225 <-> AT213",
@@ -1294,7 +1312,7 @@ class TestMakeGasPipelinesUnextendable:
 
     def test_base_year_fixes_both_carriers(self):
         """Before the retrofit start year existing and new pipelines are fixed."""
-        n = self.network()
+        n = self.network(candidates=())
 
         make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2025"))
 
@@ -1317,7 +1335,45 @@ class TestMakeGasPipelinesUnextendable:
             "gas pipeline": True,
             "gas pipeline new": False,
             "H2 pipeline": True,
+            "H2 pipeline retrofitted": True,
         }
+
+    def test_gas_pipeline_with_a_fixed_candidate_is_fixed(self):
+        """A gas pipeline whose retrofit candidate is fixed cannot be retrofitted."""
+        n = self.network(candidates_extendable=False)
+
+        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
+
+        assert not n.links.loc[
+            n.links["carrier"] == "gas pipeline", "p_nom_extendable"
+        ].any()
+
+    def test_gas_pipeline_without_a_candidate_is_fixed(self):
+        """Only gas pipelines with an extendable candidate stay extendable."""
+        n = self.network(
+            corridors=("AT225 <-> AT213", "DE1 <-> DE2"),
+            candidates=("AT225 <-> AT213",),
+        )
+
+        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
+
+        gas_pipes = n.links[n.links["carrier"] == "gas pipeline"]
+        assert gas_pipes["p_nom_extendable"].to_dict() == {
+            "gas pipeline AT225 <-> AT213": True,
+            "gas pipeline AT225 <-> AT213-reversed": True,
+            "gas pipeline DE1 <-> DE2": False,
+            "gas pipeline DE1 <-> DE2-reversed": False,
+        }
+
+    def test_misordered_candidates_raise(self):
+        """Candidates in a different order than the gas pipelines raise."""
+        n = self.network(
+            corridors=("AT225 <-> AT213", "DE1 <-> DE2"),
+            candidates=("DE1 <-> DE2", "AT225 <-> AT213"),
+        )
+
+        with pytest.raises(ValueError, match="not paired one to one"):
+            make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
 
     def test_retrofit_years_cap_existing_pipelines_at_their_capacity(self):
         """Existing pipelines may shrink but not grow in the retrofit years."""
@@ -1351,7 +1407,7 @@ class TestMakeGasPipelinesUnextendable:
 
     def test_disabled_retrofit_keeps_the_legacy_behaviour(self):
         """Without H2 retrofitting both carriers are fixed up to the threshold year."""
-        n = self.network()
+        n = self.network(candidates=())
 
         make_gas_pipelines_unextendable(
             n, self.snakemake(planning_horizons="2040", h2_retrofit=False)
@@ -1362,6 +1418,67 @@ class TestMakeGasPipelinesUnextendable:
             "gas pipeline new": False,
             "H2 pipeline": True,
         }
+
+
+class TestCheckRetrofitPairing:
+    """Tests for check_retrofit_pairing."""
+
+    @staticmethod
+    def network(gas: list[tuple[str, bool]], h2: list[tuple[str, bool]]):
+        """Forward legs only, given as (corridor, extendable) pairs."""
+        n = pypsa.Network()
+        n.add("Bus", ["a gas", "b gas", "a H2", "b H2"])
+        for corridor, extendable in gas:
+            n.add(
+                "Link",
+                f"gas pipeline {corridor}",
+                bus0="a gas",
+                bus1="b gas",
+                p_nom_extendable=extendable,
+                carrier="gas pipeline",
+            )
+        for corridor, extendable in h2:
+            n.add(
+                "Link",
+                f"H2 pipeline retrofitted {corridor}-2030",
+                bus0="a H2",
+                bus1="b H2",
+                p_nom_extendable=extendable,
+                carrier="H2 pipeline retrofitted",
+            )
+        return n
+
+    def test_paired_sets_pass(self):
+        """Equal sets in the same order pass."""
+        n = self.network([("A", True), ("B", True)], [("A", True), ("B", True)])
+
+        check_retrofit_pairing(n)
+
+    def test_fixed_links_are_ignored(self):
+        """Fixed gas pipelines and candidates do not take part in the pairing."""
+        n = self.network([("A", True), ("B", False)], [("A", True), ("B", False)])
+
+        check_retrofit_pairing(n)
+
+    def test_without_candidates_passes(self):
+        """Without extendable candidates there is nothing to pair."""
+        n = self.network([("A", True)], [("A", False)])
+
+        check_retrofit_pairing(n)
+
+    def test_unequal_counts_raise(self):
+        """A gas pipeline without an extendable candidate raises."""
+        n = self.network([("A", True), ("B", True)], [("A", True), ("B", False)])
+
+        with pytest.raises(ValueError, match="2 gas pipelines, 1 candidates"):
+            check_retrofit_pairing(n)
+
+    def test_different_order_raises(self):
+        """The same sets in a different order raise."""
+        n = self.network([("A", True), ("B", True)], [("B", True), ("A", True)])
+
+        with pytest.raises(ValueError, match="not paired one to one"):
+            check_retrofit_pairing(n)
 
 
 class TestDeductRetrofittedGasCapacity:

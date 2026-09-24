@@ -123,6 +123,15 @@ pipelines extendable within `[0, target]` makes the equality bind: retrofitted H
 way to gas capacity on the same corridor and the sum stays at the AGGM target. The reverse legs of
 both carriers are tied to their forward legs by `Link-bidirectional_sync`.
 
+The upstream constraint pairs the extendable forward gas pipelines with the extendable forward
+retrofit candidates **by position**, not by name. With unequal counts linopy silently drops the H2
+term, fixes the gas pipelines at `p_nom` and leaves the retrofits unconstrained; in a different
+order it couples the wrong corridors. PyPSA-DE's Kernnetz logic fixes the German-internal
+candidates up to 2030, which is exactly such a case. `make_gas_pipelines_unextendable` therefore
+fixes every gas pipeline without an extendable candidate (it could not be retrofitted anyway) and
+`check_retrofit_pairing` raises during `modify_prenetwork` if the two sets still differ in length,
+membership or order.
+
 ## Carried-over retrofits
 
 In a myopic run the retrofits of an earlier horizon are carried over as fixed

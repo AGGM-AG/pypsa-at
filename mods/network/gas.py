@@ -180,6 +180,73 @@ def block_russian_gas_imports(n: pypsa.Network, snakemake: Snakemake) -> None:
     logger.info("Completed blockade of Russian gas imports.")
 
 
+def _gas_pipeline_legs(retrofits: pd.Index) -> pd.Index:
+    """
+    Map retrofitted H2 pipeline names to their gas pipeline leg.
+
+    ``H2 pipeline retrofitted A <-> B-reversed-2030`` becomes
+    ``gas pipeline A <-> B-reversed``: the build-year suffix of a myopic
+    run is stripped and the carrier prefix swapped.
+
+    Parameters
+    ----------
+    retrofits
+        Names of ``H2 pipeline retrofitted`` links.
+
+    Returns
+    -------
+    :
+        The matching ``gas pipeline`` leg names, in the same order.
+    """
+    return retrofits.str.replace(r"-\d{4}$", "", regex=True).str.replace(
+        "H2 pipeline retrofitted", "gas pipeline", regex=False
+    )
+
+
+def _forward(links: pd.DataFrame) -> pd.DataFrame:
+    """Drop the reverse legs of split bidirectional links."""
+    is_reversed = links.get("reversed", pd.Series(False, index=links.index))
+    return links[~is_reversed.fillna(False).astype(bool)]
+
+
+def check_retrofit_pairing(n: pypsa.Network) -> None:
+    """
+    Verify that upstream's positional retrofit coupling is well-defined.
+
+    ``add_pipe_retrofit_constraint`` in ``scripts/solve_network.py`` adds
+    ``gas + H2 / ratio = p_nom`` by pairing the extendable forward
+    ``gas pipeline`` legs with the extendable forward ``H2 pipeline
+    retrofitted`` candidates by position. With unequal counts linopy silently
+    drops the H2 term, fixes the gas pipelines at ``p_nom`` and leaves the
+    retrofits unconstrained; with a different order it couples the wrong
+    corridors. Both cases fail here instead.
+
+    Parameters
+    ----------
+    n
+        Pre-network after the gas pipeline modifications.
+
+    Raises
+    ------
+    ValueError
+        If the two sets differ in length, membership or order.
+    """
+    links = _forward(n.links[n.links["p_nom_extendable"]])
+    gas_legs = links.index[links["carrier"] == "gas pipeline"]
+    candidates = links.index[links["carrier"] == "H2 pipeline retrofitted"]
+    if candidates.empty:
+        return
+
+    paired = _gas_pipeline_legs(candidates)
+    if len(gas_legs) != len(paired) or (gas_legs.to_numpy() != paired.to_numpy()).any():
+        unpaired = gas_legs.symmetric_difference(paired)
+        raise ValueError(
+            "Extendable gas pipelines and retrofit candidates are not paired one to "
+            f"one in the same order ({len(gas_legs)} gas pipelines, {len(paired)} "
+            f"candidates). Unpaired: {list(unpaired)[:10]}."
+        )
+
+
 def retrofit_start_year(config: dict) -> float:
     """
     First planning horizon in which gas pipelines may be retrofitted to H2.
@@ -262,14 +329,25 @@ def make_gas_pipelines_unextendable(n: pypsa.Network, snakemake: Snakemake) -> N
         return
 
     # keep the pipelines extendable within their target capacity, so that the
-    # upstream retrofit constraint couples gas and retrofitted H2 capacity
-    n.links.loc[is_existing, "p_nom_extendable"] = True
-    n.links.loc[is_existing, "p_nom_min"] = 0.0
-    n.links.loc[is_existing, "p_nom_max"] = n.links.loc[is_existing, "p_nom"]
+    # upstream retrofit constraint couples gas and retrofitted H2 capacity.
+    # The constraint pairs gas pipelines and candidates by position, so a gas
+    # pipeline without an extendable candidate (e.g. a German corridor frozen
+    # by the Kernnetz logic) is fixed: it cannot be retrofitted anyway and
+    # would otherwise shift the pairing.
+    candidates = n.links.index[
+        (n.links["carrier"] == "H2 pipeline retrofitted") & n.links["p_nom_extendable"]
+    ]
+    paired = is_existing & n.links.index.isin(_gas_pipeline_legs(candidates))
+    n.links.loc[is_existing & ~paired, "p_nom_extendable"] = False
+    n.links.loc[paired, "p_nom_extendable"] = True
+    n.links.loc[paired, "p_nom_min"] = 0.0
+    n.links.loc[paired, "p_nom_max"] = n.links.loc[paired, "p_nom"]
+    check_retrofit_pairing(n)
     logger.info(
-        f"Fixed {is_new.sum()} candidate(s) for new gas pipelines in {pyear}. "
-        f"{is_existing.sum()} gas pipeline(s) may be retrofitted to H2 within "
-        "their target capacity."
+        f"Fixed {is_new.sum()} candidate(s) for new gas pipelines and "
+        f"{(is_existing & ~paired).sum()} gas pipeline(s) without a retrofit "
+        f"candidate in {pyear}. {paired.sum()} gas pipeline(s) may be retrofitted "
+        "to H2 within their target capacity."
     )
 
 
@@ -428,10 +506,7 @@ def deduct_retrofitted_gas_capacity(n: pypsa.Network, snakemake: Snakemake) -> N
         logger.info(f"No retrofitted H2 pipelines carried over into {pyear}.")
         return
 
-    # 'H2 pipeline retrofitted A <-> B-reversed-2030' -> 'gas pipeline A <-> B-reversed'
-    gas_legs = carried.index.str.replace(r"-\d{4}$", "", regex=True).str.replace(
-        "H2 pipeline retrofitted", "gas pipeline", regex=False
-    )
+    gas_legs = _gas_pipeline_legs(carried.index)
     carried_h2 = carried["p_nom"].groupby(gas_legs.to_numpy()).sum()
 
     gas_pipes = n.links[n.links["carrier"] == "gas pipeline"]
