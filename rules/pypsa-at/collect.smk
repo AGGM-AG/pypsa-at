@@ -50,6 +50,48 @@ rule validate_pypsa_at:
         'pixi run -e test pytest -m "AT" --html {params.rdir}/test_report.html --result-path={params.rdir}'
 
 
+# On demand only, not part of all_at. The maps show the AT35DE5 ("adm")
+# clustering; `expand` fixes the clusters wildcard while keeping the
+# `{clusters}` placeholder visible to the shared-resources path provider.
+rule plot_model_map_at:
+    input:
+        regions_onshore=expand(
+            resources("regions_onshore_base_s_{clusters}.geojson"),
+            clusters="adm",
+            allow_missing=True,
+        )[0],
+        regions_offshore=expand(
+            resources("regions_offshore_base_s_{clusters}.geojson"),
+            clusters="adm",
+            allow_missing=True,
+        )[0],
+        network=resources("networks/base.nc"),
+        gas_network=resources("gas_network.csv"),
+        aggm_gas_network="data/pypsa-at/AGGM_gas_network_base_AT35.csv",
+        powerplants=expand(
+            resources("powerplants_s_{clusters}-overwrite.csv"),
+            clusters="adm",
+            allow_missing=True,
+        )[0],
+        hotmaps=rules.retrieve_hotmaps_industrial_sites.output["csv"],
+    output:
+        powerplants=RESULTS + "maps/model_map_powerplants.png",
+        industry=RESULTS + "maps/model_map_industry.png",
+    log:
+        RESULTS + "logs/plot_model_map_at.log",
+    resources:
+        mem_mb=8000,
+    params:
+        clustering=config_provider("mods", "modify_nuts3_shapes"),
+        plotting=config_provider("plotting"),
+        extent=[5.0, 20.0, 44.0, 52.0],
+        powerplant_threshold=10.0,
+    message:
+        "Plotting the model input maps (power plants, industrial sites, grids). On demand only."
+    script:
+        scripts("pypsa-at/plot_model_map_at.py")
+
+
 rule all_at:
     default_target: True
     input:
