@@ -11,8 +11,7 @@ Draws two static maps of Austria and its neighbours on a shared base layer
 - power plants coloured by fuel type and sized by capacity,
 - Hotmaps industrial sites coloured by subsector and sized by 2014 emissions.
 
-In Austria, the gas grid shows the AGGM corridor capacities on upstream
-SciGRID_gas/INET pipeline geometries, like the model uses them.
+The gas grid shows the SciGRID_gas/INET pipelines of all countries.
 """
 
 import logging
@@ -20,7 +19,6 @@ import logging
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-from shapely.geometry import LineString
 
 logger = logging.getLogger(__name__)
 
@@ -63,145 +61,6 @@ def parse_wkt_points(wkt: pd.Series) -> gpd.GeoSeries:
     return gpd.GeoSeries.from_wkt(plain, crs="EPSG:4326")
 
 
-def corridor_key(bus0: str, bus1: str) -> str:
-    """Name a corridor after its buses, independent of the flow direction."""
-    first, second = sorted((bus0, bus1))
-    return f"{first} <-> {second}"
-
-
-def assign_corridors(
-    pipes: pd.DataFrame, bus_regions: gpd.GeoDataFrame
-) -> pd.DataFrame:
-    """
-    Locate both pipe ends in the bus regions, like ``cluster_gas_network``.
-
-    Parameters
-    ----------
-    pipes
-        Pipes with WKT columns ``point0`` and ``point1``.
-    bus_regions
-        Regions indexed by bus name.
-
-    Returns
-    -------
-    :
-        A copy of ``pipes`` with ``bus0``, ``bus1`` and ``corridor``. The
-        corridor is ``NaN`` when an end lies outside all regions or both ends
-        lie in the same region.
-    """
-    pipes = pipes.copy()
-    regions = bus_regions.rename_axis("name").reset_index()[["name", "geometry"]]
-    for i in (0, 1):
-        points = gpd.GeoDataFrame(geometry=parse_wkt_points(pipes[f"point{i}"]))
-        bus = gpd.sjoin(points, regions, how="left", predicate="within")["name"]
-        pipes[f"bus{i}"] = bus.groupby(bus.index).first()
-
-    valid = pipes["bus0"].notna() & pipes["bus1"].notna()
-    valid &= pipes["bus0"] != pipes["bus1"]
-    pipes["corridor"] = np.nan
-    pipes["corridor"] = pipes["corridor"].astype(object)
-    pipes.loc[valid, "corridor"] = [
-        corridor_key(b0, b1)
-        for b0, b1 in zip(pipes.loc[valid, "bus0"], pipes.loc[valid, "bus1"])
-    ]
-    return pipes
-
-
-def aggm_corridor_capacity(aggm: pd.DataFrame) -> pd.Series:
-    """
-    Reduce the directional AGGM strands to one capacity per corridor.
-
-    Each strand carries ``p_nom`` from ``bus0`` to ``bus1`` and
-    ``p_nom_reverse`` back, or ``-p_min_pu * p_nom`` if ``p_nom_reverse`` is
-    missing. Strands are summed per direction; the corridor capacity is the
-    stronger direction.
-
-    Parameters
-    ----------
-    aggm
-        AGGM strands with ``bus0``, ``bus1``, ``p_nom``, ``p_nom_reverse`` and
-        ``p_min_pu``.
-
-    Returns
-    -------
-    :
-        Capacity in MW indexed by :func:`corridor_key`.
-    """
-    p_nom = aggm["p_nom"].astype(float)
-    reverse = aggm["p_nom_reverse"].astype(float).fillna(-aggm["p_min_pu"] * p_nom)
-    forward_first = aggm["bus0"] < aggm["bus1"]
-    flows = pd.DataFrame(
-        {
-            "corridor": [corridor_key(*b) for b in zip(aggm["bus0"], aggm["bus1"])],
-            # capacity from the alphabetically first bus to the second, and back
-            "ascending": p_nom.where(forward_first, reverse),
-            "descending": reverse.where(forward_first, p_nom),
-        }
-    )
-    return flows.groupby("corridor")[["ascending", "descending"]].sum().max(axis=1)
-
-
-def apply_aggm_capacities(
-    pipes: pd.DataFrame, aggm_capacity: pd.Series
-) -> tuple[pd.DataFrame, pd.Series]:
-    """
-    Put the AGGM corridor capacities on the upstream pipe geometries.
-
-    Upstream ``p_nom`` gaps are filled with ``p_nom_diameter`` first. The AGGM
-    capacity of a corridor is split across its pipes in proportion to that
-    upstream capacity, or equally if no pipe in the corridor has one.
-
-    Parameters
-    ----------
-    pipes
-        Pipes with ``bus0``, ``bus1``, ``corridor``, ``p_nom`` and
-        ``p_nom_diameter``.
-    aggm_capacity
-        Corridor capacities from :func:`aggm_corridor_capacity`.
-
-    Returns
-    -------
-    :
-        The pipes with ``p_nom_map`` (MW) and ``status``: ``"aggm"`` for pipes
-        carrying AGGM capacity, ``"not_in_model"`` for pipes in Austrian
-        corridors the AGGM data does not contain (the model drops them), and
-        ``"upstream"`` otherwise. Second, the AGGM corridors without any
-        upstream pipe.
-    """
-    pipes = pipes.copy()
-    upstream = pipes["p_nom"].fillna(pipes["p_nom_diameter"])
-    n_filled = int((pipes["p_nom"].isna() & upstream.notna()).sum())
-    if n_filled:
-        logger.info(f"Filled {n_filled} missing upstream p_nom with p_nom_diameter.")
-    pipes["p_nom_map"] = upstream
-    pipes["status"] = "upstream"
-
-    in_aggm = pipes["corridor"].isin(aggm_capacity.index)
-    corridors = pipes.loc[in_aggm, "corridor"]
-    weight = upstream[in_aggm]
-    total = weight.groupby(corridors).transform("sum")
-    count = weight.groupby(corridors).transform("size")
-    share = (weight / total).where(total > 0, 1 / count).fillna(1 / count)
-    pipes.loc[in_aggm, "p_nom_map"] = share * corridors.map(aggm_capacity)
-    pipes.loc[in_aggm, "status"] = "aggm"
-
-    touches_at = pipes["bus0"].str.startswith("AT", na=False) | pipes[
-        "bus1"
-    ].str.startswith("AT", na=False)
-    not_in_model = touches_at & pipes["corridor"].notna() & ~in_aggm
-    pipes.loc[not_in_model, "status"] = "not_in_model"
-    if not_in_model.any():
-        logger.info(
-            "Upstream pipes in Austrian corridors without AGGM data (not in "
-            f"model): {sorted(pipes.loc[not_in_model, 'corridor'].unique())}"
-        )
-
-    missing = aggm_capacity.drop(pipes["corridor"].dropna().unique(), errors="ignore")
-    if not missing.empty:
-        logger.info(f"AGGM corridors without upstream geometry: {list(missing.index)}")
-    return pipes, missing
-
-
 def fill_hotmaps_emissions(hotmaps: pd.DataFrame) -> pd.DataFrame:
     """
     Fill site emissions like ``scripts/build_industrial_distribution_key.py``.
@@ -231,9 +90,24 @@ def fill_hotmaps_emissions(hotmaps: pd.DataFrame) -> pd.DataFrame:
     return hotmaps
 
 
-def scale(values: pd.Series, reference: float, size: float) -> pd.Series:
-    """Scale ``values`` linearly so that ``reference`` maps to ``size``."""
-    return values / reference * size
+def pipeline_capacity(pipes: pd.DataFrame) -> pd.Series:
+    """
+    Return the pipeline capacity in MW for the map.
+
+    Uses the upstream ``p_nom`` and fills its gaps with the diameter-based
+    estimate ``p_nom_diameter``.
+    """
+    return pipes["p_nom"].fillna(pipes["p_nom_diameter"])
+
+
+def scale(values, reference: float, size: float, cap: float | None = None):
+    """
+    Scale ``values`` linearly so that ``reference`` maps to ``size``.
+
+    With ``cap``, larger results are clipped to ``cap``.
+    """
+    scaled = values / reference * size
+    return scaled if cap is None else np.minimum(scaled, cap)
 
 
 def fueltype_colors(fueltypes, tech_colors: dict) -> dict:
@@ -300,17 +174,21 @@ SUBSECTOR_STYLE = {
 
 INK = "#262626"
 INK_MUTED = "#6b6b6b"
-REGION_FILL = "#f2f1ee"
-REGION_EDGE = "#b5b3ad"
-NOT_IN_MODEL = "#8c8c8c"
+LAND = "#eeeeec"  # neutral land fill for all countries except Austria
+AUSTRIA = "#e4dcf2"  # Austria: higher modelling detail (AT35 districts)
+SEA = "#8fb6d6"
+BORDER = "#3a3a3a"
+# region boundaries: neutral grey and dashed, never mistaken for a grid line
+REGION_EDGE = "#4d4d4d"
+REGION_DASH = (0, (2.5, 1.5))
 
 SOURCES = (
     "Data: grid and plant geometries © OpenStreetMap contributors (ODbL); "
-    "gas pipelines SciGRID_gas / INET (CC-BY 4.0); Austrian gas corridor "
-    "capacities AGGM; power plants powerplantmatching (MIT) and E-Control "
+    "gas pipelines SciGRID_gas / INET (CC-BY 4.0); "
+    "power plants powerplantmatching (MIT) and E-Control "
     "Anlagenregister; industrial sites Hotmaps industrial database, 2014 data "
     "(CC-BY 4.0); regions NUTS3 © EuroGeographics / Eurostat GISCO; "
-    "basemap Natural Earth. Clustering: PyPSA-AT AT35DE5."
+    "basemap Natural Earth."
 )
 
 
@@ -348,7 +226,7 @@ def fit_layout(fig, ax) -> None:
     fig.title_y = 1 - 0.25 / height
 
 
-def base_map(regions, lines, links, pipes, missing_lines, extent, scales):
+def base_map(regions, lines, links, pipes, extent, scales):
     """
     Draw the shared base layer and return the figure and map axes.
 
@@ -364,18 +242,20 @@ def base_map(regions, lines, links, pipes, missing_lines, extent, scales):
     ax.set_extent(extent, crs=ccrs.PlateCarree())
     fit_layout(fig, ax)
 
-    ax.add_feature(cfeature.OCEAN.with_scale("10m"), facecolor="#e6eef3", zorder=0)
-    regions.to_crs(proj.proj4_init).plot(
-        ax=ax, facecolor=REGION_FILL, edgecolor=REGION_EDGE, linewidth=0.3, zorder=1
+    # land fill (Austria distinct), sea on top of it for a crisp coastline
+    regions = regions.to_crs(proj.proj4_init)
+    austria = regions["name"].str.startswith("AT")
+    ax.add_feature(cfeature.LAND.with_scale("10m"), facecolor=LAND, zorder=0)
+    regions.plot(ax=ax, facecolor=np.where(austria, AUSTRIA, LAND), zorder=1)
+    ax.add_feature(cfeature.OCEAN.with_scale("10m"), facecolor=SEA, zorder=1.5)
+    regions.boundary.plot(
+        ax=ax, color=REGION_EDGE, linewidth=0.45, linestyle=REGION_DASH, zorder=2
     )
     ax.add_feature(
-        cfeature.BORDERS.with_scale("10m"), edgecolor=INK_MUTED, linewidth=0.6, zorder=2
+        cfeature.BORDERS.with_scale("10m"), edgecolor=BORDER, linewidth=0.8, zorder=2
     )
     ax.add_feature(
-        cfeature.COASTLINE.with_scale("10m"),
-        edgecolor=INK_MUTED,
-        linewidth=0.4,
-        zorder=2,
+        cfeature.COASTLINE.with_scale("10m"), edgecolor=BORDER, linewidth=0.4, zorder=2
     )
 
     e_ref, e_width = scales["electricity"]
@@ -395,39 +275,25 @@ def base_map(regions, lines, links, pipes, missing_lines, extent, scales):
             zorder=3,
         )
 
-    g_ref, g_width = scales["gas"]
-    pipes = pipes.to_crs(proj.proj4_init)
-    in_model = pipes["status"] != "not_in_model"
-    pipes[in_model].plot(
+    g_ref, g_width, g_cap = scales["gas"]
+    pipes.to_crs(proj.proj4_init).plot(
         ax=ax,
         color=scales["colors"]["gas"],
-        linewidth=scale(pipes.loc[in_model, "p_nom_map"], g_ref, g_width),
+        linewidth=scale(pipes["p_nom_map"], g_ref, g_width, cap=g_cap),
         alpha=0.9,
         capstyle="round",
         zorder=4,
     )
-    if (~in_model).any():
-        pipes[~in_model].plot(
-            ax=ax, color=NOT_IN_MODEL, linewidth=0.9, linestyle=":", zorder=4
-        )
-    if not missing_lines.empty:
-        missing_lines.to_crs(proj.proj4_init).plot(
-            ax=ax,
-            color=scales["colors"]["gas"],
-            linewidth=scale(missing_lines["p_nom_map"], g_ref, g_width),
-            linestyle=(0, (3, 2)),
-            zorder=4,
-        )
     return fig, ax, proj
 
 
-def line_legend_handles(scales: dict) -> tuple[list, list]:
-    """Build the width legends for the electricity and gas grids."""
+def line_legend_handles(scales: dict, clustering: str) -> tuple[list, list, list]:
+    """Build the legends for the model regions and the grid line widths."""
     from matplotlib.lines import Line2D
     from matplotlib.patches import Patch
 
     e_ref, e_width = scales["electricity"]
-    g_ref, g_width = scales["gas"]
+    g_ref, g_width, g_cap = scales["gas"]
     colors = scales["colors"]
     electricity = [
         Line2D(
@@ -440,45 +306,25 @@ def line_legend_handles(scales: dict) -> tuple[list, list]:
         for v in scales["electricity_legend"]
     ]
     electricity.append(Line2D([], [], color=colors["DC"], lw=1.5, label="HVDC link"))
-    electricity.append(
-        Patch(
-            facecolor=REGION_FILL,
-            edgecolor=REGION_EDGE,
-            lw=0.5,
-            label="Model region\n(AT35DE5)",
-        )
-    )
+    capped = g_cap / g_width * g_ref
     gas = [
         Line2D(
             [],
             [],
             color=colors["gas"],
-            lw=scale(v, g_ref, g_width),
-            label=f"{v:,.0f} MW",
+            lw=scale(v, g_ref, g_width, cap=g_cap),
+            label=f"{'≥ ' if v >= capped else ''}{v:,.0f} MW",
         )
         for v in scales["gas_legend"]
     ]
-    gas.append(
-        Line2D(
-            [],
-            [],
-            color=colors["gas"],
-            lw=1.5,
-            ls=(0, (3, 2)),
-            label="AGGM corridor,\nno pipeline geometry",
-        )
-    )
-    gas.append(
-        Line2D(
-            [],
-            [],
-            color=NOT_IN_MODEL,
-            lw=1.0,
-            ls=":",
-            label="SciGRID_gas/INET only,\nnot in model",
-        )
-    )
-    return electricity, gas
+    region = dict(edgecolor=REGION_EDGE, lw=0.5, ls=(0, (2.5, 1.5)))
+    regions = [
+        Patch(facecolor=AUSTRIA, label=f"Austria\n({clustering})", **region),
+        Patch(facecolor=LAND, label="Other countries", **region),
+        Line2D([], [], color=REGION_EDGE, lw=0.6, ls=REGION_DASH, label="Model region"),
+        Line2D([], [], color=BORDER, lw=0.9, label="Country border"),
+    ]
+    return regions, electricity, gas
 
 
 def size_legend_handles(values, reference, area, fmt, color=INK_MUTED):
@@ -500,13 +346,12 @@ def size_legend_handles(values, reference, area, fmt, color=INK_MUTED):
     ]
 
 
-def add_legends(fig, groups: list[tuple[str, list, dict]]):
-    """Place legend groups side by side in the panel below the map."""
-    n = len(groups)
-    for i, (title, handles, kwargs) in enumerate(groups):
+def add_legends(fig, groups: list[tuple[str, list, float, dict]]):
+    """Place legend groups side by side at the given x positions below the map."""
+    for title, handles, x, kwargs in groups:
         options = {
             "loc": "upper left",
-            "bbox_to_anchor": (0.01 + i / n * 0.98, fig.legend_top),
+            "bbox_to_anchor": (x, fig.legend_top),
             "frameon": False,
             "fontsize": 6,
             "title_fontsize": 6.5,
@@ -538,7 +383,7 @@ def finish(fig, title: str, note: str, path: str) -> None:
     fig.savefig(path, dpi=DPI)
 
 
-def plot_powerplants(base, ppl, share, threshold, colors, scales, path):
+def plot_powerplants(base, ppl, share, threshold, colors, scales, clustering, path):
     """Map 1: power plants coloured by fuel type, area proportional to capacity."""
     import cartopy.crs as ccrs
     import matplotlib.pyplot as plt
@@ -576,26 +421,28 @@ def plot_powerplants(base, ppl, share, threshold, colors, scales, path):
     sizes = size_legend_handles(
         scales["powerplants_legend"], p_ref, p_area, lambda v: f"{v:,.0f} MW"
     )
-    electricity, gas = line_legend_handles(scales)
+    regions, electricity, gas = line_legend_handles(scales, clustering)
     add_legends(
         fig,
         [
-            ("Fuel type", fuel, {"ncol": 2, "columnspacing": 0.8}),
-            ("Capacity", sizes, {"labelspacing": 1.4, "borderpad": 0.6}),
-            ("Electricity grid", electricity, {}),
-            ("Gas grid", gas, {}),
+            ("Fuel type", fuel, 0.01, {"ncol": 2, "columnspacing": 0.8}),
+            ("Capacity", sizes, 0.33, {"labelspacing": 1.4, "borderpad": 0.6}),
+            ("Map", regions, 0.49, {}),
+            ("Electricity grid", electricity, 0.67, {}),
+            ("Gas grid", gas, 0.84, {}),
         ],
     )
     note = (
         f"Power plants ≥ {threshold:.0f} MW shown ({share:.0%} of installed "
         "capacity in the map extent); circle area proportional to capacity. "
-        "Line width proportional to capacity."
+        "Line width proportional to capacity (gas capped at the largest legend "
+        "value). Dashed lines: model region boundaries."
     )
     finish(fig, "PyPSA-AT model input: power plants and energy grids", note, path)
     plt.close(fig)
 
 
-def plot_industry(base, sites, scales, path):
+def plot_industry(base, sites, scales, clustering, path):
     """Map 2: Hotmaps industrial sites by subsector, area proportional to emissions."""
     import cartopy.crs as ccrs
     import matplotlib.pyplot as plt
@@ -653,19 +500,26 @@ def plot_industry(base, sites, scales, path):
             label="hollow: not reported,\n20 % quantile of\ncountry & subsector",
         )
     )
-    electricity, gas = line_legend_handles(scales)
+    regions, electricity, gas = line_legend_handles(scales, clustering)
     add_legends(
         fig,
         [
-            ("Subsector (Hotmaps)", style, {}),
-            ("ETS emissions 2014", sizes, {"labelspacing": 1.2, "borderpad": 0.6}),
-            ("Electricity grid", electricity, {}),
-            ("Gas grid", gas, {}),
+            ("Subsector (Hotmaps)", style, 0.01, {}),
+            (
+                "ETS emissions 2014",
+                sizes,
+                0.28,
+                {"labelspacing": 1.2, "borderpad": 0.6},
+            ),
+            ("Map", regions, 0.49, {}),
+            ("Electricity grid", electricity, 0.67, {}),
+            ("Gas grid", gas, 0.84, {}),
         ],
     )
     note = (
         "Industrial sites sized by 2014 ETS emissions (proxy for production), "
-        "else E-PRTR emissions. Line width proportional to capacity."
+        "else E-PRTR emissions. Line width proportional to capacity (gas capped "
+        "at the largest legend value). Dashed lines: model region boundaries."
     )
     finish(fig, "PyPSA-AT model input: industrial sites and energy grids", note, path)
     plt.close(fig)
@@ -683,33 +537,18 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake("plot_model_map_at", clusters="adm", run="AT_KN2040")
 
-    import importlib
-
     import pypsa
 
     from scripts._helpers import configure_logging
-    from scripts.cluster_gas_network import load_bus_regions
 
     configure_logging(snakemake)
-    read_aggm_gas_network = importlib.import_module(
-        "scripts.pypsa-at.modify_brownfield_gas_network_AT"
-    ).read_aggm_gas_network
 
     clustering = snakemake.params.clustering
-    if not clustering.startswith("AT35"):
-        raise ValueError(
-            f"plot_model_map_at needs the AT35 clustering (AGGM corridors are "
-            f"AT35), got mods.modify_nuts3_shapes: {clustering}."
-        )
-
     extent = tuple(snakemake.params.extent)
     tech_colors = snakemake.params.plotting["tech_colors"]
     threshold = snakemake.params.powerplant_threshold
 
     regions = gpd.read_file(snakemake.input.regions_onshore)
-    bus_regions = load_bus_regions(
-        snakemake.input.regions_onshore, snakemake.input.regions_offshore
-    )
 
     # electricity grid
     n = pypsa.Network(snakemake.input.network)
@@ -719,20 +558,12 @@ if __name__ == "__main__":
     links = n.links.query("carrier == 'DC'")[["p_nom", "geometry"]]
     links = clip_to_extent(load_line_geometries(links, 4326), extent)
 
-    # gas grid with AGGM capacities in Austria
+    # gas grid: SciGRID_gas/INET pipelines for all countries
     pipes = pd.read_csv(snakemake.input.gas_network, index_col=0)
-    pipes = assign_corridors(pipes, bus_regions)
-    aggm = read_aggm_gas_network(snakemake.input.aggm_gas_network)
-    pipes, missing = apply_aggm_capacities(pipes, aggm_corridor_capacity(aggm))
+    pipes["p_nom_map"] = pipeline_capacity(pipes)
+    n_filled = int(pipes["p_nom"].isna().sum())
+    logger.info(f"Filled {n_filled} missing pipeline p_nom with p_nom_diameter.")
     pipes = clip_to_extent(load_line_geometries(pipes, 4326), extent)
-    anchor = bus_regions.representative_point()
-    missing_lines = gpd.GeoDataFrame(
-        {"p_nom_map": missing.to_numpy()},
-        geometry=[
-            LineString([anchor[b] for b in key.split(" <-> ")]) for key in missing.index
-        ],
-        crs="EPSG:4326",
-    )
 
     colors = {
         "AC": tech_colors["AC"],
@@ -743,8 +574,8 @@ if __name__ == "__main__":
         "colors": colors,
         "electricity": (2000.0, 1.0),  # MVA -> pt
         "electricity_legend": [500, 2000, 5000],
-        "gas": (10000.0, 1.5),  # MW -> pt
-        "gas_legend": [1000, 5000, 20000],
+        "gas": (10000.0, 1.8, 1.8),  # MW -> pt, capped at 1.8 pt (10 GW)
+        "gas_legend": [1500, 5000, 10000],
         "powerplants": (1000.0, 40.0),  # MW -> pt²
         "powerplants_legend": [100, 500, 2000],
         "industry": (1e6, 40.0),  # t CO2/a -> pt²
@@ -752,7 +583,7 @@ if __name__ == "__main__":
     }
 
     def base():
-        return base_map(regions, lines, links, pipes, missing_lines, extent, scales)
+        return base_map(regions, lines, links, pipes, extent, scales)
 
     # map 1: power plants
     ppl = pd.read_csv(snakemake.input.powerplants, index_col=0)
@@ -765,6 +596,7 @@ if __name__ == "__main__":
         threshold,
         fueltype_colors(ppl["Fueltype"].unique(), tech_colors),
         scales,
+        clustering,
         snakemake.output.powerplants,
     )
 
@@ -782,4 +614,4 @@ if __name__ == "__main__":
         f"Plotting {len(sites)} industrial sites, {int(sites['filled'].sum())} with "
         "filled emissions."
     )
-    plot_industry(base, sites, scales, snakemake.output.industry)
+    plot_industry(base, sites, scales, clustering, snakemake.output.industry)

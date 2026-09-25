@@ -8,9 +8,10 @@ The `plot_model_map_at` rule draws two print-quality maps (PNG, 300 dpi,
 - `model_map_industry.png`: Hotmaps industrial sites coloured and shaped by
   subsector, marker area proportional to 2014 ETS emissions.
 
-Both maps share a base layer: the AT35DE5 model regions, the electricity grid
-(line width proportional to `s_nom`) and the gas grid (line width proportional
-to `p_nom`).
+Both maps share a base layer: the model regions (dashed boundaries, Austria
+filled in a distinct colour), the electricity grid (line width proportional
+to `s_nom`) and the gas grid (line width proportional to `p_nom`, capped at
+10 GW).
 
 ## Build the maps
 
@@ -29,33 +30,25 @@ For example, with `prefix: industry-energy-map` and `name: AT_KN2040`:
 pixi run snakemake -call results/industry-energy-map/AT_KN2040/maps/model_map_powerplants.png
 ```
 
-One call writes both maps. The rule needs `mods.modify_nuts3_shapes` to be
-an `AT35*` clustering, because the AGGM corridors are defined on AT35 regions.
-On the first run, cartopy downloads the Natural Earth borders and coastlines.
+One call writes both maps. The legend names the clustering from
+`mods.modify_nuts3_shapes`. On the first run, cartopy downloads the Natural Earth borders and coastlines.
 
 ## What the maps show
 
 **Electricity grid.** Exact OSM line geometries from `resources/networks/base.nc`
 (AC lines and HVDC links).
 
-**Gas grid.** SciGRID_gas / INET pipeline geometries from
-`resources/gas_network.csv`. Missing upstream capacities are filled with the
-diameter-based estimate `p_nom_diameter`. In Austria, the map shows the AGGM
-capacities the model uses:
+**Gas grid.** SciGRID_gas / INET pipeline geometries and capacities from
+`resources/gas_network.csv`, for all countries including Austria. Missing
+capacities are filled with the diameter-based estimate `p_nom_diameter`; the
+log `results/{prefix}/{run}/logs/plot_model_map_at.log` states how many. Line
+widths grow linearly up to 10 GW and stay constant above, so that large
+transit pipelines do not cover the map.
 
-1. Each pipeline is assigned to a region pair (corridor) by locating its end
-   points in the model regions, like `cluster_gas_network`.
-2. For corridors in `data/pypsa-at/AGGM_gas_network_base_AT35.csv`, the AGGM
-   capacity replaces the upstream one. The AGGM strands of a corridor are summed
-   per flow direction and the stronger direction is used. That capacity is split
-   across the corridor's pipelines in proportion to their upstream capacity.
-3. AGGM corridors without an upstream pipeline are drawn as dashed straight
-   lines between the regions.
-4. Upstream pipelines in Austrian corridors without AGGM data are drawn grey
-   and dotted: the model drops them (see `modify_brownfield_gas_network_AT`).
-
-The log `results/{prefix}/{run}/logs/plot_model_map_at.log` lists the corridors
-of steps 3 and 4.
+!!! note
+    The model itself replaces the Austrian gas corridors with AGGM data
+    (`modify_brownfield_gas_network_AT`). The map shows the upstream pipelines
+    only.
 
 **Power plants.** `powerplants_s_adm-overwrite.csv`, the powerplantmatching list
 with the Anlagenregister overrides for Austria. Only plants with at least 10 MW

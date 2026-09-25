@@ -60,14 +60,8 @@ rule plot_model_map_at:
             clusters="adm",
             allow_missing=True,
         )[0],
-        regions_offshore=expand(
-            resources("regions_offshore_base_s_{clusters}.geojson"),
-            clusters="adm",
-            allow_missing=True,
-        )[0],
         network=resources("networks/base.nc"),
         gas_network=resources("gas_network.csv"),
-        aggm_gas_network="data/pypsa-at/AGGM_gas_network_base_AT35.csv",
         powerplants=expand(
             resources("powerplants_s_{clusters}-overwrite.csv"),
             clusters="adm",
