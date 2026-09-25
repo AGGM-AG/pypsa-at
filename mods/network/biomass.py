@@ -19,6 +19,11 @@ Currently the only correction concerns Switzerland (CH):
   planning horizon. This splits the unscaled CH potential into a sustainable and an
   unsustainable part with the configured ``share_*`` schedules, as for all other
   countries.
+
+The Swiss ``municipal solid waste`` potential is left untouched on purpose. It is
+unscaled for the same upstream reason, but there is no unsustainable counterpart
+carrier to move the potential into, so applying the phase-in would delete Swiss
+supply instead of reclassifying it.
 """
 
 from logging import getLogger
@@ -32,42 +37,6 @@ logger = getLogger(__name__)
 COUNTRY = "CH"
 SUSTAINABLE_CARRIER = "solid biomass"
 UNSUSTAINABLE_CARRIER = "unsustainable solid biomass"
-
-
-def assert_upstream_ch_exemption(n: pypsa.Network) -> None:
-    """
-    Fail if upstream no longer exempts Switzerland from the biomass phase-in.
-    Once PyPSA-Eur changes something about the biomass data source or finds another
-    workaround for Switzerland, this fix should be removed.
-
-    Parameters
-    ----------
-    n
-        The network to check, before the split is applied.
-
-    Returns
-    -------
-    :
-        Returns nothing if the upstream exemption still holds.
-
-    Raises
-    ------
-    ValueError
-        If CH unsustainable solid biomass generators already carry a potential.
-    """
-    generators = n.generators[
-        n.generators.index.str.startswith(COUNTRY)
-        & (n.generators["carrier"] == UNSUSTAINABLE_CARRIER)
-        & ~n.generators.index.str.endswith(" transported")
-    ]
-
-    potential = generators["p_nom"].sum()
-    if potential > 0:
-        raise ValueError(
-            f"Expected no {UNSUSTAINABLE_CARRIER} potential in country {COUNTRY}, but"
-            f"found {potential / 1e6:.3f} TWh/a in {list(generators.index)}. Upstream "
-            "data has changed, so this modification needs to be reviewed."
-        )
 
 
 def _select_ch_generators(n: pypsa.Network, carrier: str) -> pd.Index:
@@ -92,6 +61,38 @@ def _select_ch_generators(n: pypsa.Network, carrier: str) -> pd.Index:
         & (generators["carrier"] == carrier)
         & ~generators.index.str.endswith(" transported")
     ]
+
+
+def assert_upstream_ch_exemption(n: pypsa.Network) -> None:
+    """
+    Fail if upstream no longer exempts Switzerland from the biomass phase-in.
+    Once PyPSA-Eur changes something about the biomass data source or finds another
+    workaround for Switzerland, this fix should be removed.
+
+    Parameters
+    ----------
+    n
+        The network to check, before the split is applied.
+
+    Returns
+    -------
+    :
+        Returns nothing if the upstream exemption still holds.
+
+    Raises
+    ------
+    ValueError
+        If CH unsustainable solid biomass generators already carry a potential.
+    """
+    generators = _select_ch_generators(n, UNSUSTAINABLE_CARRIER)
+
+    potential = n.generators.loc[generators, "p_nom"].sum()
+    if potential > 0:
+        raise ValueError(
+            f"Expected no {UNSUSTAINABLE_CARRIER} potential in country {COUNTRY}, but"
+            f"found {potential / 1e6:.3f} TWh/a in {list(generators)}. Upstream "
+            "data has changed, so this modification needs to be reviewed."
+        )
 
 
 def split_ch_solid_biomass(
@@ -134,7 +135,12 @@ def split_ch_solid_biomass(
 
     if share_unsustainable == 0:
         # after given year, no unsustainable biomass is available anywhere anymore
-        logger.info("No unsustainable share in this horizon. Scaled {COUNTRY} ")
+        logger.info(
+            f"No unsustainable share in this horizon. Scaled {COUNTRY} "
+            f"{SUSTAINABLE_CARRIER} "
+            f"to {(base.sum() * share_sustainable) / 1e6:.3f} TWh/a and left the "
+            "unsustainable potential empty."
+        )
         return
 
     # Generators are named "<node> <carrier>", so the counterpart of
