@@ -8,12 +8,14 @@ import numpy as np
 import pandas as pd
 import pytest
 from plot_model_map_at import (
-    fill_hotmaps_emissions,
+    NUCLEAR_COLOR,
+    aggregate_colocated_plants,
     filter_powerplants,
     fueltype_colors,
     parse_wkt_points,
     pipeline_capacity,
     scale,
+    select_reported_sites,
 )
 from shapely.geometry import Point
 
@@ -40,42 +42,37 @@ def test_parse_wkt_points_keeps_missing_as_none():
 
 def make_hotmaps(rows) -> pd.DataFrame:
     return pd.DataFrame(
-        rows,
-        columns=["country", "Subsector", "Emissions_ETS_2014", "Emissions_EPRTR_2014"],
+        rows, columns=["Subsector", "Emissions_ETS_2014", "Emissions_EPRTR_2014"]
     )
 
 
-def test_fill_emissions_prefers_ets():
-    out = fill_hotmaps_emissions(make_hotmaps([["AT", "Cement", 10.0, 99.0]]))
-    assert out.loc[0, "emissions"] == 10.0
-    assert not out.loc[0, "filled"]
+def test_reported_sites_prefer_ets():
+    sites, _ = select_reported_sites(make_hotmaps([["Cement", 10.0, 99.0]]))
+    assert sites["emissions"].tolist() == [10.0]
 
 
-def test_fill_emissions_falls_back_to_eprtr():
-    out = fill_hotmaps_emissions(make_hotmaps([["AT", "Cement", np.nan, 99.0]]))
-    assert out.loc[0, "emissions"] == 99.0
-    assert not out.loc[0, "filled"]
+def test_reported_sites_fall_back_to_eprtr():
+    sites, _ = select_reported_sites(make_hotmaps([["Cement", np.nan, 99.0]]))
+    assert sites["emissions"].tolist() == [99.0]
 
 
-def test_fill_emissions_uses_country_subsector_quantile():
+def test_reported_sites_drop_sites_without_emissions():
+    hotmaps = make_hotmaps([["Cement", 10.0, np.nan], ["Glass", np.nan, np.nan]])
+    sites, _ = select_reported_sites(hotmaps)
+    assert sites["Subsector"].tolist() == ["Cement"]
+
+
+def test_reported_sites_count_dropped_sites_per_subsector():
     hotmaps = make_hotmaps(
         [
-            ["AT", "Cement", 0.0, np.nan],
-            ["AT", "Cement", 100.0, np.nan],
-            ["AT", "Cement", np.nan, np.nan],
-            ["DE", "Cement", 1e6, np.nan],  # other country must not count
-            ["AT", "Glass", 1e6, np.nan],  # other subsector must not count
+            ["Cement", np.nan, np.nan],
+            ["Cement", np.nan, np.nan],
+            ["Glass", np.nan, np.nan],
+            ["Glass", 5.0, np.nan],
         ]
     )
-    out = fill_hotmaps_emissions(hotmaps)
-    assert out.loc[2, "emissions"] == pytest.approx(20.0)
-    assert out["filled"].tolist() == [False, False, True, False, False]
-
-
-def test_fill_emissions_group_without_data_stays_nan_and_filled():
-    out = fill_hotmaps_emissions(make_hotmaps([["AT", "Glass", np.nan, np.nan]]))
-    assert np.isnan(out.loc[0, "emissions"])
-    assert out.loc[0, "filled"]
+    _, dropped = select_reported_sites(hotmaps)
+    assert dropped.to_dict() == {"Cement": 2, "Glass": 1}
 
 
 # --- scaling, colours, filters -----------------------------------------------
@@ -104,6 +101,36 @@ def test_fueltype_colors_maps_ppm_fueltypes_to_tech_colors():
     tech_colors = {"solar": "#f9d002", "onwind": "#235ebc", "gas": "#e05b09"}
     colors = fueltype_colors(["Solar", "Wind", "Natural Gas"], tech_colors)
     assert colors == {"Solar": "#f9d002", "Wind": "#235ebc", "Natural Gas": "#e05b09"}
+
+
+def test_fueltype_colors_overrides_nuclear():
+    colors = fueltype_colors(["Nuclear"], {"nuclear": "#ff8c00"})
+    assert colors == {"Nuclear": NUCLEAR_COLOR}
+
+
+def test_aggregate_colocated_plants_sums_same_fueltype_at_one_site():
+    ppl = pd.DataFrame(
+        {
+            "lon": [5.2706, 5.2706, 5.2706],
+            "lat": [45.7973, 45.7973, 45.7973],
+            "Fueltype": ["Nuclear", "Nuclear", "Hydro"],
+            "Capacity": [945.0, 917.0, 30.0],
+        }
+    )
+    out = aggregate_colocated_plants(ppl).set_index("Fueltype")["Capacity"]
+    assert out.to_dict() == {"Hydro": 30.0, "Nuclear": 1862.0}
+
+
+def test_aggregate_colocated_plants_keeps_separate_sites():
+    ppl = pd.DataFrame(
+        {
+            "lon": [10.0, 11.0],
+            "lat": [47.0, 47.0],
+            "Fueltype": ["Hydro", "Hydro"],
+            "Capacity": [30.0, 40.0],
+        }
+    )
+    assert len(aggregate_colocated_plants(ppl)) == 2
 
 
 def test_fueltype_colors_unknown_fueltype_raises():

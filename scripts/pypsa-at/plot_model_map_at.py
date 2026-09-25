@@ -42,6 +42,11 @@ FUELTYPE_CARRIER = {
     "Other": "other",
 }
 
+# Map-only override: tech_colors nuclear (#ff8c00) is hard to tell from gas
+# (#e05b09). This dark violet keeps CVD Delta E >= 8 and normal-vision
+# Delta E >= 15 against all other fuel type colours on the map.
+NUCLEAR_COLOR = "#762a83"
+
 
 def parse_wkt_points(wkt: pd.Series) -> gpd.GeoSeries:
     """
@@ -61,33 +66,47 @@ def parse_wkt_points(wkt: pd.Series) -> gpd.GeoSeries:
     return gpd.GeoSeries.from_wkt(plain, crs="EPSG:4326")
 
 
-def fill_hotmaps_emissions(hotmaps: pd.DataFrame) -> pd.DataFrame:
+def select_reported_sites(hotmaps: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     """
-    Fill site emissions like ``scripts/build_industrial_distribution_key.py``.
-
-    Uses ``Emissions_ETS_2014``, else ``Emissions_EPRTR_2014``, else the 20 %
-    quantile of the sites in the same country and subsector.
+    Keep the sites with reported emissions: ETS 2014, else E-PRTR 2014.
 
     Parameters
     ----------
     hotmaps
-        Sites with ``country``, ``Subsector``, ``Emissions_ETS_2014`` and
+        Sites with ``Subsector``, ``Emissions_ETS_2014`` and
         ``Emissions_EPRTR_2014``.
 
     Returns
     -------
     :
-        A copy with ``emissions`` (t CO2/a) and ``filled`` (``True`` if the
-        quantile was used). Groups without any reported value stay ``NaN``.
+        The sites with ``emissions`` (t CO2/a), and the number of dropped
+        sites without any reported value per subsector.
     """
-    hotmaps = hotmaps.copy()
-    reported = hotmaps["Emissions_ETS_2014"].fillna(hotmaps["Emissions_EPRTR_2014"])
-    quantile = reported.groupby([hotmaps["country"], hotmaps["Subsector"]]).transform(
-        lambda s: s.quantile(0.2)
-    )
-    hotmaps["emissions"] = reported.fillna(quantile)
-    hotmaps["filled"] = reported.isna()
-    return hotmaps
+    emissions = hotmaps["Emissions_ETS_2014"].fillna(hotmaps["Emissions_EPRTR_2014"])
+    reported = emissions.notna()
+    dropped = hotmaps.loc[~reported, "Subsector"].value_counts().sort_index()
+    return hotmaps.loc[reported].assign(emissions=emissions[reported]), dropped
+
+
+def aggregate_colocated_plants(ppl: pd.DataFrame) -> pd.DataFrame:
+    """
+    Merge units of the same fuel type at the same location into one plant.
+
+    Stacked markers of equal units (e.g. the reactors of one nuclear site)
+    would otherwise draw as rings.
+
+    Parameters
+    ----------
+    ppl
+        Plants with ``lon``, ``lat``, ``Fueltype`` and ``Capacity`` (MW).
+
+    Returns
+    -------
+    :
+        One row per location and fuel type with the summed ``Capacity``.
+    """
+    keys = [ppl["lon"].round(4), ppl["lat"].round(4), ppl["Fueltype"]]
+    return ppl.groupby(keys)["Capacity"].sum().reset_index()
 
 
 def pipeline_capacity(pipes: pd.DataFrame) -> pd.Series:
@@ -122,7 +141,10 @@ def fueltype_colors(fueltypes, tech_colors: dict) -> dict:
     unknown = sorted(set(fueltypes) - set(FUELTYPE_CARRIER))
     if unknown:
         raise KeyError(f"No tech colour mapping for fuel types: {unknown}")
-    return {f: tech_colors[FUELTYPE_CARRIER[f]] for f in fueltypes}
+    colors = {f: tech_colors[FUELTYPE_CARRIER[f]] for f in fueltypes}
+    if "Nuclear" in colors:
+        colors["Nuclear"] = NUCLEAR_COLOR
+    return colors
 
 
 def filter_powerplants(
@@ -248,8 +270,12 @@ def base_map(regions, lines, links, pipes, extent, scales):
     ax.add_feature(cfeature.LAND.with_scale("10m"), facecolor=LAND, zorder=0)
     regions.plot(ax=ax, facecolor=np.where(austria, AUSTRIA, LAND), zorder=1)
     ax.add_feature(cfeature.OCEAN.with_scale("10m"), facecolor=SEA, zorder=1.5)
-    regions.boundary.plot(
+    boundaries = regions.boundary
+    boundaries[~austria].plot(
         ax=ax, color=REGION_EDGE, linewidth=0.45, linestyle=REGION_DASH, zorder=2
+    )
+    boundaries[austria].plot(
+        ax=ax, color=REGION_EDGE, linewidth=0.7, linestyle=REGION_DASH, zorder=2
     )
     ax.add_feature(
         cfeature.BORDERS.with_scale("10m"), edgecolor=BORDER, linewidth=0.8, zorder=2
@@ -287,7 +313,7 @@ def base_map(regions, lines, links, pipes, extent, scales):
     return fig, ax, proj
 
 
-def line_legend_handles(scales: dict, clustering: str) -> tuple[list, list, list]:
+def line_legend_handles(scales: dict) -> tuple[list, list, list]:
     """Build the legends for the model regions and the grid line widths."""
     from matplotlib.lines import Line2D
     from matplotlib.patches import Patch
@@ -319,7 +345,7 @@ def line_legend_handles(scales: dict, clustering: str) -> tuple[list, list, list
     ]
     region = dict(edgecolor=REGION_EDGE, lw=0.5, ls=(0, (2.5, 1.5)))
     regions = [
-        Patch(facecolor=AUSTRIA, label=f"Austria\n({clustering})", **region),
+        Patch(facecolor=AUSTRIA, label="Austria (NUTS3)", **region),
         Patch(facecolor=LAND, label="Other countries", **region),
         Line2D([], [], color=REGION_EDGE, lw=0.6, ls=REGION_DASH, label="Model region"),
         Line2D([], [], color=BORDER, lw=0.9, label="Country border"),
@@ -383,7 +409,7 @@ def finish(fig, title: str, note: str, path: str) -> None:
     fig.savefig(path, dpi=DPI)
 
 
-def plot_powerplants(base, ppl, share, threshold, colors, scales, clustering, path):
+def plot_powerplants(base, ppl, share, threshold, colors, scales, path):
     """Map 1: power plants coloured by fuel type, area proportional to capacity."""
     import cartopy.crs as ccrs
     import matplotlib.pyplot as plt
@@ -421,7 +447,7 @@ def plot_powerplants(base, ppl, share, threshold, colors, scales, clustering, pa
     sizes = size_legend_handles(
         scales["powerplants_legend"], p_ref, p_area, lambda v: f"{v:,.0f} MW"
     )
-    regions, electricity, gas = line_legend_handles(scales, clustering)
+    regions, electricity, gas = line_legend_handles(scales)
     add_legends(
         fig,
         [
@@ -442,7 +468,7 @@ def plot_powerplants(base, ppl, share, threshold, colors, scales, clustering, pa
     plt.close(fig)
 
 
-def plot_industry(base, sites, scales, clustering, path):
+def plot_industry(base, sites, scales, path):
     """Map 2: Hotmaps industrial sites by subsector, area proportional to emissions."""
     import cartopy.crs as ccrs
     import matplotlib.pyplot as plt
@@ -450,26 +476,22 @@ def plot_industry(base, sites, scales, clustering, path):
 
     fig, ax, _ = base()
     i_ref, i_area = scales["industry"]
-    smallest = min(scales["industry_legend"])
-    sites = sites.assign(size=scale(sites["emissions"].fillna(smallest), i_ref, i_area))
+    sites = sites.assign(size=scale(sites["emissions"], i_ref, i_area))
     sites = sites.sort_values("size", ascending=False)
     for subsector, (color, marker) in SUBSECTOR_STYLE.items():
-        for filled, face in ((False, color), (True, "none")):
-            s = sites[(sites["Subsector"] == subsector) & (sites["filled"] == filled)]
-            if s.empty:
-                continue
-            ax.scatter(
-                s.geometry.x,
-                s.geometry.y,
-                s=s["size"],
-                marker=marker,
-                facecolors=face,
-                edgecolors=color if filled else INK,
-                linewidths=0.6 if filled else 0.2,
-                alpha=0.9,
-                transform=ccrs.PlateCarree(),
-                zorder=5,
-            )
+        s = sites[sites["Subsector"] == subsector]
+        ax.scatter(
+            s.geometry.x,
+            s.geometry.y,
+            s=s["size"],
+            marker=marker,
+            facecolors=color,
+            edgecolors=INK,
+            linewidths=0.2,
+            alpha=0.9,
+            transform=ccrs.PlateCarree(),
+            zorder=5,
+        )
     style = [
         Line2D(
             [],
@@ -487,24 +509,11 @@ def plot_industry(base, sites, scales, clustering, path):
     sizes = size_legend_handles(
         scales["industry_legend"], i_ref, i_area, lambda v: f"{v / 1e6:g} Mt CO₂/a"
     )
-    sizes.append(
-        Line2D(
-            [],
-            [],
-            ls="",
-            marker="o",
-            markersize=5,
-            markerfacecolor="none",
-            markeredgecolor=INK_MUTED,
-            markeredgewidth=0.6,
-            label="hollow: not reported,\n20 % quantile of\ncountry & subsector",
-        )
-    )
-    regions, electricity, gas = line_legend_handles(scales, clustering)
+    regions, electricity, gas = line_legend_handles(scales)
     add_legends(
         fig,
         [
-            ("Subsector (Hotmaps)", style, 0.01, {}),
+            ("Subsector", style, 0.01, {}),
             (
                 "ETS emissions 2014",
                 sizes,
@@ -517,9 +526,10 @@ def plot_industry(base, sites, scales, clustering, path):
         ],
     )
     note = (
-        "Industrial sites sized by 2014 ETS emissions (proxy for production), "
-        "else E-PRTR emissions. Line width proportional to capacity (gas capped "
-        "at the largest legend value). Dashed lines: model region boundaries."
+        "Industrial sites sized by 2014 ETS emissions (E-PRTR where ETS missing); "
+        "sites without reported emissions omitted. Line width proportional to "
+        "capacity (gas capped at the largest legend value). Dashed lines: model "
+        "region boundaries."
     )
     finish(fig, "PyPSA-AT model input: industrial sites and energy grids", note, path)
     plt.close(fig)
@@ -543,7 +553,6 @@ if __name__ == "__main__":
 
     configure_logging(snakemake)
 
-    clustering = snakemake.params.clustering
     extent = tuple(snakemake.params.extent)
     tech_colors = snakemake.params.plotting["tech_colors"]
     threshold = snakemake.params.powerplant_threshold
@@ -588,7 +597,12 @@ if __name__ == "__main__":
     # map 1: power plants
     ppl = pd.read_csv(snakemake.input.powerplants, index_col=0)
     ppl, share = filter_powerplants(ppl, extent, threshold)
-    logger.info(f"Plotting {len(ppl)} power plants ≥ {threshold} MW ({share:.1%}).")
+    n_units = len(ppl)
+    ppl = aggregate_colocated_plants(ppl)
+    logger.info(
+        f"Plotting {n_units} power plants ≥ {threshold} MW ({share:.1%}) at "
+        f"{len(ppl)} sites (co-located units of one fuel type merged)."
+    )
     plot_powerplants(
         base,
         ppl,
@@ -596,7 +610,6 @@ if __name__ == "__main__":
         threshold,
         fueltype_colors(ppl["Fueltype"].unique(), tech_colors),
         scales,
-        clustering,
         snakemake.output.powerplants,
     )
 
@@ -608,10 +621,9 @@ if __name__ == "__main__":
         sites, regions[["name", "geometry"]], how="inner", predicate="within"
     )
     sites = sites[~sites.index.duplicated()]
-    sites["country"] = sites["name"].str[:2]
-    sites = fill_hotmaps_emissions(clip_to_extent(sites, extent))
+    sites, dropped = select_reported_sites(clip_to_extent(sites, extent))
     logger.info(
-        f"Plotting {len(sites)} industrial sites, {int(sites['filled'].sum())} with "
-        "filled emissions."
+        f"Plotting {len(sites)} industrial sites. Dropped sites without reported "
+        f"emissions per subsector: {dropped.to_dict()}"
     )
-    plot_industry(base, sites, scales, clustering, snakemake.output.industry)
+    plot_industry(base, sites, scales, snakemake.output.industry)

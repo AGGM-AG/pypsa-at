@@ -76,7 +76,6 @@ rule plot_model_map_at:
     resources:
         mem_mb=8000,
     params:
-        clustering=config_provider("mods", "modify_nuts3_shapes"),
         plotting=config_provider("plotting"),
         extent=[5.0, 20.0, 44.0, 52.0],
         powerplant_threshold=10.0,

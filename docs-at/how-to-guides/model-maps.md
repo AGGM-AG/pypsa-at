@@ -30,8 +30,7 @@ For example, with `prefix: industry-energy-map` and `name: AT_KN2040`:
 pixi run snakemake -call results/industry-energy-map/AT_KN2040/maps/model_map_powerplants.png
 ```
 
-One call writes both maps. The legend names the clustering from
-`mods.modify_nuts3_shapes`. On the first run, cartopy downloads the Natural Earth borders and coastlines.
+One call writes both maps. On the first run, cartopy downloads the Natural Earth borders and coastlines.
 
 ## What the maps show
 
@@ -53,11 +52,15 @@ transit pipelines do not cover the map.
 **Power plants.** `powerplants_s_adm-overwrite.csv`, the powerplantmatching list
 with the Anlagenregister overrides for Austria. Only plants with at least 10 MW
 are drawn; the footer states their share of the capacity in the map extent.
+Units of the same fuel type at the same location (e.g. the reactors of one
+nuclear site) are merged into one circle. Colours follow `tech_colors`, except
+Nuclear: the map uses a dark violet, because the configured orange is hard to
+tell apart from Natural Gas.
 
-**Industrial sites.** Hotmaps industrial database. The emissions are filled as
-in `build_industrial_distribution_key`: ETS 2014, else E-PRTR 2014, else the
-20 % quantile of the sites in the same country and subsector. Sites with a
-filled value are drawn hollow.
+**Industrial sites.** Hotmaps industrial database. Sites are sized by their
+2014 ETS emissions, or by their E-PRTR emissions where the ETS value is
+missing. Sites without any reported emissions are omitted; the log lists how
+many per subsector.
 
 ## Adjust the maps
 
