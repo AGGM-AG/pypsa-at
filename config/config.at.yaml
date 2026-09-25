@@ -4,7 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 
 run:
-  prefix: upstream-merge-202609
+  prefix: industry-energy-map
   name:
   - AT_KN2040
   scenarios:
