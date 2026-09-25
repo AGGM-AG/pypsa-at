@@ -11,7 +11,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `patch_powerplants_set_at` rule restoring `Set="PP"` on the large German lignite condensing units, which powerplantmatching 0.8.x tags `Set="CHP"` and the inherited PyPSA-DE `powerplants_filter` then drops (19,965 MW → 0 MW of German lignite)
 
 ### Fixed
-- Switzerland now follows the `biomass.share_sustainable_potential_available` and `biomass.share_unsustainable_use_retained` phase-in like every other country. Upstream drops CH from the unsustainable calculation because the Eurostat energy balances contain no CH rows, and as a side effect also exempts CH from the sustainable phase-in, leaving 100 % sustainable biomass in every planning horizon (13.6 TWh/a in 2025, where the schedule prescribes none)
+- Switzerland now follows has split of biomass into un-/sustainable biomass potential. 
 
 ### Changed
 - Bumped `powerplantmatching` to 0.8.0 and the `powerplants` dataset to 0.8.1. 0.8.0 fixes the IRENASTAT download, which previously fetched a Zenodo 403 HTML page and failed in `add_existing_baseyear`; 0.8.1 is not usable as a package because it caps `pandas <3`
