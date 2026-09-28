@@ -644,6 +644,23 @@ def update_bus_coordinates(
     joined = gpd.sjoin_nearest(buses_gdf, admin_geo, how="left")
     busmap_df["admin"] = joined["admin_id"].astype(str).reindex(busmap_df.index)
 
+    # ---- PyPSA-AT owned -----
+    # Hotfix for a regression from PyPSA-Eur #2147: the nearest-polygon join above
+    # uses only each region's largest polygon, so a region whose buses all lie in a
+    # smaller part receives no buses (e.g. DE6 Hamburg, south of the Elbe). Its
+    # cluster then inherits a neighbour's coordinates, which yields zero-length lines
+    # and a singular susceptance matrix. In that case, fall back to the previous
+    # implementation and take coordinates from the region assigned in the busmap.
+    busmap_regions = busmap.astype(str).reindex(busmap_df.index)
+    regions_without_buses = sorted(set(busmap_regions) - set(busmap_df["admin"]))
+    if regions_without_buses:
+        logger.warning(
+            f"Regions {regions_without_buses} received no buses from the "
+            "nearest-region join. Falling back to busmap regions for bus coordinates."
+        )
+        busmap_df["admin"] = busmap_regions
+    # ---- end PyPSA-AT owned -----
+
     busmap_df = pd.merge(
         busmap_df,
         admin_regions[["x", "y"]],
