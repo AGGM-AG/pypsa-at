@@ -61,7 +61,17 @@ rule plot_model_map_at:
             allow_missing=True,
         )[0],
         network=resources("networks/base.nc"),
+        network_clustered=expand(
+            resources("networks/base_s_{clusters}.nc"),
+            clusters="adm",
+            allow_missing=True,
+        )[0],
         gas_network=resources("gas_network.csv"),
+        gas_network_clustered=expand(
+            resources("gas_network_base_s_{clusters}.csv"),
+            clusters="adm",
+            allow_missing=True,
+        )[0],
         powerplants=expand(
             resources("powerplants_s_{clusters}-overwrite.csv"),
             clusters="adm",
@@ -69,15 +79,17 @@ rule plot_model_map_at:
         )[0],
         hotmaps=rules.retrieve_hotmaps_industrial_sites.output["csv"],
     output:
-        powerplants=RESULTS + "maps/model_map_powerplants.png",
-        industry=RESULTS + "maps/model_map_industry.png",
+        powerplants_raw=RESULTS + "maps/model_map_powerplants_raw.png",
+        industry_raw=RESULTS + "maps/model_map_industry_raw.png",
+        powerplants_clustered=RESULTS + "maps/model_map_powerplants_clustered.png",
+        industry_clustered=RESULTS + "maps/model_map_industry_clustered.png",
     log:
         RESULTS + "logs/plot_model_map_at.log",
     resources:
         mem_mb=8000,
     params:
         plotting=config_provider("plotting"),
-        extent=[5.0, 20.0, 44.0, 52.0],
+        extent=[5.0, 21.0, 44.0, 52.0],
         powerplant_threshold=10.0,
     message:
         "Plotting the model input maps (power plants, industrial sites, grids). On demand only."

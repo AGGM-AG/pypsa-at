@@ -1,17 +1,20 @@
 # Model Input Maps
 
-The `plot_model_map_at` rule draws two print-quality maps (PNG, 300 dpi,
-16.5 cm wide) of the model input topology for Austria and its neighbours:
+The `plot_model_map_at` rule draws four print-quality maps (PNG, 300 dpi,
+16.5 cm wide) of the model input topology for Austria and its neighbours
+(lon 5–21° E, lat 44–52° N):
 
-- `model_map_powerplants.png`: power plants coloured by fuel type, circle area
-  proportional to capacity,
-- `model_map_industry.png`: Hotmaps industrial sites coloured and shaped by
-  subsector, marker area proportional to 2014 ETS emissions.
+| File | Content |
+|---|---|
+| `model_map_powerplants_raw.png` | Power plants coloured by fuel type, circle area proportional to capacity |
+| `model_map_industry_raw.png` | Hotmaps industrial sites coloured and shaped by subsector, marker area proportional to 2014 ETS emissions |
+| `model_map_powerplants_clustered.png` | The same power plants as one pie per model region, slices by fuel type |
+| `model_map_industry_clustered.png` | The same industrial sites as one pie per model region, slices by subsector |
 
-Both maps share a base layer: the model regions (dashed boundaries, Austria
-filled in a distinct colour), the electricity grid (line width proportional
-to `s_nom`) and the gas grid (line width proportional to `p_nom`, capped at
-10 GW).
+All maps share a base layer: the model regions (dashed boundaries, Austria
+filled in a distinct colour), the electricity grid and the gas grid. The raw
+maps ("raw data") draw exact line geometries; the clustered maps ("PyPSA-AT
+representation") draw straight corridors between the model's cluster buses.
 
 ## Build the maps
 
@@ -19,18 +22,16 @@ The rule is not part of `all_at`. Request its outputs explicitly, with the
 `run.prefix` and `run.name` of your configuration:
 
 ```bash
-pixi run snakemake -call \
-  results/{prefix}/{run}/maps/model_map_powerplants.png \
-  results/{prefix}/{run}/maps/model_map_industry.png
+pixi run snakemake -call results/{prefix}/{run}/maps/model_map_powerplants_raw.png
 ```
 
 For example, with `prefix: industry-energy-map` and `name: AT_KN2040`:
 
 ```bash
-pixi run snakemake -call results/industry-energy-map/AT_KN2040/maps/model_map_powerplants.png
+pixi run snakemake -call results/industry-energy-map/AT_KN2040/maps/model_map_powerplants_raw.png
 ```
 
-One call writes both maps. On the first run, cartopy downloads the Natural Earth borders and coastlines.
+One call writes all four maps. On the first run, cartopy downloads the Natural Earth borders and coastlines.
 
 ## What the maps show
 
@@ -61,6 +62,27 @@ tell apart from Natural Gas.
 2014 ETS emissions, or by their E-PRTR emissions where the ETS value is
 missing. Sites without any reported emissions are omitted; the log lists how
 many per subsector.
+
+## Clustered maps
+
+The clustered maps aggregate the model input to the model's spatial
+resolution: 35 Austrian NUTS3 regions, five German regions (DE1–DE5) and one
+region per other country (`regions_onshore_base_s_adm.geojson`).
+
+**Pies.** Each site of the raw map is assigned to the model region that
+contains it. One pie per region sits at the region's bus
+(`networks/base_s_adm.nc`): slices by fuel type (capacity) or subsector
+(emissions), pie area on the same scale as the raw-map markers. Pies of
+regions whose bus lies outside the map (e.g. FR, NL, DE5) are skipped; the log
+lists them.
+
+**Electricity.** AC lines and HVDC links of `networks/base_s_adm.nc`, summed
+per region pair. Widths follow the raw-map scale but are capped at 8,000 MVA,
+because summed corridors would otherwise cover the map.
+
+**Gas.** The model's final clustered gas network
+`gas_network_base_s_adm.csv`, with the AGGM capacities for Austria, summed per
+region pair and capped at 10 GW like the raw map.
 
 ## Adjust the maps
 

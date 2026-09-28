@@ -4,20 +4,26 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Unit tests for the pure helpers of scripts/pypsa-at/plot_model_map_at.py."""
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
 from plot_model_map_at import (
     NUCLEAR_COLOR,
     aggregate_colocated_plants,
+    aggregate_corridors,
+    assign_to_regions,
+    corridor_lines,
     filter_powerplants,
     fueltype_colors,
     parse_wkt_points,
+    pie_angles,
     pipeline_capacity,
     scale,
     select_reported_sites,
+    sum_by_region,
 )
-from shapely.geometry import Point
+from shapely.geometry import LineString, Point, box
 
 # --- geometry parsing --------------------------------------------------------
 
@@ -149,3 +155,89 @@ def test_filter_powerplants_applies_extent_and_threshold():
     out, share = filter_powerplants(ppl, (5, 20, 44, 52), threshold=20.0)
     assert out["Capacity"].tolist() == [30.0]
     assert share == pytest.approx(0.75)
+
+
+# --- clustered maps ----------------------------------------------------------
+
+
+@pytest.fixture
+def regions() -> gpd.GeoDataFrame:
+    """Two unit squares side by side: AT1 | DE."""
+    return gpd.GeoDataFrame(
+        {"name": ["AT1", "DE"]},
+        geometry=[box(0, 0, 1, 1), box(1, 0, 2, 1)],
+        crs="EPSG:4326",
+    )
+
+
+def test_assign_to_regions_finds_containing_region(regions):
+    points = gpd.GeoSeries([Point(0.5, 0.5), Point(1.5, 0.5)], crs="EPSG:4326")
+    assert assign_to_regions(points, regions).tolist() == ["AT1", "DE"]
+
+
+def test_assign_to_regions_leaves_outside_points_missing(regions):
+    points = gpd.GeoSeries([Point(5, 5)], index=[7], crs="EPSG:4326")
+    out = assign_to_regions(points, regions)
+    assert out.index.tolist() == [7]
+    assert pd.isna(out.loc[7])
+
+
+def test_sum_by_region_pivots_categories():
+    df = pd.DataFrame(
+        {
+            "region": ["AT1", "AT1", "AT1", "DE"],
+            "Fueltype": ["Hydro", "Hydro", "Wind", "Hydro"],
+            "Capacity": [10.0, 5.0, 3.0, 7.0],
+        }
+    )
+    out = sum_by_region(df, "region", "Fueltype", "Capacity")
+    assert out.loc["AT1"].to_dict() == {"Hydro": 15.0, "Wind": 3.0}
+    assert out.loc["DE"].to_dict() == {"Hydro": 7.0, "Wind": 0.0}
+
+
+def test_sum_by_region_ignores_unassigned_rows():
+    df = pd.DataFrame(
+        {
+            "region": ["AT1", np.nan],
+            "Fueltype": ["Hydro", "Hydro"],
+            "Capacity": [1.0, 9.0],
+        }
+    )
+    out = sum_by_region(df, "region", "Fueltype", "Capacity")
+    assert out.index.tolist() == ["AT1"]
+
+
+def test_aggregate_corridors_sums_parallel_and_reversed_strands():
+    df = pd.DataFrame(
+        {
+            "bus0": ["AT1", "DE", "AT1"],
+            "bus1": ["DE", "AT1", "DE"],
+            "p_nom": [1.0, 2.0, 4.0],
+        }
+    )
+    out = aggregate_corridors(df, "p_nom")
+    assert out.to_dict("records") == [{"bus0": "AT1", "bus1": "DE", "p_nom": 7.0}]
+
+
+def test_aggregate_corridors_drops_zero_capacity():
+    df = pd.DataFrame(
+        {"bus0": ["AT1", "CH"], "bus1": ["DE", "DE"], "p_nom": [0.0, 5.0]}
+    )
+    assert aggregate_corridors(df, "p_nom")["bus0"].tolist() == ["CH"]
+
+
+def test_corridor_lines_connect_bus_coordinates():
+    corridors = pd.DataFrame({"bus0": ["AT1"], "bus1": ["DE"], "p_nom": [5.0]})
+    buses = pd.DataFrame({"x": [0.5, 1.5], "y": [0.5, 0.5]}, index=["AT1", "DE"])
+    out = corridor_lines(corridors, buses)
+    assert out.geometry.iloc[0].equals(LineString([(0.5, 0.5), (1.5, 0.5)]))
+    assert out["p_nom"].tolist() == [5.0]
+
+
+def test_pie_angles_split_full_circle_by_share():
+    angles = pie_angles(pd.Series([1.0, 3.0]))
+    assert angles == [(90.0, 180.0), (180.0, 450.0)]
+
+
+def test_pie_angles_skip_zero_slices():
+    assert pie_angles(pd.Series([0.0, 2.0])) == [(90.0, 450.0)]
