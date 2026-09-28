@@ -630,35 +630,17 @@ def update_bus_coordinates(
 
     busmap_df = pd.DataFrame(busmap)
 
-    # Determine admin for each bus via spatial join of bus coordinates
-    # to the administrative polygons
-    buses_gdf = gpd.GeoDataFrame(
-        n.buses[["x", "y"]].copy(),
-        geometry=gpd.points_from_xy(n.buses["x"], n.buses["y"]),
-        crs=geo_crs,
-    )
-
-    # Find nearest admin region for each bus
-    admin_geo = admin_regions.copy()
-    admin_geo["admin_id"] = admin_geo.index
-    joined = gpd.sjoin_nearest(buses_gdf, admin_geo, how="left")
-    busmap_df["admin"] = joined["admin_id"].astype(str).reindex(busmap_df.index)
-
     # ---- PyPSA-AT owned -----
-    # Hotfix for a regression from PyPSA-Eur #2147: the nearest-polygon join above
-    # uses only each region's largest polygon, so a region whose buses all lie in a
-    # smaller part receives no buses (e.g. DE6 Hamburg, south of the Elbe). Its
-    # cluster then inherits a neighbour's coordinates, which yields zero-length lines
-    # and a singular susceptance matrix. In that case, fall back to the previous
-    # implementation and take coordinates from the region assigned in the busmap.
-    busmap_regions = busmap.astype(str).reindex(busmap_df.index)
-    regions_without_buses = sorted(set(busmap_regions) - set(busmap_df["admin"]))
-    if regions_without_buses:
-        logger.warning(
-            f"Regions {regions_without_buses} received no buses from the "
-            "nearest-region join. Falling back to busmap regions for bus coordinates."
-        )
-        busmap_df["admin"] = busmap_regions
+    # Hotfix for a regression from PyPSA-Eur #2147, which replaced the busmap lookup
+    # with a nearest-polygon join against each region's largest polygon only. Buses
+    # outside that polygon were matched to a neighbouring region and took its
+    # coordinates. This shifted clusters (e.g. DK1 by ~245 km) or, when a region lost
+    # all its buses (DE6 Hamburg, south of the Elbe), collapsed it onto a neighbour,
+    # producing zero-length lines and a singular susceptance matrix. Restore the
+    # previous implementation and take coordinates from the busmap region. The
+    # busmap has no AC/DC carrier suffixes yet, because apply_carrier_mixing_policy
+    # runs after this function, so its labels match the admin region index.
+    busmap_df["admin"] = busmap.astype(str).reindex(busmap_df.index)
     # ---- end PyPSA-AT owned -----
 
     busmap_df = pd.merge(
