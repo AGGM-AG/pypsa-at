@@ -16,9 +16,11 @@ model them as solid biomass CHPs.
 
 import logging
 
+import numpy as np
 import pandas as pd
 from build_anlagenregister_at import (
     GAS_TECHCODES,
+    clean_plz,
     deduplicate_gas_registrations,
     feedin_columns,
     load_postal_to_nuts,
@@ -212,10 +214,8 @@ def build_biogas_plants_AT(
 
     # the register holds free-text postal codes ("4600 ", "5431 Kuchl", ...);
     # take the first run of exactly four digits, like build_anlagenregister_at
-    anlreg["Plz"] = (
-        anlreg["plz"].fillna("").astype(str).str.extract(r"(?<!\d)(\d{4})(?!\d)")[0]
-    )
-    without_plz = anlreg["Plz"].isna()
+    anlreg["plz"] = clean_plz(anlreg["plz"])
+    without_plz = anlreg["plz"].isna()
     if without_plz.any():
         logger.warning(
             f"Dropped {int(without_plz.sum())} renewable-gas plants "
@@ -223,9 +223,9 @@ def build_biogas_plants_AT(
             "without a postal code."
         )
         anlreg = anlreg[~without_plz]
-    anlreg["nuts"] = anlreg["Plz"].map(postal_to_nuts)
+    anlreg["nuts"] = anlreg["plz"].map(postal_to_nuts)
 
-    missing_plz = anlreg.loc[anlreg["nuts"].isna(), "Plz"].unique()
+    missing_plz = anlreg.loc[anlreg["nuts"].isna(), "plz"].unique()
     if len(missing_plz) > 0:
         raise ValueError(
             f"Postal codes {sorted(missing_plz)} from Anlagenregister not found in"
@@ -450,9 +450,7 @@ def apply_gas_overrides_at(
         added.append(row["name"])
 
     is_at_gas = (ppl["Country"] == "AT") & (ppl["Fueltype"] == "Natural Gas")
-    bad_tech = sorted(
-        set(ppl.loc[is_at_gas, "Technology"].dropna()) - set(GAS_TECHNOLOGIES)
-    )
+    bad_tech = sorted(set(ppl.loc[is_at_gas, "Technology"]) - set(GAS_TECHNOLOGIES))
     if bad_tech:
         raise ValueError(
             f"Austrian natural gas rows carry Technology {bad_tech}, but "
@@ -551,10 +549,10 @@ def build_gas_deviations_at(
     out["delta_model_minus_register_mw"] = (
         out["capacity_mw_model"] - out["capacity_mw_register"]
     )
-    out["delta_model_minus_register_pct"] = (
-        100.0
-        * out["delta_model_minus_register_mw"]
-        / out["capacity_mw_register"].where(out["capacity_mw_register"] > 0)
+    out["delta_model_minus_register_pct"] = np.where(
+        out["capacity_mw_register"] > 0,
+        100.0 * out["delta_model_minus_register_mw"] / out["capacity_mw_register"],
+        GAS_PLANT_TOLERANCE * 100 + 1,
     )
 
     flagged = out[
