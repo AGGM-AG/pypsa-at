@@ -55,14 +55,36 @@ if __name__ == "__main__":
     regions = gpd.read_file(snakemake.input.regions).set_index("name")["geometry"]
     regions.index.name = "countries"
 
-    normalize_df = pd.DataFrame({year: [1]}, index=regions.index).T
+    # atlite can only normalize to yearly totals with (almost) a full year of data
+    full_year_available = sum(mask) > 8700
 
-    inflow = cutout.runoff(
-        shapes=regions,
-        smooth=True,
-        lower_threshold_quantile=True,
-        normalize_using_yearly=normalize_df,
-    )
+    if full_year_available:
+        normalize_df = pd.DataFrame({year: [1]}, index=regions.index).T
+
+        inflow = cutout.runoff(
+            shapes=regions,
+            smooth=True,
+            lower_threshold_quantile=True,
+            normalize_using_yearly=normalize_df,
+        )
+    else:
+        # e.g. short test cutouts in CI: normalize over the available period and
+        # scale to its share of the year, assuming the period is representative
+        logger.warning(
+            f"Cutout does not cover a full year of {year}. Normalizing the inflow "
+            "profile over the available period instead of the full year."
+        )
+        inflow = cutout.runoff(
+            shapes=regions,
+            smooth=True,
+            lower_threshold_quantile=True,
+        )
+        hours_in_year = pd.Timestamp(f"{year}-12-31").dayofyear * 24
+        share_of_year = inflow.sizes["time"] / hours_in_year
+        # regions without runoff in the cutout receive a flat profile
+        inflow = (inflow / inflow.sum("time")).fillna(
+            1 / inflow.sizes["time"]
+        ) * share_of_year
 
     inflow = inflow.sel(time=time)
 
