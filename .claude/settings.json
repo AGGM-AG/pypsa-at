@@ -1,4 +1,10 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)", "Bash(rg:*)", "Bash(find:*)", "Bash(head:*)",
+      "Bash(tail:*)", "Bash(wc:*)", "Bash(ls:*)", "Bash(cat:*)"
+    ]
+  },
   "extraKnownMarketplaces": {
     "claude-plugins-official": {
       "source": {
