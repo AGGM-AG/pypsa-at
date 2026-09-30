@@ -57,6 +57,8 @@ renewable:
     cutout: dach-03-2013-sarah3-era5
   solar-hsat:
     cutout: dach-03-2013-sarah3-era5
+  hydro:
+    cutout: dach-03-2013-sarah3-era5  # avoids the 6.6 GB full-year europe cutout in CI
 
 electricity:
   renewable_carriers: [solar, solar-hsat, onwind, offwind-ac, offwind-dc] # removed hydro, offwind-float
