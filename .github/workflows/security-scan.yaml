@@ -1,11 +1,11 @@
 name: Security scan
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths: [pixi.lock]
   # No path filter, a required check must report on every PR
   pull_request:
-    branches: [master]
+    branches: [main]
   schedule:
   - cron: "0 6 * * *"
   workflow_dispatch:
@@ -50,8 +50,8 @@ jobs:
       with:
         path: ".pixi/envs/default"
         output-file: sbom.spdx.json
-        dependency-snapshot: ${{ github.ref == 'refs/heads/master' }}
-        upload-artifact: false  # uploaded explicitly below, master only
+        dependency-snapshot: ${{ github.ref == 'refs/heads/main' }}
+        upload-artifact: false  # uploaded explicitly below, main only
 
     - name: Vulnerability Scan
       id: scan
@@ -67,7 +67,7 @@ jobs:
         output-format: sarif
 
     # Set uri=pixi.lock for a readable location, and fingerprint each alert by
-    # CVE id so code scanning matches against the master baseline by CVE, not line.
+    # CVE id so code scanning matches against the main baseline by CVE, not line.
     - name: Normalize SARIF (pixi.lock location + CVE fingerprint)
       run: |
         jq '.runs[].results[] |= (
@@ -76,8 +76,24 @@ jobs:
             )' "${{ steps.scan.outputs.sarif }}" > normalized.sarif
         mv normalized.sarif "${{ steps.scan.outputs.sarif }}"
 
+    # Print findings to the job log and step summary, the SARIF file is not kept otherwise
+    - name: Report findings
+      env:
+        SARIF: ${{ steps.scan.outputs.sarif }}
+      run: |
+        rows() { jq -r '.runs[].results[] | [.level, .ruleId, .message.text] | @tsv' "$SARIF" | sort -u; }
+        echo "Grype findings (error = high/critical, warning = medium, note = low):"
+        rows | column -t -s $'\t' 2>/dev/null || rows
+        {
+          echo "### Vulnerability scan: $(rows | grep -c '^error' || true) high+ of $(rows | wc -l) findings"
+          echo
+          echo "| Level | CVE | Details |"
+          echo "|---|---|---|"
+          rows | awk -F'\t' '{ gsub(/\|/, "\\|", $3); printf "| %s | %s | %s |\n", $1, $2, $3 }'
+        } >> "$GITHUB_STEP_SUMMARY"
+
     - name: Upload SARIF
-      if: github.ref == 'refs/heads/master'
+      if: github.ref == 'refs/heads/main'
       uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: ${{ steps.scan.outputs.sarif }}
@@ -85,30 +101,30 @@ jobs:
 
     # Baseline for the PR CVE diff. PR runs rescan it with their own vuln DB.
     - name: Upload SBOM as artifact
-      if: github.ref == 'refs/heads/master'
+      if: github.ref == 'refs/heads/main'
       uses: actions/upload-artifact@v7
       with:
-        name: master-sbom
+        name: main-sbom
         path: sbom.spdx.json
         retention-days: 30
 
-    # All PRs gate on new CVEs vs the master baseline
-    - name: Download master baseline
+    # All PRs gate on new CVEs vs the main baseline
+    - name: Download main baseline
       if: github.event_name == 'pull_request'
       uses: dawidd6/action-download-artifact@v23
       with:
         workflow: security-scan.yaml
-        name: master-sbom
-        branch: master
+        name: main-sbom
+        branch: main
         if_no_artifact_found: fail
-        path: master-baseline
+        path: main-baseline
 
-    - name: Scan master baseline
+    - name: Scan main baseline
       id: baseline
       if: github.event_name == 'pull_request'
       uses: anchore/scan-action@v7.4.0
       env:
-        SBOM: master-baseline/sbom.spdx.json
+        SBOM: main-baseline/sbom.spdx.json
       with: *scan_settings
 
     - name: Fail on new CVEs
@@ -122,8 +138,8 @@ jobs:
         ids() { jq -r '.runs[].results[] | select(.level == "error") | .ruleId' "$1" | sort -u; }
         new=$(comm -23 <(ids "$PR_SARIF") <(ids "$BASE_SARIF"))
         if [ -n "$new" ]; then
-          echo "::error::New high+ CVEs vs master:"
+          echo "::error::New high+ CVEs vs main:"
           printf '%s\n' "$new"
           exit 1
         fi
-        echo "No new high+ CVEs vs master."
+        echo "No new high+ CVEs vs main."

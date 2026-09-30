@@ -216,6 +216,11 @@ use rule modify_prenetwork as modify_prenetwork_at with:
             resources("heat_demand_nea_at_{clusters}.csv"),
             [],
         ),
+        electricity_base_load_at=branch(
+            config_provider("mods", "electricity_base_load", "enable"),
+            resources("electricity_base_load_at_{clusters}.csv"),
+            [],
+        ),
         code_files=[
             "mods/network/biogas.py",
             "mods/network/common.py",
@@ -226,6 +231,8 @@ use rule modify_prenetwork as modify_prenetwork_at with:
             "mods/network/electricity.py",
             "mods/network/h2.py",
             "mods/demand/heat_demand.py",
+            "mods/demand/electricity.py",
+            "mods/demand/annual.py",
             "mods/constants.py",
             "mods/utils.py",
         ],
@@ -254,6 +261,10 @@ use rule modify_prenetwork as modify_prenetwork_at with:
         existing_capacities=config_provider("existing_capacities"),
         add_biogas_to_power_plants_AT=config_provider(
             "mods", "existing_capacities", "add_biogas_to_power_plants_AT"
+        ),
+        electricity_base_load=config_provider("mods", "electricity_base_load"),
+        use_nea_transport_demand=config_provider(
+            "demand", "transport", "use_nea_demand"
         ),
 
 
