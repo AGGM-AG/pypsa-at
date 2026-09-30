@@ -10,6 +10,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   schedule:
   - cron: "0 5 * * 0"
+  - cron: "0 5 * * 1-6"
   workflow_dispatch:
 
 # Cancel any in-progress runs when a new run is triggered
@@ -101,7 +102,6 @@ jobs:
       if: steps.filter.outputs.src == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
       run: |
         echo "WEEK=$(date +'%Y%U')" >> $GITHUB_ENV # data
-        echo "MONTH=$(date +'%Y%m')" >> $GITHUB_ENV # cutouts
         echo "VERSIONS_HASH=${{ hashFiles('data/versions.csv') }}" >> $GITHUB_ENV
 
     - uses: actions/cache@v6
@@ -109,12 +109,6 @@ jobs:
       with:
         path: data
         key: data-${{ env.WEEK }}-${{ env.VERSIONS_HASH }}
-
-    - uses: actions/cache@v6
-      if: steps.filter.outputs.src == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-      with:
-        path: cutouts
-        key: cutouts-${{ env.MONTH }}
 
     - name: Restore git-tracked files in data/
       if: steps.filter.outputs.src == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
