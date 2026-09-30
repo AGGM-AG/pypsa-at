@@ -27,6 +27,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Alpha]
 
 ### Added
+- Austrian base electricity load (households, services, agriculture, rail) calibrated to the Statistik Austria NEA (NUTS2) to NUTS3 regions using Energiemosaik ([#213](https://github.com/AGGM-AG/pypsa-at/pull/213))
 - Retrieval of the E-Control Anlagenregister (Strom + Gas, all Bundesländer) via the website search endpoint and NUTS3 aggregation ([#198](https://github.com/AGGM-AG/pypsa-at/pull/198))
 - NUTS2 and NUTS3 administrative clustering with 1H/3H temporal resolution in the myopic workflow ([#55](https://github.com/AGGM-AG/pypsa-at/pull/55))
 - National CO₂ budget constraints for Austria following KSG targets; net-zero by 2040
