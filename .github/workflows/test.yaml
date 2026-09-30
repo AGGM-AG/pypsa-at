@@ -104,16 +104,25 @@ jobs:
         echo "MONTH=$(date +'%Y%m')" >> $GITHUB_ENV # cutouts
         echo "VERSIONS_HASH=${{ hashFiles('data/versions.csv') }}" >> $GITHUB_ENV
 
-    - uses: actions/cache@v6
+    # Caches are only written outside of pull requests (see "Save" steps below), because
+    # caches created in a PR are scoped to that PR and cannot be reused by other branches.
+    # The total repository cache limit is 10 GB, so keep data + cutouts + pixi well below.
+    - name: Restore data cache
+      id: cache-data
       if: steps.filter.outputs.src == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      uses: actions/cache/restore@v6
       with:
-        path: data
+        path: |
+          data
+          !data/cutout
         key: data-${{ env.WEEK }}-${{ env.VERSIONS_HASH }}
 
-    - uses: actions/cache@v6
+    - name: Restore cutouts cache
+      id: cache-cutouts
       if: steps.filter.outputs.src == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      uses: actions/cache/restore@v6
       with:
-        path: cutouts
+        path: data/cutout
         key: cutouts-${{ env.MONTH }}
 
     - name: Restore git-tracked files in data/
@@ -138,6 +147,28 @@ jobs:
       if: steps.filter.outputs.src == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
       run: |
         pixi run unit-tests
+
+    - name: Save data cache
+      if: >-
+        github.event_name != 'pull_request'
+        && steps.cache-data.outcome == 'success'
+        && steps.cache-data.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: |
+          data
+          !data/cutout
+        key: ${{ steps.cache-data.outputs.cache-primary-key }}
+
+    - name: Save cutouts cache
+      if: >-
+        github.event_name != 'pull_request'
+        && steps.cache-cutouts.outcome == 'success'
+        && steps.cache-cutouts.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: data/cutout
+        key: ${{ steps.cache-cutouts.outputs.cache-primary-key }}
 
     - name: Upload artifacts
       if: always()
