@@ -4,7 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 
 run:
-  prefix: electricity-base-load
+  prefix: switzerland-biomass-fix
   name:
   - AT_KN2040
   scenarios:

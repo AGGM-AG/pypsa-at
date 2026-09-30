@@ -30,6 +30,7 @@ nav:
     - Network:
       - reference/mods/network/index.md
       - biogas.py: reference/mods/network/biogas.md
+      - biomass.py: reference/mods/network/biomass.md
       - common.py: reference/mods/network/common.md
       - electricity.py: reference/mods/network/electricity.md
       - gas.py: reference/mods/network/gas.md
