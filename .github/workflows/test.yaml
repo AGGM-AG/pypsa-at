@@ -101,21 +101,20 @@ jobs:
       if: steps.filter.outputs.src == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
       run: |
         echo "WEEK=$(date +'%Y%U')" >> $GITHUB_ENV # data
+        echo "MONTH=$(date +'%Y%m')" >> $GITHUB_ENV # cutouts
         echo "VERSIONS_HASH=${{ hashFiles('data/versions.csv') }}" >> $GITHUB_ENV
 
-    # Caches are only written outside of pull requests (see "Save" steps below), because
-    # caches created in a PR are scoped to that PR and cannot be reused by other branches.
-    # The total repository cache limit is 10 GB. Cutouts are excluded: the europe cutout
-    # alone is ~6.6 GB and would push the data cache above that limit, causing eviction.
-    - name: Restore data cache
-      id: cache-data
+    - uses: actions/cache@v6
       if: steps.filter.outputs.src == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-      uses: actions/cache/restore@v6
       with:
-        path: |
-          data
-          !data/cutout
+        path: data
         key: data-${{ env.WEEK }}-${{ env.VERSIONS_HASH }}
+
+    - uses: actions/cache@v6
+      if: steps.filter.outputs.src == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      with:
+        path: cutouts
+        key: cutouts-${{ env.MONTH }}
 
     - name: Restore git-tracked files in data/
       if: steps.filter.outputs.src == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -139,18 +138,6 @@ jobs:
       if: steps.filter.outputs.src == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
       run: |
         pixi run unit-tests
-
-    - name: Save data cache
-      if: >-
-        github.event_name != 'pull_request'
-        && steps.cache-data.outcome == 'success'
-        && steps.cache-data.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v6
-      with:
-        path: |
-          data
-          !data/cutout
-        key: ${{ steps.cache-data.outputs.cache-primary-key }}
 
     - name: Upload artifacts
       if: always()
