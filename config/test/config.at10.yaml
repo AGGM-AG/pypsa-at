@@ -57,8 +57,6 @@ renewable:
     cutout: dach-03-2013-sarah3-era5
   solar-hsat:
     cutout: dach-03-2013-sarah3-era5
-  hydro:
-    cutout: dach-03-2013-sarah3-era5  # used by build_inflow_profile; avoids the 6.6 GB europe cutout in CI
 
 electricity:
   renewable_carriers: [solar, solar-hsat, onwind, offwind-ac, offwind-dc] # removed hydro, offwind-float
