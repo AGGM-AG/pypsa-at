@@ -348,7 +348,7 @@ rule overwrite_powerplants_at:
         anlagenregister_nuts3=f"{ANLAGENREGISTER['folder']}/anlagenregister_nuts3.csv",
         postal_to_nuts="data/pypsa-at/AT-Postal-to-NUTS.csv",
         gas_overrides="data/pypsa-at/gas_powerplant_overrides_AT.csv",
-        gas_targets="data/pypsa-at/gas_calibration_targets_AT.csv",
+        gas_targets=resources("gas_calibration_targets_AT.csv"),
     output:
         powerplants=resources("powerplants_s_{clusters}.csv"),
         biogas_plants=resources("biogas_plants_at_{clusters}.csv"),

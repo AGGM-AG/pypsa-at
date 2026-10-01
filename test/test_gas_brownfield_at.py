@@ -40,7 +40,9 @@ from overwrite_powerplants import (
 
 DATA = pathlib.Path.cwd() / "data" / "pypsa-at"
 OVERRIDES = str(DATA / "gas_powerplant_overrides_AT.csv")
-TARGETS = str(DATA / "gas_calibration_targets_AT.csv")
+TARGETS = str(
+    pathlib.Path.cwd() / "test" / "test_data" / "gas_calibration_targets_AT.csv"
+)
 
 FEEDIN_YEARS = [2021, 2022, 2023, 2024, 2025, 2026]
 

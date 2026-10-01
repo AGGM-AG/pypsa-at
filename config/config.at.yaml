@@ -242,6 +242,12 @@ data:
   anlagenregister:
     source: archive
     version: latest
+  econtrol-bestandsstatistik:
+    source: primary  # downloaded from e-control.at, no Zenodo mirror (licence unclear)
+    version: latest
+  econtrol-betriebsstatistik:
+    source: primary
+    version: latest
   kfz-bestand-at:
     source: primary
     version: "2025"

@@ -281,7 +281,7 @@ GAS_FULL_LOAD_HOUR_BAND = (1500.0, 2500.0)
 """Plausible range [h] for the Austrian gas fleet's annual full load hours.
 
 Brackets every year of the E-Control series in
-``data/pypsa-at/gas_calibration_targets_AT.csv`` from 2015 to 2025 (minimum
+``resources/gas_calibration_targets_AT.csv`` from 2015 to 2025 (minimum
 1 540.6 h in 2015, maximum 2 482.5 h in 2019, mean 1 994 h). 2013 and 2014 sit
 below it at 1 249 h and 1 057 h, when gas was pushed out of the merit order by
 cheap coal and CO2 prices; those two years are excluded deliberately, so a
@@ -584,7 +584,8 @@ def check_gas_calibration_at(
     """
     Calibrate the Austrian gas fleet against the E-Control statistics.
 
-    Two checks against ``data/pypsa-at/gas_calibration_targets_AT.csv``:
+    Two checks against the targets ``build_gas_calibration_targets_at`` derives
+    from the E-Control year series:
 
     Capacity, one-sided
         The modelled fleet must not exceed the Bestandsstatistik
@@ -614,7 +615,8 @@ def check_gas_calibration_at(
     ppl
         Corrected powerplants table.
     targets_file
-        Path to the E-Control calibration targets CSV.
+        Path to the E-Control calibration targets CSV written by
+        ``build_gas_calibration_targets_at``.
     base_year
         Year to calibrate against.
 

@@ -101,12 +101,16 @@ grid voltage level is unproven, so it is not added.
 ## Calibration
 
 `check_gas_calibration_at` runs at build time against
-`data/pypsa-at/gas_calibration_targets_AT.csv`, the E-Control series for
-2010–2025.
+`resources/gas_calibration_targets_AT.csv`. The rule
+`build_gas_calibration_targets_at` derives it from the natural gas column
+("Erdgas und Derivate") of two E-Control year series registered in
+`data/versions.csv`: the Bestandsstatistik `BeStGes-JR_KWEPL.xlsx` (sheet
+`Leistung`, Brutto-Engpassleistung) and the Betriebsstatistik
+`BStGes-JR1_Bilanz.xlsx` (sheet `Erz`, Brutto-Stromerzeugung).
 
-**Capacity, one-sided.** The modelled fleet must not *exceed* the
-Bestandsstatistik Brutto-Engpassleistung by more than 2 %. A shortfall only
-appears in the log: plants that never supply the public grid are out of scope by
+**Capacity, one-sided and fatal.** The modelled fleet must not *exceed* the
+Bestandsstatistik Brutto-Engpassleistung by more than 2 %; an overshoot points to
+a double count and stops the build. A shortfall only appears in the log: plants that never supply the public grid are out of scope by
 design, so the fleet is expected to sit below the statistic.
 
 **Full load hours, two-sided and fatal.** E-Control's 2025 gross generation
@@ -123,7 +127,8 @@ A second check runs after solving, as the `AT`-marked
 `test_at_gas_full_load_hours_are_plausible`, against the dispatch of the solved
 networks. It is fatal for the base year and informational for later horizons: a
 decarbonising fleet is expected to drift out of a band measured on today's
-system.
+system. It is skipped for snapshots coarser than 3 h, which smooth out the
+Dunkelflaute periods gas plants run in.
 
 !!! warning "The residual 244 MW is not explained plant by plant"
     It is consistent with the autoproducer and small-plant capacity the fleet
