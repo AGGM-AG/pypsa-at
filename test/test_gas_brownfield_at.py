@@ -44,9 +44,8 @@ FEEDIN_YEARS = [2021, 2022, 2023, 2024, 2025, 2026]
 
 MELLACH_WERNDORF_DROP = {
     "typ": "Strom",
-    "bundesland": "ST",
-    "id": 44405,
     "plz": "8402",
+    "techcode": "Fossil - Natural gas",
     "engpassleistung_kw": 430_000.0,
 }
 
@@ -185,16 +184,29 @@ class TestGasDeduplication:
         with pytest.raises(ValueError, match="matched 0 rows"):
             drop_curated_gas_registrations(df, drops=(MELLACH_WERNDORF_DROP,))
 
-    def test_renumbered_curated_drop_raises(self):
-        """The register id is a scrape row number; a shifted id must not drop a stranger."""
+    def test_renumbered_curated_drop_still_applies(self):
+        """The register id is a scrape row number that a re-scrape shifts."""
         df = pd.DataFrame(
-            [register_row(44405, "8010", "Erdgas", 12.0, 30.0)],
+            [
+                register_row(32020, "8410", "Erdgas", 832.0, 6411.0),
+                register_row(51234, "8402", "Fossil - Natural gas ", 430.0, 2483.2),
+            ]
         )
-        with pytest.raises(ValueError, match="now points at"):
+        out = drop_curated_gas_registrations(df, drops=(MELLACH_WERNDORF_DROP,))
+        assert out["id"].tolist() == [32020]
+
+    def test_ambiguous_curated_drop_raises(self):
+        df = pd.DataFrame(
+            [
+                register_row(44405, "8402", "Fossil - Natural gas", 430.0, 2483.2),
+                register_row(44406, "8402", "Fossil - Natural gas", 430.0, 2483.2),
+            ]
+        )
+        with pytest.raises(ValueError, match="matched 2 rows"):
             drop_curated_gas_registrations(df, drops=(MELLACH_WERNDORF_DROP,))
 
-    def test_curated_drop_ignores_the_gas_query_id_space(self):
-        """Strom and Gas queries share the id space."""
+    def test_curated_drop_ignores_gas_injection_rows(self):
+        """A typ Gas row with the same postal code and capacity is not a match."""
         df = pd.DataFrame(
             [
                 register_row(44405, "8402", "Fossil - Natural gas", 430.0, 2483.2),

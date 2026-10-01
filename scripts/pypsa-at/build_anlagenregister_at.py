@@ -130,27 +130,25 @@ GAS_DEDUP_KEEP_TOLERANCE_KW = 1.0
 GAS_DEDUP_DROP = (
     {
         "typ": "Strom",
-        "bundesland": "ST",
-        "id": 44405,
         "plz": "8402",
+        "techcode": "Fossil - Natural gas",
         "engpassleistung_kw": 430_000.0,
     },
     {
         "typ": "Strom",
-        "bundesland": "ST",
-        "id": 65332,
         "plz": "8402",
+        "techcode": "Steinkohle - Hard coal unspecified",
         "engpassleistung_kw": 246_000.0,
     },
 )
 """Register rows to drop as cross-postal-code duplicates.
 
-Each entry names the row by ``(typ, bundesland, id)`` and pins its ``plz`` and
-``engpassleistung_kw``. The register ``id`` is a scrape row number that
-restarts per ``typ`` and Bundesland query and shifts whenever a registration
-is added or removed, so a re-scrape can move it onto an unrelated plant; the
-pinned fields make :func:`drop_curated_gas_registrations` fail loudly in that
-case instead of dropping the wrong row.
+Each entry names the row by its content ``(typ, plz, techcode,
+engpassleistung_kw)``, not by the register ``id``: the ``id`` is a scrape row
+number that restarts per ``typ`` and Bundesland query and shifts whenever a
+registration is added or removed, so it does not survive a re-scrape. Each
+entry must match exactly one row, so :func:`drop_curated_gas_registrations`
+fails loudly when the register revises the plant itself.
 
 Unlike the rule-based passes this list is not restricted to natural gas rows:
 the second entry is a hard coal registration.
@@ -161,13 +159,13 @@ splits between two postal codes -- Verbund's environmental statement calls it
 ist". Both plants are registered under PLZ 8410 (Wildon, NUTS3 AT225) *and*
 under PLZ 8402 (Werndorf, NUTS3 AT221):
 
-``ST-44405``
-    430.000 MW "Fossil - Natural gas" at PLZ 8402, a second registration of
-    GDK Mellach, which appears at PLZ 8410 as ``ST-32020`` (832.000 MW).
-``ST-65332``
-    246.000 MW "Steinkohle - Hard coal unspecified" at PLZ 8402, a second
-    registration of the Fernheizkraftwerk, which appears at PLZ 8410 as
-    ``ST-44404`` (246.000 MW, same techcode).
+430.000 MW "Fossil - Natural gas" at PLZ 8402
+    A second registration of GDK Mellach, which appears at PLZ 8410 with
+    832.000 MW (``ST-44405`` and ``ST-32020`` in the 2026-08 scrape).
+246.000 MW "Steinkohle - Hard coal unspecified" at PLZ 8402
+    A second registration of the Fernheizkraftwerk, which appears at PLZ 8410
+    with 246.000 MW and the same techcode (``ST-65332`` and ``ST-44404`` in
+    the 2026-08 scrape).
 
 Keeping both sides would add 676 MW of phantom capacity and split the site
 across two NUTS3 regions. The PLZ 8410 rows are kept because that is where
@@ -432,20 +430,20 @@ def drop_curated_gas_registrations(
     Drop the registrations that no rule on ``(plz, capacity)`` can reach.
 
     These are plants registered under two postal codes, so they share neither
-    a postal code nor, necessarily, a capacity. Each entry is identified by the
-    register key ``(typ, bundesland, id)`` and verified against its pinned
-    ``plz`` and ``engpassleistung_kw``; see :data:`GAS_DEDUP_DROP` for the
-    evidence behind each one. This pass is not restricted to natural gas rows.
+    a postal code nor, necessarily, a capacity. Each entry is identified by
+    ``(typ, plz, techcode, engpassleistung_kw)``; see :data:`GAS_DEDUP_DROP`
+    for why not by the register ``id`` and for the evidence behind each entry.
+    This pass is not restricted to natural gas rows.
 
     Parameters
     ----------
     df
-        Plant table with ``typ``, ``bundesland``, ``id``, ``plz`` and
-        ``engpassleistung_kw`` columns.
+        Plant table with ``typ``, ``bundesland``, ``id``, ``plz``, ``techcode``
+        and ``engpassleistung_kw`` columns.
     drops
         Entries as in :data:`GAS_DEDUP_DROP`.
     tolerance_kw
-        Capacity tolerance when verifying ``engpassleistung_kw``.
+        Capacity tolerance when matching ``engpassleistung_kw``.
 
     Returns
     -------
@@ -454,39 +452,33 @@ def drop_curated_gas_registrations(
     Raises
     ------
     ValueError
-        If an entry matches no row or more than one row, or if the matched row
-        does not carry the pinned postal code and capacity.
+        If an entry matches no row or more than one row.
     """
     plz = clean_plz(df["plz"])
+    techcode = normalise_techcode(df["techcode"])
     to_drop = []
     for entry in drops:
-        label = f"{entry['bundesland']}-{entry['id']}"
+        label = (
+            f"{entry['engpassleistung_kw'] / 1e3:.3f} MW {entry['techcode']!r} "
+            f"at PLZ {entry['plz']}"
+        )
         matched = df.index[
             (df["typ"] == entry["typ"])
-            & (df["bundesland"].astype(str) == entry["bundesland"])
-            & (df["id"] == entry["id"])
+            & (plz == entry["plz"])
+            & (techcode == entry["techcode"])
+            & (
+                (df["engpassleistung_kw"] - entry["engpassleistung_kw"]).abs()
+                <= tolerance_kw
+            )
         ]
         if len(matched) != 1:
             raise ValueError(
                 f"GAS_DEDUP_DROP entry {label} matched {len(matched)} rows, "
-                "expected exactly 1. The Anlagenregister renumbered or removed "
-                "it; re-identify the duplicate before updating GAS_DEDUP_DROP."
+                "expected exactly 1. The Anlagenregister revised or removed the "
+                "registration; re-identify the duplicate before updating "
+                "GAS_DEDUP_DROP."
             )
-        idx = matched[0]
-        kw = df.at[idx, "engpassleistung_kw"]
-        if (
-            plz[idx] != entry["plz"]
-            or abs(kw - entry["engpassleistung_kw"]) > tolerance_kw
-        ):
-            raise ValueError(
-                f"GAS_DEDUP_DROP entry {label} now points at a {kw / 1e3:.3f} MW "
-                f"row at PLZ {plz[idx]!r}, expected "
-                f"{entry['engpassleistung_kw'] / 1e3:.3f} MW at PLZ "
-                f"{entry['plz']!r}. The register id is a scrape row number that "
-                "a re-scrape renumbers; re-identify the duplicate before "
-                "updating GAS_DEDUP_DROP."
-            )
-        to_drop.append(idx)
+        to_drop.append(matched[0])
 
     if to_drop:
         dropped = df.loc[to_drop]
