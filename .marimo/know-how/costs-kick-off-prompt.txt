@@ -1,0 +1,195 @@
+# Kick-off prompt: techno-economic cost assumptions in PyPSA-AT
+
+## Goal
+
+Build a know-how marimo notebook in `.marimo/know-how/` that explains how techno-economic cost
+assumptions flow through PyPSA-AT, from the raw cost CSV to the objective function in the linear
+problem (LP). The audience is my technical lead: an experienced energy-system modeller who knows
+optimisation and power-system economics but has not read the PyPSA-Eur/-DE/-AT code. Follow the style
+of the existing notebooks in `.marimo/know-how/` (e.g. `myopic_workflow_p_nom_extensions.py`,
+`industry_demand_pipeline.py`): narrative markdown cells, short code cells that load real data, tables
+with units, and file:line references to the code that does each step.
+
+Every claim must be backed by code you have read or data you have loaded. Where the code contradicts
+my assumptions below, say so explicitly in the notebook. Do not paper over it.
+
+## Questions the notebook must answer
+
+1. **Lifetime.** Is `lifetime` in the cost data the technical lifetime of an asset, the economic
+   (depreciation / amortisation) lifetime, or both at once? Show every place `lifetime` is used:
+   (a) in the annuity factor for `capital_cost`, and (b) in the myopic workflow for decommissioning
+   (`build_year + lifetime`, brownfield phase-out in `add_existing_baseyear` / `add_brownfield`).
+   Explain the consequence of one number serving both roles. Check where the values come from
+   (technology-data version in `data/versions.csv`, `fill_values` default of 25 a, overrides in
+   `data/custom_costs.csv`, `data/pypsa-de/custom_costs_nep_2023.csv` and
+   `scripts/pypsa-at/build_custom_cost_at.py`).
+
+2. **Cost attributes.** Define each attribute with its unit and how it enters the model:
+   - `investment` (EUR/MW overnight, after the /kW -> /MW conversion),
+   - `FOM` (% of investment per year),
+   - `VOM` (EUR/MWh),
+   - `fuel` (EUR/MWh_th) and `efficiency`,
+   - `discount rate` (per technology, default 7 %),
+   - `CO2 intensity` (t/MWh_th),
+   - derived `capital_cost` = (annuity(lifetime, discount rate) + FOM/100) * investment * nyears,
+   - derived `marginal_cost` = VOM + fuel / efficiency.
+   Source: `prepare_costs` in `scripts/process_cost_data.py` and `calculate_annuity` in
+   `scripts/add_electricity.py`. Explain the distinction between "raw" custom-cost attributes
+   (overwritten before preparation) and "prepared" ones (`capital_cost`, `marginal_cost`, overwritten
+   after). Note the special cases (e.g. `solar` capital cost copied from `solar-utility`, OCGT/CCGT
+   fuel and CO2 intensity copied from `gas`, storage cost composition via `max_hours`).
+   Are there any other levelised or quasi-levelised costs? Check for things like `standing losses`,
+   `marginal_cost_storage`, `capital_cost` on Stores, and cost-free components.
+
+3. **Worked examples.** For each example, trace one concrete asset in an Austrian node through:
+   cost CSV row(s) -> prepared cost table -> the PyPSA component and its attributes in the network ->
+   its terms in the LP objective. Show the numbers for one planning horizon, and how they change
+   across horizons (2025, 2030, 2040, 2050).
+   - **Solar PV** (Generator, extendable): the simplest case. `capital_cost` on `p_nom`,
+     `marginal_cost` on `p`. Also show an existing (brownfield) PV generator: does it carry a
+     `capital_cost`, and does that term matter in the LP when `p_nom` is fixed?
+   - **Gas CHP** (Link with multiple output ports): bus0 gas, bus1 electricity, bus2 heat,
+     bus3 co2 atmosphere (check the actual port layout). Explain which port `p_nom` and therefore
+     `capital_cost` and `marginal_cost` refer to (bus0 input), why the cost data is converted per
+     MW_el to per MW_th input (efficiency scaling), and how `efficiency2`, `efficiency3` carry heat
+     and CO2. Show the fuel cost: is gas priced via `marginal_cost` on the Link or via a Generator /
+     Store on the gas bus?
+   - **Gas pipelines with H2 retrofitting** (myopic): CH4 pipelines, `H2 pipeline` (new) and
+     `H2 pipeline retrofitted` Links in `scripts/prepare_sector_network.py` (around the
+     `H2_retrofit` block), the AT modifications in
+     `scripts/pypsa-at/modify_brownfield_gas_network_AT.py`, and the pairing / decoupled retrofitting
+     logic in `mods/` (check the current state on branch `fix/decoupled-retrofitting`). Explain:
+     cost of the existing CH4 pipe (sunk or not?), cost of the retrofit option, the capacity coupling
+     constraint between CH4 and retrofitted H2 capacity, and what happens to both across horizons in
+     `add_brownfield` (lifetime, build_year, removal of retrofitted capacity from CH4).
+
+4. **The full cost workflow until the LP.** Draw the chain as a diagram:
+   retrieve cost CSV (technology-data) -> `process_cost_data` (custom costs, units, annuity) ->
+   `add_electricity` / `prepare_sector_network` (attach cost attributes to components) ->
+   `add_existing_baseyear` / `add_brownfield` (existing assets, build years, lifetimes) ->
+   AT `modify` phase in `mods/` -> `solve_network` (constraints, `additional_functionality`) ->
+   linopy model -> LP file. Name the Snakemake rule and output file for each step.
+
+5. **What is encoded in the LP?** Export the LP of one small solved or prepared network
+   (e.g. via `n.optimize.create_model()` then `n.model.to_file(...)`, or the solver's own LP dump)
+   and show the objective terms for the three example assets. Explain:
+   - the objective = sum of `capital_cost * p_nom` (extendable assets only, or all?) + sum over
+     snapshots of `snapshot_weighting * marginal_cost * p`, plus Store/StorageUnit terms,
+   - how snapshot weightings (e.g. 3H resolution) scale operational costs to a full year,
+   - whether constant terms from non-extendable assets appear in the LP or are only added back
+     in post-processing (`n.objective_constant`),
+   - which constraints carry economic meaning (CO2 limits, capacity trajectories, EAG targets).
+
+6. **How are CO2 emissions added?** Trace carbon accounting: `CO2 intensity` in costs, the
+   `co2 atmosphere` bus/Store, emissions as extra Link outputs (`efficiency2/3`), process emissions,
+   carbon capture and sequestration. Then explain how emissions are limited or priced: the EU-wide
+   `co2_budget` (GlobalConstraint), national budgets via `co2_budget_national` enforced by
+   `mods/constraints/co2_budget.py`, and whether a CO2 price (`emission_prices`, `Ep` opt) is active
+   in the AT config. Show where the CO2 shadow price appears in the solved network.
+
+7. **How is the social discount rate applied?** My assumption is that the social discount rate is
+   added to the costs of each asset. Verify this carefully and correct it if wrong. Points to check:
+   - `costs.social_discountrate` (default 0.02) and the `sdr` opt in `scripts/_helpers.py`: where is
+     it actually read? My quick grep only found it in `scripts/prepare_perfect_foresight.py`.
+   - PyPSA-AT runs `foresight: myopic` (set in `config/config.de.yaml`). Does the social discount
+     rate have any effect in myopic mode, or does each horizon solve an undiscounted single-year
+     problem?
+   - Contrast it with the per-technology `discount rate` column (WACC-like, used in the annuity).
+     The DE custom cost file name `custom_costs_nep_2023_high_decentral_discount.csv` hints that
+     decentral technologies get a higher rate; check whether AT inherits that.
+   - Explain the implication for comparing costs across horizons in myopic results.
+
+8. **AT-specific cost edits in the modify phase.** Several `mods/network/` modules set or rescale
+   `capital_cost` and `marginal_cost` themselves: `gas.py`, `h2.py`, `biogas.py`, `hydro.py`,
+   `onwind.py` and `trajectories.py`. List each edit with the formula and the reason, e.g. scaling by
+   `efficiency` to convert from per MW output to per MW input, PHS `capital_cost` split in half between
+   pump and turbine, onshore wind costs taken from existing assets with `build_year <= 2025`, and
+   trajectory templates built from `efficiency * costs.at[carrier, ...]`. Show for one example that the
+   value in the solved network differs from the prepared cost table and why.
+
+9. **Fuel and import prices.** Explain how fuel and energy imports are priced, since they often drive
+   results more than investment costs:
+   - the gas price in `mods/network/gas.py` (Ariadne fuel price times a cost factor),
+   - import options in `scripts/prepare_sector_network.py` (LNG and pipeline gas, methanol, oil, NH3,
+     biomass imports with price, limit and embedded emissions),
+   - H2 imports in `mods/network/h2.py` (`import_potentials_h2.marginal_cost`),
+   - whether `dynamic_fuel_price` is active (default `false`).
+   Give a table of the fuel and import prices per horizon, in EUR/MWh, that the solved AT network
+   actually uses.
+
+10. **Cost data year and currency.** Which technology-data year feeds each planning horizon
+    (`costs.year` vs. the `planning_horizons` wildcard, and which `costs_{year}.csv` each rule loads)?
+    What currency year are the euros in, and do the AT custom cost files use the same one?
+    Explain that learning curves and cost reductions enter only through these external year-by-year
+    values. The model does not learn endogenously.
+
+11. **Degeneracy-breaking marginal costs.** `data/custom_costs.csv` gives solar, onwind, offwind and
+    hydro tiny marginal costs (around 0.01 EUR/MWh) "to prevent mathematical degeneracy". Explain why
+    a linear programme needs them, that they carry no economic meaning, and how they set the
+    dispatch and curtailment order among zero-fuel technologies. Check for similar small costs
+    elsewhere, e.g. on Stores or Links.
+
+12. **Shadow prices (dual values).** Explain what the solved network reports from the dual problem:
+    - nodal prices `n.buses_t.marginal_price` for electricity, gas, H2 and heat buses in Austria,
+    - the CO2 price as the dual of the EU and national CO2 budget constraints,
+    - duals of AT-specific constraints (capacity trajectories, EAG targets) and what a non-zero value
+      means (an implicit subsidy or penalty in EUR/MW or EUR/MWh),
+    - the link to `evals/views/price.py`.
+    Use the three worked examples to show the zero-profit rule for extendable assets:
+    revenue at nodal prices = `capital_cost * p_nom` + operating costs. Show how binding constraints
+    and brownfield assets break it.
+
+13. **Further aspects (short section, no deep dive).** Close with one or two paragraphs each on:
+    - **Network expansion costs:** the `v1.25` transmission volume cap, length and underwater
+      scaling of line and pipeline costs, and the overhead vs. underground setting.
+    - **Implicit and zero costs:** free components, potentials (`p_nom_max`) as hidden cost limits,
+      load shedding and the value of lost load if enabled, building retrofit costs on the demand side,
+      and the absence of start-up costs because unit commitment is off.
+    - **Myopic cost accounting:** each horizon optimises only its own year without foresight, so
+      stranded assets are possible and summed objectives are not a total system cost.
+    - **Comparing with LCOE:** levelised costs from revenues and costs per asset, and why they
+      differ from textbook LCOE.
+    - **Weather year and time resolution:** snapshot weightings at 3H scale operating costs to a
+      year, and one weather year affects the value of storage and peak capacity.
+    - **Sensitivity and robustness:** near-optimal solutions, flat cost landscapes, and which cost
+      assumptions actually move the results (e.g. discount rate, electrolyser investment, gas price).
+
+14. **Unused PyPSA cost features (outlook, short section).** The PyPSA roadmap is posted in
+    https://github.com/AGGM-AG/pypsa-at/pull/218#discussion_r4122150599 (read it with
+    `gh api repos/AGGM-AG/pypsa-at/pulls/comments/4122150599`). Check each feature's status and the
+    version it arrived in or is planned for against the roadmap, the PyPSA and linopy release notes,
+    and the installed versions (`pypsa >= 1.3`, `linopy >= 0.8` in `pixi.toml`). Then give each
+    feature a very brief description and one or two concrete uses in PyPSA-AT:
+    - **Piecewise linear costs (recently available).** A cost or efficiency curve made of several
+      linear segments instead of one constant slope. Convex curves stay a pure LP. Non-convex ones
+      need SOS2 or binary variables and turn the problem into a MILP. Possible AT uses: supply cost
+      curves for limited resources (biomass and biogas potentials, tiered H2 or gas import prices),
+      rising onshore wind or PV costs as cheaper sites run out (KLIEN potentials), and part-load
+      efficiency of CHPs or electrolysers.
+    - **Endogenous learning curves (planned).** Investment cost falls with cumulative installed
+      capacity instead of following an external cost-per-year table. This is non-convex and needs
+      piecewise linearisation or a MILP, and it only makes sense with foresight across horizons.
+      Possible AT uses: electrolysers, batteries, heat pumps. Discuss the limits: learning is driven by
+      global deployment, so Austria is mostly a price-taker. The feature also sits poorly with the
+      myopic workflow, which PyPSA-AT uses.
+    For each feature, say what it would change in the cost workflow (question 4) and the LP
+    (question 5), and estimate the effect on solve time. List other roadmap features that touch costs.
+    This section is an outlook only. Do not implement anything.
+
+## Data and environment
+
+- Use a solved AT run for the network parts. Result path: ./results/fix-decoupled-retrofitting/AT_KN2040.
+- Load the prepared cost tables from `resources/.../costs_{year}_processed.csv` (find the exact names).
+- Keep heavy computation (LP export) on a small network or a single horizon. Cache results if slow.
+- Do not modify upstream files. The notebook is the only deliverable, plus an entry in the nav of
+  the know-how collection if one exists.
+
+## Process
+
+1. Analyse first: read the code paths above and confirm the facts. Write down any finding that
+   contradicts the assumptions in this prompt.
+2. Propose the notebook outline (sections, which examples, which tables and diagrams) and wait for
+   my feedback before writing it.
+3. Build the notebook section by section and run it end to end in marimo.
+4. Close with a one-page summary cell: a table of all cost attributes (unit, source, formula, where
+   it enters the LP), a table of the key shadow prices, and a list of pitfalls for interpreting cost results.

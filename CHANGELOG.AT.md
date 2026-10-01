@@ -12,6 +12,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Natural gas deduplication of the Anlagenregister (−895 MW of double-counted registrations), covering the gas half of #323
 - `patch_powerplants_set_at` rule restoring `Set="PP"` on the large German lignite condensing units, which powerplantmatching 0.8.x tags `Set="CHP"` and the inherited PyPSA-DE `powerplants_filter` then drops (19,965 MW → 0 MW of German lignite)
 
+### Fixed
+- Retrofitted H2 pipelines no longer double-count Austrian gas pipeline capacity: from 2030 up to the threshold year, gas plus retrofitted H2 capacity per corridor stays at the AGGM target ([#294](https://github.com/AGGM-AG/pypsa-at-planning/issues/294))
+
 ### Changed
 - `overwrite_powerplants_at` now writes the canonical `powerplants_s_{clusters}.csv` instead of a side file; `build_powerplants_at` writes `powerplants_s_{clusters}-raw.csv`. The Austrian corrections therefore reach `add_electricity`, `build_capacity_trajectories` and the solve rules, not only `add_existing_baseyear`
 - Bumped `powerplantmatching` to 0.8.0 and the `powerplants` dataset to 0.8.1. 0.8.0 fixes the IRENASTAT download, which previously fetched a Zenodo 403 HTML page and failed in `add_existing_baseyear`; 0.8.1 is not usable as a package because it caps `pandas <3`
@@ -30,6 +33,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Alpha]
 
 ### Added
+- Austrian base electricity load (households, services, agriculture, rail) calibrated to the Statistik Austria NEA (NUTS2) to NUTS3 regions using Energiemosaik ([#213](https://github.com/AGGM-AG/pypsa-at/pull/213))
 - Retrieval of the E-Control Anlagenregister (Strom + Gas, all Bundesländer) via the website search endpoint and NUTS3 aggregation ([#198](https://github.com/AGGM-AG/pypsa-at/pull/198))
 - NUTS2 and NUTS3 administrative clustering with 1H/3H temporal resolution in the myopic workflow ([#55](https://github.com/AGGM-AG/pypsa-at/pull/55))
 - National CO₂ budget constraints for Austria following KSG targets; net-zero by 2040
@@ -54,6 +58,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added Austrian regional vehicle-stock and NEA-based road transport demand data ([#188](https://github.com/AGGM-AG/pypsa-at/pull/188))
 - Heat demand totals based on NEA data and spatial disaggregation based on austrian heatmap ([#182](https://github.com/AGGM-AG/pypsa-at/pull/182))
 - Added Austrian onshore-wind brownfield capacity vintages based on historical generation and KLIEN potentials ([#208](https://github.com/AGGM-AG/pypsa-at/pull/208))
+
+### Fixed
+- Switzerland now follows split of biomass into un-/sustainable biomass potential [#217](https://github.com/AGGM-AG/pypsa-at/pull/217)
 
 ### Changed
 - Merged PyPSA-DE main (incl. PyPSA-Eur 2026.08): pandas 3, PyPSA 1.3; ppm 0.6.1
