@@ -82,7 +82,8 @@ def overwrite_nuclear_dateout(ppl: pd.DataFrame, dateout: dict) -> pd.DataFrame:
 
     Returns
     -------
-    A copy of ``ppl`` with ``DateOut`` overridden on the matched CH nuclear rows.
+    :
+        A copy of ``ppl`` with ``DateOut`` overridden on the matched CH nuclear rows.
 
     Raises
     ------
@@ -151,9 +152,10 @@ def build_biogas_plants_AT(
 
     Returns
     -------
-    One row per Anlagenregister plant with ``Name``, ``Country``, ``Fueltype``,
-    ``Technology``, ``DateIn``, ``Capacity`` (MW) and ``bus`` (node), consumed
-    by ``mods.network.biogas.add_existing_biogas_chp_at``.
+    :
+        One row per Anlagenregister plant with ``Name``, ``Country``, ``Fueltype``,
+        ``Technology``, ``DateIn``, ``Capacity`` (MW) and ``bus`` (node), consumed
+        by ``mods.network.biogas.add_existing_biogas_chp_at``.
 
     Raises
     ------
@@ -346,7 +348,8 @@ def apply_gas_overrides_at(
 
     Returns
     -------
-    A copy of ``ppl`` with the Austrian natural gas fleet corrected.
+    :
+        A copy of ``ppl`` with the Austrian natural gas fleet corrected.
 
     Raises
     ------
@@ -503,7 +506,8 @@ def build_gas_deviations_at(
 
     Returns
     -------
-    One row per region with Austrian gas capacity in any of the sources.
+    :
+        One row per region with Austrian gas capacity in any of the sources.
     """
     register = pd.read_csv(anlagenregister_nuts3_file)
     if clustering.startswith("AT10"):
@@ -704,9 +708,19 @@ def gas_powerplants_AT(ppl: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Calibrate the Austrian gas fleet, or pass the table through when disabled.
 
-    Returns the corrected powerplants table and the three-way deviation table.
     The deviation table is written either way, so that the Snakemake DAG does
     not depend on the configuration.
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table after the CH nuclear ``DateOut`` patch.
+
+    Returns
+    -------
+    :
+        The corrected powerplants table, or ``ppl`` unchanged when the feature
+        is disabled, and the three-way deviation table, empty when disabled.
     """
     if not snakemake.params.update_gas_capacities_AT:
         logger.info(
