@@ -104,7 +104,7 @@ mods:
 | retrofit start up to the threshold (2030, 2040) | extendable, `p_nom_min = 0`, `p_nom_max = target` | fixed | extendable, `p_nom_max = 0.6 x target - carried-over` | symmetric, reverse legs synced to the forward legs |
 | after the threshold (2050) | upstream behaviour | extendable | upstream behaviour | symmetric |
 
-`make_gas_pipelines_unextendable` in `mods/network/gas.py` implements the gas pipeline columns
+`fix_gas_grid_capacity` in `mods/network/gas.py` implements the gas pipeline columns
 during `modify_prenetwork`; `restore_asymmetric_pipeline_capacities` the last column.
 
 ## The coupling equality
@@ -127,7 +127,7 @@ The upstream constraint pairs the extendable forward gas pipelines with the exte
 retrofit candidates **by position**, not by name. With unequal counts linopy silently drops the H2
 term, fixes the gas pipelines at `p_nom` and leaves the retrofits unconstrained; in a different
 order it couples the wrong corridors. PyPSA-DE's Kernnetz logic fixes the German-internal
-candidates up to 2030, which is exactly such a case. `make_gas_pipelines_unextendable` therefore
+candidates up to 2030, which is exactly such a case. `fix_gas_grid_capacity` therefore
 fixes every gas pipeline without an extendable candidate (it could not be retrofitted anyway) and
 `check_retrofit_pairing` raises during `modify_prenetwork` if the two sets still differ in length,
 membership or order.

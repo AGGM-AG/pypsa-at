@@ -211,17 +211,11 @@ def _forward(links: pd.DataFrame) -> pd.DataFrame:
 
 def check_retrofit_pairing(n: pypsa.Network) -> None:
     """
-    Verify that upstream's positional retrofit coupling is well-defined.
+    Check that each extendable gas pipeline is paired with its own retrofit candidate.
 
-    ``add_pipe_retrofit_constraint`` in ``scripts/solve_network.py`` adds
-    ``gas + H2 / ratio = p_nom`` by pairing the extendable forward
-    ``gas pipeline`` legs with the extendable forward ``H2 pipeline
-    retrofitted`` candidates by position. With unequal counts linopy silently
-    drops the H2 term, fixes the gas pipelines at ``p_nom`` and leaves the
-    retrofits unconstrained; with a different order it couples the wrong
-    corridors. Both cases fail here instead. The check runs in every horizon,
-    because the upstream constraint is active whenever gas pipelines are
-    extendable.
+    Upstream ``add_pipe_retrofit_constraint`` pairs the active, extendable
+    forward legs of both carriers by position; a count or order mismatch would
+    couple the wrong corridors.
 
     Parameters
     ----------
@@ -233,7 +227,7 @@ def check_retrofit_pairing(n: pypsa.Network) -> None:
     ValueError
         If the two sets differ in length, membership or order.
     """
-    links = _forward(n.links[n.links["p_nom_extendable"]])
+    links = _forward(n.links[n.links["p_nom_extendable"] & n.links["active"]])
     gas_legs = links.index[links["carrier"] == "gas pipeline"]
     candidates = links.index[links["carrier"] == "H2 pipeline retrofitted"]
     if candidates.empty:
@@ -255,7 +249,7 @@ def retrofit_start_year(config: dict) -> float:
 
     Reuses the upstream ``first_technology_occurrence`` entry for the
     ``H2 pipeline retrofitted`` carrier, which PyPSA-DE drops before that
-    year. Without the entry retrofitting is allowed from the first horizon
+    year. Without the entry, retrofitting is allowed from the first horizon
     on; with ``sector.H2_retrofit`` disabled it is never allowed.
 
     Parameters
@@ -274,18 +268,12 @@ def retrofit_start_year(config: dict) -> float:
     return float(first_occurrence.get("Link", {}).get("H2 pipeline retrofitted", 0))
 
 
-def make_gas_pipelines_unextendable(n: pypsa.Network, snakemake: Snakemake) -> None:
+def fix_gas_grid_capacity(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
-    Fix the methane grid at its target capacity up to the threshold year.
+    Keep the methane grid at its target capacity up to the threshold year.
 
-    Up to and including ``mods.threshold_year_for_gas_grid_expansion`` no
-    new methane pipelines (``gas pipeline new``) can be built. Existing
-    pipelines (``gas pipeline``) are fixed only before the retrofit start
-    year (see :func:`retrofit_start_year`). From the retrofit start year on
-    they stay extendable within their target capacity (``p_nom_min = 0``,
-    ``p_nom_max = p_nom``), so the upstream retrofit constraint
-    ``gas + H2 / H2_retrofit_capacity_per_CH4 = p_nom`` binds and retrofitted
-    H2 capacity gives way to gas capacity on the same corridor.
+    No new gas pipelines are built. Existing ones are fixed before the
+    retrofit start year and may shrink in favour of retrofitted H2 afterwards.
 
     Parameters
     ----------

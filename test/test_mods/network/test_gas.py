@@ -22,7 +22,7 @@ from mods.network.gas import (
     _TANAP_PIPELINE_CAPACITY,
     check_retrofit_pairing,
     deduct_retrofitted_gas_capacity,
-    make_gas_pipelines_unextendable,
+    fix_gas_grid_capacity,
     restore_asymmetric_pipeline_capacities,
     retrofit_start_year,
 )
@@ -1219,7 +1219,7 @@ class TestRetrofitStartYear:
 
 
 class TestMakeGasPipelinesUnextendable:
-    """Tests for make_gas_pipelines_unextendable."""
+    """Tests for fix_gas_grid_capacity."""
 
     @staticmethod
     def snakemake(
@@ -1314,7 +1314,7 @@ class TestMakeGasPipelinesUnextendable:
         """Before the retrofit start year existing and new pipelines are fixed."""
         n = self.network(candidates=())
 
-        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2025"))
+        fix_gas_grid_capacity(n, self.snakemake(planning_horizons="2025"))
 
         assert self.extendable(n) == {
             "gas pipeline": False,
@@ -1327,9 +1327,7 @@ class TestMakeGasPipelinesUnextendable:
         """From the retrofit start year up to the threshold only candidates are fixed."""
         n = self.network()
 
-        make_gas_pipelines_unextendable(
-            n, self.snakemake(planning_horizons=planning_horizons)
-        )
+        fix_gas_grid_capacity(n, self.snakemake(planning_horizons=planning_horizons))
 
         assert self.extendable(n) == {
             "gas pipeline": True,
@@ -1342,7 +1340,7 @@ class TestMakeGasPipelinesUnextendable:
         """A gas pipeline whose retrofit candidate is fixed cannot be retrofitted."""
         n = self.network(candidates_extendable=False)
 
-        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
+        fix_gas_grid_capacity(n, self.snakemake(planning_horizons="2030"))
 
         assert not n.links.loc[
             n.links["carrier"] == "gas pipeline", "p_nom_extendable"
@@ -1355,7 +1353,7 @@ class TestMakeGasPipelinesUnextendable:
             candidates=("AT225 <-> AT213",),
         )
 
-        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
+        fix_gas_grid_capacity(n, self.snakemake(planning_horizons="2030"))
 
         gas_pipes = n.links[n.links["carrier"] == "gas pipeline"]
         assert gas_pipes["p_nom_extendable"].to_dict() == {
@@ -1371,7 +1369,7 @@ class TestMakeGasPipelinesUnextendable:
             corridors=("AT225 <-> AT213", "DE1 <-> DE2"),
             candidates=("DE1 <-> DE2", "AT225 <-> AT213"),
         )
-        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
+        fix_gas_grid_capacity(n, self.snakemake(planning_horizons="2030"))
 
         with pytest.raises(ValueError, match="not paired one to one"):
             check_retrofit_pairing(n)
@@ -1382,7 +1380,7 @@ class TestMakeGasPipelinesUnextendable:
             corridors=("AT225 <-> AT213", "DE1 <-> DE2"),
             candidates=("AT225 <-> AT213",),
         )
-        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
+        fix_gas_grid_capacity(n, self.snakemake(planning_horizons="2030"))
 
         check_retrofit_pairing(n)
 
@@ -1392,7 +1390,7 @@ class TestMakeGasPipelinesUnextendable:
         n.links.loc[n.links["carrier"] == "gas pipeline", "p_nom_min"] = 16672.0
         n.links.loc[n.links["carrier"] == "gas pipeline", "p_nom_max"] = np.inf
 
-        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2030"))
+        fix_gas_grid_capacity(n, self.snakemake(planning_horizons="2030"))
 
         legs = n.links[n.links["carrier"] == "gas pipeline"]
         assert legs["p_nom_min"].to_numpy() == pytest.approx(0.0)
@@ -1403,7 +1401,7 @@ class TestMakeGasPipelinesUnextendable:
         n = self.network()
         before = n.links["p_nom_extendable"].copy()
 
-        make_gas_pipelines_unextendable(n, self.snakemake(planning_horizons="2050"))
+        fix_gas_grid_capacity(n, self.snakemake(planning_horizons="2050"))
 
         pd.testing.assert_series_equal(n.links["p_nom_extendable"], before)
 
@@ -1412,7 +1410,7 @@ class TestMakeGasPipelinesUnextendable:
         n = self.network()
         before = n.links["p_nom_extendable"].copy()
 
-        make_gas_pipelines_unextendable(n, self.snakemake(enabled=False))
+        fix_gas_grid_capacity(n, self.snakemake(enabled=False))
 
         pd.testing.assert_series_equal(n.links["p_nom_extendable"], before)
 
@@ -1420,7 +1418,7 @@ class TestMakeGasPipelinesUnextendable:
         """Without H2 retrofitting both carriers are fixed up to the threshold year."""
         n = self.network(candidates=())
 
-        make_gas_pipelines_unextendable(
+        fix_gas_grid_capacity(
             n, self.snakemake(planning_horizons="2040", h2_retrofit=False)
         )
 
@@ -1468,6 +1466,13 @@ class TestCheckRetrofitPairing:
     def test_fixed_links_are_ignored(self):
         """Fixed gas pipelines and candidates do not take part in the pairing."""
         n = self.network([("A", True), ("B", False)], [("A", True), ("B", False)])
+
+        check_retrofit_pairing(n)
+
+    def test_inactive_links_are_ignored(self):
+        """An inactive gas pipeline does not take part in the pairing, as upstream."""
+        n = self.network([("A", True), ("B", True)], [("A", True), ("B", False)])
+        n.links.loc["gas pipeline B", "active"] = False
 
         check_retrofit_pairing(n)
 

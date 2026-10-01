@@ -24,7 +24,7 @@ from mods.network.gas import (
     block_russian_gas_imports,
     check_retrofit_pairing,
     deduct_retrofitted_gas_capacity,
-    make_gas_pipelines_unextendable,
+    fix_gas_grid_capacity,
     override_gas_storage_capacities,
     restore_asymmetric_pipeline_capacities,
     unravel_gas_import_and_production,
@@ -106,7 +106,7 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
 
     unravel_gas_import_and_production(n, snakemake, costs)
     block_russian_gas_imports(n, snakemake)
-    make_gas_pipelines_unextendable(n, snakemake)
+    fix_gas_grid_capacity(n, snakemake)
     restore_asymmetric_pipeline_capacities(n, snakemake)
     deduct_retrofitted_gas_capacity(n, snakemake)
     check_retrofit_pairing(n)
