@@ -367,6 +367,7 @@ class TestFeatureToggle:
                     gas_overrides=overrides_file,
                     gas_targets=TARGETS,
                     anlagenregister=str(DATA / "AT-Postal-to-NUTS.csv"),
+                    anlagenregister_nuts3=str(DATA / "AT-Postal-to-NUTS.csv"),
                     postal_to_nuts=str(DATA / "AT-Postal-to-NUTS.csv"),
                 ),
             ),
@@ -428,13 +429,12 @@ class TestCalibration:
             check_gas_calibration_at(self._fleet(2000.0), TARGETS)
 
     def test_far_too_much_capacity_raises(self):
-        with pytest.raises(ValueError, match="outside the plausible band"):
+        with pytest.raises(ValueError, match="exceeds the national statistic"):
             check_gas_calibration_at(self._fleet(9000.0), TARGETS)
 
-    def test_overshoot_only_warns(self, caplog):
-        """The national check is one-sided and never fatal."""
-        check_gas_calibration_at(self._fleet(5200.0), TARGETS)
-        assert "exceeds the national statistic" in caplog.text
+    def test_overshoot_raises(self):
+        with pytest.raises(ValueError, match="exceeds the national statistic"):
+            check_gas_calibration_at(self._fleet(5200.0), TARGETS)
 
     def test_retired_units_are_excluded(self, caplog):
         caplog.set_level(logging.INFO)

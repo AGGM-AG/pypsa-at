@@ -21,10 +21,6 @@ import pandas as pd
 from build_anlagenregister_at import (
     GAS_TECHCODES,
     clean_plz,
-    deduplicate_gas_registrations,
-    feedin_columns,
-    load_postal_to_nuts,
-    map_plants_to_nuts3,
     normalise_techcode,
 )
 
@@ -471,8 +467,7 @@ def apply_gas_overrides_at(
 def build_gas_deviations_at(
     ppl: pd.DataFrame,
     ppl_raw: pd.DataFrame,
-    anlagenregister_file: str,
-    postal_to_nuts_file: str,
+    anlagenregister_nuts3_file: str,
     clustering: str,
 ) -> pd.DataFrame:
     """
@@ -498,10 +493,9 @@ def build_gas_deviations_at(
         Corrected powerplants table.
     ppl_raw
         Powerplants table before the gas overrides.
-    anlagenregister_file
-        Plant-level Anlagenregister CSV.
-    postal_to_nuts_file
-        PLZ to NUTS3 mapping.
+    anlagenregister_nuts3_file
+        Deduplicated, NUTS3-aggregated Anlagenregister CSV written by
+        ``build_anlagenregister_at``.
     clustering
         Clustering identifier, either ``AT10`` (NUTS2) or ``AT35`` (NUTS3). At
         NUTS2 the register's NUTS3 regions are mapped up so that they share
@@ -511,23 +505,22 @@ def build_gas_deviations_at(
     -------
     One row per region with Austrian gas capacity in any of the sources.
     """
-    register = pd.read_csv(anlagenregister_file, dtype={"plz": str}, low_memory=False)
-    register = deduplicate_gas_registrations(register)
-    register = map_plants_to_nuts3(register, load_postal_to_nuts(postal_to_nuts_file))
+    register = pd.read_csv(anlagenregister_nuts3_file)
     if clustering.startswith("AT10"):
         register["nuts3"] = register["nuts3"].map(map_at_nuts3_to_nuts2)
-    techcode = normalise_techcode(register["techcode"])
+    # For typ Strom, the technology column holds the register's techcode.
+    techcode = normalise_techcode(register["technology"])
     register = register[(register["typ"] == "Strom") & techcode.isin(GAS_TECHCODES)]
     # The latest register year is only partially populated at publication, so
     # the feed-in column is the calibration base year where the register has it.
-    feedin = f"feedin_kwh_{GAS_CALIBRATION_BASE_YEAR}"
+    feedin = f"feedin_gwh_{GAS_CALIBRATION_BASE_YEAR}"
     if feedin not in register.columns:
-        feedin = feedin_columns(register)[-1]
+        feedin = sorted(c for c in register.columns if c.startswith("feedin_gwh_"))[-1]
 
     per_region = register.groupby("nuts3").agg(
-        capacity_mw_register=("engpassleistung_kw", lambda s: s.sum() / 1e3),
-        plants_register=("engpassleistung_kw", "size"),
-        feedin_gwh_register=(feedin, lambda s: s.fillna(0).sum() / 1e6),
+        capacity_mw_register=("capacity_mw", "sum"),
+        plants_register=("n_plants", "sum"),
+        feedin_gwh_register=(feedin, lambda s: s.fillna(0).sum()),
     )
 
     def _fleet(df: pd.DataFrame, column: str) -> pd.DataFrame:
@@ -624,8 +617,10 @@ def check_gas_calibration_at(
     Raises
     ------
     ValueError
-        If ``base_year`` is absent from the targets file, or if the implied
-        full load hours fall outside :data:`GAS_FULL_LOAD_HOUR_BAND`.
+        If ``base_year`` is absent from the targets file, if the fleet exceeds
+        the Bestandsstatistik by more than :data:`GAS_NATIONAL_TOLERANCE`, or
+        if the implied full load hours fall outside
+        :data:`GAS_FULL_LOAD_HOUR_BAND`.
     """
     targets = pd.read_csv(targets_file).set_index("year")
     if base_year not in targets.index:
@@ -656,14 +651,13 @@ def check_gas_calibration_at(
         f"{fleet_mw - target['capacity_mw_gross']:+,.1f} MW ({deviation:+.1%})."
     )
     if deviation > GAS_NATIONAL_TOLERANCE:
-        logger.warning(
+        raise ValueError(
             f"{message} The fleet exceeds the national statistic by more than "
             f"{GAS_NATIONAL_TOLERANCE:.0%}, which the register cannot explain: "
             "check data/pypsa-at/gas_powerplant_overrides_AT.csv for a double "
             "count."
         )
-    else:
-        logger.info(message)
+    logger.info(message)
 
     full_load_hours = target["generation_gwh_gross"] * 1e3 / fleet_mw
     low, high = GAS_FULL_LOAD_HOUR_BAND
@@ -730,8 +724,7 @@ def gas_powerplants_AT(ppl: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     deviations = build_gas_deviations_at(
         corrected,
         ppl,
-        anlagenregister_file=snakemake.input.anlagenregister,
-        postal_to_nuts_file=snakemake.input.postal_to_nuts,
+        anlagenregister_nuts3_file=snakemake.input.anlagenregister_nuts3,
         clustering=snakemake.params.clustering,
     )
     return corrected, deviations
