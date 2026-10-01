@@ -35,7 +35,7 @@ jobs:
       with:
         pixi-version: v0.68.1
         cache: true
-        cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+        cache-write: ${{ github.ref == 'refs/heads/main' }}
 
     - name: Run unit tests
       run: |
@@ -96,7 +96,7 @@ jobs:
         pixi-version: v0.68.1
         cache: true
         # Do not cache in branches
-        cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+        cache-write: ${{ github.ref == 'refs/heads/main' }}
 
     - name: Setup cache keys
       if: steps.filter.outputs.src == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -104,8 +104,12 @@ jobs:
         echo "WEEK=$(date +'%Y%U')" >> $GITHUB_ENV # data
         echo "VERSIONS_HASH=${{ hashFiles('data/versions.csv') }}" >> $GITHUB_ENV
 
-    - uses: actions/cache@v6
+    # Restore on every run (PR branches can read caches created on main),
+    # but save only on main — see "Save data cache" below
+    - name: Restore data cache
+      id: data-cache
       if: steps.filter.outputs.src == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      uses: actions/cache/restore@v6
       with:
         path: data
         key: data-${{ env.WEEK }}-${{ env.VERSIONS_HASH }}
@@ -127,6 +131,13 @@ jobs:
         SNAKEMAKE_STORAGE_CACHED_HTTP_SKIP_REMOTE_CHECKS: "1"
       run: |
         pixi run integration-tests
+
+    - name: Save data cache
+      if: github.ref == 'refs/heads/main' && steps.data-cache.outcome == 'success' && steps.data-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: data
+        key: ${{ steps.data-cache.outputs.cache-primary-key }}
 
     - name: Run unit tests
       if: steps.filter.outputs.src == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
