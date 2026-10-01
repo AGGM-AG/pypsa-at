@@ -315,7 +315,7 @@ def _required(row: pd.Series, fields: tuple[str, ...], action: str) -> None:
 def apply_gas_overrides_at(
     ppl: pd.DataFrame,
     overrides_file: str,
-    clustering: str = "AT35DE5",
+    clustering: str,
 ) -> pd.DataFrame:
     """
     Apply the curated Austrian gas corrections to the powerplants table.
@@ -473,7 +473,7 @@ def build_gas_deviations_at(
     ppl_raw: pd.DataFrame,
     anlagenregister_file: str,
     postal_to_nuts_file: str,
-    clustering: str = "AT35DE5",
+    clustering: str,
 ) -> pd.DataFrame:
     """
     Compare the corrected fleet with powerplantmatching and the register.

@@ -299,7 +299,7 @@ def overrides_file(tmp_path):
 
 class TestGasOverrides:
     def test_all_three_actions_apply(self, powerplants, overrides_file):
-        out = apply_gas_overrides_at(powerplants, overrides_file)
+        out = apply_gas_overrides_at(powerplants, overrides_file, clustering="AT35DE5")
         gas = out[out["Fueltype"] == "Natural Gas"]
         assert sorted(gas["Name"]) == ["FHKW Mellach", "GDK Mellach"]
         assert gas["Capacity"].sum() == pytest.approx(997.0)
@@ -308,7 +308,7 @@ class TestGasOverrides:
     def test_added_rows_stay_on_the_gas_bus_and_keep_the_chp_set(
         self, powerplants, overrides_file
     ):
-        out = apply_gas_overrides_at(powerplants, overrides_file)
+        out = apply_gas_overrides_at(powerplants, overrides_file, clustering="AT35DE5")
         added = out[out["Name"] == "FHKW Mellach"].squeeze()
         assert added["bus"] == "AT225"
         assert added["Set"] == "CHP"
@@ -319,7 +319,7 @@ class TestGasOverrides:
     def test_stale_reference_raises(self, powerplants, overrides_file, tmp_path):
         powerplants.loc[powerplants["Name"] == "Mellach", "Name"] = "Mellach GDK"
         with pytest.raises(ValueError, match="matches 0 Austrian natural gas rows"):
-            apply_gas_overrides_at(powerplants, overrides_file)
+            apply_gas_overrides_at(powerplants, overrides_file, clustering="AT35DE5")
 
     def test_technology_outside_ocgt_ccgt_raises(self, powerplants, overrides_file):
         """add_existing_baseyear silently drops anything else, including CCGT, Thermal."""
@@ -329,7 +329,7 @@ class TestGasOverrides:
             path.read_text().replace("Theiss,Theiss,drop", "Theiss,Theiss,update")
         )
         with pytest.raises(ValueError, match="only keeps"):
-            apply_gas_overrides_at(powerplants, overrides_file)
+            apply_gas_overrides_at(powerplants, overrides_file, clustering="AT35DE5")
 
     def test_missing_gas_fleet_raises(self, overrides_file):
         empty = pd.DataFrame(
@@ -346,7 +346,7 @@ class TestGasOverrides:
             ]
         )
         with pytest.raises(ValueError, match="No Austrian natural gas plants"):
-            apply_gas_overrides_at(empty, overrides_file)
+            apply_gas_overrides_at(empty, overrides_file, clustering="AT35DE5")
 
 
 class TestFeatureToggle:
@@ -382,9 +382,9 @@ class TestFeatureToggle:
 
     def test_enabled_changes_the_fleet(self, powerplants, overrides_file):
         """Guards against the toggle looking like a no-op in both states."""
-        assert not apply_gas_overrides_at(powerplants, overrides_file).equals(
-            powerplants
-        )
+        assert not apply_gas_overrides_at(
+            powerplants, overrides_file, clustering="AT35DE5"
+        ).equals(powerplants)
 
 
 class TestShippedOverrides:
