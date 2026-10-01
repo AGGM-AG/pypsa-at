@@ -82,9 +82,9 @@ fixed grid instead of duplicating it.
 
 ## Horizon classes
 
-`mods.threshold_year_for_gas_grid_expansion` (2040 in `config/config.at.yaml`) is the last horizon
+`mods.threshold_year_for_gas_grid_expansion` (default: 2040) is the last horizon
 of the fixed grid. The retrofit start year is read from the upstream key
-`first_technology_occurrence.Link."H2 pipeline retrofitted"` (2030 in `config/config.at.yaml`):
+`first_technology_occurrence.Link."H2 pipeline retrofitted"` (default: 2030):
 PyPSA-DE drops the retrofit candidates before that year, and PyPSA-AT reads the same key, so no
 second switch exists. With `sector.H2_retrofit: false` retrofitting never starts, which keeps the
 legacy behaviour of a fully fixed grid up to the threshold year.
@@ -98,11 +98,11 @@ mods:
   threshold_year_for_gas_grid_expansion: 2040
 ```
 
-| Horizon | `gas pipeline` (both legs) | `gas pipeline new` | `H2 pipeline retrofitted` | Asymmetric corridors |
+| Years (default config) | `gas pipeline` (both legs) | `gas pipeline new` | `H2 pipeline retrofitted` | Asymmetric corridors |
 |---|---|---|---|---|
-| before the retrofit start (2025) | fixed at the AGGM target | fixed | absent, dropped upstream | reverse legs resized and fixed |
-| retrofit start up to the threshold (2030, 2040) | extendable, `p_nom_min = 0`, `p_nom_max = target` | fixed | extendable, `p_nom_max = 0.6 x target - carried-over` | symmetric, reverse legs synced to the forward legs |
-| after the threshold (2050) | upstream behaviour | extendable | upstream behaviour | symmetric |
+| until 2025 | fixed at the AGGM target | fixed | absent, dropped upstream | reverse legs resized and fixed |
+| 2030–2040 | extendable, `p_nom_min = 0`, `p_nom_max = target` | fixed | extendable, `p_nom_max = 0.6 x target - carried-over` | symmetric, reverse legs synced to the forward legs |
+| from 2050 | upstream behaviour | extendable | upstream behaviour | symmetric |
 
 `fix_gas_grid_capacity` in `mods/network/gas.py` implements the gas pipeline columns
 during `modify_prenetwork`; `restore_asymmetric_pipeline_capacities` the last column.
@@ -160,10 +160,12 @@ retrofit without a gas pipeline leg, or a gas pipeline without a target capacity
 - **Compressor physics.** From the retrofit start year on compressor adaptation is free and the
   reverse leg follows the forward leg, so asymmetric and one-way corridors regain their full
   reverse capacity. The directional limits hold only in the base years.
-- **Wasserstoff-Kernnetz overlap.** On German corridors upstream lowers the gas capacity for the
-  exogenous Kernnetz retrofits too. The `min` keeps only the larger of the two reductions, so
-  those corridors may end up less reduced than the sum of both. All Austrian corridors are exact.
-- **Upstream `add_brownfield` no-op.** Not filed upstream; the AT deduction covers it and guards
+- **Wasserstoff-Kernnetz overlap.** German corridors already lose methane capacity to the
+  German hydrogen core network, which is given as an input. The two reductions are not added
+  up; only the larger one applies, so these corridors may keep more methane capacity than both
+  assumptions together would imply. Austrian corridors are not affected.
+- **Upstream `add_brownfield` no-op.** The bug is in PyPSA-Eur itself (also present in PyPSA-DE),
+  not caused by PyPSA-AT, and is not yet reported upstream. The AT deduction covers it and guards
   against a later upstream fix.
 - **AGGM build years.** The commissioning years in the AGGM dataset are not applied yet, so the
   target capacity is horizon-independent and corridors with a future build year are present in
