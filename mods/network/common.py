@@ -10,14 +10,21 @@ import pypsa
 from snakemake.script import Snakemake
 
 from mods.demand.annual import apply_annual_demand_overrides
-from mods.demand.electricity import BASE_LOAD_CARRIERS, base_load_load_splitting
+from mods.demand.electricity import (
+    BASE_LOAD_CARRIERS,
+    apply_electricity_base_load,
+    base_load_load_splitting,
+)
 from mods.demand.heat_demand import apply_heat_demand
 from mods.demand.industrial_demand import apply_industrial_demand_profiles
 from mods.network.biogas import add_existing_biogas_chp_at
+from mods.network.biomass import apply_ch_biomass_split
 from mods.network.electricity import apply_tyndp_transmission_lower_bounds
 from mods.network.gas import (
     block_russian_gas_imports,
-    make_gas_pipelines_unextendable,
+    check_retrofit_pairing,
+    deduct_retrofitted_gas_capacity,
+    fix_gas_grid_capacity,
     override_gas_storage_capacities,
     restore_asymmetric_pipeline_capacities,
     unravel_gas_import_and_production,
@@ -99,17 +106,21 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
 
     unravel_gas_import_and_production(n, snakemake, costs)
     block_russian_gas_imports(n, snakemake)
-    make_gas_pipelines_unextendable(n, snakemake)
+    fix_gas_grid_capacity(n, snakemake)
     restore_asymmetric_pipeline_capacities(n, snakemake)
+    deduct_retrofitted_gas_capacity(n, snakemake)
+    check_retrofit_pairing(n)
 
     apply_pemmdb_trajectories(n, snakemake, costs)
     apply_onwind_brownfield(n, snakemake)
     add_existing_biogas_chp_at(n, snakemake, costs)
     override_gas_storage_capacities(n, snakemake)
     apply_klien_potential_limits(n, snakemake)
+    apply_ch_biomass_split(n, snakemake)
     apply_tyndp_transmission_lower_bounds(n, snakemake)
     add_h2_imports(n, snakemake)
     apply_heat_demand(n, snakemake)
+    apply_electricity_base_load(n, snakemake)
 
     # Apply Load clipping just before the solve step
     clip_negative_loads_for_edge_cases(n, snakemake)
@@ -150,18 +161,23 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
     investment_year = int(snakemake.wildcards.planning_horizons)
     resolution = int(cfg["clustering"]["temporal"]["resolution_sector"].rstrip("H"))
     clustering = cfg["mods"]["modify_nuts3_shapes"]
+    # the rebuilt Austrian base load (apply_electricity_base_load) has no
+    # negative hours, so the Austrian edge cases only apply without it
+    skip_at = cfg["mods"]["electricity_base_load"]["enable"]
 
-    def _clip_static(carrier: str):
+    def _clip_static(carrier: str) -> None:
         idx = n.loads.index[n.loads["carrier"] == carrier]
         negatives = idx[n.loads.loc[idx, "p_set"] < 0]
         if negatives.empty:
             raise RuntimeError(f"Expected negative '{carrier}' Loads.")
         n.loads.loc[negatives, "p_set"] = 0
 
-    def _clip_electricity(location: str):
+    def _clip_electricity(location: str) -> None:
         # the base load is split into sectoral Loads (see
         # base_load_load_splitting), so negative hours from the electric
         # heating deduction sit proportionally in all of them
+        if skip_at and location.startswith("AT"):
+            return
         at_location = n.loads.index.str.startswith(f"{location} ")
         is_split = n.loads["carrier"].isin(BASE_LOAD_CARRIERS).to_numpy()
         p_set = n.loads_t["p_set"]

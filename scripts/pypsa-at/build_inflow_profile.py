@@ -66,22 +66,48 @@ def build_inflow_profile(
     :
         DataArray with dimensions ``countries`` (the region names) and
         ``time``, restricted to ``time``; each region sums to one over the
-        weather year before that restriction.
+        weather year before that restriction. If the cutout covers less than
+        a full year, each region sums to the covered share of the year instead.
     """
     year = pd.DatetimeIndex(time).year.unique().item()
     cutout_time = pd.DatetimeIndex(cutout.coords["time"].values)
-    cutout = cutout.sel(time=cutout_time[cutout_time.year == year])
+    mask = cutout_time.year == year
+    cutout = cutout.sel(time=cutout_time[mask])
 
     regions = regions.copy()
     regions.index.name = "countries"
-    normalize_df = pd.DataFrame({year: [1]}, index=regions.index).T
 
-    inflow = cutout.runoff(
-        shapes=regions,
-        smooth=True,
-        lower_threshold_quantile=None,
-        normalize_using_yearly=normalize_df,
-    )
+    # atlite can only normalize to yearly totals with (almost) a full year of data
+    full_year_available = mask.sum() > 8700
+
+    if full_year_available:
+        normalize_df = pd.DataFrame({year: [1]}, index=regions.index).T
+
+        inflow = cutout.runoff(
+            shapes=regions,
+            smooth=True,
+            lower_threshold_quantile=None,
+            normalize_using_yearly=normalize_df,
+        )
+    else:
+        # e.g. short test cutouts in CI: normalize over the available period and
+        # scale to its share of the year, assuming the period is representative
+        logger.warning(
+            f"Cutout does not cover a full year of {year}. Normalizing the inflow "
+            "profile over the available period instead of the full year."
+        )
+        inflow = cutout.runoff(
+            shapes=regions,
+            smooth=True,
+            lower_threshold_quantile=None,
+        )
+        hours_in_year = pd.Timestamp(f"{year}-12-31").dayofyear * 24
+        share_of_year = inflow.sizes["time"] / hours_in_year
+        # regions without runoff in the cutout receive a flat profile
+        inflow = (inflow / inflow.sum("time")).fillna(
+            1 / inflow.sizes["time"]
+        ) * share_of_year
+
     return inflow.sel(time=time)
 
 

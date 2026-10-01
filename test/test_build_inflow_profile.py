@@ -83,3 +83,12 @@ def test_profile_restricts_to_the_snapshots(cutout, regions):
     assert len(profile.time) == len(time)
     # normalised over the whole year, so March holds only part of it
     assert 0 < float(profile.sel(countries="EAST").sum("time")) < 1
+
+
+def test_profile_from_a_partial_year_cutout_sums_to_the_covered_share(cutout, regions):
+    time = pd.date_range("2013-03-01", "2013-03-31 23:00", freq="h")
+    short_cutout = cutout.sel(time=slice("2013-03-01", "2013-03-31 23:00"))
+
+    profile = build_inflow_profile(short_cutout, regions, time)
+
+    assert profile.sum("time").values == pytest.approx([31 / 365, 31 / 365])
