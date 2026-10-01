@@ -8,9 +8,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Planned]
 
 ### Added
-- Austrian gas-fired power plant brownfield calibrated against the E-Control Anlagenregister and Bestandsstatistik (`mods: update_gas_capacities_AT`). Corrects the `powerplantmatching` fleet from 4,596 MW to 4,569 MW operating in 2025 (−5.1 % against the Bestandsstatistik, 2,088 implied full load hours), with every capacity, date and drop sourced in `data/pypsa-at/gas_powerplant_overrides_AT.csv`. Notably restores Donaustadt (395 MW), which `add_existing_baseyear` had been dropping because powerplantmatching labels it `Steam Turbine`, splits Theiß and Mellach into their units, and adds the three missing Theiß gas turbines (+380 MW)
-- Natural gas deduplication of the Anlagenregister (−895 MW of double-counted registrations), covering the gas half of #323
-- `patch_powerplants_set_at` rule restoring `Set="PP"` on the large German lignite condensing units, which powerplantmatching 0.8.x tags `Set="CHP"` and the inherited PyPSA-DE `powerplants_filter` then drops (19,965 MW → 0 MW of German lignite)
+- Austrian gas-fired power plant brownfield calibrated against the E-Control Anlagenregister and Bestandsstatistik ([#323](https://github.com/AGGM-AG/pypsa-at-planning/issues/323))
+- `patch_powerplants_set_at` rule restoring `Set="PP"` on the large German lignite condensing units
 
 ### Fixed
 - Retrofitted H2 pipelines no longer double-count Austrian gas pipeline capacity: from 2030 up to the threshold year, gas plus retrofitted H2 capacity per corridor stays at the AGGM target ([#294](https://github.com/AGGM-AG/pypsa-at-planning/issues/294))
