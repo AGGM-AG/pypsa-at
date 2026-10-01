@@ -403,11 +403,11 @@ def apply_gas_overrides_at(
         if action == "drop":
             match = ppl.index[is_at_gas & (ppl["Name"] == row["ppm_name"])]
             ppl = ppl.drop(index=match)
+            # prevent length misalignments between the mask and the data frame
             is_at_gas = is_at_gas.drop(index=match)
             dropped.append(row["name"])
-            continue
 
-        if action == "update":
+        elif action == "update":
             idx = ppl.index[is_at_gas & (ppl["Name"] == row["ppm_name"])][0]
             for field, column in (
                 ("name", "Name"),
@@ -423,31 +423,31 @@ def apply_gas_overrides_at(
                     continue
                 ppl.loc[idx, column] = value
             updated.append(row["name"])
-            continue
 
-        _required(
-            row, ("technology", "capacity_mw_net", "date_in", "bus", "set"), action
-        )
-        bus = row["bus"]
-        if clustering.startswith("AT10"):
-            bus = map_at_nuts3_to_nuts2(bus)
-        ppl.loc[row["name"]] = pd.Series(
-            {
-                "Name": row["name"],
-                "Country": "AT",
-                "Fueltype": "Natural Gas",
-                "Technology": row["technology"],
-                "Set": row["set"],
-                "Capacity": float(row["capacity_mw_net"]),
-                "DateIn": float(row["date_in"]),
-                "DateOut": float(row["date_out"])
-                if pd.notna(row["date_out"])
-                else float("nan"),
-                "bus": bus,
-                "autoproducer": row.get("autoproducer", False),
-            }
-        )
-        added.append(row["name"])
+        elif action == "add":
+            _required(
+                row, ("technology", "capacity_mw_net", "date_in", "bus", "set"), action
+            )
+            bus = row["bus"]
+            if clustering.startswith("AT10"):
+                bus = map_at_nuts3_to_nuts2(bus)
+            ppl.loc[row["name"]] = pd.Series(
+                {
+                    "Name": row["name"],
+                    "Country": "AT",
+                    "Fueltype": "Natural Gas",
+                    "Technology": row["technology"],
+                    "Set": row["set"],
+                    "Capacity": float(row["capacity_mw_net"]),
+                    "DateIn": float(row["date_in"]),
+                    "DateOut": float(row["date_out"])
+                    if pd.notna(row["date_out"])
+                    else float("nan"),
+                    "bus": bus,
+                    "autoproducer": row.get("autoproducer", False),
+                }
+            )
+            added.append(row["name"])
 
     is_at_gas = (ppl["Country"] == "AT") & (ppl["Fueltype"] == "Natural Gas")
     bad_tech = sorted(set(ppl.loc[is_at_gas, "Technology"]) - set(GAS_TECHNOLOGIES))
