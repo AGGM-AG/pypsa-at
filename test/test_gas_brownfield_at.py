@@ -6,9 +6,10 @@
 Tests for the Austrian gas brownfield calibration.
 
 Covers the Anlagenregister gas deduplication in
-``scripts/pypsa-at/build_anlagenregister_at.py``, the curated overrides and the
-E-Control calibration in ``scripts/pypsa-at/overwrite_powerplants.py``, and the
-full load hours of the solved networks.
+``scripts/pypsa-at/build_anlagenregister_at.py``, the curated overrides, the
+E-Control calibration and the regional register deviations in
+``scripts/pypsa-at/overwrite_powerplants.py``, and the full load hours of the
+solved networks.
 """
 
 import logging
@@ -33,6 +34,7 @@ from overwrite_powerplants import (
     GAS_FULL_LOAD_HOUR_BAND,
     GAS_TECHNOLOGIES,
     apply_gas_overrides_at,
+    build_gas_deviations_at,
     check_gas_calibration_at,
 )
 
@@ -417,6 +419,125 @@ class TestShippedOverrides:
         assert added["technology"].isin(GAS_TECHNOLOGIES).all()
 
 
+def nuts3_row(nuts3, technology, mw, n_plants=1, feedin_gwh=0.0, typ="Strom"):
+    """Build one row of the NUTS3-aggregated Anlagenregister."""
+    return {
+        "reference_year": 2026,
+        "typ": typ,
+        "nuts3": nuts3,
+        "technology": technology,
+        "first_feedin_year": 2021,
+        "n_plants": n_plants,
+        "capacity_mw": mw,
+        "capacity_unit": "MW_el",
+        f"feedin_gwh_{GAS_CALIBRATION_BASE_YEAR}": feedin_gwh,
+    }
+
+
+def gas_fleet(**capacities):
+    """Austrian natural gas powerplants, one row per ``bus=capacity`` pair."""
+    return pd.DataFrame(
+        [
+            {
+                "Name": f"Plant {bus}",
+                "Country": "AT",
+                "Fueltype": "Natural Gas",
+                "Capacity": mw,
+                "bus": bus,
+            }
+            for bus, mw in capacities.items()
+        ]
+    )
+
+
+class TestGasDeviations:
+    @staticmethod
+    def _deviations(tmp_path, rows, ppl, ppl_raw=None, clustering="AT35DE5"):
+        path = tmp_path / "anlagenregister_nuts3.csv"
+        pd.DataFrame(rows).to_csv(path, index=False)
+        return build_gas_deviations_at(
+            ppl,
+            ppl if ppl_raw is None else ppl_raw,
+            anlagenregister_nuts3_file=str(path),
+            clustering=clustering,
+        ).set_index("region")
+
+    def test_columns_match_the_empty_table(self, tmp_path):
+        """The disabled feature writes an empty table with the same columns."""
+        out = self._deviations(
+            tmp_path, [nuts3_row("AT225", "Erdgas", 800.0)], gas_fleet(AT225=800.0)
+        )
+        assert ["region", *out.columns] == GAS_DEVIATION_COLUMNS
+
+    def test_only_strom_gas_techcodes_count(self, tmp_path):
+        rows = [
+            nuts3_row("AT225", "Erdgas", 500.0, n_plants=2, feedin_gwh=10.0),
+            nuts3_row("AT225", "Fossil - Natural gas ", 300.0, feedin_gwh=5.0),
+            nuts3_row("AT225", "Wasserkraft", 900.0),
+            nuts3_row("AT225", "Erdgas", 700.0, typ="Gas"),
+        ]
+        out = self._deviations(tmp_path, rows, gas_fleet(AT225=800.0))
+        assert out.loc["AT225", "capacity_mw_register"] == 800.0
+        assert out.loc["AT225", "plants_register"] == 3
+        assert out.loc["AT225", "feedin_gwh_register"] == 15.0
+
+    def test_raw_and_corrected_fleets_are_compared(self, tmp_path):
+        out = self._deviations(
+            tmp_path,
+            [nuts3_row("AT225", "Erdgas", 800.0)],
+            gas_fleet(AT225=830.0),
+            ppl_raw=gas_fleet(AT225=1084.0),
+        )
+        assert out.loc["AT225", "capacity_mw_ppm"] == 1084.0
+        assert out.loc["AT225", "capacity_mw_model"] == 830.0
+        assert out.loc["AT225", "delta_model_minus_register_mw"] == 30.0
+
+    def test_regions_missing_from_a_source_are_zero(self, tmp_path):
+        out = self._deviations(
+            tmp_path,
+            [nuts3_row("AT130", "Erdgas", 278.0)],
+            gas_fleet(AT124=485.0),
+        )
+        assert out.loc["AT130", "capacity_mw_model"] == 0.0
+        assert out.loc["AT124", "capacity_mw_register"] == 0.0
+
+    def test_nuts2_clustering_maps_the_register_up(self, tmp_path):
+        rows = [
+            nuts3_row("AT225", "Erdgas", 800.0),
+            nuts3_row("AT221", "Erdgas", 200.0),
+        ]
+        out = self._deviations(
+            tmp_path, rows, gas_fleet(AT22=1000.0), clustering="AT10"
+        )
+        assert out.loc["AT22", "capacity_mw_register"] == 1000.0
+        assert "AT225" not in out.index
+
+    @pytest.mark.parametrize(
+        "model_mw, flagged",
+        [
+            (1000.0, False),  # on target
+            (1040.0, False),  # 40 MW: below the absolute tolerance
+            (1080.0, False),  # 8 %: below the relative tolerance
+            (1150.0, True),  # 150 MW and 15 %: beyond both
+        ],
+    )
+    def test_only_regions_beyond_both_tolerances_warn(
+        self, tmp_path, caplog, model_mw, flagged
+    ):
+        self._deviations(
+            tmp_path,
+            [nuts3_row("AT225", "Erdgas", 1000.0)],
+            gas_fleet(AT225=model_mw),
+        )
+        assert ("deviate from the deduplicated" in caplog.text) is flagged
+
+    def test_region_absent_from_the_register_warns(self, tmp_path, caplog):
+        self._deviations(
+            tmp_path, [nuts3_row("AT130", "Erdgas", 278.0)], gas_fleet(AT124=485.0)
+        )
+        assert "deviate from the deduplicated" in caplog.text
+
+
 class TestCalibration:
     def _fleet(self, capacity_mw):
         return pd.DataFrame(
@@ -469,7 +590,6 @@ class TestCalibration:
             check_gas_calibration_at(self._fleet(4569.2), TARGETS, base_year=1990)
 
 
-@pytest.mark.AT
 def test_at_gas_full_load_hours_are_plausible(nc):
     """
     The modelled Austrian gas fleet must run within the historical band.
@@ -481,6 +601,9 @@ def test_at_gas_full_load_hours_are_plausible(nc):
     Only the brownfield units count, i.e. links built before the base year;
     capacity the optimiser adds would otherwise dilute the check.
     """
+    # Coarser snapshots smooth out the Dunkelflaute periods gas plants run in.
+    if any(n.snapshot_weightings.generators.max() > 3 for n in nc.networks):
+        pytest.skip("Gas dispatch is only meaningful at <= 3H resolution.")
     low, high = GAS_FULL_LOAD_HOUR_BAND
     failures = []
     for year, n in nc.networks.items():
