@@ -8,14 +8,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Planned]
 
 ### Added
-- Austrian gas-fired power plant brownfield calibrated against the E-Control Anlagenregister and Bestandsstatistik ([#323](https://github.com/AGGM-AG/pypsa-at-planning/issues/323))
 - `patch_powerplants_set_at` rule restoring `Set="PP"` on the large German lignite condensing units
 
 ### Fixed
 - Retrofitted H2 pipelines no longer double-count Austrian gas pipeline capacity: from 2030 up to the threshold year, gas plus retrofitted H2 capacity per corridor stays at the AGGM target ([#294](https://github.com/AGGM-AG/pypsa-at-planning/issues/294))
 
 ### Changed
-- `overwrite_powerplants_at` now writes the canonical `powerplants_s_{clusters}.csv` instead of a side file; `build_powerplants_at` writes `powerplants_s_{clusters}-raw.csv`. The Austrian corrections therefore reach `add_electricity`, `build_capacity_trajectories` and the solve rules, not only `add_existing_baseyear`
 - Bumped `powerplantmatching` to 0.8.0 and the `powerplants` dataset to 0.8.1. 0.8.0 fixes the IRENASTAT download, which previously fetched a Zenodo 403 HTML page and failed in `add_existing_baseyear`; 0.8.1 is not usable as a package because it caps `pandas <3`
 - Differentiation of open- and closed-loop PHS, reservoirs with and without inflows; improved Austrian hydro inflow time series
 - Carbon cycle model coupling for improved biomass sector accuracy
@@ -32,6 +30,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Alpha]
 
 ### Added
+- Austrian gas-fired power plant brownfield calibrated against the E-Control Anlagenregister, Bestandsstatistik and Betriebsstatistik ([#214](https://github.com/AGGM-AG/pypsa-at/pull/214)
 - Austrian base electricity load (households, services, agriculture, rail) calibrated to the Statistik Austria NEA (NUTS2) to NUTS3 regions using Energiemosaik ([#213](https://github.com/AGGM-AG/pypsa-at/pull/213))
 - Retrieval of the E-Control Anlagenregister (Strom + Gas, all Bundesländer) via the website search endpoint and NUTS3 aggregation ([#198](https://github.com/AGGM-AG/pypsa-at/pull/198))
 - NUTS2 and NUTS3 administrative clustering with 1H/3H temporal resolution in the myopic workflow ([#55](https://github.com/AGGM-AG/pypsa-at/pull/55))
