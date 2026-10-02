@@ -4,12 +4,9 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Tests for the NEA industry-demand preparation script."""
 
-import importlib
-
+import build_nea_industry_demand as bni
 import pandas as pd
 import pytest
-
-bni = importlib.import_module("scripts.pypsa-at.build_nea_industry_demand")
 
 
 @pytest.fixture

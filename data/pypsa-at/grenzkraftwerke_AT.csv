@@ -1,0 +1,13 @@
+Name,country,bus,capacity_mw,share,action,date_in,river,note
+Jochenstein,AT,AT311,132,0.5,scale,,Danube,Donaukraftwerk Jochenstein AG; 50 percent Bavaria by treaty
+Braunau Simbach,AT,AT311,100,0.5,scale,,Inn,OeBK Grenzkraftwerk; 50 percent Bavaria by treaty
+Scharding Neuhaus,AT,AT311,100,0.5,scale,,Inn,OeBK Grenzkraftwerk; 50 percent Bavaria by treaty
+Passau Ingling,AT,AT311,96,0.5,scale,,Inn,OeBK Grenzkraftwerk; 50 percent Bavaria by treaty
+Egglfing Obernberg,AT,AT311,84,0.5,scale,,Inn,Grenzkraftwerk; 50 percent Austrian share by treaty
+Ering Frauenstein,AT,AT311,72,0.5,scale,,Inn,OeBK Grenzkraftwerk; 50 percent Bavaria by treaty
+Braunau Simbach,DE,DE2,102.4,0.5,scale,,Inn,German twin entry of the same physical plant
+Passau Ingling,DE,DE2,86.4,0.5,scale,,Inn,German twin entry of the same physical plant
+Egglfing Obernberg,DE,DE2,80.7,0.5,scale,,Inn,German twin entry of the same physical plant
+Ering Frauenstein,DE,DE2,72.9,0.5,scale,,Inn,German twin entry of the same physical plant
+Scharding Neuhaus,DE,DE2,100,0.5,add,1961,Inn,German treaty half; plant has no DE entry in powerplantmatching
+Jochenstein,DE,DE2,132,0.5,scale,,Danube,German twin entry of the same physical plant

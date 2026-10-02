@@ -1,10 +1,9 @@
-import importlib
 import json
 from types import SimpleNamespace
 
 import pandas as pd
+import recalibrate_heat_demand_at as module
 
-module = importlib.import_module("scripts.pypsa-at.recalibrate_heat_demand_at")
 recalibrate = module.recalibrate_heat_demand
 allocate = module.allocate_heat_demand
 redistribute = module.redistribute_central_heat

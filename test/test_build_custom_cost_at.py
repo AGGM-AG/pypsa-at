@@ -4,14 +4,11 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Unit tests for the custom cost file builder script."""
 
-from importlib import import_module
-
 import pandas as pd
 import pytest
+from build_custom_cost_at import main
 
 from scripts._helpers import mock_snakemake
-
-main = import_module("scripts.pypsa-at.build_custom_cost_at").main
 
 
 def test_combine_two_files_with_overlapping_entries_keeps_first(tmp_path):

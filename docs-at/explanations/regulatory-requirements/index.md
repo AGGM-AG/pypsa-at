@@ -9,6 +9,7 @@ solved scenarios are not just cost-optimal but also legally compliant.
 | Requirement | Legal basis | Constraint in PyPSA-AT | Active from |
 |---|---|---|---|
 | Net-zero electricity balance | EAG §4(2) | `add_national_net_zero_electricity_constraints` | 2030 |
+| Renewable expansion targets (PV, wind, hydro, biomass production floors) | EAG §4(4) | `constraint_production_targets` | 2030 |
 
 ## Design principle
 

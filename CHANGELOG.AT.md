@@ -55,6 +55,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added Austrian regional vehicle-stock and NEA-based road transport demand data ([#188](https://github.com/AGGM-AG/pypsa-at/pull/188))
 - Heat demand totals based on NEA data and spatial disaggregation based on austrian heatmap ([#182](https://github.com/AGGM-AG/pypsa-at/pull/182))
 - Added Austrian onshore-wind brownfield capacity vintages based on historical generation and KLIEN potentials ([#208](https://github.com/AGGM-AG/pypsa-at/pull/208))
+- Calibrated Austrian hydro fleet: powerplantmatching duplicates dropped, technology reclassification of the large river chains, operator-sourced capacity corrections and relocations, Grenzkraftwerke treaty shares, missing plants above 10 MW (Kamp, Lech, Salzach, Sill, Traun, Enns, Große Mühl, Großarl, Kleinarl, Rauris, Trisanna, Defereggen, Stubai, Ill, Lutz, Alfenz and Stubach, incl. the ÖBB railway plants and industrial self-suppliers), and the Anlagenregister *Kleinwasserkraft* fleet scaled to the E-Control Bestandsstatistik
+- Major hydropower upgrade: potentials and trajectories from KLIEN study, small plants from Anlagenregister, calibration targets from yearly e-control statistics, profile stay ERA5
 
 ### Fixed
 - Switzerland now follows split of biomass into un-/sustainable biomass potential [#217](https://github.com/AGGM-AG/pypsa-at/pull/217)

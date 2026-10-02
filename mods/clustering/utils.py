@@ -80,7 +80,7 @@ def combine_regions_by_clustering(df, clustering):
     coarser regions actually present in the clustered network:
 
     - ``AT10`` clusterings aggregate AT NUTS3 → AT NUTS2 (via
-      :func:`_map_at_nuts3_to_nuts2`); AT333 (Osttirol) is preserved as its
+      :func:`map_at_nuts3_to_nuts2`); AT333 (Osttirol) is preserved as its
       own region.
     - ``DE5`` clusterings aggregate DE NUTS1 → DE5 macro-regions (via
       :func:`_map_de_nuts1_to_de5`).

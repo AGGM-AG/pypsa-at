@@ -40,7 +40,15 @@ biomethane plants). PyPSA-AT downloads both.
    postal codes and are left out; a warning in the log tells how many. If the
    unreadable share ever exceeded 0.1 % of the capacity, the workflow would
    stop so the cause can be investigated.
-3. **Aggregate.** Plants are summed per *typ* (Strom/Gas), NUTS3 region,
+3. **Clean duplicate registrations.** Large water plants are registered once
+   per marketing contract, with the full capacity repeated on every entry and
+   the feed-in split across them (Malta Hauptstufe appears four times with
+   730 MW). Among water plants above 50 MW sharing postal code and capacity,
+   only the entry with the highest feed-in is kept; two groups that are
+   verified as distinct plants (Kaprun Limberg II and III, Speicherkraftwerk
+   Schwarzach) are exempt, and an exemption that no longer matches any plant
+   stops the workflow.
+4. **Aggregate.** Plants are summed per *typ* (Strom/Gas), NUTS3 region,
    technology and first feed-in year (see below). The result is a small table
    with the number of plants, the capacity, and the annual feed-in per group.
 

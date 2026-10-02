@@ -37,12 +37,16 @@ rule patch_powerplants_set_at:
         scripts("pypsa-at/patch_powerplants_set_at.py")
 
 
+# The output is redirected to a "-raw" file that overwrite_powerplants_at
+# (rules/pypsa-at/modify.smk) post-processes into the final table.
 use rule build_powerplants as build_powerplants_at with:
     input:
         **{
             **rules.build_powerplants.input,
             "powerplants": rules.patch_powerplants_set_at.output["powerplants"],
         },
+    output:
+        resources("powerplants_s_{clusters}-raw.csv"),
 
 
 ruleorder: build_powerplants_at > build_powerplants
