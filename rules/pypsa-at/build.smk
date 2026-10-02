@@ -341,6 +341,25 @@ if ANLAGENREGISTER["source"] in ("build", "archive"):
             scripts("pypsa-at/build_anlagenregister_at.py")
 
 
+rule build_gas_calibration_targets_at:
+    input:
+        bestandsstatistik=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-JR_KWEPL.xlsx",
+        betriebsstatistik=f"{ECONTROL_BETRIEBSSTATISTIK['folder']}/BStGes-JR1_Bilanz.xlsx",
+    output:
+        targets=resources("gas_calibration_targets_AT.csv"),
+    log:
+        logs("build_gas_calibration_targets_at.log"),
+    benchmark:
+        benchmarks("build_gas_calibration_targets_at")
+    threads: 1
+    resources:
+        mem_mb=1000,
+    message:
+        "Building the E-Control calibration targets for the Austrian gas power plants"
+    script:
+        scripts("pypsa-at/build_gas_calibration_targets_at.py")
+
+
 if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
 
     rule build_statistik_at_regions:
