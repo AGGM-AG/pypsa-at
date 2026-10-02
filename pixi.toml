@@ -139,7 +139,6 @@ snakemake-executor-plugin-slurm = ">=1.9.2"
 pre-commit = ">=4.3.0"
 pylint = ">=4.0.2"
 ruff = ">=0.14.3"
-jupyter = ">=1.1.1"
 
 [feature.doc.tasks.build-docs]
 cmd = "mkdocs build -d public/html"
