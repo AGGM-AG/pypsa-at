@@ -1,0 +1,8 @@
+# Syft config for the SBOM in .github/workflows/security-scan.yaml.
+# JupyterLab ships build scaffolding (staging/yarn.lock) and test fixtures
+# (tests/mock_packages/*/yarn.lock) that are not runtime code. Their yarn.lock
+# files list several versions per npm package, and syft emits a random one of
+# them per run, so the PR-vs-main CVE diff flips between runs.
+exclude:
+- "**/site-packages/jupyterlab/staging/**"
+- "**/site-packages/jupyterlab/tests/**"

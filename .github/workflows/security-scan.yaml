@@ -50,6 +50,7 @@ jobs:
       with:
         path: ".pixi/envs/default"
         output-file: sbom.spdx.json
+        config: .syft.yaml
         dependency-snapshot: ${{ github.ref == 'refs/heads/main' }}
         upload-artifact: false  # uploaded explicitly below, main only
 
