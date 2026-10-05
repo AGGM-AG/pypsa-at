@@ -64,9 +64,7 @@ clustering:
     # mods/, evals/ and the TYNDP node mappings rely on.
     allow_ac_dc_mixing_in_bus_clusters: true
   temporal:
-#    resolution_sector: 730seg  # same count as 12H, 2 snapshots per day
-#    resolution_sector: 1460seg  # same count as 6H, 4 snapshots per day
-    resolution_sector: 2920seg  # same count as 3H, 6 snapshots per day
+    resolution_sector: 365H
 
 pypsa-de:
   # incompatible with PyPSA-AT NTC floors in mods.network.electricity
