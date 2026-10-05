@@ -141,11 +141,13 @@ def _network_with_negative_loads() -> pypsa.Network:
     return n
 
 
-def _clipping_snakemake(base_load_enabled: bool) -> SimpleNamespace:
+def _clipping_snakemake(
+    base_load_enabled: bool, resolution: str = "24H"
+) -> SimpleNamespace:
     return SimpleNamespace(
         config={
             "run": {"prefix": "unit-test"},
-            "clustering": {"temporal": {"resolution_sector": "24H"}},
+            "clustering": {"temporal": {"resolution_sector": resolution}},
             "mods": {
                 "modify_nuts3_shapes": "AT35DE5",
                 "electricity_base_load": {"enable": base_load_enabled},
@@ -175,3 +177,29 @@ def test_clipping_raises_without_expected_negative_loads():
         clip_negative_loads_for_edge_cases(
             n, _clipping_snakemake(base_load_enabled=True)
         )
+
+
+def test_clipping_segmented_clips_all_negative_loads():
+    n = _network_with_negative_loads()
+    clip_negative_loads_for_edge_cases(
+        n, _clipping_snakemake(base_load_enabled=False, resolution="2920seg")
+    )
+    assert (n.loads_t.p_set >= 0).all().all()
+
+
+def test_clipping_segmented_skips_austrian_loads_with_base_load_override():
+    n = _network_with_negative_loads()
+    clip_negative_loads_for_edge_cases(
+        n, _clipping_snakemake(base_load_enabled=True, resolution="2920seg")
+    )
+    assert n.loads_t.p_set["AT126 electricity for residential"].min() == -5.0
+    assert n.loads_t.p_set["IT1 electricity for residential"].min() == 0.0
+
+
+def test_clipping_segmented_tolerates_no_negative_loads():
+    n = _network_with_negative_loads()
+    n.loads_t.p_set = n.loads_t.p_set.clip(lower=0)
+    clip_negative_loads_for_edge_cases(
+        n, _clipping_snakemake(base_load_enabled=False, resolution="2920seg")
+    )
+    assert (n.loads_t.p_set >= 0).all().all()
