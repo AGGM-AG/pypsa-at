@@ -36,7 +36,7 @@ planning_horizons:
 - 2050
 
 electricity:
-  transmission_limit: v1.25
+  transmission_limit: vopt
   voltages: [110., 220., 300., 330., 380., 400., 500., 750.]
 
 clustering:
