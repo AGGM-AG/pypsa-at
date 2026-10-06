@@ -217,6 +217,21 @@ include: "rules/pypsa-de/modifications.smk"
 include: "rules/pypsa-de/reporting.smk"
 
 
+resources_shared = path_provider("resources/", RDIR, True, [])
+logs_shared = path_provider("logs/", RDIR, True, [])
+benchmarks_shared = path_provider("benchmarks/", RDIR, True, [])
+
+
+include: "rules/pypsa-at/retrieve.smk"  # PyPSA-AT specific data retrieval
+include: "rules/pypsa-at/build.smk"  # PyPSA-AT specific data build rules
+include: "rules/pypsa-at/build_electricity.smk"  # PyPSA-AT specific electricity build rule patches
+include: "rules/pypsa-at/modify.smk"  # PyPSA-AT specific modifications and upstream rule overrides (must follow build_electricity.smk / build_sector.smk — it overrides rules defined there)
+include: "rules/pypsa-at/build_sector.smk"  # PyPSA-AT specific modifications for sector network
+include: "rules/pypsa-at/compose.smk"  # PyPSA-AT inputs and params for compose_network
+include: "rules/pypsa-at/solve.smk"  # PyPSA-AT specific solve rule extensions
+include: "rules/pypsa-at/collect.smk"  # PyPSA-AT specific collect rules
+
+
 rule all:
     input:
         expand(CORE_OUTPUTS, run=config["run"]["name"]),

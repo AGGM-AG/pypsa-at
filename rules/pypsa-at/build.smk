@@ -11,6 +11,19 @@ from mods.constants import NUTS2_CODES
 BUNDESLAENDER = list(NUTS2_CODES.keys())
 
 
+def at_cost_year(w):
+    """Cost year for AT power plant aggregation in rules without a horizon.
+
+    Upstream changed ``costs.year`` to default to the requested horizon. The
+    AT rules below have no ``{horizon}`` wildcard, so they keep the former
+    default and use the last planning horizon unless ``costs.year`` is set.
+    """
+    return (
+        config_provider("costs", "year")(w)
+        or config_provider("planning_horizons")(w)[-1]
+    )
+
+
 def heat_demand_at_raster_path(scenario, year):
     return f"{HEAT_DEMAND_DATASET['folder']}/{HEAT_DEMAND_DATASETS[scenario][year]}"
 
@@ -29,16 +42,16 @@ rule build_heat_demand_at:
         nuts3_shapes=resources("nuts3_shapes.geojson"),
         heatmaps=heat_demand_at_inputs,
     output:
-        heat_demand=resources("heat_demand_at_{clusters}.csv"),
+        heat_demand=resources("heat_demand_at.csv"),
     log:
-        logs("build_heat_demand_at_{clusters}.log"),
+        logs("build_heat_demand_at.log"),
     benchmark:
-        benchmarks("build_heat_demand_at_{clusters}")
+        benchmarks("build_heat_demand_at")
     threads: 1
     resources:
         mem_mb=4000,
     params:
-        planning_horizons=config_provider("scenario", "planning_horizons"),
+        planning_horizons=config_provider("planning_horizons"),
         clustering=config_provider("mods", "modify_nuts3_shapes"),
     message:
         "Building Austrian NUTS3 heat demand from heatmaps"
@@ -48,28 +61,28 @@ rule build_heat_demand_at:
 
 rule recalibrate_heat_demand_at:
     input:
-        heat_demand=resources("heat_demand_at_{clusters}.csv"),
+        heat_demand=resources("heat_demand_at.csv"),
         nea_at=resources("nea_at.csv"),
         nuts3_shapes=resources("nuts3_shapes.geojson"),
         urban_fraction=lambda w: [
-            resources(
-                "district_heat_share_base_s_{clusters}_{planning_horizons}-modified.csv"
-            ).format(run=w.run, clusters=w.clusters, planning_horizons=year)
-            for year in config_provider("scenario", "planning_horizons")(w)
+            resources("district_heat_share_{horizon}-modified.csv").format(
+                run=w.run, horizon=year
+            )
+            for year in config_provider("planning_horizons")(w)
         ],
     output:
-        heat_demand=resources("heat_demand_nea_at_{clusters}.csv"),
-        urban_fraction_at=resources("urban_fraction_at_{clusters}.csv"),
+        heat_demand=resources("heat_demand_nea_at.csv"),
+        urban_fraction_at=resources("urban_fraction_at.csv"),
     log:
-        logs("recalibrate_heat_demand_at_{clusters}.log"),
+        logs("recalibrate_heat_demand_at.log"),
     benchmark:
-        benchmarks("recalibrate_heat_demand_at_{clusters}")
+        benchmarks("recalibrate_heat_demand_at")
     threads: 1
     resources:
         mem_mb=2000,
     params:
         source_years=config_provider("demand", "source_years"),
-        planning_horizons=config_provider("scenario", "planning_horizons"),
+        planning_horizons=config_provider("planning_horizons"),
         cluster_heat_buses=config_provider("sector", "cluster_heat_buses"),
         modify_nuts3_shapes=config_provider("mods", "modify_nuts3_shapes"),
     message:
@@ -87,9 +100,7 @@ def use_energiemosaik(w):
 rule build_electricity_base_load_at:
     input:
         nea_at=resources("nea_at.csv"),
-        industrial_distribution_key=resources(
-            "industrial_distribution_key_base_s_{clusters}.csv"
-        ),
+        industrial_distribution_key=resources("industrial_distribution_key.csv"),
         statistik_at_regions=resources("statistik_at_regions.csv"),
         energiemosaik=branch(
             use_energiemosaik,
@@ -101,16 +112,16 @@ rule build_electricity_base_load_at:
             "mods/clustering/utils.py",
         ],
     output:
-        electricity_base_load=resources("electricity_base_load_at_{clusters}.csv"),
+        electricity_base_load=resources("electricity_base_load_at.csv"),
     log:
-        logs("build_electricity_base_load_at_{clusters}.log"),
+        logs("build_electricity_base_load_at.log"),
     benchmark:
-        benchmarks("build_electricity_base_load_at_{clusters}")
+        benchmarks("build_electricity_base_load_at")
     threads: 1
     resources:
         mem_mb=2000,
     params:
-        planning_horizons=config_provider("scenario", "planning_horizons"),
+        planning_horizons=config_provider("planning_horizons"),
         source_years=config_provider("demand", "source_years"),
         distribution_key=config_provider(
             "mods", "electricity_base_load", "distribution_key"
@@ -124,18 +135,14 @@ rule build_electricity_base_load_at:
 
 rule modify_district_heat_share_at:
     input:
-        urban_fraction_at=resources("urban_fraction_at_{clusters}.csv"),
-        district_heat_share=resources(
-            "district_heat_share_base_s_{clusters}_{planning_horizons}-modified.csv"
-        ),
+        urban_fraction_at=resources("urban_fraction_at.csv"),
+        district_heat_share=resources("district_heat_share_{horizon}-modified.csv"),
     output:
-        district_heat_share=resources(
-            "district_heat_share_base_s_{clusters}_{planning_horizons}-modified_at.csv"
-        ),
+        district_heat_share=resources("district_heat_share_{horizon}-modified_at.csv"),
     log:
-        logs("modify_district_heat_share_at_{clusters}_{planning_horizons}.log"),
+        logs("modify_district_heat_share_at_{horizon}.log"),
     benchmark:
-        benchmarks("modify_district_heat_share_at_{clusters}_{planning_horizons}")
+        benchmarks("modify_district_heat_share_at_{horizon}")
     threads: 1
     resources:
         mem_mb=1000,
@@ -191,13 +198,13 @@ rule build_inflow_profile:
         cutout=lambda w: input_cutout(
             w, config_provider("renewable", "hydro", "cutout")(w)
         ),
-        regions=resources("regions_onshore_base_s_{clusters}.geojson"),
+        regions=resources("onshore_regions.geojson"),
     output:
-        profile=resources("profile_inflow_{clusters}.nc"),
+        profile=resources("profile_inflow.nc"),
     log:
-        logs("build_inflow_profile_{clusters}.log"),
+        logs("build_inflow_profile.log"),
     benchmark:
-        benchmarks("build_inflow_profile_{clusters}")
+        benchmarks("build_inflow_profile")
     resources:
         mem_mb=5000,
     params:
@@ -216,17 +223,15 @@ if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
 
     rule build_inflow_totals_per_region:
         input:
-            powerplants=resources("powerplants_s_{clusters}.csv"),
+            powerplants=resources("powerplants.csv"),
             hydro_inflows=f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows",
-            costs=lambda w: resources(
-                f"costs_{config_provider('costs', 'year')(w)}_processed.csv"
-            ),
+            costs=lambda w: resources(f"costs_{at_cost_year(w)}_processed.csv"),
         output:
-            totals=resources("inflow_totals_per_region_{clusters}.csv"),
+            totals=resources("inflow_totals_per_region.csv"),
         log:
-            logs("inflow_totals_per_region_{clusters}.log"),
+            logs("inflow_totals_per_region.log"),
         benchmark:
-            benchmarks("inflow_totals_per_region_{clusters}")
+            benchmarks("inflow_totals_per_region")
         resources:
             mem_mb=5000,
         params:
@@ -250,14 +255,14 @@ if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
 
 rule build_inflows_per_region:
     input:
-        profile=resources("profile_inflow_{clusters}.nc"),
-        totals=resources("inflow_totals_per_region_{clusters}.csv"),
+        profile=resources("profile_inflow.nc"),
+        totals=resources("inflow_totals_per_region.csv"),
     output:
-        inflow=resources("inflow_per_region_{clusters}.nc"),
+        inflow=resources("inflow_per_region.nc"),
     log:
-        logs("build_inflows_per_region_{clusters}.log"),
+        logs("build_inflows_per_region.log"),
     benchmark:
-        benchmarks("build_inflows_per_region_{clusters}")
+        benchmarks("build_inflows_per_region")
     resources:
         mem_mb=5000,
     message:
@@ -273,21 +278,19 @@ rule build_capacity_trajectories:
             "mods/constants.py",
             "scripts/_helpers.py",
         ],
-        powerplants=resources("powerplants_s_{clusters}.csv"),
-        costs=lambda w: resources(
-            f"costs_{config_provider('costs', 'year')(w)}_processed.csv"
-        ),
+        powerplants=resources("powerplants.csv"),
+        costs=lambda w: resources(f"costs_{at_cost_year(w)}_processed.csv"),
     output:
-        trajectories=resources("trajectories_{clusters}.csv"),
+        trajectories=resources("trajectories.csv"),
     log:
-        logs("trajectories_{clusters}.log"),
+        logs("trajectories.log"),
     benchmark:
-        benchmarks("trajectories_{clusters}")
+        benchmarks("trajectories")
     resources:
         mem_mb=5000,
     params:
         countries=config_provider("countries"),
-        planning_horizons=config_provider("scenario", "planning_horizons"),
+        planning_horizons=config_provider("planning_horizons"),
         consider_efficiency_classes=config_provider(
             "clustering", "consider_efficiency_classes"
         ),
@@ -329,9 +332,9 @@ if ANLAGENREGISTER["source"] in ("build", "archive"):
         output:
             nuts3=f"{ANLAGENREGISTER['folder']}/anlagenregister_nuts3.csv",
         log:
-            logs("build_anlagenregister_at.log"),
+            logs_shared("build_anlagenregister_at.log"),
         benchmark:
-            benchmarks("build_anlagenregister_at")
+            benchmarks_shared("build_anlagenregister_at")
         threads: 1
         resources:
             mem_mb=4000,
@@ -357,7 +360,7 @@ if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
         resources:
             mem_mb=2000,
         params:
-            planning_horizons=config_provider("scenario", "planning_horizons"),
+            planning_horizons=config_provider("planning_horizons"),
         message:
             "Building general Statistik Austria regional data CSV"
         script:
@@ -370,13 +373,13 @@ if KFZ_BESTAND_AT["source"] in ["primary", "archive"]:
         input:
             ods=rules.retrieve_kfz_bestand_at.output["ods"],
             regional_data=rules.build_statistik_at_regions.output["regional_data"],
-            transport_data_in=resources("transport_data.csv"),
+            transport_data_in=resources("transport_data_raw.csv"),
         output:
-            transport_data_out=resources("transport_data_{clusters}_at.csv"),
+            transport_data_out=resources("transport_data_raw_at.csv"),
         log:
-            logs("build_kfz_bestand_{clusters}.log"),
+            logs("build_kfz_bestand.log"),
         benchmark:
-            benchmarks("build_kfz_bestand_{clusters}")
+            benchmarks("build_kfz_bestand")
         threads: 1
         resources:
             mem_mb=2000,
@@ -393,36 +396,36 @@ use rule build_transport_demand as build_transport_demand_at with:
     input:
         **{
             **rules.build_transport_demand.input,
-            "transport_data": resources("transport_data_{clusters}_at.csv"),
+            "transport_data": resources("transport_data_raw_at.csv"),
         },
     output:
-        transport_demand=resources("transport_demand_s_{clusters}_at_unpatched.csv"),
-        transport_data=resources("transport_data_s_{clusters}_at.csv"),
-        avail_profile=resources("avail_profile_s_{clusters}_at.csv"),
-        dsm_profile=resources("dsm_profile_s_{clusters}_at.csv"),
+        transport_demand=resources("transport_demand_at_unpatched.csv"),
+        transport_data=resources("transport_data_at.csv"),
+        avail_profile=resources("avail_profile_at.csv"),
+        dsm_profile=resources("dsm_profile_at.csv"),
     log:
-        logs("build_transport_demand_s_{clusters}_at.log"),
+        logs("build_transport_demand_at.log"),
     benchmark:
-        benchmarks("build_transport_demand/s_{clusters}_at")
+        benchmarks("build_transport_demand_at")
 
 
 rule patch_transport_demand_at:
     input:
-        transport_demand=resources("transport_demand_s_{clusters}_at_unpatched.csv"),
+        transport_demand=resources("transport_demand_at_unpatched.csv"),
         nea_at=resources("nea_at.csv"),
-        temp_air_total=resources("temp_air_total_base_s_{clusters}.nc"),
-        clustered_pop_layout=resources("pop_layout_base_s_{clusters}.csv"),
+        temp_air_total=resources("temp_air_total.nc"),
+        clustered_pop_layout=resources("pop_layout.csv"),
     output:
-        transport_demand_patched=resources("transport_demand_s_{clusters}_at.csv"),
+        transport_demand_patched=resources("transport_demand_at.csv"),
     log:
-        logs("patch_transport_demand_at_{clusters}.log"),
+        logs("patch_transport_demand_at.log"),
     benchmark:
-        benchmarks("patch_transport_demand_at_{clusters}")
+        benchmarks("patch_transport_demand_at")
     threads: 1
     resources:
         mem_mb=2000,
     params:
-        planning_horizons=config_provider("scenario", "planning_horizons"),
+        planning_horizons=config_provider("planning_horizons"),
         source_years=config_provider("demand", "source_years"),
         sector=config_provider("sector"),
     message:
@@ -436,15 +439,15 @@ rule build_onwind_brownfield_at:
         wind_production=f"{WIND_POWER_AT['folder']}/wind_prodction_at.xlsx",
         nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
         costs=lambda w: resources(
-            f"costs_{config_provider('scenario', 'planning_horizons',0)(w)}_processed.csv"
+            f"costs_{config_provider('planning_horizons',0)(w)}_processed.csv"
         ),
         at_regions=resources("statistik_at_regions.csv"),
     output:
-        wind_brownfield=resources("onwind_brownfield_{clusters}_at.csv"),
+        wind_brownfield=resources("onwind_brownfield_at.csv"),
     log:
-        logs("onwind_brownfield_at_{clusters}.log"),
+        logs("onwind_brownfield_at.log"),
     benchmark:
-        benchmarks("onwind_brownfield_at_{clusters}")
+        benchmarks("onwind_brownfield_at")
     threads: 1
     resources:
         mem_mb=2000,

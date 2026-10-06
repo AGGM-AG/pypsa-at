@@ -70,8 +70,8 @@ if OSM_DATASET["source"] == "build":
             europe_shape=resources("europe_shape.geojson"),
         output:
             base_network=resources("osm/build-at/networks/base.nc"),
-            regions_onshore=resources("osm/build-at/networks/regions_onshore.geojson"),
-            regions_offshore=resources("osm/build-at/networks/regions_offshore.geojson"),
+            onshore_regions=resources("osm/build-at/networks/regions_onshore.geojson"),
+            offshore_regions=resources("osm/build-at/networks/regions_offshore.geojson"),
             admin_shapes=resources("osm/build-at/networks/admin_shapes.geojson"),
         log:
             logs("base_network_release.log"),
@@ -146,7 +146,7 @@ def input_base_network_at(w):
     ``base_network`` rule captures the function object at parse time, long
     before this file is included. The rule itself is therefore shadowed
     below via ``use rule`` + ``ruleorder``, mirroring the
-    ``modify_prenetwork_at`` pattern.
+    ``compose_network_at`` pattern.
 
     Parameters
     ----------
@@ -179,108 +179,16 @@ use rule base_network as base_network_at with:
 ruleorder: base_network_at > base_network
 
 
-# modify_prenetwork: keep the upstream pypsa-de rule pristine and shadow it here
-# to inject the AT-specific inputs (KLIEN potentials, TYNDP trajectories, Ukrainian
-# gas transit) and params. The `**rules.modify_prenetwork.input/params` splats pull
-# in all upstream directives; only the AT additions are listed.
-use rule modify_prenetwork as modify_prenetwork_at with:
-    input:
-        **rules.modify_prenetwork.input,
-        tyndp_trajectories=branch(
-            config_provider("mods", "PEMMDB_trajectories", "enable"),
-            resources("tyndp_trajectories.csv"),
-            [],
-        ),
-        tyndp_transmission_trajectories=branch(
-            config_provider("mods", "tyndp_lower_bounds", "enable"),
-            resources("tyndp_transmission_trajectories.csv"),
-            [],
-        ),
-        nuts3_buildings=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_buildings.csv",
-        nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
-        nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
-        onwind_brownfield=resources("onwind_brownfield_{clusters}_at.csv"),
-        biogas_plants_at=resources("biogas_plants_at_{clusters}.csv"),
-        gas_input_nodes_simplified=resources(
-            "gas_input_locations_s_{clusters}_simplified.csv"
-        ),
-        gas_storage_capacities="data/pypsa-at/gas_input_locations_s_AT35DE16_updated.csv",
-        clustered_gas_network=resources("gas_network_base_s_{clusters}.csv"),
-        h2_imports_tyndp=branch(
-            config_provider("sector", "h2_topology_tyndp"),
-            resources("h2_import_potentials_{clusters}_{planning_horizons}.csv"),
-            [],
-        ),
-        heat_demand_nea_at=branch(
-            config_provider("demand", "heat", "apply_at_demand"),
-            resources("heat_demand_nea_at_{clusters}.csv"),
-            [],
-        ),
-        electricity_base_load_at=branch(
-            config_provider("mods", "electricity_base_load", "enable"),
-            resources("electricity_base_load_at_{clusters}.csv"),
-            [],
-        ),
-        code_files=[
-            "mods/network/biogas.py",
-            "mods/network/common.py",
-            "mods/network/gas.py",
-            "mods/network/onwind.py",
-            "mods/network/potentials.py",
-            "mods/network/trajectories.py",
-            "mods/network/electricity.py",
-            "mods/network/h2.py",
-            "mods/demand/heat_demand.py",
-            "mods/demand/electricity.py",
-            "mods/demand/annual.py",
-            "mods/constants.py",
-            "mods/utils.py",
-        ],
-    params:
-        **rules.modify_prenetwork.params,
-        klien_potential_limits_technologies=config_provider(
-            "mods", "klien_potential_limits", "technologies"
-        ),
-        klien_potential_limits_use_technical_potentials=config_provider(
-            "mods", "klien_potential_limits", "use_technical_potentials"
-        ),
-        klien_potential_limits_climate_scenario=config_provider(
-            "mods", "klien_potential_limits", "climate_scenario"
-        ),
-        klien_potential_limits_year=config_provider(
-            "mods", "klien_potential_limits", "year"
-        ),
-        klien_potential_limits_ambition=config_provider(
-            "mods", "klien_potential_limits", "ambition"
-        ),
-        block_russian_gas_imports=config_provider("mods", "block_russian_gas_imports"),
-        sector=config_provider("sector"),
-        admin_levels=config_provider("clustering", "administrative"),
-        custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
-        apply_at_heat_demand=config_provider("demand", "heat", "apply_at_demand"),
-        existing_capacities=config_provider("existing_capacities"),
-        add_biogas_to_power_plants_AT=config_provider(
-            "mods", "existing_capacities", "add_biogas_to_power_plants_AT"
-        ),
-        electricity_base_load=config_provider("mods", "electricity_base_load"),
-        use_nea_transport_demand=config_provider(
-            "demand", "transport", "use_nea_demand"
-        ),
-
-
-ruleorder: modify_prenetwork_at > modify_prenetwork  # AT wins for the final .nc
-
-
 rule modify_brownfield_gas_network_AT:
     input:
-        clustered_gas_network_raw=resources("gas_network_base_s_{clusters}_raw.csv"),
+        clustered_gas_network_raw=resources("gas_network_clustered_raw.csv"),
         brownfield_gas_network_AT35=("data/pypsa-at/AGGM_gas_network_base_AT35.csv"),
-        regions_onshore=resources("regions_onshore_base_s_{clusters}.geojson"),
-        regions_offshore=resources("regions_offshore_base_s_{clusters}.geojson"),
+        regions_onshore=resources("onshore_regions.geojson"),
+        regions_offshore=resources("offshore_regions.geojson"),
     output:
-        clustered_gas_network=resources("gas_network_base_s_{clusters}.csv"),
+        clustered_gas_network=resources("gas_network_clustered.csv"),
     log:
-        logs("modify_brownfield_gas_network_AT_{clusters}.log"),
+        logs("modify_brownfield_gas_network_AT.log"),
     resources:
         mem_mb=4000,
     params:
@@ -334,7 +242,7 @@ ruleorder: modify_nuts3_shapes > build_nuts3_shapes  # AT wins for the final nut
 # modify_brownfield_gas_network_AT can merge in the AGGM brownfield network.
 use rule cluster_gas_network as cluster_gas_network_at with:
     output:
-        clustered_gas_network=resources("gas_network_base_s_{clusters}_raw.csv"),
+        clustered_gas_network=resources("gas_network_clustered_raw.csv"),
 
 
 ruleorder: modify_brownfield_gas_network_AT > cluster_gas_network  # AT wins for the final .csv
@@ -343,14 +251,14 @@ ruleorder: modify_brownfield_gas_network_AT > cluster_gas_network  # AT wins for
 # Overwrite attributes in the power plants resource CSV file
 rule overwrite_powerplants_at:
     input:
-        powerplants=resources("powerplants_s_{clusters}.csv"),
+        powerplants=resources("powerplants.csv"),
         anlagenregister=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
         postal_to_nuts="data/pypsa-at/AT-Postal-to-NUTS.csv",
     output:
-        powerplants=resources("powerplants_s_{clusters}-overwrite.csv"),
-        biogas_plants=resources("biogas_plants_at_{clusters}.csv"),
+        powerplants=resources("powerplants-overwrite.csv"),
+        biogas_plants=resources("biogas_plants_at.csv"),
     log:
-        logs("powerplants_s_{clusters}-overwrite.log"),
+        logs("powerplants-overwrite.log"),
     threads: 1
     resources:
         mem_mb=1000,
@@ -361,22 +269,6 @@ rule overwrite_powerplants_at:
         threshold_capacity=config_provider("existing_capacities", "threshold_capacity"),
         clustering=config_provider("mods", "modify_nuts3_shapes"),
     message:
-        "Overriding power plant attributes for {wildcards.clusters} clusters."
+        "Overriding power plant attributes."
     script:
         scripts("pypsa-at/overwrite_powerplants.py")
-
-
-if config["foresight"] == "myopic":
-
-    # redirect powerplants input file to the patched file
-    use rule add_existing_baseyear as add_existing_baseyear_at with:
-        input:
-            **{
-                **rules.add_existing_baseyear.input,
-                "powerplants": resources("powerplants_s_{clusters}-overwrite.csv"),
-            },
-
-    ruleorder: add_existing_baseyear_at > add_existing_baseyear
-    # The new rule also needs to override `add_brownfield` instead of
-    # `add_existing_baseyear` for myopic years
-    ruleorder: add_existing_baseyear_at > add_brownfield

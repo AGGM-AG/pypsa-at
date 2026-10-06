@@ -42,7 +42,7 @@ if KLIEN_POTENTIALS["source"] == "build":
             nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
             nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
         log:
-            logs("build_klien_potentials.log"),
+            logs_shared("build_klien_potentials.log"),
         threads: 1
         resources:
             mem_mb=2000,
@@ -63,7 +63,7 @@ elif KLIEN_POTENTIALS["source"] == "archive":
             nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
             nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
         log:
-            logs("retrieve_klien_potentials.log"),
+            logs_shared("retrieve_klien_potentials.log"),
         message:
             "Retrieving pre-aggregated KLIEN potentials (PV + wind) from archive"
         run:
@@ -82,7 +82,7 @@ if NEA_AT["source"] == "primary":
         output:
             **{b: f"{NEA_AT['folder']}/NEA{b}Daten.ods" for b in BUNDESLAENDER},
         log:
-            logs("retrieve_nea_at.log"),
+            logs_shared("retrieve_nea_at.log"),
         message:
             "Retrieving Statistik Austria NEA files per Bundesland"
         run:
@@ -99,7 +99,7 @@ rule retrieve_ffe_industry_load_profiles:
     output:
         f"{FFE_INDUSTRY_LOAD_PROFILES['folder']}/ffe_industry_load_profiles.json",
     log:
-        logs("retrieve_ffe_industry_load_profiles.log"),
+        logs_shared("retrieve_ffe_industry_load_profiles.log"),
     retries: 2
     resources:
         mem_mb=1000,
@@ -119,7 +119,7 @@ if ANLAGENREGISTER["source"] == "build":
         output:
             plants=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
         log:
-            logs("retrieve_anlagenregister_at.log"),
+            logs_shared("retrieve_anlagenregister_at.log"),
         threads: 1
         resources:
             mem_mb=2000,
@@ -141,7 +141,7 @@ elif ANLAGENREGISTER["source"] == "archive":
         output:
             plants=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
         log:
-            logs("retrieve_anlagenregister_at.log"),
+            logs_shared("retrieve_anlagenregister_at.log"),
         message:
             "Retrieving the mirrored E-Control Anlagenregister (plant-level CSV) from Zenodo"
         run:
@@ -194,7 +194,7 @@ if WIND_POWER_AT["source"] == "primary":
         output:
             wind=f"{WIND_POWER_AT['folder']}/wind_prodction_at.xlsx",
         log:
-            logs("retrieve_wind_power_at.log"),
+            logs_shared("retrieve_wind_power_at.log"),
         retries: 2
         message:
             "Retrieving Austrian wind production"
@@ -213,7 +213,7 @@ if ENERGIEMOSAIK_AT["source"] == "primary":
         output:
             archive=f"{ENERGIEMOSAIK_AT['folder']}/Energiemosaik_Datenpaket_AT.zip",
         log:
-            logs("retrieve_energiemosaik_at.log"),
+            logs_shared("retrieve_energiemosaik_at.log"),
         retries: 2
         message:
             "Retrieving the Energiemosaik Austria municipality data package"

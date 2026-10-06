@@ -50,16 +50,14 @@ ruleorder: build_powerplants_at > build_powerplants
 
 rule create_onshore_regions_nuts3:
     input:
-        regions=resources_shared("regions_onshore_base_s_{clusters}.geojson"),
+        regions=resources_shared("onshore_regions.geojson"),
         shapes=resources_shared("nuts3_shapes.geojson"),
     output:
-        regions_nuts3=resources_shared(
-            "regions_onshore_nuts3_base_s_{clusters}.geojson"
-        ),
+        regions_nuts3=resources_shared("onshore_regions_nuts3.geojson"),
     log:
-        logs_shared("create_onshore_regions_nuts3_{clusters}.log"),
+        logs_shared("create_onshore_regions_nuts3.log"),
     benchmark:
-        benchmarks_shared("create_onshore_regions_nuts3_{clusters}")
+        benchmarks_shared("create_onshore_regions_nuts3")
     threads: 1
     message:
         "Building NUTS3 onshore regions geojson"
@@ -71,26 +69,22 @@ use rule determine_availability_matrix as determine_availability_matrix_onwind_n
     input:
         **{
             **rules.determine_availability_matrix.input,
-            "regions": resources_shared(
-                "regions_onshore_nuts3_base_s_{clusters}.geojson"
-            ),
+            "regions": resources_shared("onshore_regions_nuts3.geojson"),
         },
     output:
-        nc=resources_shared("availability_matrix_nuts3_{clusters}_{technology}.nc"),
+        nc=resources_shared("availability_matrix_nuts3_{technology}.nc"),
         plot=branch(
             config["atlite"]["plot_availability_matrix"],
-            then=resources_shared(
-                "availability_matrix_nuts3_{clusters}_{technology}.png"
-            ),
+            then=resources_shared("availability_matrix_nuts3_{technology}.png"),
         ),
     log:
-        logs_shared("determine_availability_matrix_nuts3_{clusters}_{technology}.log"),
+        logs_shared("determine_availability_matrix_nuts3_{technology}.log"),
     benchmark:
-        benchmarks_shared("determine_availability_matrix_nuts3_{clusters}_{technology}")
+        benchmarks_shared("determine_availability_matrix_nuts3_{technology}")
     wildcard_constraints:
         technology="onwind",
     message:
-        "Determining availability matrix for {wildcards.clusters} clusters and {wildcards.technology} technology for nuts3"
+        "Determining availability matrix for {wildcards.technology} technology for nuts3"
 
 
 use rule build_renewable_profiles as build_renewable_profiles_onwind_nuts3 with:
@@ -98,31 +92,29 @@ use rule build_renewable_profiles as build_renewable_profiles_onwind_nuts3 with:
         **{
             **rules.build_renewable_profiles.input,
             "availability_matrix": resources_shared(
-                "availability_matrix_nuts3_{clusters}_{technology}.nc"
+                "availability_matrix_nuts3_{technology}.nc"
             ),
-            "distance_regions": resources_shared(
-                "regions_onshore_nuts3_base_s_{clusters}.geojson"
-            ),
+            "distance_regions": resources_shared("onshore_regions_nuts3.geojson"),
             "resource_regions": resources_shared(
-                "regions_onshore_nuts3_base_s_{clusters}.geojson"  # Input needed by original rule
+                "onshore_regions_nuts3.geojson"  # Input needed by original rule
             ),
         },
     output:
         **{
             **rules.build_renewable_profiles.output,
-            "profile": resources_shared("profile_nuts3_{clusters}_{technology}.nc"),
+            "profile": resources_shared("profile_nuts3_{technology}.nc"),
             "class_regions": resources_shared(
-                "regions_by_class_nuts3_{clusters}_{technology}.geojson"
+                "regions_by_class_nuts3_{technology}.geojson"
             ),
         },
     log:
-        logs_shared("build_renewable_profile_nuts3_{clusters}_{technology}.log"),
+        logs_shared("build_renewable_profile_nuts3_{technology}.log"),
     benchmark:
-        benchmarks_shared("build_renewable_profile_nuts3_{clusters}_{technology}")
+        benchmarks_shared("build_renewable_profile_nuts3_{technology}")
     wildcard_constraints:
         technology="onwind",
     message:
-        "Building NUTS3 renewable profiles for {wildcards.clusters} clusters and onwind technology"
+        "Building NUTS3 renewable profiles for onwind technology"
 
 
 if config["clustering"]["administrative"]["AT"] == 2:
@@ -131,35 +123,31 @@ if config["clustering"]["administrative"]["AT"] == 2:
         output:
             **{
                 **rules.build_renewable_profiles.output,
-                "profile": resources_shared(
-                    "profile_nuts2_{clusters}_{technology}.nc"
-                ),
-                "class_regions": resources(
-                    "regions_by_class_{clusters}_{technology}.geojson"
-                ),
+                "profile": resources_shared("profile_nuts2_{technology}.nc"),
+                "class_regions": resources("regions_by_class_{technology}.geojson"),
             },
         log:
-            logs_shared("build_renewable_profile_nuts2_{clusters}_{technology}.log"),
+            logs_shared("build_renewable_profile_nuts2_{technology}.log"),
         benchmark:
-            benchmarks_shared("build_renewable_profile_nuts2_{clusters}_{technology}")
+            benchmarks_shared("build_renewable_profile_nuts2_{technology}")
         wildcard_constraints:
             technology="onwind",
         message:
-            "Building NUTS2 renewable profiles for {wildcards.clusters} clusters and onwind technology"
+            "Building NUTS2 renewable profiles for onwind technology"
 
     ruleorder: build_renewable_profiles_onwind_nuts2 > build_renewable_profiles
 
     rule build_renewable_profiles_onwind_klien:
         input:
-            profile_nuts2=resources_shared("profile_nuts2_{clusters}_{technology}.nc"),
-            profile_nuts3=resources_shared("profile_nuts3_{clusters}_{technology}.nc"),
+            profile_nuts2=resources_shared("profile_nuts2_{technology}.nc"),
+            profile_nuts3=resources_shared("profile_nuts3_{technology}.nc"),
             klien_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
         output:
-            profile=resources("profile_{clusters}_{technology}.nc"),
+            profile=resources("profile_{technology}.nc"),
         log:
-            logs("build_renewable_profile_{clusters}_{technology}_klien.log"),
+            logs("build_renewable_profile_{technology}_klien.log"),
         benchmark:
-            benchmarks("build_renewable_profile_{clusters}_{technology}_klien")
+            benchmarks("build_renewable_profile_{technology}_klien")
         wildcard_constraints:
             technology="onwind",
         message:
