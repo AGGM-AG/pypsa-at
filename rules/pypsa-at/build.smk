@@ -396,7 +396,7 @@ use rule build_transport_demand as build_transport_demand_at with:
     input:
         **{
             **rules.build_transport_demand.input,
-            "transport_data": resources("transport_data_raw_at.csv"),
+            "transport_data_raw": resources("transport_data_raw_at.csv"),
         },
     output:
         transport_demand=resources("transport_demand_at_unpatched.csv"),
