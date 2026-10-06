@@ -4,7 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 
 run:
-  prefix: fix-decoupled-retrofitting
+  prefix: upstream-merge-202610
   name:
   - AT_KN2040
   scenarios:
