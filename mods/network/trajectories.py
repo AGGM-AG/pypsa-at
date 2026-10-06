@@ -356,7 +356,7 @@ def apply_pemmdb_trajectories(n: pypsa.Network, snakemake: Snakemake, costs) -> 
 
     skip_countries = tuple(cfg["skip_countries"])
     pyear = int(snakemake.wildcards.horizon)
-    base_year = min(n.meta["scenario"]["planning_horizons"])
+    base_year = min(snakemake.config["planning_horizons"])
     is_myopic_year = pyear != base_year
 
     trajectories_fn = snakemake.input.tyndp_trajectories
@@ -377,7 +377,7 @@ def apply_pemmdb_trajectories(n: pypsa.Network, snakemake: Snakemake, costs) -> 
     # AT and its neighbours, while the TYNDP trajectories cover all of Europe.
     # Drop trajectory locations absent from the model so that
     # register_extendable_nuclear does not attach Links to non-existent buses.
-    if n.meta["run"]["prefix"] == "test-sector-myopic-at10":
+    if snakemake.config["run"]["prefix"] == "test-sector-myopic-at10":
         model_locations = n.buses.location.unique()
         traj_clustered = traj_clustered[
             traj_clustered.index.get_level_values("location").isin(model_locations)
