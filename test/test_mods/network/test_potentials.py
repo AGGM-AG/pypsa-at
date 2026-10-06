@@ -9,7 +9,10 @@ import pandas as pd
 import pypsa
 import pytest
 
-from mods.network.potentials import deduct_existing_capacities
+from mods.network.potentials import (
+    deduct_existing_capacities,
+    raise_potentials_to_minimum,
+)
 
 
 @pytest.fixture
@@ -86,3 +89,13 @@ def test_ignores_carriers_without_land_use_constraint(network):
         before.drop("AT111 ror-2030"),
     )
     assert network.generators.at["AT111 ror-2030", "p_nom_max"] == 100.0
+
+
+def test_raise_potentials_to_minimum(network):
+    network.generators.loc["DE1 onwind-2030", ["p_nom_min", "p_nom_max"]] = [980, 818]
+    network.generators.loc["AT111 onwind-2030", ["p_nom_min", "p_nom_max"]] = [10, 20]
+
+    raise_potentials_to_minimum(network)
+
+    assert network.generators.at["DE1 onwind-2030", "p_nom_max"] == 980
+    assert network.generators.at["AT111 onwind-2030", "p_nom_max"] == 20

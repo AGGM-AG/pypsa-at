@@ -46,6 +46,7 @@ from mods.network.onwind import apply_onwind_brownfield
 from mods.network.potentials import (
     apply_klien_potential_limits,
     deduct_existing_capacities,
+    raise_potentials_to_minimum,
 )
 from mods.network.trajectories import apply_pemmdb_trajectories
 
@@ -176,6 +177,7 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     apply_electricity_base_load(n, snakemake)
 
     deduct_existing_capacities(n, p_nom_max_before, int(snakemake.wildcards.horizon))
+    raise_potentials_to_minimum(n)
 
     # Apply Load clipping just before the solve step
     clip_negative_loads_for_edge_cases(n, snakemake)

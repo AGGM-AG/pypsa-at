@@ -321,3 +321,34 @@ def deduct_existing_capacities(
         )
     n.generators.loc[reset, "p_nom_max"] = p_nom_max.clip(lower=p_nom_min).clip(lower=0)
     logger.info(f"Deducted existing capacities from {len(reset)} AT potentials.")
+
+
+def raise_potentials_to_minimum(n: pypsa.Network) -> None:
+    """
+    Raise ``p_nom_max`` of extendable generators to ``p_nom_min`` where below.
+
+    PyPSA-DE forces capacities after upstream adjusted the potentials (e.g.
+    NEP offshore wind via ``force_connection_nep_offshore``), which can leave
+    ``p_nom_min > p_nom_max`` and an infeasible model. Before the merge, the
+    solve-time land-use constraint applied this safeguard after all
+    modifications.
+
+    Parameters
+    ----------
+    n
+        The network whose generator table is modified in place.
+
+    Returns
+    -------
+    :
+        Modifies ``n.generators["p_nom_max"]`` in place.
+    """
+    gens = n.generators
+    below = gens.index[gens.p_nom_extendable & (gens.p_nom_min > gens.p_nom_max)]
+    if below.empty:
+        return
+    logger.warning(
+        f"Minimum capacities larger than potential for {list(below)}, "
+        "raising the potential to the minimum capacity."
+    )
+    n.generators.loc[below, "p_nom_max"] = gens.loc[below, "p_nom_min"]
