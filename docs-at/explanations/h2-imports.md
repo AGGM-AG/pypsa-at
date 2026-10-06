@@ -250,9 +250,15 @@ about where imports originate or their infrastructure cost structure.
 # Fallback path (prepare_sector_network.py lines 6596–6607)
 p_nom = gas_input_nodes["pipeline"].dropna()
 p_nom.rename(lambda x: x + " H2", inplace=True)
-n.add("Generator", p_nom.index, suffix=" import",
-      bus=p_nom.index, carrier="import H2",
-      p_nom=p_nom, marginal_cost=import_options["H2"])
+n.add(
+    "Generator",
+    p_nom.index,
+    suffix=" import",
+    bus=p_nom.index,
+    carrier="import H2",
+    p_nom=p_nom,
+    marginal_cost=import_options["H2"],
+)
 ```
 
 ## Configuration

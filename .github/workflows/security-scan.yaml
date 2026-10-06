@@ -46,7 +46,7 @@ jobs:
         pixi-version: v0.68.1
 
     - name: Generate SBOM
-      uses: anchore/sbom-action@v0.24.2
+      uses: anchore/sbom-action@v0.24.3
       with:
         path: ".pixi/envs/default"
         output-file: sbom.spdx.json
