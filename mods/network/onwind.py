@@ -94,6 +94,7 @@ def _add_missing_components(
 
     profiles = (
         n.generators_t["p_max_pu"]
+        .rename_axis(index="snapshot", columns="name")
         .stack()
         .reset_index()
         .query(f"name.str.contains('onwind') & name.str.contains('{current_year}')")
