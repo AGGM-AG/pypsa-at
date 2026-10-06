@@ -8,12 +8,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Planned]
 
 ### Added
+- Scenarios can use different custom clusterings (`mods.modify_nuts3_shapes`, `clustering.administrative`) in one workflow: the KLIEN-weighted onwind profiles apply per run when Austria is clustered at NUTS2, and the clustering config reaches the scripts as rule params
 - `patch_powerplants_set_at` rule restoring `Set="PP"` on the large German lignite condensing units, which powerplantmatching 0.8.x tags `Set="CHP"` and the inherited PyPSA-DE `powerplants_filter` then drops (19,965 MW → 0 MW of German lignite)
 
 ### Fixed
 - Retrofitted H2 pipelines no longer double-count Austrian gas pipeline capacity: from 2030 up to the threshold year, gas plus retrofitted H2 capacity per corridor stays at the AGGM target ([#294](https://github.com/AGGM-AG/pypsa-at-planning/issues/294))
 
 ### Changed
+- Merged the restructured PyPSA-DE/PyPSA-Eur workflow: one `compose_network` rule replaces `prepare_sector_network`, `add_existing_baseyear`, `add_brownfield` and `modify_prenetwork`; the `clusters`, `opts`, `sector_opts`, `ll` and `planning_horizons` wildcards are gone (only `{horizon}`), and solved networks are `networks/solved_{horizon}.nc`. AT modifications run last in `compose_network`, after the PyPSA-DE modifications. PyPSA-AT does not support perfect foresight
+- `run.shared_resources.policy` is `false`: all resources are built per run
+- `electricity.transmission_limit` is `vopt`; fixed `v1.xx` limits are infeasible from the second myopic horizon on after the merge
 - Bumped `powerplantmatching` to 0.8.0 and the `powerplants` dataset to 0.8.1. 0.8.0 fixes the IRENASTAT download, which previously fetched a Zenodo 403 HTML page and failed in `add_existing_baseyear`; 0.8.1 is not usable as a package because it caps `pandas <3`
 - Differentiation of open- and closed-loop PHS, reservoirs with and without inflows; improved Austrian hydro inflow time series
 - Carbon cycle model coupling for improved biomass sector accuracy

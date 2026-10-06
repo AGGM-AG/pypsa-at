@@ -193,6 +193,10 @@ rule modify_brownfield_gas_network_AT:
         mem_mb=4000,
     params:
         length_factor=config_provider("links", "length_factor"),
+        custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
+        modify_brownfield_gas_network_AT=config_provider(
+            "mods", "modify_brownfield_gas_network_AT"
+        ),
     script:
         scripts("pypsa-at/modify_brownfield_gas_network_AT.py")
 
@@ -231,6 +235,8 @@ rule modify_nuts3_shapes:
     params:
         clustering=config_provider("clustering", "mode"),
         admin_levels=config_provider("clustering", "administrative"),
+        custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
+        run_prefix=config_provider("run", "prefix"),
     script:
         scripts("pypsa-at/modify_nuts3_shapes.py")
 

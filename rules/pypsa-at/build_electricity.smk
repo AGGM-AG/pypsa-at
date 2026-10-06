@@ -115,42 +115,63 @@ use rule build_renewable_profiles as build_renewable_profiles_onwind_nuts3 with:
         "Building NUTS3 renewable profiles for onwind technology"
 
 
-if config["clustering"]["administrative"]["AT"] == 2:
+def use_klien_onwind(w):
+    """Whether the run clusters Austria at NUTS2, where KLIEN weights apply.
 
-    use rule build_renewable_profiles as build_renewable_profiles_onwind_nuts2 with:
-        output:
-            **{
-                **rules.build_renewable_profiles.output,
-                "profile": resources("profile_nuts2_{technology}.nc"),
-                "class_regions": resources("regions_by_class_{technology}.geojson"),
-            },
-        log:
-            logs("build_renewable_profile_nuts2_{technology}.log"),
-        benchmark:
-            benchmarks("build_renewable_profile_nuts2_{technology}")
-        wildcard_constraints:
-            technology="onwind",
-        message:
-            "Building NUTS2 renewable profiles for onwind technology"
+    Evaluated per scenario, so runs with different (custom) clusterings can
+    share one workflow. ``mods.modify_nuts3_shapes`` AT10* implies NUTS2.
+    """
+    mode = config_provider("clustering", "mode")(w)
+    admin_levels = config_provider("clustering", "administrative")(w)
+    return mode == "administrative" and admin_levels.get("AT") == 2
 
-    ruleorder: build_renewable_profiles_onwind_nuts2 > build_renewable_profiles
 
-    rule build_renewable_profiles_onwind_klien:
-        input:
-            profile_nuts2=resources("profile_nuts2_{technology}.nc"),
-            profile_nuts3=resources("profile_nuts3_{technology}.nc"),
-            klien_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
-        output:
-            profile=resources("profile_{technology}.nc"),
-        log:
-            logs("build_renewable_profile_{technology}_klien.log"),
-        benchmark:
-            benchmarks("build_renewable_profile_{technology}_klien")
-        wildcard_constraints:
-            technology="onwind",
-        message:
-            "Applying KLIEN-weighted NUTS3 onwind profiles to NUTS2 output"
-        script:
-            scripts("pypsa-at/build_renewable_profiles_onwind_klien.py")
+# The upstream onwind profile is written to a "-raw" file. The KLIEN rule
+# below turns it into the final profile: KLIEN-weighted NUTS3 profiles for
+# Austria at NUTS2, otherwise an unchanged copy.
+use rule build_renewable_profiles as build_renewable_profiles_onwind_raw with:
+    output:
+        **{
+            **rules.build_renewable_profiles.output,
+            "profile": resources("profile_{technology}-raw.nc"),
+            "class_regions": resources("regions_by_class_{technology}.geojson"),
+        },
+    log:
+        logs("build_renewable_profile_{technology}-raw.log"),
+    benchmark:
+        benchmarks("build_renewable_profile_{technology}-raw")
+    wildcard_constraints:
+        technology="onwind",
+    message:
+        "Building raw renewable profiles for onwind technology"
 
-    ruleorder: build_renewable_profiles_onwind_klien > build_renewable_profiles
+
+ruleorder: build_renewable_profiles_onwind_raw > build_renewable_profiles
+
+
+rule build_renewable_profiles_onwind_klien:
+    input:
+        profile_raw=resources("profile_{technology}-raw.nc"),
+        profile_nuts3=branch(
+            use_klien_onwind, resources("profile_nuts3_{technology}.nc"), []
+        ),
+        klien_wind=branch(
+            use_klien_onwind, f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv", []
+        ),
+    output:
+        profile=resources("profile_{technology}.nc"),
+    log:
+        logs("build_renewable_profile_{technology}_klien.log"),
+    benchmark:
+        benchmarks("build_renewable_profile_{technology}_klien")
+    wildcard_constraints:
+        technology="onwind",
+    params:
+        apply_klien=use_klien_onwind,
+    message:
+        "Applying KLIEN-weighted NUTS3 onwind profiles where Austria is at NUTS2"
+    script:
+        scripts("pypsa-at/build_renewable_profiles_onwind_klien.py")
+
+
+ruleorder: build_renewable_profiles_onwind_klien > build_renewable_profiles

@@ -2,9 +2,15 @@
 #
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
-"""Apply KLIEN-weighted NUTS3 onshore wind profiles to the NUTS2 profile."""
+"""
+Apply KLIEN-weighted NUTS3 onshore wind profiles to the NUTS2 profile.
+
+Runs for every scenario. If Austria is not clustered at NUTS2 in the run,
+the raw upstream profile is copied unchanged.
+"""
 
 import logging
+import shutil
 
 import pandas as pd
 import xarray as xr
@@ -20,6 +26,8 @@ def main(snakemake: Snakemake) -> None:
     """
     Copy NUTS2 data and replace its profile with KLIEN-weighted NUTS3 data.
 
+    If ``params.apply_klien`` is false, the raw profile is copied unchanged.
+
     Parameters
     ----------
     snakemake
@@ -30,8 +38,13 @@ def main(snakemake: Snakemake) -> None:
     :
         Stores the results in snakemake.output
     """
+    if not snakemake.params.apply_klien:
+        shutil.copyfile(snakemake.input.profile_raw, snakemake.output.profile)
+        logger.info("Austria is not clustered at NUTS2, KLIEN weights not applied.")
+        return
+
     with (
-        xr.open_dataset(snakemake.input.profile_nuts2) as nuts2_file,
+        xr.open_dataset(snakemake.input.profile_raw) as nuts2_file,
         xr.open_dataset(snakemake.input.profile_nuts3) as nuts3_file,
     ):
         nuts2 = nuts2_file.load()

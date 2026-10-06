@@ -259,15 +259,14 @@ if __name__ == "__main__":
             run="AT_KN2040",
         )
     configure_logging(snakemake)
-    config = snakemake.config
 
-    mods = config["mods"]
-    custom_clustering = mods["modify_nuts3_shapes"]
+    # scenario-resolved via params, so custom clusterings can differ per run
+    custom_clustering = snakemake.params.custom_clustering
 
     gas_network_raw = snakemake.input.clustered_gas_network_raw
     gas_network_raw_df = pd.read_csv(gas_network_raw, index_col=0)
 
-    if mods["modify_brownfield_gas_network_AT"]:
+    if snakemake.params.modify_brownfield_gas_network_AT:
         gas_network_input_df = read_aggm_gas_network(
             snakemake.input.brownfield_gas_network_AT35
         )
