@@ -297,6 +297,13 @@ def pytest_addoption(parser) -> None:
         action="store_true",
         help="Attempt fix of issues in the data versions layer CSV files and the default config YAML & schema JSON.",
     )
+    parser.addoption(
+        "--validate-config",
+        nargs="+",
+        default=[],
+        metavar="CONFIGFILE",
+        help="Config files to check for keys that are not part of the config schema.",
+    )
 
 
 def pytest_configure(config):
