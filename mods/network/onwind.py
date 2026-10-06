@@ -156,7 +156,7 @@ def apply_onwind_brownfield(n: pypsa.Network, snakemake: Snakemake) -> None:
     :
         Network is modified inplace.
     """
-    current_year = int(snakemake.wildcards.planning_horizons)
+    current_year = int(snakemake.wildcards.horizon)
     base_year = snakemake.params.planning_horizons[0]
     brownfield = pd.read_csv(snakemake.input.onwind_brownfield)
     at_onwind = n.generators.query("(carrier == 'onwind') & index.str.startswith('AT')")

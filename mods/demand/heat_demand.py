@@ -30,7 +30,7 @@ def apply_heat_demand(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
     if not snakemake.params.apply_at_heat_demand:
         return
-    year = int(snakemake.wildcards.planning_horizons)
+    year = int(snakemake.wildcards.horizon)
     demand = pd.read_csv(snakemake.input.heat_demand_nea_at)
     load_regions = region_by_load(n)
     names = n.loads.loc[

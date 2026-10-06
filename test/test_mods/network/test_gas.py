@@ -911,7 +911,7 @@ class TestRestoreAsymmetricPipelineCapacities:
                 },
             },
             input=SimpleNamespace(clustered_gas_network=path),
-            wildcards=SimpleNamespace(planning_horizons=planning_horizons),
+            wildcards=SimpleNamespace(horizon=planning_horizons),
         )
 
     @staticmethod
@@ -1241,7 +1241,7 @@ class TestMakeGasPipelinesUnextendable:
                     "Link": {"H2 pipeline retrofitted": retrofit_start}
                 },
             },
-            wildcards=SimpleNamespace(planning_horizons=planning_horizons),
+            wildcards=SimpleNamespace(horizon=planning_horizons),
         )
 
     @staticmethod
@@ -1530,7 +1530,7 @@ class TestDeductRetrofittedGasCapacity:
                 }
             },
             input=SimpleNamespace(clustered_gas_network=path),
-            wildcards=SimpleNamespace(planning_horizons=planning_horizons),
+            wildcards=SimpleNamespace(horizon=planning_horizons),
         )
 
     @classmethod

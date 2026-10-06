@@ -240,7 +240,7 @@ def attach_resources_to_network_meta(n: Network, snakemake: Snakemake) -> None:
     """
     resources = snakemake.params.resource_meta
     energy_year = snakemake.params["energy_year"]
-    investment_year = snakemake.wildcards.planning_horizons
+    investment_year = snakemake.wildcards.horizon
 
     filename_readers = {
         "energy_totals": lambda path: (

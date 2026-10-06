@@ -189,7 +189,7 @@ def apply_ch_biomass_split(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
     assert_upstream_ch_exemption(n)
 
-    year = int(snakemake.wildcards.planning_horizons)
+    year = int(snakemake.wildcards.horizon)
     biomass = snakemake.config["biomass"]
 
     split_ch_solid_biomass(

@@ -33,7 +33,7 @@ def test_ch_solid_biomass_follows_share_schedule(nc):
     not necessarily add up to one.
     """
     for n in nc:
-        year = n.meta["wildcards"]["planning_horizons"]
+        year = n.meta["wildcards"]["horizon"]
         biomass = n.meta["biomass"]
         share_sustainable = biomass["share_sustainable_potential_available"][year]
         share_unsustainable = biomass["share_unsustainable_use_retained"][year]
@@ -236,7 +236,7 @@ class TestApplyChBiomassSplit:
                     "share_unsustainable_use_retained": {2025: 1, 2030: 0.66},
                 }
             },
-            wildcards=SimpleNamespace(planning_horizons=str(year)),
+            wildcards=SimpleNamespace(horizon=str(year)),
         )
 
     def test_applies_the_shares_of_the_planning_horizon(self):

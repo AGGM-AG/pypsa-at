@@ -47,7 +47,7 @@ def apply_industrial_demand_profiles(n: pypsa.Network, snakemake: Snakemake) -> 
     if not cfg.get("enable", False):
         return
 
-    year = snakemake.wildcards.planning_horizons
+    year = snakemake.wildcards.horizon
     profiles = pd.read_csv(
         snakemake.input.industrial_demand_profiles, parse_dates=["snapshot"]
     )

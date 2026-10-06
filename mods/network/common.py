@@ -276,7 +276,7 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
     """
     cfg = snakemake.config
 
-    investment_year = int(snakemake.wildcards.planning_horizons)
+    investment_year = int(snakemake.wildcards.horizon)
     resolution = int(cfg["clustering"]["temporal"]["resolution_sector"].rstrip("H"))
     clustering = cfg["mods"]["modify_nuts3_shapes"]
     # the rebuilt Austrian base load (apply_electricity_base_load) has no

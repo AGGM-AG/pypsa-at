@@ -255,12 +255,7 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "modify_brownfield_gas_network_AT",
-            simpl="",
-            clusters="adm",
-            opts="",
-            ll="v1.25",
-            sector_opts="none",
-            planning_horizons="2020",
+            horizon="2020",
             run="AT_KN2040",
         )
     configure_logging(snakemake)

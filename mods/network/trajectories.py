@@ -342,7 +342,7 @@ def apply_pemmdb_trajectories(n: pypsa.Network, snakemake: Snakemake, costs) -> 
         The PyPSA network object to modify in-place.
     snakemake:
         Snakemake proxy object providing ``config``, ``input``, and
-        ``wildcards.planning_horizons``.
+        ``wildcards.horizon``.
 
     Raises
     ------
@@ -355,7 +355,7 @@ def apply_pemmdb_trajectories(n: pypsa.Network, snakemake: Snakemake, costs) -> 
         return
 
     skip_countries = tuple(cfg["skip_countries"])
-    pyear = int(snakemake.wildcards.planning_horizons)
+    pyear = int(snakemake.wildcards.horizon)
     base_year = min(n.meta["scenario"]["planning_horizons"])
     is_myopic_year = pyear != base_year
 

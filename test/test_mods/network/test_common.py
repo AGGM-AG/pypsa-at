@@ -151,7 +151,7 @@ def _clipping_snakemake(base_load_enabled: bool) -> SimpleNamespace:
                 "electricity_base_load": {"enable": base_load_enabled},
             },
         },
-        wildcards=SimpleNamespace(planning_horizons="2040"),
+        wildcards=SimpleNamespace(horizon="2040"),
     )
 
 

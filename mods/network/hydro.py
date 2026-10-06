@@ -68,7 +68,7 @@ def add_phs_hydro(
     p = snakemake.params.renewable["hydro"].copy()
     renewable_carriers = set(snakemake.params.electricity["renewable_carriers"])
     carriers = p.pop("carriers", [])
-    year = int(snakemake.wildcards.planning_horizons)
+    year = int(snakemake.wildcards.horizon)
     is_base_year = year == min(snakemake.params.planning_horizons)
 
     if "hydro" in renewable_carriers:

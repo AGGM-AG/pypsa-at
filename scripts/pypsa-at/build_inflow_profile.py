@@ -36,9 +36,7 @@ if __name__ == "__main__":
     if "snakemake" not in globals():
         from scripts._helpers import mock_snakemake
 
-        snakemake = mock_snakemake(
-            "build_inflow_profile", clusters="adm", run="AT_KN2040"
-        )
+        snakemake = mock_snakemake("build_inflow_profile", run="AT_KN2040")
     configure_logging(snakemake)
     set_scenario_config(snakemake)
 

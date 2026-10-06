@@ -75,7 +75,7 @@ if __name__ == "__main__":
         from scripts._helpers import mock_snakemake
 
         snakemake = mock_snakemake(
-            "build_renewable_profiles_onwind_klien", clusters="adm", technology="onwind"
+            "build_renewable_profiles_onwind_klien", technology="onwind"
         )
 
     configure_logging(snakemake)

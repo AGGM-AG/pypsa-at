@@ -30,11 +30,6 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "modify_nuts3_shapes",
-            simpl="",
-            clusters="adm",
-            opts="",
-            ll="v1.25",
-            sector_opts="none",
             run="AT_KN2040",
         )
 
