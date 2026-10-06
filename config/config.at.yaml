@@ -4,7 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 
 run:
-  prefix: fix-decoupled-retrofitting
+  prefix: gas-power-plants-brownfield-update
   name:
   - AT_KN2040
   scenarios:
@@ -241,6 +241,12 @@ data:
     version: latest
   anlagenregister:
     source: archive
+    version: latest
+  econtrol-bestandsstatistik:
+    source: primary  # downloaded from e-control.at, no Zenodo mirror (licence unclear)
+    version: latest
+  econtrol-betriebsstatistik:
+    source: primary
     version: latest
   kfz-bestand-at:
     source: primary

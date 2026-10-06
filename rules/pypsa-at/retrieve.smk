@@ -174,6 +174,39 @@ if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
             copy2(input["ods"], output["ods"])
 
 
+if ECONTROL_BESTANDSSTATISTIK["source"] == "primary":
+
+    rule retrieve_econtrol_bestandsstatistik:
+        input:
+            typ=storage(
+                f"{ECONTROL_BESTANDSSTATISTIK['url']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx"
+            ),
+            kwepl=storage(f"{ECONTROL_BESTANDSSTATISTIK['url']}/BeStGes-JR_KWEPL.xlsx"),
+        output:
+            typ=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx",
+            kwepl=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-JR_KWEPL.xlsx",
+        message:
+            "Retrieving E-Control Bestandsstatistik Kraftwerkspark (capacity by plant type and year)"
+        run:
+            copy2(input["typ"], output["typ"])
+            copy2(input["kwepl"], output["kwepl"])
+
+
+if ECONTROL_BETRIEBSSTATISTIK["source"] == "primary":
+
+    rule retrieve_econtrol_betriebsstatistik:
+        input:
+            bilanz=storage(
+                f"{ECONTROL_BETRIEBSSTATISTIK['url']}/BStGes-JR1_Bilanz.xlsx"
+            ),
+        output:
+            bilanz=f"{ECONTROL_BETRIEBSSTATISTIK['folder']}/BStGes-JR1_Bilanz.xlsx",
+        message:
+            "Retrieving E-Control Betriebsstatistik Jahresreihe (annual generation by plant type)"
+        run:
+            copy2(input["bilanz"], output["bilanz"])
+
+
 rule retrieve_heat_demand_at:
     input:
         tif=storage(f"{HEAT_DEMAND_DATASET['url']}/{{heatmap_file}}"),
