@@ -47,7 +47,7 @@ clustering:
   mode: busmap
   focus_weights: false
   temporal:
-    resolution_sector: 3H
+    averaging: 3h
 
 electricity:
   renewable_carriers: [solar, solar-hsat, onwind, offwind-ac, offwind-dc] # removed hydro, offwind-float

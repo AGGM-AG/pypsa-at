@@ -55,7 +55,7 @@ clustering:
     # mods/, evals/ and the TYNDP node mappings rely on.
     allow_ac_dc_mixing_in_bus_clusters: true
   temporal:
-    resolution_sector: 365H
+    averaging: 365h
 
 pypsa-de:
   # incompatible with PyPSA-AT NTC floors in mods.network.electricity

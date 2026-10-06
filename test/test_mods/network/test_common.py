@@ -145,7 +145,7 @@ def _clipping_snakemake(base_load_enabled: bool) -> SimpleNamespace:
     return SimpleNamespace(
         config={
             "run": {"prefix": "unit-test"},
-            "clustering": {"temporal": {"resolution_sector": "24H"}},
+            "clustering": {"temporal": {"averaging": "24h"}},
             "mods": {
                 "modify_nuts3_shapes": "AT35DE5",
                 "electricity_base_load": {"enable": base_load_enabled},

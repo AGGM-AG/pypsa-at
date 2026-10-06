@@ -50,7 +50,7 @@ scenario:
 
 clustering:
   temporal:
-    resolution_sector: 365H
+    averaging: 365h
 
 adjustments:
   electricity: false

@@ -112,7 +112,7 @@ def configure(
     config["clustering"]["administrative"]["DE"] = nuts_de
 
     logger.info(f"Setting temporary resolution to '{resolution}H'")
-    config["clustering"]["temporal"]["resolution_sector"] = f"{resolution}H"
+    config["clustering"]["temporal"]["averaging"] = f"{resolution}h"
 
     logger.info(f"Setting scenario name to '{scenario}'")
     config["run"]["name"] = [scenario]

@@ -288,7 +288,10 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
     cfg = snakemake.config
 
     investment_year = int(snakemake.wildcards.horizon)
-    resolution = int(cfg["clustering"]["temporal"]["resolution_sector"].rstrip("H"))
+    averaging = cfg["clustering"]["temporal"]["averaging"]
+    resolution = (
+        int(pd.Timedelta(averaging) / pd.Timedelta(hours=1)) if averaging else 1
+    )
     clustering = cfg["mods"]["modify_nuts3_shapes"]
     # the rebuilt Austrian base load (apply_electricity_base_load) has no
     # negative hours, so the Austrian edge cases only apply without it
