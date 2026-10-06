@@ -43,7 +43,10 @@ from mods.network.h2 import (
 )
 from mods.network.hydro import process_hydro
 from mods.network.onwind import apply_onwind_brownfield
-from mods.network.potentials import apply_klien_potential_limits
+from mods.network.potentials import (
+    apply_klien_potential_limits,
+    deduct_existing_capacities,
+)
 from mods.network.trajectories import apply_pemmdb_trajectories
 
 logger = getLogger(__name__)
@@ -150,6 +153,10 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
 
     _apply_pypsa_de_modifications(n, snakemake, costs)
 
+    # AT potentials overwrite p_nom_max after upstream deducted the existing
+    # capacities, see deduct_existing_capacities
+    p_nom_max_before = n.generators.p_nom_max.copy()
+
     unravel_gas_import_and_production(n, snakemake, costs)
     block_russian_gas_imports(n, snakemake)
     fix_gas_grid_capacity(n, snakemake)
@@ -167,6 +174,8 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     add_h2_imports(n, snakemake)
     apply_heat_demand(n, snakemake)
     apply_electricity_base_load(n, snakemake)
+
+    deduct_existing_capacities(n, p_nom_max_before, int(snakemake.wildcards.horizon))
 
     # Apply Load clipping just before the solve step
     clip_negative_loads_for_edge_cases(n, snakemake)

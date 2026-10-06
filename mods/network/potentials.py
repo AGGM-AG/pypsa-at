@@ -250,3 +250,74 @@ def apply_klien_potential_limits(n: pypsa.Network, snakemake: Snakemake) -> None
             _set_p_nom_max(n, gen_idx, new_upper_limit)
 
     logger.info(f"AT KLIEN potential limits applied for: {list(technologies)}.")
+
+
+# Carriers whose existing capacity the former solve-time land-use constraint
+# deducted from p_nom_max (myopic add_land_use_constraint before the merge).
+LAND_USE_CARRIERS = (
+    "solar",
+    "solar rooftop",
+    "solar-hsat",
+    "onwind",
+    "offwind-ac",
+    "offwind-dc",
+    "offwind-float",
+)
+
+
+def deduct_existing_capacities(
+    n: pypsa.Network, p_nom_max_before: pd.Series, horizon: int | str
+) -> None:
+    """
+    Deduct existing capacities from the potentials set by AT modifications.
+
+    Upstream deducts existing (non-extendable) capacities from ``p_nom_max``
+    in ``compose_network`` before the AT modifications run. AT limits such as
+    KLIEN potentials and TYNDP trajectories overwrite ``p_nom_max`` with total
+    potentials afterwards, so the deduction has to be repeated for exactly the
+    generators whose ``p_nom_max`` the AT modifications changed. Before the
+    merge, the solve-time land-use constraint did this after the AT
+    modifications.
+
+    Parameters
+    ----------
+    n
+        The network whose generator table is modified in place.
+    p_nom_max_before
+        Generator ``p_nom_max`` before the AT modifications.
+    horizon
+        The current planning horizon, the build year suffix of the
+        extendable generators.
+
+    Returns
+    -------
+    :
+        Modifies ``n.generators["p_nom_max"]`` in place.
+    """
+    gens = n.generators
+    changed = gens.p_nom_max.ne(p_nom_max_before.reindex(gens.index))
+    reset = gens.index[
+        changed & gens.p_nom_extendable & gens.carrier.isin(LAND_USE_CARRIERS)
+    ]
+    if reset.empty:
+        return
+
+    for carrier in LAND_USE_CARRIERS:
+        ext_i = (gens.carrier == carrier) & ~gens.p_nom_extendable
+        grouper = gens.loc[ext_i].index.str.replace(f" {carrier}.*$", "", regex=True)
+        existing = gens.loc[ext_i, "p_nom"].groupby(grouper).sum()
+        existing.index += f" {carrier}-{horizon}"
+        idx = existing.index.intersection(reset)
+        n.generators.loc[idx, "p_nom_max"] -= existing.loc[idx]
+
+    # existing capacities larger than the potential keep the existing capacity
+    p_nom_max = n.generators.loc[reset, "p_nom_max"]
+    p_nom_min = n.generators.loc[reset, "p_nom_min"]
+    below = reset[p_nom_max < p_nom_min]
+    if len(below):
+        logger.warning(
+            f"Existing capacities larger than AT potential for {list(below)}, "
+            "using the existing capacities as potential."
+        )
+    n.generators.loc[reset, "p_nom_max"] = p_nom_max.clip(lower=p_nom_min).clip(lower=0)
+    logger.info(f"Deducted existing capacities from {len(reset)} AT potentials.")
