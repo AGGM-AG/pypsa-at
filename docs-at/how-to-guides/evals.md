@@ -167,6 +167,7 @@ between them is always safe.
     from evals.stats import collect_myopic_statistics
     from evals.fileio import Exporter, read_views_config
 
+
     def view_my_metric(result_path: Path, nc: NetworkCollection, config: dict) -> None:
         stat = collect_myopic_statistics(nc, "supply", bus_carrier="H2")
         exporter = Exporter([stat], config["view"])
@@ -177,6 +178,7 @@ between them is always safe.
 
     ```python
     from evals.views.myviews import view_my_metric
+
     __all__ = [..., "view_my_metric"]
     ```
 
@@ -372,10 +374,10 @@ from evals.stats import collect_myopic_statistics
 
 stat = collect_myopic_statistics(
     nc,
-    "supply",                    # positional: name of the n.statistics method to call
-    bus_carrier=["AC", "H2"],   # keyword argument forwarded to the statistics method
-    aggregate_components="sum", # merge Lines and Links into one row (default)
-    drop_unit=True,             # store unit in attrs, drop from index (default)
+    "supply",  # positional: name of the n.statistics method to call
+    bus_carrier=["AC", "H2"],  # keyword argument forwarded to the statistics method
+    aggregate_components="sum",  # merge Lines and Links into one row (default)
+    drop_unit=True,  # store unit in attrs, drop from index (default)
 )
 ```
 
@@ -434,7 +436,7 @@ nc = read_networks("results/my_scenario")
 supply = collect_myopic_statistics(
     nc,
     "supply",
-    bus_carrier="AC",              # electricity buses only
+    bus_carrier="AC",  # electricity buses only
 )
 
 print(supply)
@@ -451,7 +453,7 @@ print(supply)
 balance = collect_myopic_statistics(
     nc,
     "supply",
-    bus_carrier=["H2", "gas"],   # hydrogen and methane buses
+    bus_carrier=["H2", "gas"],  # hydrogen and methane buses
     groupby=["location", "carrier", "bus_carrier"],
 )
 ```
@@ -486,7 +488,7 @@ peak_h2_flow = collect_myopic_statistics(
     "transmission",
     bus_carrier="H2",
     groupby=["bus0", "bus1", "carrier"],
-    aggregate_time="max",        # peak snapshot value instead of annual sum
+    aggregate_time="max",  # peak snapshot value instead of annual sum
 )
 
 print(peak_h2_flow)
@@ -503,7 +505,7 @@ peak_import = collect_myopic_statistics(
     scope="foreign",
     direction="import",
     bus_carrier="AC",
-    aggregate_time="max",        # peak hour instead of yearly total
+    aggregate_time="max",  # peak hour instead of yearly total
 )
 ```
 
@@ -523,7 +525,7 @@ ts = collect_myopic_statistics(
     nc,
     "supply",
     bus_carrier="AC",
-    aggregate_time=False,        # returns DataFrame: index=MultiIndex, columns=snapshots
+    aggregate_time=False,  # returns DataFrame: index=MultiIndex, columns=snapshots
 )
 # ts.columns.name == "snapshots"
 ```
