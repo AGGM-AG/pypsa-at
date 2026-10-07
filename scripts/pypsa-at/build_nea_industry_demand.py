@@ -209,7 +209,7 @@ if __name__ == "__main__":
         from scripts._helpers import mock_snakemake
 
         snakemake = mock_snakemake(
-            "build_industrial_demand_overrides_at", run="AT_KN2040", clusters="adm"
+            "build_industrial_demand_overrides_at", run="AT_KN2040"
         )
     configure_logging(snakemake)
     set_scenario_config(snakemake)

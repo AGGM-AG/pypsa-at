@@ -189,6 +189,29 @@ def _get_config(config, keys, default=_ABSENT):
     return value
 
 
+def run_resources_path(n, root: pathlib.Path) -> pathlib.Path:
+    """
+    Return the per-run resources folder of a solved network.
+
+    With ``run.shared_resources.policy: false`` every resource lives in
+    ``resources/{prefix}/{run}/``, not in the shared ``resources/`` root.
+
+    Parameters
+    ----------
+    n
+        A solved network whose ``n.meta`` holds the run config.
+    root
+        The project root directory.
+
+    Returns
+    -------
+    :
+        The resources folder of the run that produced ``n``.
+    """
+    run = n.meta["run"]
+    return root / "resources" / run["prefix"] / run["name"][0]
+
+
 def require_config(nc, *keys, **condition):
     """
     Extract a config entry from all networks and xfail if it matches a condition.
@@ -296,6 +319,13 @@ def pytest_addoption(parser) -> None:
         "--fix",
         action="store_true",
         help="Attempt fix of issues in the data versions layer CSV files and the default config YAML & schema JSON.",
+    )
+    parser.addoption(
+        "--validate-config",
+        nargs="+",
+        default=[],
+        metavar="CONFIGFILE",
+        help="Config files to check for keys that are not part of the config schema.",
     )
 
 

@@ -16,11 +16,11 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__) + "/../.."))
 
 from scripts._helpers import (
     configure_logging,
+    load_costs,
     mock_snakemake,
     set_scenario_config,
-    update_config_from_wildcards,
 )
-from scripts.add_electricity import calculate_annuity, load_costs
+from scripts.add_electricity import calculate_annuity
 
 pypsa.options.params.statistics.round = 10
 logger = logging.getLogger(__name__)
@@ -3608,7 +3608,7 @@ def get_prices(n, region):
         co2_limit_de = 0
 
     # co2 additions
-    co2_price = -n.global_constraints.loc["CO2Limit", "mu"] - co2_limit_de
+    co2_price = -n.global_constraints.loc["CO2Limit-upper", "mu"] - co2_limit_de
     # specific emissions in tons CO2/MWh according to n.links[n.links.carrier =="your_carrier].efficiency2.unique().item()
     specific_emissions = {
         "oil": 0.2571,
@@ -4533,10 +4533,12 @@ def get_policy(n, investment_year):
         co2_limit_de = n.global_constraints.loc["co2_limit-DE", "mu"]
     except KeyError:
         co2_limit_de = 0
-    var["Price|Carbon"] = -n.global_constraints.loc["CO2Limit", "mu"] - co2_limit_de
+    var["Price|Carbon"] = (
+        -n.global_constraints.loc["CO2Limit-upper", "mu"] - co2_limit_de
+    )
 
     var["Price|Carbon|EU-wide Regulation All Sectors"] = -n.global_constraints.loc[
-        "CO2Limit", "mu"
+        "CO2Limit-upper", "mu"
     ]
 
     var["Price|Carbon|National Climate Target"] = -co2_limit_de
@@ -5616,16 +5618,10 @@ if __name__ == "__main__":
     if "snakemake" not in globals():
         snakemake = mock_snakemake(
             "export_ariadne_variables",
-            simpl="",
-            clusters=27,
-            opts="",
-            ll="vopt",
-            sector_opts="None",
             run="KN2045_Bal_v5",
         )
     configure_logging(snakemake)
     set_scenario_config(snakemake)
-    update_config_from_wildcards(snakemake.config, snakemake.wildcards)
     config_industry = snakemake.params.config_industry
     planning_horizons = snakemake.params.planning_horizons
     post_discretization = snakemake.params.post_discretization

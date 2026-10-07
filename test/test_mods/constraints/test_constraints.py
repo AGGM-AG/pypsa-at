@@ -21,7 +21,7 @@ from mods.constraints.production import (
 )
 from mods.utils import get_relevant_links_and_lines
 from scripts.prepare_sector_network import determine_emission_sectors
-from test.conftest import require_config
+from test.conftest import require_config, run_resources_path
 
 
 def test_production_targets(nc):
@@ -745,7 +745,8 @@ def test_tyndp_ntc_flow_limits_satisfied(nc, pytestconfig):
     lower_bounds_years = require_config(nc, "mods", "tyndp_lower_bounds")["years"]
 
     ntc_path = (
-        pytestconfig.rootpath / "resources" / "tyndp_transmission_trajectories.csv"
+        run_resources_path(nc[nc.index[0]], pytestconfig.rootpath)
+        / "tyndp_transmission_trajectories.csv"
     )
     ntc_df = pd.read_csv(ntc_path)
 

@@ -10,9 +10,8 @@ PyPSA-AT main rule to run the workflow.
 rule export_evaluation_pypsa_at:
     input:
         networks=expand(
-            RESULTS
-            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
-            **config["scenario"],
+            RESULTS + "networks/solved_{horizon}.nc",
+            horizon=config["planning_horizons"],
             allow_missing=True,
         ),
     output:
@@ -32,9 +31,8 @@ rule export_evaluation_pypsa_at:
 rule validate_pypsa_at:
     input:
         networks=expand(
-            RESULTS
-            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
-            **config["scenario"],
+            RESULTS + "networks/solved_{horizon}.nc",
+            horizon=config["planning_horizons"],
             allow_missing=True,
         ),
     output:

@@ -56,8 +56,7 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "build_tyndp_h2_imports",
-            clusters="adm",
-            planning_horizons="2030",
+            horizon="2030",
             run="AT_KN2040",
         )
 
@@ -66,7 +65,7 @@ if __name__ == "__main__":
 
     # Parameters
     scenario = snakemake.params.scenario
-    year = int(snakemake.wildcards.planning_horizons)
+    year = int(snakemake.wildcards.horizon)
 
     # Load prepped import potentials and filter
     fn = snakemake.input.import_potentials_prepped

@@ -94,6 +94,7 @@ def _add_missing_components(
 
     profiles = (
         n.generators_t["p_max_pu"]
+        .rename_axis(index="snapshot", columns="name")
         .stack()
         .reset_index()
         .query(f"name.str.contains('onwind') & name.str.contains('{current_year}')")
@@ -156,7 +157,7 @@ def apply_onwind_brownfield(n: pypsa.Network, snakemake: Snakemake) -> None:
     :
         Network is modified inplace.
     """
-    current_year = int(snakemake.wildcards.planning_horizons)
+    current_year = int(snakemake.wildcards.horizon)
     base_year = snakemake.params.planning_horizons[0]
     brownfield = pd.read_csv(snakemake.input.onwind_brownfield)
     at_onwind = n.generators.query("(carrier == 'onwind') & index.str.startswith('AT')")

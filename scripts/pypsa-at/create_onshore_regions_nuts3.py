@@ -50,7 +50,7 @@ if __name__ == "__main__":
     if "snakemake" not in globals():
         from scripts._helpers import mock_snakemake
 
-        snakemake = mock_snakemake("create_onshore_regions_nuts3", clusters="adm")
+        snakemake = mock_snakemake("create_onshore_regions_nuts3")
 
     configure_logging(snakemake)
     set_scenario_config(snakemake)

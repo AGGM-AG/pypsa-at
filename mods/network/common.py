@@ -4,8 +4,15 @@
 # For license information, see the LICENSE.txt file in the project root.
 """Cross-cutting network helpers: load clipping and resource meta-data attachment."""
 
+from contextlib import ExitStack
+from functools import cache
+from importlib.util import module_from_spec, spec_from_file_location
 from logging import getLogger
+from pathlib import Path
+from types import ModuleType
+from unittest.mock import patch
 
+import pandas as pd
 import pypsa
 from snakemake.script import Snakemake
 
@@ -36,40 +43,71 @@ from mods.network.h2 import (
 )
 from mods.network.hydro import process_hydro
 from mods.network.onwind import apply_onwind_brownfield
-from mods.network.potentials import apply_klien_potential_limits
+from mods.network.potentials import (
+    apply_klien_potential_limits,
+    deduct_existing_capacities,
+    raise_potentials_to_minimum,
+)
 from mods.network.trajectories import apply_pemmdb_trajectories
 
 logger = getLogger(__name__)
 
 
+def _raise_on_perfect_foresight(snakemake: Snakemake) -> None:
+    """Fail early, PyPSA-AT does not support perfect foresight."""
+    if snakemake.params.foresight == "perfect":
+        raise NotImplementedError("PyPSA-AT does not support perfect foresight.")
+
+
 def prepare_sector_network(
-    n, snakemake, nodes, costs, spatial, pop_weighted_energy_totals
-):
+    n: pypsa.Network, snakemake: Snakemake, costs: pd.DataFrame, nyears: float
+) -> None:
     """
-    Apply all PyPSA-AT specific modifications during ``prepare_sector_network``.
+    Apply all PyPSA-AT specific sector modifications during ``compose_network``.
+
+    Must be called after the upstream sector components were added and
+    after temporal aggregation. The node index, spatial namespace and
+    population weighted energy totals are local to the upstream
+    ``prepare_sector_network.main`` and are rebuilt here the same way.
 
     Parameters
     ----------
     n
-        The pre-network to be modified in place.
+        The composed network to be modified in place.
     snakemake
         The Snakemake workflow object providing inputs, params, and config.
     costs
         Processed cost DataFrame for the current planning horizon.
-    nodes
-        Clustered node index (``pop_layout.index``).
-    spatial
-        Spatial namespace produced by ``define_spatial``.
-    pop_weighted_energy_totals
-        Population weighted energy totals per node in TWh per calendar
-        year, used to split the electricity base load into sectoral
-        Loads.
+    nyears
+        Number of modelled years (snapshot weightings sum / 8760).
 
     Returns
     -------
     :
         Modifies the network in place.
+
+    Raises
+    ------
+    NotImplementedError
+        If the workflow runs with perfect foresight.
     """
+    from scripts.prepare_sector_network import define_spatial
+
+    _raise_on_perfect_foresight(snakemake)
+
+    options = snakemake.params.sector
+    nodes = pd.read_csv(snakemake.input.clustered_pop_layout, index_col=0).index
+    spatial = define_spatial(nodes, options)
+
+    pop_weighted_energy_totals = (
+        pd.read_csv(snakemake.input.pop_weighted_energy_totals, index_col=0) * nyears
+    )
+    if options["heating"]:
+        pop_weighted_heat_totals = (
+            pd.read_csv(snakemake.input.pop_weighted_heat_totals, index_col=0) * nyears
+        )
+        pop_weighted_energy_totals.update(pop_weighted_heat_totals)
+
     add_h2_for_industry_bus(n, nodes)
     add_methane_pyrolysis_plasma(n, snakemake, costs, nodes, spatial)
     process_hydro(n, snakemake, costs)
@@ -82,10 +120,13 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
     Apply all PyPSA-AT specific modifications to the pre-network.
 
-    This is the single entry point for all AT-specific modifications during
-    the ``modify_prenetwork`` Snakemake step. It orchestrates the individual
-    modification functions and encapsulates the conditional logic for when
-    each modification applies.
+    This is the single entry point for all AT-specific modifications in
+    ``compose_network``. It runs as late as possible, after the upstream
+    cost and potential adjustments. It first applies the PyPSA-DE
+    modifications and then the AT modifications, so that AT modifications
+    take precedence. It orchestrates the individual modification functions
+    and encapsulates the conditional logic for when each modification
+    applies.
 
     Parameters
     ----------
@@ -99,10 +140,23 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     -------
     :
         Updates the :class:`pypsa.Network` in place.
-    """
-    from scripts.add_electricity import load_costs
 
-    costs = load_costs(snakemake.input.costs)
+    Raises
+    ------
+    NotImplementedError
+        If the workflow runs with perfect foresight.
+    """
+    from scripts._helpers import load_costs
+
+    _raise_on_perfect_foresight(snakemake)
+
+    costs = load_costs(snakemake.input.tech_costs)
+
+    _apply_pypsa_de_modifications(n, snakemake, costs)
+
+    # AT potentials overwrite p_nom_max after upstream deducted the existing
+    # capacities, see deduct_existing_capacities
+    p_nom_max_before = n.generators.p_nom_max.copy()
 
     unravel_gas_import_and_production(n, snakemake, costs)
     block_russian_gas_imports(n, snakemake)
@@ -122,8 +176,83 @@ def modify_prenetwork(n: pypsa.Network, snakemake: Snakemake) -> None:
     apply_heat_demand(n, snakemake)
     apply_electricity_base_load(n, snakemake)
 
+    deduct_existing_capacities(n, p_nom_max_before, int(snakemake.wildcards.horizon))
+    raise_potentials_to_minimum(n)
+
     # Apply Load clipping just before the solve step
     clip_negative_loads_for_edge_cases(n, snakemake)
+
+
+def _skip_pypsa_de_function(*args, **kwargs) -> None:
+    """Replace a PyPSA-DE modification that must not run for PyPSA-AT."""
+
+
+# PyPSA-DE functions in ``scripts/pypsa-de/modify_prenetwork.py`` that are
+# skipped for PyPSA-AT. PyPSA-AT models the gas network explicitly, and
+# unravelling the carbonaceous fuels and the gas bus is not possible with it.
+SKIPPED_PYPSA_DE_FUNCTIONS = ("unravel_carbonaceous_fuels", "unravel_gasbus")
+
+
+@cache
+def _load_pypsa_de_modify_prenetwork() -> ModuleType:
+    """
+    Load ``scripts/pypsa-de/modify_prenetwork.py`` as a module.
+
+    The hyphenated directory is not an importable package, hence the file
+    based import. The module is cached so that every call patches and runs
+    the same module object.
+    """
+    path = Path(__file__).parents[2] / "scripts" / "pypsa-de" / "modify_prenetwork.py"
+    spec = spec_from_file_location("pypsa_de_modify_prenetwork", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load the PyPSA-DE modifications from {path}")
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _apply_pypsa_de_modifications(
+    n: pypsa.Network, snakemake: Snakemake, costs: pd.DataFrame
+) -> None:
+    """
+    Apply the PyPSA-DE modifications without the functions PyPSA-AT skips.
+
+    Calls ``main`` of ``scripts/pypsa-de/modify_prenetwork.py`` with every
+    function in ``SKIPPED_PYPSA_DE_FUNCTIONS`` patched to a no-op. The patch
+    only lasts for this call. If upstream renames one of the functions,
+    ``patch.object`` raises an ``AttributeError`` instead of letting the
+    function run silently.
+
+    Parameters
+    ----------
+    n
+        The composed network to be modified in place.
+    snakemake
+        The Snakemake workflow object of the ``compose_network`` rule.
+    costs
+        Processed cost DataFrame for the current planning horizon.
+
+    Returns
+    -------
+    :
+        Updates the :class:`pypsa.Network` in place.
+    """
+    pypsa_de_module = _load_pypsa_de_modify_prenetwork()
+    with ExitStack() as stack:
+        for name in SKIPPED_PYPSA_DE_FUNCTIONS:
+            stack.enter_context(
+                patch.object(pypsa_de_module, name, _skip_pypsa_de_function)
+            )
+        logger.info(
+            f"PyPSA-AT: skipping PyPSA-DE functions {SKIPPED_PYPSA_DE_FUNCTIONS}."
+        )
+        pypsa_de_module.main(
+            n,
+            snakemake.input,
+            snakemake.params,
+            costs,
+            int(snakemake.wildcards.horizon),
+        )
 
 
 def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -> None:
@@ -158,8 +287,11 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
     """
     cfg = snakemake.config
 
-    investment_year = int(snakemake.wildcards.planning_horizons)
-    resolution = int(cfg["clustering"]["temporal"]["resolution_sector"].rstrip("H"))
+    investment_year = int(snakemake.wildcards.horizon)
+    averaging = cfg["clustering"]["temporal"]["averaging"]
+    resolution = (
+        int(pd.Timedelta(averaging) / pd.Timedelta(hours=1)) if averaging else 1
+    )
     clustering = cfg["mods"]["modify_nuts3_shapes"]
     # the rebuilt Austrian base load (apply_electricity_base_load) has no
     # negative hours, so the Austrian edge cases only apply without it

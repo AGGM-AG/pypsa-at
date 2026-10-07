@@ -41,7 +41,7 @@ def additional_functionality(n, snapshots, snakemake):
     """Run upstream PyPSA-DE additional functionality, then PyPSA-AT constraints."""
     _pypsa_de_additional_functionality.additional_functionality(n, snapshots, snakemake)
 
-    investment_year = int(snakemake.wildcards.planning_horizons)
+    investment_year = int(snakemake.wildcards.horizon)
     constraint_national_co2_budgets(n, snakemake, investment_year)
     constraint_ntc_flow_limits(n, snakemake, investment_year)
     constraint_net_zero_electricity(n, snakemake, investment_year)

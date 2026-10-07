@@ -192,7 +192,7 @@ def apply_tyndp_transmission_lower_bounds(
           is ``max(direct_capacity, indirect_capacity)`` — the larger of the two
           direction capacities is used intentionally to capture the dominant
           transfer direction.
-        * ``snakemake.wildcards.planning_horizons`` — 4-digit year string
+        * ``snakemake.wildcards.horizon`` — 4-digit year string
           (e.g. ``"2040"``).
 
     Returns
@@ -229,7 +229,7 @@ def apply_tyndp_transmission_lower_bounds(
       that the sum of effective capacities equals the shortfall.  A ``ValueError`` is
       raised if the relevant ``s_max_pu`` or ``p_max_pu`` sum is zero.
     """
-    pyear = int(snakemake.wildcards.planning_horizons)
+    pyear = int(snakemake.wildcards.horizon)
     if pyear not in snakemake.config["mods"]["tyndp_lower_bounds"]["years"]:
         return
 

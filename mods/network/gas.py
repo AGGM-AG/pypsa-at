@@ -138,7 +138,7 @@ def block_russian_gas_imports(n: pypsa.Network, snakemake: Snakemake) -> None:
         logger.info("Skipping Russian gas import blockade (disabled in config).")
         return
 
-    pyear = int(snakemake.wildcards.planning_horizons)
+    pyear = int(snakemake.wildcards.horizon)
     blocks = {
         "eastern_border_block": corridors["eastern_border_block"],
         "turkstream_block": corridors["turkstream_block"],
@@ -296,7 +296,7 @@ def fix_gas_grid_capacity(n: pypsa.Network, snakemake: Snakemake) -> None:
         )
         return
 
-    pyear = int(snakemake.wildcards.planning_horizons)
+    pyear = int(snakemake.wildcards.horizon)
     threshold_year = int(mods["threshold_year_for_gas_grid_expansion"])
     if pyear > threshold_year:
         logger.info(
@@ -373,7 +373,7 @@ def restore_asymmetric_pipeline_capacities(
         )
         return
 
-    pyear = int(snakemake.wildcards.planning_horizons)
+    pyear = int(snakemake.wildcards.horizon)
     threshold_year = int(mods["threshold_year_for_gas_grid_expansion"])
     if pyear > threshold_year:
         logger.info(
@@ -488,7 +488,7 @@ def deduct_retrofitted_gas_capacity(n: pypsa.Network, snakemake: Snakemake) -> N
         )
         return
 
-    pyear = int(snakemake.wildcards.planning_horizons)
+    pyear = int(snakemake.wildcards.horizon)
     retrofits = n.links[n.links["carrier"] == "H2 pipeline retrofitted"]
     carried = retrofits[retrofits["build_year"] < pyear]
     if carried.empty:

@@ -30,7 +30,7 @@ def apply_heat_demand(n: pypsa.Network, snakemake: Snakemake) -> None:
     """
     if not snakemake.params.apply_at_heat_demand:
         return
-    year = int(snakemake.wildcards.planning_horizons)
+    year = int(snakemake.wildcards.horizon)
     demand = pd.read_csv(snakemake.input.heat_demand_nea_at)
     load_regions = region_by_load(n)
     names = n.loads.loc[
@@ -58,6 +58,14 @@ def apply_heat_demand(n: pypsa.Network, snakemake: Snakemake) -> None:
         .mul(n.snapshot_weightings.generators, axis=0)
         .sum()
     )
+    # Upstream writes all-zero time series for heat loads without upstream
+    # demand (e.g. urban decentral where the district share equals the urban
+    # fraction). A profile of zeros cannot be scaled, so treat these loads
+    # as static and give them a flat profile, like loads without a time series.
+    zero_profile = annual.index[annual <= 0]
+    n.loads_t.p_set = n.loads_t.p_set.drop(columns=zero_profile)
+    dynamic = dynamic.difference(zero_profile)
+    annual = annual.drop(zero_profile)
     factor = np.where(annual > 0, targets.loc[dynamic] / annual, 0)
     n.loads_t.p_set.loc[:, dynamic] *= factor
     n.loads.loc[dynamic, "p_set"] = 0.0
