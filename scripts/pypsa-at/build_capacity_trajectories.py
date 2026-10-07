@@ -304,7 +304,6 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "build_capacity_trajectories",
             run="AT_KN2040",
-            clusters="adm",
             # configfiles="config/test/config.at10.yaml",
         )
 

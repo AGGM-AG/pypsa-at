@@ -512,7 +512,7 @@ def apply_electricity_base_load(n: pypsa.Network, snakemake: Snakemake) -> None:
     if not cfg["enable"]:
         return
 
-    year = int(snakemake.wildcards.planning_horizons)
+    year = int(snakemake.wildcards.horizon)
     try:
         factor = cfg["scaling_factors"][year]
     except KeyError as err:

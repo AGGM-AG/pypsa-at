@@ -25,18 +25,17 @@ data store archive so that PEMMDB and the reference grids are available.
 # License - MIT - Copyright (c) 2021 Gavin Rehkemper
 # Website: https://github.com/gavinr/world-countries-centroids
 rule retrieve_countries_centroids:
+    input:
+        storage(
+            "https://cdn.jsdelivr.net/gh/gavinr/world-countries-centroids@v1.0.0/dist/countries.geojson"
+        ),
     output:
         "data/countries_centroids.geojson",
     log:
         "logs/retrieve_countries_centroids.log",
+    retries: 2
     run:
-        from scripts._helpers import progress_retrieve
-
-        progress_retrieve(
-            "https://cdn.jsdelivr.net/gh/gavinr/world-countries-centroids@v1.0.0/dist/countries.geojson",
-            output[0],
-            disable=True,
-        )
+        copy2(input[0], output[0])
 
 
 if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [

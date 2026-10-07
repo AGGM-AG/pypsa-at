@@ -275,12 +275,7 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "overwrite_powerplants_at",
-            simpl="",
-            clusters="adm",
-            opts="",
-            ll="v1.25",
-            sector_opts="none",
-            planning_horizons="2025",
+            horizon="2025",
             run="AT_KN2040",
         )
 

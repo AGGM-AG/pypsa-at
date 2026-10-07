@@ -44,6 +44,12 @@ def test_versions_csv(pytestconfig, file):
             df.to_csv(file, index=False)
 
 
+@pytest.mark.xfail(
+    reason="PyPSA-AT does not ship the upstream doc/ folder, so "
+    "doc/data_inventory.csv is missing.",
+    raises=FileNotFoundError,
+    strict=True,
+)
 def test_data_inventory_matches_versions():
     """Every dataset in the versions registry has a row in the docs inventory."""
     inventory = pd.read_csv(Path("doc/data_inventory.csv"))

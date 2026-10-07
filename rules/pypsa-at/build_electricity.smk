@@ -50,16 +50,14 @@ ruleorder: build_powerplants_at > build_powerplants
 
 rule create_onshore_regions_nuts3:
     input:
-        regions=resources_shared("regions_onshore_base_s_{clusters}.geojson"),
-        shapes=resources_shared("nuts3_shapes.geojson"),
+        regions=resources("onshore_regions.geojson"),
+        shapes=resources("nuts3_shapes.geojson"),
     output:
-        regions_nuts3=resources_shared(
-            "regions_onshore_nuts3_base_s_{clusters}.geojson"
-        ),
+        regions_nuts3=resources("onshore_regions_nuts3.geojson"),
     log:
-        logs_shared("create_onshore_regions_nuts3_{clusters}.log"),
+        logs("create_onshore_regions_nuts3.log"),
     benchmark:
-        benchmarks_shared("create_onshore_regions_nuts3_{clusters}")
+        benchmarks("create_onshore_regions_nuts3")
     threads: 1
     message:
         "Building NUTS3 onshore regions geojson"
@@ -71,100 +69,118 @@ use rule determine_availability_matrix as determine_availability_matrix_onwind_n
     input:
         **{
             **rules.determine_availability_matrix.input,
-            "regions": resources_shared(
-                "regions_onshore_nuts3_base_s_{clusters}.geojson"
-            ),
+            "regions": resources("onshore_regions_nuts3.geojson"),
         },
     output:
-        nc=resources_shared("availability_matrix_nuts3_{clusters}_{technology}.nc"),
+        nc=resources("availability_matrix_nuts3_{technology}.nc"),
         plot=branch(
             config["atlite"]["plot_availability_matrix"],
-            then=resources_shared(
-                "availability_matrix_nuts3_{clusters}_{technology}.png"
-            ),
+            then=resources("availability_matrix_nuts3_{technology}.png"),
         ),
     log:
-        logs_shared("determine_availability_matrix_nuts3_{clusters}_{technology}.log"),
+        logs("determine_availability_matrix_nuts3_{technology}.log"),
     benchmark:
-        benchmarks_shared("determine_availability_matrix_nuts3_{clusters}_{technology}")
+        benchmarks("determine_availability_matrix_nuts3_{technology}")
     wildcard_constraints:
         technology="onwind",
     message:
-        "Determining availability matrix for {wildcards.clusters} clusters and {wildcards.technology} technology for nuts3"
+        "Determining availability matrix for {wildcards.technology} technology for nuts3"
+
+
+# Without the {clusters} wildcard, upstream's availability_matrix_{technology}
+# and profile_{technology} patterns also match the NUTS3 files
+# (technology=nuts3_onwind). The AT rules must win for these files.
+ruleorder: determine_availability_matrix_onwind_nuts3 > determine_availability_matrix
 
 
 use rule build_renewable_profiles as build_renewable_profiles_onwind_nuts3 with:
     input:
         **{
             **rules.build_renewable_profiles.input,
-            "availability_matrix": resources_shared(
-                "availability_matrix_nuts3_{clusters}_{technology}.nc"
+            "availability_matrix": resources(
+                "availability_matrix_nuts3_{technology}.nc"
             ),
-            "distance_regions": resources_shared(
-                "regions_onshore_nuts3_base_s_{clusters}.geojson"
-            ),
-            "resource_regions": resources_shared(
-                "regions_onshore_nuts3_base_s_{clusters}.geojson"  # Input needed by original rule
+            "distance_regions": resources("onshore_regions_nuts3.geojson"),
+            "resource_regions": resources(
+                "onshore_regions_nuts3.geojson"  # Input needed by original rule
             ),
         },
     output:
         **{
             **rules.build_renewable_profiles.output,
-            "profile": resources_shared("profile_nuts3_{clusters}_{technology}.nc"),
-            "class_regions": resources_shared(
-                "regions_by_class_nuts3_{clusters}_{technology}.geojson"
-            ),
+            "profile": resources("profile_nuts3_{technology}.nc"),
+            "class_regions": resources("regions_by_class_nuts3_{technology}.geojson"),
         },
     log:
-        logs_shared("build_renewable_profile_nuts3_{clusters}_{technology}.log"),
+        logs("build_renewable_profile_nuts3_{technology}.log"),
     benchmark:
-        benchmarks_shared("build_renewable_profile_nuts3_{clusters}_{technology}")
+        benchmarks("build_renewable_profile_nuts3_{technology}")
     wildcard_constraints:
         technology="onwind",
     message:
-        "Building NUTS3 renewable profiles for {wildcards.clusters} clusters and onwind technology"
+        "Building NUTS3 renewable profiles for onwind technology"
 
 
-if config["clustering"]["administrative"]["AT"] == 2:
+ruleorder: build_renewable_profiles_onwind_nuts3 > build_renewable_profiles
 
-    use rule build_renewable_profiles as build_renewable_profiles_onwind_nuts2 with:
-        output:
-            **{
-                **rules.build_renewable_profiles.output,
-                "profile": resources_shared(
-                    "profile_nuts2_{clusters}_{technology}.nc"
-                ),
-                "class_regions": resources(
-                    "regions_by_class_{clusters}_{technology}.geojson"
-                ),
-            },
-        log:
-            logs_shared("build_renewable_profile_nuts2_{clusters}_{technology}.log"),
-        benchmark:
-            benchmarks_shared("build_renewable_profile_nuts2_{clusters}_{technology}")
-        wildcard_constraints:
-            technology="onwind",
-        message:
-            "Building NUTS2 renewable profiles for {wildcards.clusters} clusters and onwind technology"
 
-    ruleorder: build_renewable_profiles_onwind_nuts2 > build_renewable_profiles
+def use_klien_onwind(w):
+    """Whether the run clusters Austria at NUTS2, where KLIEN weights apply.
 
-    rule build_renewable_profiles_onwind_klien:
-        input:
-            profile_nuts2=resources_shared("profile_nuts2_{clusters}_{technology}.nc"),
-            profile_nuts3=resources_shared("profile_nuts3_{clusters}_{technology}.nc"),
-            klien_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
-        output:
-            profile=resources("profile_{clusters}_{technology}.nc"),
-        log:
-            logs("build_renewable_profile_{clusters}_{technology}_klien.log"),
-        benchmark:
-            benchmarks("build_renewable_profile_{clusters}_{technology}_klien")
-        wildcard_constraints:
-            technology="onwind",
-        message:
-            "Applying KLIEN-weighted NUTS3 onwind profiles to NUTS2 output"
-        script:
-            scripts("pypsa-at/build_renewable_profiles_onwind_klien.py")
+    Evaluated per scenario, so runs with different (custom) clusterings can
+    share one workflow. ``mods.modify_nuts3_shapes`` AT10* implies NUTS2.
+    """
+    mode = config_provider("clustering", "mode")(w)
+    admin_levels = config_provider("clustering", "administrative")(w)
+    return mode == "administrative" and admin_levels.get("AT") == 2
 
-    ruleorder: build_renewable_profiles_onwind_klien > build_renewable_profiles
+
+# The upstream onwind profile is written to a "-raw" file. The KLIEN rule
+# below turns it into the final profile: KLIEN-weighted NUTS3 profiles for
+# Austria at NUTS2, otherwise an unchanged copy.
+use rule build_renewable_profiles as build_renewable_profiles_onwind_raw with:
+    output:
+        **{
+            **rules.build_renewable_profiles.output,
+            "profile": resources("profile_{technology}-raw.nc"),
+            "class_regions": resources("regions_by_class_{technology}.geojson"),
+        },
+    log:
+        logs("build_renewable_profile_{technology}-raw.log"),
+    benchmark:
+        benchmarks("build_renewable_profile_{technology}-raw")
+    wildcard_constraints:
+        technology="onwind",
+    message:
+        "Building raw renewable profiles for onwind technology"
+
+
+ruleorder: build_renewable_profiles_onwind_raw > build_renewable_profiles
+
+
+rule build_renewable_profiles_onwind_klien:
+    input:
+        profile_raw=resources("profile_{technology}-raw.nc"),
+        profile_nuts3=branch(
+            use_klien_onwind, resources("profile_nuts3_{technology}.nc"), []
+        ),
+        klien_wind=branch(
+            use_klien_onwind, f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv", []
+        ),
+    output:
+        profile=resources("profile_{technology}.nc"),
+    log:
+        logs("build_renewable_profile_{technology}_klien.log"),
+    benchmark:
+        benchmarks("build_renewable_profile_{technology}_klien")
+    wildcard_constraints:
+        technology="onwind",
+    params:
+        apply_klien=use_klien_onwind,
+    message:
+        "Applying KLIEN-weighted NUTS3 onwind profiles where Austria is at NUTS2"
+    script:
+        scripts("pypsa-at/build_renewable_profiles_onwind_klien.py")
+
+
+ruleorder: build_renewable_profiles_onwind_klien > build_renewable_profiles

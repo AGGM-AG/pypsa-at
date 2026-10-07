@@ -127,7 +127,7 @@ def add_methane_pyrolysis_plasma(
     # carrier name. Used to mitigate downstream repetitions
     tech = "methane pyrolysis plasma"
 
-    pyear = int(snakemake.wildcards.planning_horizons)
+    pyear = int(snakemake.wildcards.horizon)
 
     # Guard: technology not available before 2030 (no cost data in custom_costs).
     if tech not in costs.index:

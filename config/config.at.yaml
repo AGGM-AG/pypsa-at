@@ -15,7 +15,7 @@ run:
     # We simply use the manual file with hard coded values.
     file: config/scenarios.manual.yaml
   shared_resources:
-    policy: base #stops recalculating
+    policy: false
     exclude:
     - existing_heating.csv   # specify files which should not be shared between scenarios
     - costs
@@ -29,23 +29,14 @@ run:
 
 countries: ['AL', 'AT', 'BA', 'BE', 'BG', 'CH', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'ME', 'MK', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'SE', 'SI', 'SK', 'XK']
 
-scenario:
-  ll:
-  - v1.25
-  clusters:
-  - adm
-  opts:
-  - ''
-  sector_opts:
-  - none
-  planning_horizons:
-  - 2025
-  - 2030
-  - 2040
-  - 2050
+planning_horizons:
+- 2025
+- 2030
+- 2040
+- 2050
 
 electricity:
-  transmission_limit: v1.25
+  transmission_limit: vopt
   voltages: [110., 220., 300., 330., 380., 400., 500., 750.]
 
 clustering:
@@ -64,7 +55,7 @@ clustering:
     # mods/, evals/ and the TYNDP node mappings rely on.
     allow_ac_dc_mixing_in_bus_clusters: true
   temporal:
-    resolution_sector: 365H
+    averaging: 365h
 
 pypsa-de:
   # incompatible with PyPSA-AT NTC floors in mods.network.electricity

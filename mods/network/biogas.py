@@ -194,7 +194,7 @@ def add_existing_biogas_chp_at(
         )
         return
 
-    year = int(snakemake.wildcards.planning_horizons)
+    year = int(snakemake.wildcards.horizon)
     if year != min(snakemake.params.planning_horizons):
         return  # add_brownfield carries the base-year Links forward
 

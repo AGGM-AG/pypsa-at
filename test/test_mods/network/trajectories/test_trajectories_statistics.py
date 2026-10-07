@@ -119,12 +119,19 @@ def test_tyndp_trajectory_ceilings(nc, project_root, is_testrun):
     """
     cfg = require_config(nc, "mods", "PEMMDB_trajectories", enable=False)
 
-    planning_horizons = nc["2030"].meta["scenario"]["planning_horizons"]
+    meta = nc["2030"].meta
+    planning_horizons = meta["planning_horizons"]
     carrier_port_0 = ["H2 Electrolysis", "onwind", "solar rooftop"]
     carrier_port_1 = ["battery discharger", "home battery discharger", "nuclear"]
     skip_countries = tuple(cfg["skip_countries"])
 
-    raw = pd.read_csv(project_root / "resources" / "tyndp_trajectories.csv")
+    raw = pd.read_csv(
+        project_root
+        / "resources"
+        / meta["run"]["prefix"]
+        / meta["run"]["name"][0]
+        / "tyndp_trajectories.csv"
+    )
     expect = raw.set_index(["pyear", "bus", "pypsa_eur_carrier"]).query(
         f"scenario == '{cfg['tyndp_scenario']}'"
     )["p_nom_max"]

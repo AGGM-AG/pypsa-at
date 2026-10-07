@@ -263,7 +263,7 @@ def constraint_combined_solar_trajectories(
         existing_brownfield = brownfield_by_loc.at[loc]
 
         # determine brownfield correction
-        pyear = int(n.meta["wildcards"]["planning_horizons"])
+        pyear = int(n.meta["wildcards"]["horizon"])
         deduction = 0  # for base year 2025
         if pyear > 2025:
             # reduce total boundaries by already built and still existing
