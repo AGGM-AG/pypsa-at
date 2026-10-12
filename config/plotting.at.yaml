@@ -29,3 +29,13 @@ plotting:
     electricity for road: '#66cbf5'
     electricity for residential: '#2f2a8a'
     electricity for services: '#5a54b5'
+    # on-site methane pyrolysis H2 pathway (mods/network/h2.py)
+    methane pyrolysis plasma: '#40E0D0'
+    # gas supply split into LNG, pipeline and production generators
+    # (mods/network/gas.py). Colour them like gas ('#e05b09').
+    lng gas: '#e05b09'
+    pipeline gas: '#e05b09'
+    production gas: '#e05b09'
+    # fallback for components without carrier. Upstream schema requires hex.
+    "": '#000000'
+    none: '#000000'
