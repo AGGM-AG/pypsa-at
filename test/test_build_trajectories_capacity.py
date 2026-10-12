@@ -27,7 +27,7 @@ def _uses_klien_ror_corridor(n: Network, year: int) -> bool:
     The base planning horizon always keeps its PEMMDB row.
     """
     enabled = n.meta["mods"]["update_hydro_capacities_AT"]["enable"]
-    return enabled and year != min(n.meta["scenario"]["planning_horizons"])
+    return enabled and year != min(n.meta["planning_horizons"])
 
 
 def _is_at_ror_max(df: pd.DataFrame, region: str) -> pd.Series:
