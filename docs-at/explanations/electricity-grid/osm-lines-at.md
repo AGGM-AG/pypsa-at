@@ -48,7 +48,7 @@ build_osm_network  →  build_osm_network_at  →  base_network
 applies AT-specific filtering, and writes the results to
 `resources/osm/build-at/`. The downstream `base_network` rule is automatically
 redirected to consume from `build-at/` by the `input_base_network` override in
-`rules/pypsa-at/modify.smk`.
+`rules/pypsa-at/build_electricity.smk`.
 
 ??? info "Running the snakemake rule"
 

@@ -9,6 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - Scenarios can use different custom clusterings (`mods.modify_nuts3_shapes`, `clustering.administrative`) in one workflow: the KLIEN-weighted onwind profiles apply per run when Austria is clustered at NUTS2, and the clustering config reaches the scripts as rule params
+- CO2 pipelines carry dense-phase CO2 (`sector.co2_network_liquefaction: true`): compression costs and electricity (0.1051 MWh/t) are counted. The cost entry `CO2 dense phase compression` comes from technology-data v0.15.0 (AIT CO2Netz study), converted to EUR2020 in `data/custom_costs.csv` until technology-data is bumped
 - `patch_powerplants_set_at` rule restoring `Set="PP"` on the large German lignite condensing units, which powerplantmatching 0.8.x tags `Set="CHP"` and the inherited PyPSA-DE `powerplants_filter` then drops (19,965 MW → 0 MW of German lignite)
 
 ### Fixed

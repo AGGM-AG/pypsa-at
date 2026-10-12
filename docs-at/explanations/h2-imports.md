@@ -275,11 +275,10 @@ sector:
 
 `h2_topology_tyndp` is the only switch. When it is `true`, the rule
 `build_tyndp_h2_imports` is included in the DAG and
-`resources/h2_import_potentials_{planning_horizons}.csv` is passed to
-`modify_prenetwork_at` as a Snakemake input (see
-`rules/pypsa-at/modify.smk`). The Snakemake `branch()` helper
-passes an empty list when the flag is `false`, so the fallback path is
-taken automatically.
+`resources/h2_import_potentials_{horizon}.csv` is passed to
+`compose_network_at` as a Snakemake input (see
+`rules/pypsa-at/compose.smk`). The input function passes an empty list
+when the flag is `false`, so the fallback path is taken automatically.
 
 The TYNDP scenario used for H₂ imports is controlled by the scenario selection
 in `build_tyndp_h2_imports.py`. The AT default is `DE` (Distributed Energy),

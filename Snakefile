@@ -222,11 +222,11 @@ logs_shared = path_provider("logs/", RDIR, True, [])
 benchmarks_shared = path_provider("benchmarks/", RDIR, True, [])
 
 
+# Each rules/pypsa-at/<name>.smk extends or overrides the upstream rules/<name>.smk
+# and must be included after it.
 include: "rules/pypsa-at/retrieve.smk"  # PyPSA-AT specific data retrieval
-include: "rules/pypsa-at/build.smk"  # PyPSA-AT specific data build rules
-include: "rules/pypsa-at/build_electricity.smk"  # PyPSA-AT specific electricity build rule patches
-include: "rules/pypsa-at/modify.smk"  # PyPSA-AT specific modifications and upstream rule overrides (must follow build_electricity.smk / build_sector.smk — it overrides rules defined there)
-include: "rules/pypsa-at/build_sector.smk"  # PyPSA-AT specific modifications for sector network
+include: "rules/pypsa-at/build_electricity.smk"  # PyPSA-AT electricity build rules and overrides
+include: "rules/pypsa-at/build_sector.smk"  # PyPSA-AT sector build rules and overrides
 include: "rules/pypsa-at/compose.smk"  # PyPSA-AT inputs and params for compose_network
 include: "rules/pypsa-at/solve.smk"  # PyPSA-AT specific solve rule extensions
 include: "rules/pypsa-at/collect.smk"  # PyPSA-AT specific collect rules

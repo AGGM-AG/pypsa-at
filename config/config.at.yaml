@@ -123,6 +123,9 @@ sector:
     max_size: 25
     years_of_storage: 25
   co2_network: true
+  # CO2 pipelines carry dense-phase CO2: compression costs and electricity are counted
+  # (cost entry "CO2 dense phase compression" in data/custom_costs.csv until technology-data >= v0.15.0)
+  co2_network_liquefaction: true
   imports:  # this is for renewable gas/H2/methanol/oil imports
     enable: true
     carriers_tyndp:
