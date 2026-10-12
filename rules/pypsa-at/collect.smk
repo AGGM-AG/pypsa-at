@@ -48,8 +48,20 @@ rule validate_pypsa_at:
         'pixi run -e test pytest -m "AT" --html {params.rdir}/test_report.html --result-path={params.rdir}'
 
 
+# CI runs (config/test/config.at10.yaml) skip the evaluations to save time.
+# Exact match on purpose: a renamed CI prefix runs the evaluations again
+# instead of silently skipping them for other runs.
+SKIP_EVALUATION = config["run"]["prefix"] == "test-sector-myopic-at10"
+
+
 rule all_at:
     default_target: True
     input:
         expand(RESULTS + "test_report.html", run=config["run"]["name"]),
-        expand(RESULTS + "evaluation/.run_by_snakemake", run=config["run"]["name"]),
+        (
+            []
+            if SKIP_EVALUATION
+            else expand(
+                RESULTS + "evaluation/.run_by_snakemake", run=config["run"]["name"]
+            )
+        ),
