@@ -236,11 +236,8 @@ data:
   anlagenregister:
     source: archive
     version: latest
-  econtrol-bestandsstatistik:
-    source: primary  # downloaded from e-control.at, no Zenodo mirror (licence unclear)
-    version: latest
-  econtrol-betriebsstatistik:
-    source: primary
+  e-control:
+    source: archive
     version: latest
   geonames-postal-codes-at:
     source: primary  # downloaded from geonames.org, no Zenodo mirror for now

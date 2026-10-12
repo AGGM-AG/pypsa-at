@@ -193,37 +193,33 @@ if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
             copy2(input["ods"], output["ods"])
 
 
-if ECONTROL_BESTANDSSTATISTIK["source"] == "primary":
+if ECONTROL["source"] in ["primary", "archive"]:
+    # e-control.at spreads the files over two document folders, the Zenodo mirror is flat
+    ECONTROL_FILES = {
+        "typ": f"1811756/BeStGes-{ECONTROL['version']}_KW2EPLTyp.xlsx",
+        "kwepl": "1811756/BeStGes-JR_KWEPL.xlsx",
+        "bilanz": "1811609/BStGes-JR1_Bilanz.xlsx",
+    }
 
-    rule retrieve_econtrol_bestandsstatistik:
+    rule retrieve_econtrol:
         input:
-            typ=storage(
-                f"{ECONTROL_BESTANDSSTATISTIK['url']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx"
-            ),
-            kwepl=storage(f"{ECONTROL_BESTANDSSTATISTIK['url']}/BeStGes-JR_KWEPL.xlsx"),
+            **{
+                key: storage(
+                    f"{ECONTROL['url']}/"
+                    + (path if ECONTROL["source"] == "primary" else Path(path).name)
+                )
+                for key, path in ECONTROL_FILES.items()
+            },
         output:
-            typ=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-{ECONTROL_BESTANDSSTATISTIK['version']}_KW2EPLTyp.xlsx",
-            kwepl=f"{ECONTROL_BESTANDSSTATISTIK['folder']}/BeStGes-JR_KWEPL.xlsx",
+            **{
+                key: f"{ECONTROL['folder']}/{Path(path).name}"
+                for key, path in ECONTROL_FILES.items()
+            },
         message:
-            "Retrieving E-Control Bestandsstatistik Kraftwerkspark (capacity by plant type and year)"
+            "Retrieving E-Control Bestandsstatistik and Betriebsstatistik (capacity and generation by plant type)"
         run:
-            copy2(input["typ"], output["typ"])
-            copy2(input["kwepl"], output["kwepl"])
-
-
-if ECONTROL_BETRIEBSSTATISTIK["source"] == "primary":
-
-    rule retrieve_econtrol_betriebsstatistik:
-        input:
-            bilanz=storage(
-                f"{ECONTROL_BETRIEBSSTATISTIK['url']}/BStGes-JR1_Bilanz.xlsx"
-            ),
-        output:
-            bilanz=f"{ECONTROL_BETRIEBSSTATISTIK['folder']}/BStGes-JR1_Bilanz.xlsx",
-        message:
-            "Retrieving E-Control Betriebsstatistik Jahresreihe (annual generation by plant type)"
-        run:
-            copy2(input["bilanz"], output["bilanz"])
+            for key in ECONTROL_FILES:
+                copy2(input[key], output[key])
 
 
 if GEONAMES_POSTAL_CODES_AT["source"] == "primary":
