@@ -72,9 +72,9 @@ default to `enable: true`.
 ```
 retrieve
 ↓
-build_electricity   (+ AT early overrides from modify.smk: OSM line filter, base network,
-↓                     NUTS3 shapes, gas network, power plants)
-build_sector
+build_electricity   (+ AT overrides: OSM line filter, base network, NUTS3 shapes,
+↓                     power plants, hydro inflow, costs, capacity trajectories)
+build_sector        (+ AT overrides: gas network, heat demand, energy balances, transport)
 ↓
 compose             ← most Austria-specific model changes happen here
 ↓                     (compose_network_at, one job per {horizon})
@@ -91,10 +91,11 @@ The AT orchestrators `prepare_sector_network` and `modify_prenetwork` from
 
 ### Key filenames not obvious from context
 
-- `rules/pypsa-at/` — AT rules, one file per DAG phase: `retrieve.smk`, `build.smk`,
-  `build_electricity.smk`, `build_sector.smk`, `modify.smk`, `compose.smk`, `solve.smk`,
-  `collect.smk`. `modify.smk` overrides upstream rules from `build_electricity.smk` / `build_sector.smk`
-  and must be included after them
+- `rules/pypsa-at/` — AT rules, named after the upstream file they extend or override:
+  `rules/pypsa-at/<name>.smk` ↔ `rules/<name>.smk` (`retrieve`, `build_electricity`,
+  `build_sector`, `compose`, `solve`, `collect`). Each is included after its upstream
+  counterpart. New AT rules go into the file of the phase whose upstream rules they
+  replace or feed; do not add AT files without an upstream counterpart
 - `rules/pypsa-at/collect.smk` — defines `rule all_at`, the `default_target` of the workflow
 - `mods/` is a package tree, not flat modules: `mods/__init__.py` (re-exports every
   orchestrator), `mods/clustering/`, `mods/constraints/`, `mods/demand/`, `mods/network/`,

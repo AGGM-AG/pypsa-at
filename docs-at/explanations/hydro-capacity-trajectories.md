@@ -7,7 +7,7 @@ hydro-specific application that currently populates `trajectories.csv`.
 ## Building the Trajectories (Hydro Application)
 
 **Script:** `scripts/pypsa-at/build_capacity_trajectories.py`
-**Rule:** `build_capacity_trajectories` (`rules/pypsa-at/build.smk`)
+**Rule:** `build_capacity_trajectories` (`rules/pypsa-at/build_electricity.smk`)
 **Output:** `resources/trajectories.csv`
 
 For the current hydro use case, the script:
