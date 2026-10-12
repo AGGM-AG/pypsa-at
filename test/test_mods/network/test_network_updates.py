@@ -9,7 +9,7 @@ import pypsa
 import pytest
 
 from mods.utils import get_relevant_links_and_lines
-from test.conftest import require_config
+from test.conftest import require_config, run_resources_path
 
 
 def _make_energy_totals() -> pd.DataFrame:
@@ -111,9 +111,9 @@ def test_tyndp_ntc_lower_limits_applied(nc, pytestconfig):
     lower_bounds_years = require_config(nc, "mods", "tyndp_lower_bounds")["years"]
 
     ntc_path = (
-        pytestconfig.rootpath / "resources" / "tyndp_transmission_trajectories.csv"
+        run_resources_path(nc[nc.index[0]], pytestconfig.rootpath)
+        / "tyndp_transmission_trajectories.csv"
     )
-
     ntc_df = pd.read_csv(ntc_path)
 
     for year_str, n in nc.networks.items():

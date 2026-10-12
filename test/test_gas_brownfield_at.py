@@ -369,12 +369,11 @@ class TestFeatureToggle:
     """``mods: update_gas_capacities_AT: enable`` must guard the whole step."""
 
     @staticmethod
-    def _run(monkeypatch, enabled, ppl, overrides_file):
+    def _run(enabled, ppl, overrides_file):
         import overwrite_powerplants as module
 
-        monkeypatch.setattr(
-            module,
-            "snakemake",
+        return module.gas_powerplants_AT(
+            ppl,
             SimpleNamespace(
                 params=SimpleNamespace(
                     update_gas_capacities_AT=enabled, clustering="AT35DE5"
@@ -387,12 +386,10 @@ class TestFeatureToggle:
                     postal_to_nuts=str(DATA / "AT-Postal-to-NUTS.csv"),
                 ),
             ),
-            raising=False,
         )
-        return module.gas_powerplants_AT(ppl)
 
-    def test_disabled_is_a_no_op(self, monkeypatch, powerplants, overrides_file):
-        out, deviations = self._run(monkeypatch, False, powerplants, overrides_file)
+    def test_disabled_is_a_no_op(self, powerplants, overrides_file):
+        out, deviations = self._run(False, powerplants, overrides_file)
         assert out.equals(powerplants)
         assert deviations.empty
         assert list(deviations.columns) == GAS_DEVIATION_COLUMNS

@@ -1225,8 +1225,7 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "build_pemmdb_data",
-            clusters="all",
-            planning_horizons=2030,
+            horizon=2030,
         )
     configure_logging(snakemake)
     set_scenario_config(snakemake)
@@ -1258,7 +1257,7 @@ if __name__ == "__main__":
         cyear = 2009
 
     # Planning year
-    pyear_i = int(snakemake.wildcards.planning_horizons)
+    pyear_i = int(snakemake.wildcards.horizon)
     pyear = safe_pyear(
         pyear_i,
         available_years=snakemake.params.available_years,

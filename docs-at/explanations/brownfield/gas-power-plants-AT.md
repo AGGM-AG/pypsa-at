@@ -133,7 +133,7 @@ Dunkelflaute periods gas plants run in.
 !!! warning "The residual 244 MW is not explained plant by plant"
     It is consistent with the autoproducer and small-plant capacity the fleet
     deliberately omits, and with the two undecided plants above, but no
-    reconciliation is claimed. `resources/gas_brownfield_deviations_{clusters}.csv`
+    reconciliation is claimed. `resources/gas_brownfield_deviations.csv`
     carries the three-way comparison — `powerplantmatching`, model, deduplicated
     register — per NUTS3 region so the gap can be inspected.
 

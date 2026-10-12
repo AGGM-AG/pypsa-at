@@ -15,7 +15,7 @@ run:
     # We simply use the manual file with hard coded values.
     file: config/scenarios.manual.yaml
   shared_resources:
-    policy: base #stops recalculating
+    policy: false
     exclude:
     - existing_heating.csv   # specify files which should not be shared between scenarios
     - costs
@@ -29,23 +29,14 @@ run:
 
 countries: ['AL', 'AT', 'BA', 'BE', 'BG', 'CH', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'ME', 'MK', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'SE', 'SI', 'SK', 'XK']
 
-scenario:
-  ll:
-  - v1.25
-  clusters:
-  - adm
-  opts:
-  - ''
-  sector_opts:
-  - none
-  planning_horizons:
-  - 2025
-  - 2030
-  - 2040
-  - 2050
+planning_horizons:
+- 2025
+- 2030
+- 2040
+- 2050
 
 electricity:
-  transmission_limit: v1.25
+  transmission_limit: vopt
   voltages: [110., 220., 300., 330., 380., 400., 500., 750.]
 
 clustering:
@@ -64,7 +55,7 @@ clustering:
     # mods/, evals/ and the TYNDP node mappings rely on.
     allow_ac_dc_mixing_in_bus_clusters: true
   temporal:
-    resolution_sector: 365H
+    averaging: 365h
 
 pypsa-de:
   # incompatible with PyPSA-AT NTC floors in mods.network.electricity
@@ -132,6 +123,9 @@ sector:
     max_size: 25
     years_of_storage: 25
   co2_network: true
+  # CO2 pipelines carry dense-phase CO2: compression costs and electricity are counted
+  # (cost entry "CO2 dense phase compression" in data/custom_costs.csv until technology-data >= v0.15.0)
+  co2_network_liquefaction: true
   imports:  # this is for renewable gas/H2/methanol/oil imports
     enable: true
     carriers_tyndp:
@@ -235,18 +229,18 @@ data:
     version: 0.3-at
   klien_potentials:
     source: archive
-    version: 2026-v2
+    version: 2026-v3
   nea-at:
     source: primary
     version: latest
   anlagenregister:
     source: archive
     version: latest
-  econtrol-bestandsstatistik:
-    source: primary  # downloaded from e-control.at, no Zenodo mirror (licence unclear)
+  e-control:
+    source: archive
     version: latest
-  econtrol-betriebsstatistik:
-    source: primary
+  geonames-postal-codes-at:
+    source: primary  # downloaded from geonames.org, no Zenodo mirror for now
     version: latest
   kfz-bestand-at:
     source: primary
@@ -311,7 +305,11 @@ solving:
           2030: 17
       hydro:
         AT:
-          2030: 37  # Should be 47 TWh but that is too much for the networks constraints
+          # EAG §4 (4): hydropower generation is to rise by 5 TWh/a by 2030
+          # on basis of about 42 TWh (Statistik Austria accounting, incl. PHS inflow).
+          # Note, that this constraint cannot be reached for dry weather years and
+          # limited RoR capacity expansion trajectories.
+          2030: 47
       biomass:
         AT:
           2030: 5.6
@@ -374,6 +372,26 @@ mods:
   existing_capacities:
     add_biogas_to_power_plants_AT: true # add Austrian biogas-to-power plants from Anlagenregister
                                         # in addition to powerplantmatching
+
+  # calibrate the Austrian gas power plant brownfield against the E-Control
+  # Anlagenregister and statistics; consumed by overwrite_powerplants_at
+  update_gas_capacities_AT:
+    enable: true
+
+  # calibrate Austrian hydro power plant capacities per technology and NUTS3
+  # region to the deduplicated E-Control Anlagenregister totals
+  # (see pypsa-at-planning#312); consumed by overwrite_powerplants_at
+  update_hydro_capacities_AT:
+    enable: true
+    # Austrian reservoir and pumped-storage volumes are built out: the new store
+    # vintages get e_nom_max = 0, so no storage volume can be added regardless of
+    # the PEMMDB store corridors. Turbine and pump links stay extendable.
+    fix_store_volumes: true
+    # Add one synthetic run-of-river plant per KLIEN catchment for the capacity the
+    # study counts but neither powerplantmatching nor the Anlagenregister holds, sized at
+    # the catchment's full-load hours, so the inflow targets reproduce the study's
+    # long-term energy in every catchment. Listed in hydro_residual_plants.csv.
+    klien_residual_plants: true
 
   tyndp_h2_import_scenario: "DE" # One of DE (Distributed Energy), NT (National Trends), GA (Global Ambition).
                            # Only used when H2 imports is enabled

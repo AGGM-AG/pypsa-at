@@ -1,0 +1,235 @@
+# Finalize the Austrian hydro work for pypsa-at-planning issue #312
+
+Issue: https://github.com/AGGM-AG/pypsa-at-planning/issues/312
+"[FEATURE] Scale Hydropower to reach EAG goal of 47 TWh/a"
+
+Branch with the work: `feat/scale-austrian-hydro-capacities` in `/IdeaProjects/pypsa-at`
+(HEAD f6e2f4c0; the review below was planned against 3f247206, and the only commits since
+then touch `.marimo/*.py` notebooks and `docs-at/explanations/hydro-capacity-trajectories.md`,
+so every code line reference in the review still applies).
+
+Solved reference run of this branch (365H, 24 x 365 snapshots, weather year 2013):
+`results/hydro-capacities-update/AT_KN2040/networks/base_s_adm__none_{2025,2030,2040,2050}.nc`
+with resources in `resources/hydro-capacities-update/AT_KN2040/`.
+
+Work in three parts, in order. Parts 1 and 2 are analysis: write them to
+`./finalize-hydro-austria.report.md` (repo root, do not commit it) and present the result
+for my review before any code change. Part 3 is a documentation change you implement
+directly on this branch. Do not commit, push, or post anything to GitHub. Do not touch
+upstream files (see CLAUDE.md). Put scratch scripts in your scratchpad directory.
+
+Read CLAUDE.md first. Then read, in this order, before doing anything else:
+- `docs-at/explanations/hydro-capacity-trajectories.md` (the current explanation of the
+  whole hydro layer: fleet, corridors, inflows, EAG target)
+- `scripts/pypsa-at/build_klien_hydro_trajectory_at.py`, `scripts/pypsa-at/build_hydro_inflow_targets.py`,
+  `scripts/pypsa-at/build_inflow_profile.py`, `scripts/pypsa-at/build_inflows_per_region.py`
+- `mods/network/hydro.py` (ror block around lines 301-307, `_patch_component_inflows`
+  around 503-509, `_redistribute_peaks` 341-443), `mods/constraints/trajectories.py`,
+  `mods/constraints/production.py`
+- `config/config.at.yaml` blocks `mods.update_hydro_capacities_AT`, `mods.trajectories`,
+  `limits_volume_min` (hydro AT 2030)
+
+------------------------------------------------------------------------------------------
+## Part 1 - Open todos for #312 from the full AT-layer review
+
+The review lives in the planning repo on a branch, folder `review/`:
+https://github.com/AGGM-AG/pypsa-at-planning/tree/chore/full-at-layer-review-2026-09/review
+A local clone exists at `/IdeaProjects/pypsa-at-planning` (on `main`). Fetch and check the
+review branch out into a worktree in your scratchpad, e.g.
+`git -C /IdeaProjects/pypsa-at-planning fetch origin && git -C /IdeaProjects/pypsa-at-planning worktree add <scratchpad>/review-wt origin/chore/full-at-layer-review-2026-09`
+(remove the worktree when done). Evidence scripts and outputs referenced by the plan are at
+`/mnt/storage/2026-09-full-at-layer-review/evidence/p3/` (read-only for you).
+
+Hydro-related review material (read all of it, not only the summaries):
+- `review/03-hydro-trajectories-tyndp.md` - phase 3 report, findings P3-01 to P3-32 (P3-01 is
+  the Vienna run-of-river finding of part 2)
+- `review/02-spatial-grid-renewables-powerplants.md` - fleet findings P2-05 to P2-08,
+  P2-15 to P2-17 (Grenzkraftwerke, small-hydro class, KLIEN residual plants)
+- `review/06-solve-constraints.md` - P6-01 (production-floor dimension bug that affects the
+  47 TWh hydro floor), P6-10 (trajectory GlobalConstraints without constant/dual)
+- `review/07-plausibility.md` - P7-01 (non-AT ror normalisation; superseded for AT by this branch)
+- `review/implementation-plan/sections/03-production-floors-eag.md`, `04-capacity-corridors.md`,
+  `05-hydro-network.md`, `06-at-hydro-inflow-targets.md`, `07-pemmdb-inflows-non-at.md`,
+  `08-at-powerplant-table.md`
+- `review/implementation-plan/finding-disposition.md` (status per finding against the branch),
+  `review/implementation-plan/open-questions-for-fixes.md` (blocking questions Q-P3-*, Q-IMPL-05,
+  Q-P2-15..18, Q-IMPL-06, with the reviewer's recommended answers),
+  `review/implementation-plan/verification-plan.md` (milestone M2 = hydro sections 04-08)
+- `review/evidence/p3/p3_T1.md`, `p3_T2.md`, `p3_T3.md` for the raw track evidence
+
+Also read the issue body (`gh issue view 312 -R AGGM-AG/pypsa-at-planning --comments`) and the
+open-tasks list I keep in memory (`hydro-pr-open-tasks` in my Claude memory directory,
+already loaded as context if present; otherwise skip).
+
+Deliverable 1 (section "## 1. Open todos for #312" of the report):
+a) Map every checklist item of issue #312 ("Quantify the gap", "Inflow side", "Capacity side")
+   to its state on this branch: done (name the code/doc that does it), partly done, or open.
+   Cite file paths. Be strict: "done" means implemented and covered by a test or a documented
+   number, not "the branch mentions it".
+b) From the review, list every hydro finding and blocking question that must be resolved
+   before #312 can be closed, and separate them from the ones that belong to a follow-up issue.
+   Use the reviewer's classification (finding ID, class, severity, plan section, the blocking
+   question and its recommended answer). In-scope candidates to check: P3-01, P3-03, P3-04,
+   P3-10, P3-11, P3-13, P3-14, P3-15, P3-16, P3-19, P3-20, P3-21, P3-24, P3-28, P3-29, P3-30,
+   P6-01, P6-10, P2-07, P2-08, P2-17 and questions Q-P3-01..05, Q-P3-08..13, Q-P3-16, Q-P3-17,
+   Q-IMPL-05, Q-IMPL-06, Q-P2-17, Q-P2-18, Q-P6-16. Do not silently drop any of them; if you
+   move one out of scope, say why in one sentence.
+c) Produce one ordered todo list (dependency order as in the plan sections: 06 targets ->
+   04 corridors -> 05 network -> 03 floor re-check -> docs -> full re-solve) with, per item:
+   the finding IDs it closes, the files to change, the test that proves it, the expected
+   number after the change (the plan states these), and the decision I still have to make.
+   Mark the items that need a fresh 2025 re-solve (brownfield vintages change).
+d) State the feasibility risk of the 47 TWh floor after the corrections (plan section 06
+   risks: corrected 2013 natural inflow ~46.2-46.6 TWh; the floor then binds via ror additions
+   at marginal hours). Quote the plan's numbers, do not recompute them in this part.
+
+------------------------------------------------------------------------------------------
+## Part 2 - Regionalised KLIEN run-of-river corridor instead of the AT-wide MW cap
+
+Problem (review finding P3-01, critical, confirmed): the KLIEN corridor is one national MW
+bound (`klien_ror_trajectory_adm.csv`: 7,600 / 8,542 / 8,749 MW for 2030/2040/2050), every AT
+`ror` generator is extendable and a new MW inherits the region's existing `p_max_pu`. The
+optimiser therefore places the whole increment in Vienna AT130 (472 / 1,415 / 1,621 MW at
+6,188 full-load hours, 2.9 / 8.8 / 10.0 TWh/a) where KLIEN locates 4.6 / 13.9 / ~16 MW of
+growth. The alpine catchments that KLIEN grows (AT335 497 MW, AT334 302, AT322 246, AT341 156,
+AT313 119, AT332 112 MW of delta-C by 2040) get nothing.
+
+Step 2.1 - Reproduce on the current run. Run (or port into your scratchpad) the evidence
+scripts `p3_T1_network_additions.py`, `p3_T1_network_ror.py`, `p3_T1_at130_dispatch.py`,
+`p3_T1_klien_corridor.py` and `p3_T2_ror_expansion.py` from
+`/mnt/storage/2026-09-full-at-layer-review/evidence/p3/` against
+`results/hydro-capacities-update/AT_KN2040`. Confirm: corridor binds in every horizon; additions
+per bus; AT130 FLH; the KLIEN E-factor vs C-factor (marginal FLH of additions = delta-E/delta-C,
+~3,433 h RAV, x1.074 = ~3,686 h in 2013). Report the table additions-per-bus vs KLIEN delta-C.
+Also check P3-14 for AT130 (global `lower_threshold_quantile` in `build_inflow_profile.py`
+zeroes hours and saturates the Danube profile) because it is what makes AT130 the "best" region.
+
+Step 2.2 - Answer: is the KLIEN study suited to provide capacity corridors per NUTS3 region?
+Base the answer on the data, not on the review's opinion. The KLIEN table
+`data/klien_potentials/archive/2026-v3/catchments_hydro.{csv,geojson}` has per river-section
+catchment: `C_current`, `C_2040_{low,medium,high}_{mocc,stcc}`, `C_2070_*`, `E_current`,
+`E_2040_*`, `E_2070_*`, `LCOE_*`, `MV_*` (check the KLIEN readme/notes in that folder and
+`data/versions.csv` for the column semantics, the reference period of `E_current`, and what
+"current" means in years). Establish, with numbers:
+- how many catchments carry a positive delta-C (2040, 2070) per ambition, and how much of the
+  national delta-C sits in catchments that (i) lie fully in one NUTS3 region, (ii) straddle
+  regions, (iii) contain no plant of the calibrated fleet (`powerplants_s_adm.csv`) - the
+  membership mapping already exists: `build_hydro_inflow_targets.assign_plants_to_sections`
+  plus the representative point / `hydro_diversion_overrides_AT.csv` / `hydro_catchment_corrections_AT.csv`
+- whether delta-C is run-of-river only or total hydro (the study's C includes reservoir and,
+  in a few catchments, pumped storage): how a ror share per region could be derived (reviewer
+  default: the region's existing ror/(ror+reservoir) capacity share; alternatives: catchment
+  technology of the existing plants, or a KLIEN technology attribute if one exists)
+- the marginal energy per new MW per catchment (delta-E/delta-C) vs the region's existing FLH,
+  so a new vintage can get a realistic yield (Q-P3-09)
+- the year anchors: KLIEN gives 2040 and 2070; how 2030 and 2050 are interpolated today
+  (`klien_buildout_factors`) and whether the same interpolation per region is defensible
+- Vienna specifically: what KLIEN says for the Danube sections in AT130/AT126/AT127 and what
+  E-Control/Verbund say about Freudenau/Greifenstein revitalisation potential (only if you can
+  source it from the data at hand; otherwise state "not in the data")
+Conclude with a clear yes/no/partly and the caveats.
+
+Step 2.3 - Design proposal (architecture only, no repo code changes yet; follow CLAUDE.md
+"Working Principles": propose, then wait for my feedback). Build on plan sections 04 and 05
+and state where you deviate from them and why. Cover:
+- build side: `build_klien_hydro_trajectory_at.py` emits one row per AT region and year
+  (`value(region, year) = existing_ror_MW(region) + ror_share x delta-C_region(year)`), a
+  catchment->region map exported by `build_hydro_inflow_targets_at` (new small CSV output, new
+  rule input in `rules/pypsa-at/build.smk`), national sum kept as a logged cross-check
+  (must reproduce 7,600 / 8,542 / 8,749 MW within the ror-share choice);
+  `build_capacity_trajectories.apply_klien_hydro_buildout_at` writes per-region rows;
+  `mods/constraints/trajectories.py` already groups by region - verify that claim
+- network side: keep `{bus} ror` non-extendable at `p_nom`, add an extendable vintage
+  `{bus} ror-{year}` with `p_nom_max` = regional headroom and a yield factor
+  `min(1, FLH_marginal(region)/FLH_existing(region))` on `p_max_pu` (Q-P3-09 option a);
+  interaction with `add_brownfield`, `threshold_capacity`, `installed_capacity` statistics
+  (P3-16, P3-20, P3-30) and with the EAG floor expression (`inflow_turbine_weights`)
+- the non-AT ror vintages (P7-09 / Q-IMPL-05): say whether to bound them per node in the
+  same PR or leave for a follow-up
+- config: which keys under `mods.update_hydro_capacities_AT` / `mods.trajectories` change;
+  remember every feature block needs `enable` and the DAG must not depend on config
+- tests to add (mirror `test/test_build_klien_hydro_trajectory_at.py`,
+  `test/test_mods/network/test_hydro.py`, `test/test_mods/constraints/test_trajectories.py`)
+- expected effect, quoting the plan: AT130 additions -> <= 5 MW in 2030, AT ror available
+  energy -1.2 / -3.5 / -4.1 TWh vs today's run, hydro floor may bind
+Prototype the build side in a scratch script and print the per-region table for 2030/2040/2050
+(region, existing ror MW, delta-C, ror share, headroom MW, marginal FLH, headroom energy GWh)
+so I can sanity-check the numbers before you touch the repo. Put the table in the report
+(section "## 2. Regionalised corridor").
+
+------------------------------------------------------------------------------------------
+## Part 3 - Docs: how the inflow profiles are built (implement now)
+
+Target page: `docs-at/explanations/hydro-capacity-trajectories.md`, "Part 3: Inflows".
+Add a short illustrated story there (new subsection right after "### The KLIEN catchment
+data" or wherever it reads best; keep the existing subsections, tighten them where the new
+text makes them redundant, do not duplicate). Tone and length: like the rest of the page,
+NumPy/mkdocs conventions, no headers deeper than `###`, admonitions allowed.
+
+Images: use the PNGs the review-slides notebook `.marimo/review-hydro-slides.py` already
+wrote to `results/hydro-capacities-update/AT_KN2040/graphics/review-slides/`:
+- `04_profile_is_timing_not_amount_AT322.png` (a: profile sums to one; b: KLIEN energy x
+  E-Control year factor gives MW for a dry 2003 / model 2013 / wet 2024 year; c: cumulative
+  share identical for every scaling)
+- `02_inflow_steps_AT322.png` (five steps: ERA5 profile -> hourly inflow per carrier ->
+  ror p_max_pu before/after `_redistribute_peaks` -> store inflow generators -> solved network)
+- `02_inflow_steps_AT121.png` (Danube region where the peak redistribution visibly reshapes
+  the ror profile)
+- `03_weather_years_vs_eag_target.png` (natural inflow energy of the 2025 fleet per E-Control
+  weather year against the 47 TWh floor, with the KLIEN corridor headroom stacked on top)
+- optionally `05_pipeline_AT322.svg` (rule pipeline for one region) if the page's "Data flow"
+  section does not already cover it
+Copy them to `docs-at/assets/hydro/` (create the folder). Keep each file well under ~600 kB:
+downscale with Pillow (`pixi run python`) if the 200-dpi originals are larger; keep the
+originals untouched. Reference them as `../assets/hydro/<file>.png` with a meaningful alt
+text, like the other explanation pages do. Mention in one sentence under the first figure
+that the figures come from `.marimo/review-hydro-slides.py` run on the 365H reference run.
+
+The story to tell, in this order (each point one short paragraph plus the figure that shows it):
+1. How the profile is built: `build_inflow_profile` takes the ERA5 runoff of the cutout
+   (atlite, smoothed, lower-quantile threshold), aggregates it per model region and normalises
+   it so that every region's profile sums to one over the weather year.
+2. What the profile depicts: the *timing* of the water, not the amount. A June peak is not
+   "much water", it is "a large share of the year's water arrives now". The cutout year decides
+   when the snowmelt and floods happen; it does not carry a single MWh. Figure 04 panels a and c.
+3. Where the amount comes from: the KLIEN catchment energy `E_current` (the study's
+   Regelarbeitsvermögen, a long-term mean - state the reference period only if you can source
+   it from the KLIEN material in `data/klien_potentials/` or the docs; do not write "20-year"
+   unsourced), allocated to plants and regions, multiplied with the profile gives the hourly
+   inflow in MW; for run-of-river `p_max_pu = inflow / p_nom` so that `p_max_pu x p_nom`
+   is the hourly available power; peaks above `p_nom` are redistributed energy-conserving.
+   Figure 02 (AT322, and AT121 for the redistribution).
+4. Dry and wet years: the KLIEN energy is scaled per catchment by the E-Control annual
+   generation of the weather year relative to the reference mean (Laufkraft for ror,
+   Speicherkraft for reservoirs, natural PS inflow from E-Control), so the same shape can
+   represent 2003 (dry), 2013 (model year) or 2024 (wet); figure 04 panel b and figure 03.
+   Say in one sentence what the current run uses (2013, ror factor 1.07).
+
+Consistency rules for the text:
+- The numbers you write must come from the current run's resources
+  (`hydro_inflow_targets_adm.csv`, `profile_inflow_adm.nc`, `inflow_per_region_adm.nc`) or from
+  the notebook output; do not copy numbers from the review that the branch has since changed.
+- The review filed docs findings P3-24 (docs contradict the E-Control data: pumped-water share,
+  storage inflow vs E-Control, Danube FLH) and P3-28 (weather-year table) against this page,
+  and code findings P3-04 / P3-11 that would change the year factors. Do not fix the code here.
+  Do not restate the contradicted claims in the new text; where the new story touches them,
+  phrase neutrally ("scaled with the E-Control annual generation series") and add a short
+  `!!! note` that the factor definition is under review (link the finding IDs is not possible
+  from docs, just say "under review").
+- Keep the page's existing weather-year table (regenerated 2026-09-15) as is.
+- Cross-reference symbols with mkdocs syntax where a function is named, e.g.
+  `[build_inflow_profile][...]` only if the reference page exists under `docs-at/reference/`;
+  otherwise use plain code formatting.
+
+Then: `pixi run -e doc mkdocs build --strict` must pass; run `pixi run ruff check .` and
+`pixi run ruff format --check .` (no Python should change, but check). No CHANGELOG entry
+(docs only). Show me the diff summary and the rendered section (paste the Markdown).
+
+------------------------------------------------------------------------------------------
+## Reporting
+
+Finish with a message that stands alone: the todo list headline count (in scope / follow-up),
+the yes/no on KLIEN per-NUTS3 suitability with the two or three decisive caveats, the
+decisions you need from me (numbered, with your recommendation first), and the docs diff.
+If anything could not be verified (missing evidence file, run not present, script fails),
+say so first instead of estimating.

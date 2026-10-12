@@ -344,7 +344,6 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "recalibrate_heat_demand_at",
             run="AT_KN2040",
-            clusters="adm",
         )
     configure_logging(snakemake)
     main(snakemake)

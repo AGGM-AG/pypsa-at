@@ -2819,7 +2819,7 @@ def _(NETWORK_DIR, cfg, mo, run_info):
                 f"**Run:** `{NETWORK_DIR}` — prefix `{cfg['run']['prefix']}`, scenario "
                 f"`{', '.join(cfg['run']['name'])}`, foresight `{cfg['foresight']}`, "
                 f"weather year {cfg['snapshots']['start'][:4]}, sector resolution "
-                f"`{cfg['clustering']['temporal']['resolution_sector']}`."
+                f"`{cfg['clustering']['temporal']['averaging']}`."
             ),
             run_info,
         ]

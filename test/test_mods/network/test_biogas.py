@@ -201,7 +201,7 @@ class TestAddExistingBiogasChpAt:
         ).to_csv(path, index=False)
         return SimpleNamespace(
             input=SimpleNamespace(biogas_plants_at=str(path)),
-            wildcards=SimpleNamespace(planning_horizons="2025"),
+            wildcards=SimpleNamespace(horizon="2025"),
             params=SimpleNamespace(
                 add_biogas_to_power_plants_AT=True,
                 planning_horizons=[2025, 2030, 2040],
@@ -231,7 +231,7 @@ class TestAddExistingBiogasChpAt:
         assert network.carriers.at[CARRIER, "color"] == "#92d46c"
 
     def test_skips_later_horizons(self, network, snakemake, costs):
-        snakemake.wildcards.planning_horizons = "2030"
+        snakemake.wildcards.horizon = "2030"
 
         add_existing_biogas_chp_at(network, snakemake, costs)
 

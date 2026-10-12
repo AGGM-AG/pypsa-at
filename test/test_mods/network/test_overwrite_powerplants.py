@@ -271,20 +271,13 @@ def test_capacity_sum_matches_source(result, source):
 def _expected_at_biogas_per_node(n, threshold, project_root):
     """
     Sum of biogas capacity per node region from the plant table the run
-    prepared (``biogas_plants_at_{clusters}.csv``, already at node
+    prepared (``biogas_plants_at.csv``, already at node
     resolution). The node total must exceed the existing_capacities
     threshold like in add_existing_baseyear.py.
     """
     prefix = n.meta["run"]["prefix"]
     run_name = n.meta["run"]["name"][0]
-    clusters = n.meta["wildcards"]["clusters"]
-    csv_path = (
-        project_root
-        / "resources"
-        / prefix
-        / run_name
-        / f"biogas_plants_at_{clusters}.csv"
-    )
+    csv_path = project_root / "resources" / prefix / run_name / "biogas_plants_at.csv"
     plants = pd.read_csv(csv_path)
     per_node = plants.groupby("bus")["Capacity"].sum()
     return per_node[per_node > threshold]
