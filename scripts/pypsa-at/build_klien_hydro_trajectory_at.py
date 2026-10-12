@@ -11,7 +11,7 @@ Energiepotenziale in Oesterreich fuer 2030 und 2040" (Resch et al. 2026,
 served by GTIF Austria) gives, per river catchment, the installed capacity
 today (``C_current``) and in 2040 and 2070 (``C_{year}_{ambition}_{climate}``)
 together with the energy (``E_*``). The catchments are located in the model
-regions through the plants they contain (``hydro_catchment_regions_{clusters}.csv``,
+regions through the plants they contain (``hydro_catchment_regions.csv``,
 built by ``build_hydro_inflow_targets_at``), and the study's capacity increment
 becomes the run-of-river headroom of that region:
 
@@ -35,7 +35,7 @@ the same header is written so the DAG does not depend on the configuration.
 Outputs
 -------
 
-- ``resources/klien_ror_trajectory_{clusters}.csv``:
+- ``resources/klien_ror_trajectory.csv``:
 
     ===================  =======================  =========================================================
     Field                Index                    Description
@@ -445,7 +445,6 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "build_klien_hydro_trajectory_at",
             run="AT_KN2040",
-            clusters="adm",
         )
 
     configure_logging(snakemake)

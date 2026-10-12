@@ -96,7 +96,7 @@ def constraint_national_co2_budgets(
             lhs.append(port_emissions)
 
         # Aviation demand
-        country_year = (ct, snakemake.params.energy_year)
+        country_year = (ct, snakemake.params.energy_totals_year)
         energy_totals = pd.read_csv(snakemake.input.energy_totals, index_col=[0, 1])
         aviation_domestic = energy_totals.loc[country_year, "total domestic aviation"]
         aviation_international = energy_totals.loc[

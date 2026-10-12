@@ -22,7 +22,7 @@ Austrian half of their section energy ends up in the Austrian targets.
 Outputs
 -------
 
-- ``resources/hydro_inflow_targets_{clusters}.csv``:
+- ``resources/hydro_inflow_targets.csv``:
 
     ===================  ================  =========================================================
     Field                Index             Description
@@ -33,7 +33,7 @@ Outputs
     inflow               bus, carrier      Target inflow energy of the weather year in MWh
     ===================  ================  =========================================================
 
-- ``resources/hydro_catchment_regions_{clusters}.csv``:
+- ``resources/hydro_catchment_regions.csv``:
 
     ===================  ================  =========================================================
     Field                Index             Description
@@ -775,7 +775,7 @@ def select_hydro_plants(
     Parameters
     ----------
     ppl
-        Calibrated powerplants table (``powerplants_s_{clusters}.csv``) with
+        Calibrated powerplants table (``powerplants.csv``) with
         ``Name``, ``Country``, ``Fueltype``, ``Technology``, ``Capacity`` and
         ``bus`` columns, plus ``lat`` / ``lon`` / ``plz`` where available.
     grenzkraftwerke
@@ -1213,7 +1213,6 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "build_hydro_inflow_targets_at",
             run="AT_KN2040",
-            clusters="adm",
         )
 
     configure_logging(snakemake)

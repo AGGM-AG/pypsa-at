@@ -107,7 +107,7 @@ def add_phs_hydro(
     p = snakemake.params.renewable["hydro"].copy()
     renewable_carriers = set(snakemake.params.electricity["renewable_carriers"])
     carriers = p.pop("carriers", [])
-    year = int(snakemake.wildcards.planning_horizons)
+    year = int(snakemake.wildcards.horizon)
     is_base_year = year == min(snakemake.params.planning_horizons)
 
     if "hydro" in renewable_carriers:
@@ -401,7 +401,7 @@ def add_ror_vintages(
         The pre-network to be modified in place.
     snakemake
         The Snakemake workflow object; ``input.trajectories`` and
-        ``input.klien_ror_trajectory`` are read, ``wildcards.planning_horizons``
+        ``input.klien_ror_trajectory`` are read, ``wildcards.horizon``
         gives the year.
     costs
         Processed cost DataFrame for the current planning horizon.
@@ -412,7 +412,7 @@ def add_ror_vintages(
         Yield factor per added vintage, indexed by generator name; empty when
         no vintage was added.
     """
-    year = int(snakemake.wildcards.planning_horizons)
+    year = int(snakemake.wildcards.horizon)
     fleet = n.generators[
         (n.generators.carrier == "ror") & ~n.generators.p_nom_extendable
     ]

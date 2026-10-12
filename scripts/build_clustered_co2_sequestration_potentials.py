@@ -3,8 +3,7 @@
 # SPDX-License-Identifier: MIT
 """
 Build regionalised geological sequestration potential for carbon dioxide using
-data from [CO2Stop](https://setis.ec.europa.eu/european-co2-storage-
-database_en).
+data from [CO2Stop](https://setis.ec.europa.eu/european-co2-storage-database_en).
 """
 
 import logging
@@ -43,7 +42,9 @@ if __name__ == "__main__":
         from scripts._helpers import mock_snakemake
 
         snakemake = mock_snakemake(
-            "build_clustered_co2_sequestration_potentials", clusters="adm"
+            "build_clustered_co2_sequestration_potentials",
+            run="AT_KN2040",
+            configfiles=["config/test/config.at10.yaml"],
         )
 
     configure_logging(snakemake)
@@ -53,9 +54,9 @@ if __name__ == "__main__":
 
     gdf = gpd.read_file(snakemake.input.sequestration_potential)
 
-    regions = gpd.read_file(snakemake.input.regions_offshore)
+    regions = gpd.read_file(snakemake.input.offshore_regions)
     if cf["include_onshore"]:
-        onregions = gpd.read_file(snakemake.input.regions_onshore)
+        onregions = gpd.read_file(snakemake.input.onshore_regions)
         regions = pd.concat([regions, onregions]).dissolve(by="name").reset_index()
 
     s = allocate_sequestration_potential(

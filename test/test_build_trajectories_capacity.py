@@ -137,7 +137,7 @@ def test_build_trajectories_klien_ror_at(nc: NetworkCollection) -> None:
     """
     Tests whether the AT ror upper bounds in trajectories_{cluster}.csv match the KLIEN corridor.
 
-    The corridor is the klien_ror_trajectory_{clusters}.csv resource file built by
+    The corridor is the klien_ror_trajectory.csv resource file built by
     ``build_klien_hydro_trajectory_at``, one row per Austrian region and horizon. The
     base planning horizon keeps its national PEMMDB row and is therefore not compared.
     """

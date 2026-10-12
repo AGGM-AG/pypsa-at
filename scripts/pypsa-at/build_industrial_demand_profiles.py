@@ -301,9 +301,6 @@ if __name__ == "__main__":
             "build_industrial_demand_profiles_at",
             run="AT_KN2040",
             configfiles="config/test/config.at10.yaml",
-            clusters="adm",
-            opts="",
-            sector_opts="none",
         )
     configure_logging(snakemake)
     set_scenario_config(snakemake)

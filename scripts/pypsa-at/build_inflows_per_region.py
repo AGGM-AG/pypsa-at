@@ -38,10 +38,7 @@ if __name__ == "__main__":
     if "snakemake" not in globals():
         snakemake = mock_snakemake(
             "build_inflows_per_region",
-            opts="",
-            clusters="adm",
             # configfiles="config/test/config.at10.yaml",
-            sector_opts="none",
             run="AT_KN2040",
         )
 

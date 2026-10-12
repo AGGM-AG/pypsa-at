@@ -1099,7 +1099,7 @@ def overwrite_powerplants(snakemake):
         # 10 MW or less, so curated plants must be appended after it
         ppl_overwrite = add_kleinwasserkraft_to_power_plants_at(
             ppl_overwrite,
-            anlagenregister_plants_file=snakemake.input.anlagenregister_plants,
+            anlagenregister_plants_file=snakemake.input.anlagenregister,
             postal_to_nuts_file=snakemake.input.postal_to_nuts,
             clustering=snakemake.params.clustering,
             postal_centroids_file=snakemake.input.postal_centroids,
@@ -1141,12 +1141,6 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "overwrite_powerplants_at",
-            simpl="",
-            clusters="adm",
-            opts="",
-            ll="v1.25",
-            sector_opts="none",
-            planning_horizons="2025",
             run="AT_KN2040",
         )
 

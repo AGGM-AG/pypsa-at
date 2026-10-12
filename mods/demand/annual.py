@@ -50,7 +50,7 @@ def apply_annual_demand_overrides(n: pypsa.Network, snakemake: Snakemake) -> Non
         Updates the network in place.
     """
     cfg = snakemake.params.annual_demand_overrides
-    year = int(snakemake.wildcards.planning_horizons)
+    year = int(snakemake.wildcards.horizon)
     if not cfg["enable"] or year not in cfg["target_years"]:
         return
 

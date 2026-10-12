@@ -67,7 +67,7 @@ def main(snakemake: Snakemake) -> None:
     result = combine_district_heat_share(
         district_heat_share,
         urban_fraction_at,
-        snakemake.wildcards.planning_horizons,
+        snakemake.wildcards.horizon,
     )
     result.to_csv(snakemake.output.district_heat_share)
 
@@ -78,8 +78,7 @@ if __name__ == "__main__":
     if "snakemake" not in globals():
         snakemake = mock_snakemake(
             "modify_district_heat_share_at",
-            clusters="adm",
-            planning_horizons="2025",
+            horizon="2025",
             run="AT_KN2040",
         )
     configure_logging(snakemake)

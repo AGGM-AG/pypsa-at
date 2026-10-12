@@ -29,6 +29,14 @@ Grid Management AG).
 - `rules/` (except `rules/pypsa-at/`)
 - `config/config.default.yaml`, `config/config.de.yaml`
 
+Edits in upstream files encapsulate PyPSA-AT code with inline comments: 
+```python
+# --- START: Block Maintained by PyPSA-AT ---
+# Context on the Hotfix: explain the why and the context
+...  # ← critical hotfixes in upstream file
+# --- END: Block Maintained by PyPSA-AT ---
+```
+
 ---
 
 ## Configuration Stack (last wins)
@@ -46,7 +54,7 @@ config.at.yaml ← work here  (AT10 default configuration)
 ↓
 plotting.at.yaml       (AT tech_colors overlay — last word on plotting)
 ↓
-scenarios.manual.yaml  (stakeholder overrides, via run.scenarios.manual_file)
+scenarios.manual.yaml  (stakeholder overrides, via run.scenarios.file)
 ```
 
 `config/config.sysgf.yaml` (+ `config/scenarios.sysgf.yaml`) is a standalone
@@ -57,29 +65,37 @@ variant passed via `--configfile`; it is not part of the default stack.
 Every new feature section in `config/config.at.yaml` (e.g. a block under `mods:`) carries
 a boolean `enable` key as its first entry. The Python orchestrator in `mods/` guards on it
 and returns early when `false` — the Snakemake DAG must not depend on it. New features
-default to `enable: true`. Declare the key as `enable: bool` in the matching
-`scripts/lib/validation/config/*.py` model and run `pixi run generate-config`.
+default to `enable: true`.
 
 ## Workflow & DAG Phases
 
+```
 retrieve
 ↓
-build_electricity
+build_electricity   (+ AT overrides: OSM line filter, base network, NUTS3 shapes,
+↓                     power plants, hydro inflow, costs, capacity trajectories)
+build_sector        (+ AT overrides: gas network, heat demand, energy balances, transport)
 ↓
-build_sector
-↓
-modify ← most Austria-specific model changes happen here
-↓
+compose             ← most Austria-specific model changes happen here
+↓                     (compose_network_at, one job per {horizon})
 solve
 ↓
 postprocess
 ↓
-evals
+evals + validate    (all_at: export_evaluation_pypsa_at, validate_pypsa_at)
+```
+
+Upstream composes the network in a single `compose_network` rule. 
+The AT orchestrators `prepare_sector_network` and `modify_prenetwork` from 
+`mods/` are called inside `scripts/compose_network.py`.
 
 ### Key filenames not obvious from context
 
-- `rules/pypsa-at/` — AT rules, one file per DAG phase: `retrieve.smk`, `build.smk`,
-  `build_electricity.smk`, `build_sector.smk`, `modify.smk`, `solve.smk`, `collect.smk`
+- `rules/pypsa-at/` — AT rules, named after the upstream file they extend or override:
+  `rules/pypsa-at/<name>.smk` ↔ `rules/<name>.smk` (`retrieve`, `build_electricity`,
+  `build_sector`, `compose`, `solve`, `collect`). Each is included after its upstream
+  counterpart. New AT rules go into the file of the phase whose upstream rules they
+  replace or feed; do not add AT files without an upstream counterpart
 - `rules/pypsa-at/collect.smk` — defines `rule all_at`, the `default_target` of the workflow
 - `mods/` is a package tree, not flat modules: `mods/__init__.py` (re-exports every
   orchestrator), `mods/clustering/`, `mods/constraints/`, `mods/demand/`, `mods/network/`,
@@ -89,38 +105,15 @@ evals
 
 ### Wildcard Constraints
 
-Global wildcard constraints are defined at the top of `Snakefile` (not in config):
+The only global wildcard constraint is defined at the top of `Snakefile` (not in config):
 
 ```python
 wildcard_constraints:
-    clusters=r"[0-9]+(m|c)?|all|adm",    # e.g. 50, 10m, 5c, all, adm
-    opts=r"[-+a-zA-Z0-9\.]*",            # electricity network options
-    sector_opts=r"[-+a-zA-Z0-9\.\s]*",   # sector-coupling options
-    planning_horizons=r"[0-9]{4}",       # e.g. 2030, 2040, 2050
+    horizon=r"[0-9]{4}",    # planning horizon, e.g. 2030, 2040, 2050
 ```
 
-`config/config.default.yaml` carries the PyPSA-Eur defaults (`clusters: [50]`,
-`sector_opts: [""]`, `planning_horizons: [2050]`). The values that actually apply
-come from `config/config.at.yaml` under `scenario:`:
-
-```yaml
-scenario:
-  ll:
-  - v1.25
-  clusters:
-  - adm
-  opts:
-  - ''
-  sector_opts:
-  - none
-  planning_horizons:
-  - 2025
-  - 2030
-  - 2040
-  ...
-```
-
-**Adding new wildcards is strongly discouraged — it is rarely needed.** If you think you need one, you probably don't. Exhaust all alternatives first and discuss with the team before introducing any new wildcard.
+**Never add new wildcards** If you think you need one, you probably don't. 
+Exhaust all alternatives first and discuss with the team before introducing any new wildcard.
 
 ### Snakemake
 
@@ -136,7 +129,8 @@ Rule functions from `rules/common.smk`:
 
 - `config_provider(*keys, default=None)` - access configuration in Snakemake rules
 - `dataset_version(name, ...)` - resolve a dataset URL/version from `data/versions.csv`
-- `solver_threads(w)`, `memory(w)` - resource callables for `solve` rules
+- `solver_threads(w)` - resource callable for `solve` rules
+- `cost_year(w)`, `solved_previous_horizon(w)` - per-horizon inputs for myopic runs
 - `input_cutout(wildcards, cutout_names="default")` - resolve cutout inputs
 
 Additional relevant Snakemake rule functions:
@@ -146,8 +140,9 @@ Additional relevant Snakemake rule functions:
 ## Common Commands
 
 ```bash
-# Pull latest before anything
+# before anything: Pull latest and sync with main
 git fetch --all && git pull && git merge origin/main
+# situational: resolve obvious conflicts but escalate non-obvious cases to the user
 
 # Dry-run (show plan, no execution)
 pixi run snakemake -n -c1 -p
@@ -181,7 +176,8 @@ pixi run pytest -m "AT" --result-path="results/{prefix}/{scenario}"  # PyPSA-AT 
 # Generate workflow DAGs (Rules and Files)
 pixi run snakemake rulegraph --cores 1
 pixi run snakemake filegraph --cores 1
-pixi run update-dags                   # regenerate all_at-{rule,file}graph.png
+pixi run update-dags                   # regenerate all_at-{rule,file}graph.png in the repo root
+                                       # (move the rulegraph to docs-at/assets/ for the docs)
 
 # Regenerate config defaults + JSON schema after touching scripts/lib/validation
 pixi run generate-config
@@ -208,7 +204,10 @@ When adding Austrian-specific network modifications:
 
 1. Add business logic to `mods/`. Separate complex logic in functions and collect them in one orchestrator.
 2. Register orchestrator in `mods/__init__.py`
-3. Call from relevant Snakemake script
+3. Call it from the relevant script. Changes to the composed network belong in the existing
+   `prepare_sector_network` or `modify_prenetwork` orchestrators, which
+   `scripts/compose_network.py` already calls inside a PyPSA-AT block. Do not add new hooks
+   to upstream scripts; extra inputs/params go into `rules/pypsa-at/compose.smk`
 4. Add tests under `test/test_mods/` — mirror the `mods/` package layout
    (`test/test_mods/network/`, `.../constraints/`, `.../demand/`, `.../clustering/`)
 
@@ -245,12 +244,12 @@ buttons, Plotly charts, Marimo notebooks, footnotes, cross-references via `[text
 
 Tests live in `test/`. Shared fixtures and `--result-path` are defined in `test/conftest.py`.
 
-| Location            | Covers                                                         |
-|---------------------|----------------------------------------------------------------|
-| `test/test_mods/`   | `mods/` — mirrors the package layout |
-| `test/test_evals/`  | `evals/*.py` modules (not views or plots)                       |
-| `test/test_*.py`    | `scripts/pypsa-at/` scripts, config schema, data versions layer |
-| `test/test_data/`   | Test fixtures data                                              |
+| Location            | Covers                                                          |
+|---------------------|-----------------------------------------------------------------|
+| `test/test_mods/`   | `mods/` — mirrors the package layout, plus its own `conftest.py` |
+| `test/test_evals/`  | `evals/*.py` modules (not views or plots)                        |
+| `test/test_*.py`    | `scripts/pypsa-at/` scripts, config schema, data versions layer  |
+| `test/test_data/`   | Test fixtures data                                               |
 
 A few top-level files (`test_base_network.py`, `test_build_shapes.py`,
 `test_build_powerplants.py`) come from upstream — treat them like other upstream code.
@@ -283,45 +282,21 @@ pixi run pytest test/test_mods/ --result-path=results/{prefix}/{scenario}
   Skip the entry if there are no behavioral changes (e.g. refactoring, file relocations,
   dataset registry housekeeping, tooling, docs)
 - Fill in `.github/pull_request_template.md`; its checklist is the source of truth:
-  tests pass, docs updated, changelog entry, Sourcery Bot suggestions addressed,
-  config changes reflected in `scripts/lib/validation`, new rules documented in `docs-at/`
+  tested locally, code and workflow changes documented, changelog entry for added logic only, 
+  AI-generated content marked, data-source instructions followed for new datasets
 - `pre-commit` runs ruff, ruff-format, codespell, snakefmt, yaml formatting, and no commits to main branch
 
 ## Conventions & Key Patterns
 
-- Each `scripts/**/*.py` maps 1:1 to a rule name in `rules/**/*.smk`
+- Each `scripts/pypsa-at/*.py` maps 1:1 to a rule name in `rules/pypsa-at/*.smk`.
+  Exceptions: AT rules that override upstream rules (`use rule ... as ..._at`) keep the
+  upstream script (e.g. `compose_network_at` runs `scripts/compose_network.py`), and
+  `additional_functionality.py` is loaded via `custom_extra_functionality` in `config.at.yaml`
 - `inputs`/`outputs`/`params` come via the `snakemake` object
-- Import one orchestrator function from `mods/` per Python script in `scripts/`
+- Import one orchestrator function from `mods/` per Python script in `scripts/pypsa-at/`
 - Let the Snakemake workflow fail early on missing input (do not catch exceptions to raise warnings, just fail)
 - Prefer f-strings over %s whenever possible, especially during logging
 - Keep Snakemake simple: implement guard logic in Python scripts (The DAG should not depend on the config).
-
-### Docstrings
-
-- NumPy style throughout; mkdocstrings renders them (`docstring_style: numpy` in `mkdocs.yml`).
-- No types in docstrings. Types come from the function signature, so parameter and
-  return lines carry only a description.
-- The `Returns` section uses a bare colon as the type placeholder, followed by the
-  description on an indented new line:
-
-```python
-def scale(values: pd.Series, factor: float) -> pd.Series:
-    """
-    Scale a series by a constant factor.
-
-    Parameters
-    ----------
-    values
-        The series to scale.
-    factor
-        Multiplier applied to every entry.
-
-    Returns
-    -------
-    :
-        The scaled series.
-    """
-```
 
 ## Data Versions
 
@@ -336,7 +311,7 @@ To add or bump a dataset: add a row to `data/versions.csv` (both `primary` and
 
 ## Common Gotchas
 
-- Tests that use the ``nc`` NetworkCollection fixture automatically become marked with the `AT` pytest mark
+- Tests marked with `AT` require the ``--result-path`` argument to load solved networks
 - `mods` subpackages are imported through `mods/__init__.py` re-exports — a new
   orchestrator is invisible to `scripts/` until it is added to `__all__` there
 - Scripts under `scripts/pypsa-at/` live in a hyphenated directory (not a valid Python

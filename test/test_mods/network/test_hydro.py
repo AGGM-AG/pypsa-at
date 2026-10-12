@@ -275,7 +275,7 @@ class TestRorVintages:
         )
         rows.to_csv(klien, index=False)
         return SimpleNamespace(
-            wildcards=SimpleNamespace(planning_horizons="2030"),
+            wildcards=SimpleNamespace(horizon="2030"),
             input=SimpleNamespace(
                 trajectories=str(trajectories), klien_ror_trajectory=str(klien)
             ),
@@ -319,7 +319,7 @@ class TestRorVintages:
 
         n = self._network()
         sm = self._snakemake(tmp_path)
-        sm.wildcards.planning_horizons = "2025"
+        sm.wildcards.horizon = "2025"
         ror_yield = add_ror_vintages(n, sm, self._costs())
 
         assert ror_yield.empty
