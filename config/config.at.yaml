@@ -329,7 +329,8 @@ solving:
       user_objective_scale: -1
     gurobi-default:
       Seed: 123
-      crossover: 1
+      crossover: -1
+      BarConvTol: 1.e-8
 
 mods:
 
