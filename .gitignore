@@ -121,6 +121,5 @@ doc/img/intro-workflow.svg
 # PyPSA-AT specific
 !/data/pypsa-at/
 .marimo/*
-!.marimo/know-how
 __marimo__/
 public
