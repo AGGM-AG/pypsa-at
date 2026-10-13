@@ -11,8 +11,6 @@ import logging
 import pypsa
 
 # --- START: Block Maintained by PyPSA-AT ----------
-from snakemake.iocontainers import Namedlist
-
 from mods import (
     modify_prenetwork as apply_pypsa_at_modifications,
 )
@@ -109,13 +107,7 @@ if __name__ == "__main__":
     )
 
     if foresight != "overnight" and is_first_horizon:
-        # --- START: Block Maintained by PyPSA-AT ----------
-        # existing capacities use the AT patched powerplants, add_electricity does not
-        existing_inputs = Namedlist(
-            fromdict={**dict(inputs.items()), "powerplants": inputs.powerplants_at}
-        )
-        add_existing_capacities(n, existing_inputs, params, costs)
-        # --- END: Block Maintained by PyPSA-AT ----------
+        add_existing_capacities(n, inputs, params, costs)
         if foresight == "myopic":
             adjust_renewable_capacity_limits(
                 n, str(current_horizon), renewable_carriers

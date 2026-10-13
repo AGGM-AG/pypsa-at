@@ -1,11 +1,9 @@
-import importlib
 from types import SimpleNamespace
 
+import build_statistik_at_regions as regions
 import geopandas as gpd
 import pandas as pd
 import pytest
-
-regions = importlib.import_module("scripts.pypsa-at.build_statistik_at_regions")
 
 
 @pytest.fixture

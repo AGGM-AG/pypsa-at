@@ -32,6 +32,8 @@ def get_compose_inputs_at(w):
         powerplants=resources("powerplants.csv"),
         inflow=resources("inflow_per_region.nc"),
         hydro_capacities=ancient("data/hydro_capacities.csv"),
+        trajectories=resources("trajectories.csv"),
+        klien_ror_trajectory=resources("klien_ror_trajectory.csv"),
         industrial_demand_profiles=(
             resources("industrial_demand_profiles.csv")
             if config_provider("industry", "demand_profiles", "enable")(w)
@@ -42,9 +44,6 @@ def get_compose_inputs_at(w):
             if config_provider("industry", "annual_demand_overrides", "enable")(w)
             else []
         ),
-        # former add_existing_baseyear_at: patched power plants for the
-        # existing capacities only, add_electricity keeps the upstream file
-        powerplants_at=resources("powerplants-overwrite.csv"),
         # former modify_prenetwork_at
         tyndp_trajectories=(
             resources("tyndp_trajectories.csv")
@@ -89,6 +88,7 @@ def get_compose_inputs_at(w):
             "mods/network/onwind.py",
             "mods/network/potentials.py",
             "mods/network/trajectories.py",
+            "mods/constraints/trajectories.py",
             "mods/demand/annual.py",
             "mods/demand/electricity.py",
             "mods/demand/heat_demand.py",
@@ -113,6 +113,7 @@ use rule compose_network as compose_network_at with:
         exclude_carriers=config_provider("clustering", "exclude_carriers"),
         carrier_to_load_mapping=config_provider("demand", "carrier_to_load_mapping"),
         annual_demand_overrides=config_provider("industry", "annual_demand_overrides"),
+        update_hydro_capacities_AT=config_provider("mods", "update_hydro_capacities_AT"),
         # former modify_prenetwork_at
         klien_potential_limits_technologies=config_provider(
             "mods", "klien_potential_limits", "technologies"

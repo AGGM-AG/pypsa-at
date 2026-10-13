@@ -51,6 +51,19 @@ if KLIEN_POTENTIALS["source"] == "build":
         script:
             scripts("pypsa-at/build_klien_potentials.py")
 
+    rule retrieve_klien_hydro_pathway:
+        input:
+            csv=storage(f"{KLIEN_POTENTIALS['url']}/hydro/Hydro_EEPOT.csv"),
+            geojson=storage(f"{KLIEN_POTENTIALS['url']}/hydro/hydro_EEPOT_W23.geojson"),
+        output:
+            csv=f"{KLIEN_POTENTIALS['folder']}/catchments_hydro.csv",
+            geojson=f"{KLIEN_POTENTIALS['folder']}/catchments_hydro.geojson",
+        message:
+            "Retrieving the KLIEN hydropower catchments and pathway (GTIF Austria)"
+        run:
+            for key in input.keys():
+                copy2(input[key], output[key])
+
 elif KLIEN_POTENTIALS["source"] == "archive":
 
     rule retrieve_klien_potentials:
@@ -58,14 +71,20 @@ elif KLIEN_POTENTIALS["source"] == "archive":
             nuts3_buildings=storage(f"{KLIEN_POTENTIALS['url']}/nuts3_pv_buildings.csv"),
             nuts3_ground=storage(f"{KLIEN_POTENTIALS['url']}/nuts3_pv_ground.csv"),
             nuts3_wind=storage(f"{KLIEN_POTENTIALS['url']}/nuts3_wind.csv"),
+            hydro_pathway=storage(f"{KLIEN_POTENTIALS['url']}/catchments_hydro.csv"),
+            hydro_catchments=storage(
+                f"{KLIEN_POTENTIALS['url']}/catchments_hydro.geojson"
+            ),
         output:
             nuts3_buildings=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_buildings.csv",
             nuts3_ground=f"{KLIEN_POTENTIALS['folder']}/nuts3_pv_ground.csv",
             nuts3_wind=f"{KLIEN_POTENTIALS['folder']}/nuts3_wind.csv",
+            hydro_pathway=f"{KLIEN_POTENTIALS['folder']}/catchments_hydro.csv",
+            hydro_catchments=f"{KLIEN_POTENTIALS['folder']}/catchments_hydro.geojson",
         log:
             logs_shared("retrieve_klien_potentials.log"),
         message:
-            "Retrieving pre-aggregated KLIEN potentials (PV + wind) from archive"
+            "Retrieving pre-aggregated KLIEN potentials (PV, wind, hydro) from archive"
         run:
             for key in input.keys():
                 copy2(input[key], output[key])
@@ -172,6 +191,53 @@ if STATISTIK_AT_REGIONS["source"] in ["primary", "archive"]:
             "Retrieving Statistik Austria municipality register"
         run:
             copy2(input["ods"], output["ods"])
+
+
+if ECONTROL["source"] in ["primary", "archive"]:
+    # e-control.at spreads the files over two document folders, the Zenodo mirror is flat
+    ECONTROL_FILES = {
+        "typ": f"1811756/BeStGes-{ECONTROL['version']}_KW2EPLTyp.xlsx",
+        "kwepl": "1811756/BeStGes-JR_KWEPL.xlsx",
+        "bilanz": "1811609/BStGes-JR1_Bilanz.xlsx",
+    }
+
+    rule retrieve_econtrol:
+        input:
+            **{
+                key: storage(
+                    f"{ECONTROL['url']}/"
+                    + (path if ECONTROL["source"] == "primary" else Path(path).name)
+                )
+                for key, path in ECONTROL_FILES.items()
+            },
+        output:
+            **{
+                key: f"{ECONTROL['folder']}/{Path(path).name}"
+                for key, path in ECONTROL_FILES.items()
+            },
+        message:
+            "Retrieving E-Control Bestandsstatistik and Betriebsstatistik (capacity and generation by plant type)"
+        run:
+            for key in ECONTROL_FILES:
+                copy2(input[key], output[key])
+
+
+if GEONAMES_POSTAL_CODES_AT["source"] == "primary":
+
+    rule retrieve_geonames_postal_codes_at:
+        input:
+            zip_file=storage(GEONAMES_POSTAL_CODES_AT["url"]),
+        output:
+            postal_codes=f"{GEONAMES_POSTAL_CODES_AT['folder']}/AT.txt",
+        message:
+            "Retrieving GeoNames postal code centroids for Austria"
+        run:
+            with ZipFile(input["zip_file"]) as archive:
+                with (
+                    archive.open("AT.txt") as src,
+                    open(output["postal_codes"], "wb") as dst,
+                ):
+                    dst.write(src.read())
 
 
 rule retrieve_heat_demand_at:

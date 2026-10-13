@@ -13,6 +13,7 @@ RESOURCE_META = {
     "open_tyndp_hydro": f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows",
     "powerplants": resources("powerplants.csv"),
     "onwind_brownfield": resources("onwind_brownfield_at.csv"),
+    "klien_ror_trajectory": resources("klien_ror_trajectory.csv"),
     "aggm_gas_pipeline_data": resources("gas_network_clustered.csv"),
     "industrial_demand_profiles": resources("industrial_demand_profiles.csv"),
     "industrial_demand_overrides": resources("industrial_demand_overrides.csv"),

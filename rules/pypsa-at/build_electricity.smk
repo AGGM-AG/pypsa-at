@@ -41,12 +41,21 @@ rule patch_powerplants_set_at:
         scripts("pypsa-at/patch_powerplants_set_at.py")
 
 
+# Overrides upstream build_powerplants for two reasons:
+# 1. input: the Set-patched ppm table from patch_powerplants_set_at, which must
+#    run before build_powerplants applies powerplants_filter (the filter would
+#    drop the mis-tagged German lignite units for good).
+# 2. output: a "-raw" file that overwrite_powerplants_at post-processes into the
+#    final powerplants.csv, so every downstream rule (upstream and AT) reads the
+#    calibrated fleet without being redirected.
 use rule build_powerplants as build_powerplants_at with:
     input:
         **{
             **rules.build_powerplants.input,
             "powerplants": rules.patch_powerplants_set_at.output["powerplants"],
         },
+    output:
+        resources("powerplants-raw.csv"),
 
 
 ruleorder: build_powerplants_at > build_powerplants
@@ -409,23 +418,43 @@ rule modify_nuts3_shapes:
 ruleorder: modify_nuts3_shapes > build_nuts3_shapes  # AT wins for the final nuts3_shapes.geojson
 
 
+ruleorder: overwrite_powerplants_at > build_powerplants  # AT wins for the final .csv
+
+
 # Overwrite attributes in the power plants resource CSV file
 rule overwrite_powerplants_at:
     input:
-        powerplants=resources("powerplants.csv"),
+        powerplants=resources("powerplants-raw.csv"),
         anlagenregister=f"{ANLAGENREGISTER['folder']}/anlagenregister_plants.csv",
         postal_to_nuts="data/pypsa-at/AT-Postal-to-NUTS.csv",
+        postal_centroids=f"{GEONAMES_POSTAL_CODES_AT['folder']}/AT.txt",
+        hydro_duplicates="data/pypsa-at/hydro_duplicate_plants_AT.csv",
+        hydro_reclassification="data/pypsa-at/hydro_technology_reclassification_AT.csv",
+        grenzkraftwerke="data/pypsa-at/grenzkraftwerke_AT.csv",
+        missing_hydro_plants="data/pypsa-at/missing_hydro_plants_AT.csv",
+        bestandsstatistik_typ=f"{ECONTROL['folder']}/BeStGes-{ECONTROL['version']}_KW2EPLTyp.xlsx",
+        klien_catchments=f"{KLIEN_POTENTIALS['folder']}/catchments_hydro.geojson",
+        catchment_corrections="data/pypsa-at/hydro_catchment_corrections_AT.csv",
+        diversion_overrides="data/pypsa-at/hydro_diversion_overrides_AT.csv",
+        regions_onshore=resources("onshore_regions.geojson"),
     output:
-        powerplants=resources("powerplants-overwrite.csv"),
+        powerplants=resources("powerplants.csv"),
         biogas_plants=resources("biogas_plants_at.csv"),
+        residual_plants=resources("hydro_residual_plants.csv"),
     log:
-        logs("powerplants-overwrite.log"),
+        logs("overwrite_powerplants.log"),
     threads: 1
     resources:
-        mem_mb=1000,
+        mem_mb=4000,
     params:
         add_biogas_to_power_plants_AT=config_provider(
             "mods", "existing_capacities", "add_biogas_to_power_plants_AT"
+        ),
+        update_hydro_capacities_AT=config_provider(
+            "mods", "update_hydro_capacities_AT", "enable"
+        ),
+        klien_residual_plants=config_provider(
+            "mods", "update_hydro_capacities_AT", "klien_residual_plants"
         ),
         threshold_capacity=config_provider("existing_capacities", "threshold_capacity"),
         clustering=config_provider("mods", "modify_nuts3_shapes"),
@@ -566,6 +595,7 @@ if (OPEN_TYNDP_DATASET := dataset_version("tyndp"))["source"] in [
         input:
             powerplants=resources("powerplants.csv"),
             hydro_inflows=f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows",
+            hydro_inflow_targets=resources("hydro_inflow_targets.csv"),
             costs=lambda w: resources(f"costs_{at_cost_year(w)}_processed.csv"),
         output:
             totals=resources("inflow_totals_per_region.csv"),
@@ -612,6 +642,66 @@ rule build_inflows_per_region:
         scripts("pypsa-at/build_inflows_per_region.py")
 
 
+rule build_hydro_inflow_targets_at:
+    input:
+        powerplants=resources("powerplants.csv"),
+        regions_onshore=resources("onshore_regions.geojson"),
+        klien_catchments=f"{KLIEN_POTENTIALS['folder']}/catchments_hydro.geojson",
+        diversion_overrides="data/pypsa-at/hydro_diversion_overrides_AT.csv",
+        catchment_corrections="data/pypsa-at/hydro_catchment_corrections_AT.csv",
+        grenzkraftwerke="data/pypsa-at/grenzkraftwerke_AT.csv",
+        econtrol_annual=f"{ECONTROL['folder']}/BStGes-JR1_Bilanz.xlsx",
+        econtrol_capacity=f"{ECONTROL['folder']}/BeStGes-JR_KWEPL.xlsx",
+    output:
+        targets=resources("hydro_inflow_targets.csv"),
+        catchment_regions=resources("hydro_catchment_regions.csv"),
+    log:
+        logs("hydro_inflow_targets.log"),
+    benchmark:
+        benchmarks("hydro_inflow_targets")
+    resources:
+        mem_mb=4000,
+    params:
+        update_hydro_capacities_AT=config_provider(
+            "mods", "update_hydro_capacities_AT", "enable"
+        ),
+        snapshots=config_provider("snapshots"),
+        drop_leap_day=config_provider("enable", "drop_leap_day"),
+    message:
+        "Building KLIEN-calibrated Austrian hydro inflow targets per region"
+    script:
+        scripts("pypsa-at/build_hydro_inflow_targets.py")
+
+
+rule build_klien_hydro_trajectory_at:
+    input:
+        powerplants=resources("powerplants.csv"),
+        klien_hydro_potentials=f"{KLIEN_POTENTIALS['folder']}/catchments_hydro.csv",
+        catchment_regions=resources("hydro_catchment_regions.csv"),
+        hydro_inflow_targets=resources("hydro_inflow_targets.csv"),
+    output:
+        klien_ror_trajectory=resources("klien_ror_trajectory.csv"),
+    log:
+        logs("klien_ror_trajectory.log"),
+    benchmark:
+        benchmarks("klien_ror_trajectory")
+    resources:
+        mem_mb=2000,
+    params:
+        planning_horizons=config_provider("planning_horizons"),
+        update_hydro_capacities_AT=config_provider(
+            "mods", "update_hydro_capacities_AT", "enable"
+        ),
+        klien_ambition=config_provider("mods", "klien_potential_limits", "ambition"),
+        klien_climate_scenario=config_provider(
+            "mods", "klien_potential_limits", "climate_scenario"
+        ),
+    message:
+        "Building the KLIEN run-of-river capacity corridor per AT region"
+    script:
+        scripts("pypsa-at/build_klien_hydro_trajectory_at.py")
+
+
 rule build_capacity_trajectories:
     input:
         hydro_inflows=f"{OPEN_TYNDP_DATASET['folder']}/Hydro Inflows",
@@ -620,6 +710,7 @@ rule build_capacity_trajectories:
             "scripts/_helpers.py",
         ],
         powerplants=resources("powerplants.csv"),
+        klien_ror_trajectory=resources("klien_ror_trajectory.csv"),
         costs=lambda w: resources(f"costs_{at_cost_year(w)}_processed.csv"),
     output:
         trajectories=resources("trajectories.csv"),
@@ -639,6 +730,9 @@ rule build_capacity_trajectories:
         exclude_carriers=config_provider("clustering", "exclude_carriers"),
         admin_levels=config_provider("clustering", "administrative"),
         custom_clustering=config_provider("mods", "modify_nuts3_shapes"),
+        update_hydro_capacities_AT=config_provider(
+            "mods", "update_hydro_capacities_AT", "enable"
+        ),
     message:
         "Building capacity trajectories"
     script:
