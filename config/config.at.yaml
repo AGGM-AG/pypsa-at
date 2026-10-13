@@ -322,6 +322,7 @@ solving:
       threads: 0
       solver: "ipx"
       random_seed: 123
+      run_crossover: 'on'
     "highs-hipo":
       # scaling the LP stabilizes HiPO
       user_bound_scale: -13
