@@ -10,7 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - Scenarios can use different custom clusterings (`mods.modify_nuts3_shapes`, `clustering.administrative`) in one workflow: the KLIEN-weighted onwind profiles apply per run when Austria is clustered at NUTS2, and the clustering config reaches the scripts as rule params
 - CO2 pipelines carry dense-phase CO2 (`sector.co2_network_liquefaction: true`): compression costs and electricity (0.1051 MWh/t) are counted. The cost entry `CO2 dense phase compression` comes from technology-data v0.15.0 (AIT CO2Netz study), converted to EUR2020 in `data/custom_costs.csv` until technology-data is bumped
-- `patch_powerplants_set_at` rule restoring `Set="PP"` on the large German lignite condensing units, which powerplantmatching 0.8.x tags `Set="CHP"` and the inherited PyPSA-DE `powerplants_filter` then drops (19,965 MW → 0 MW of German lignite)
+- `patch_powerplants_set_at` rule restoring `Set="PP"` on the large German lignite condensing units
 
 ### Fixed
 - Retrofitted H2 pipelines no longer double-count Austrian gas pipeline capacity: from 2030 up to the threshold year, gas plus retrofitted H2 capacity per corridor stays at the AGGM target ([#294](https://github.com/AGGM-AG/pypsa-at-planning/issues/294))
@@ -35,6 +35,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Alpha]
 
 ### Added
+- Austrian gas-fired power plant brownfield calibrated against the E-Control Anlagenregister, Bestandsstatistik and Betriebsstatistik ([#214](https://github.com/AGGM-AG/pypsa-at/pull/214))
 - Austrian base electricity load (households, services, agriculture, rail) calibrated to the Statistik Austria NEA (NUTS2) to NUTS3 regions using Energiemosaik ([#213](https://github.com/AGGM-AG/pypsa-at/pull/213))
 - Retrieval of the E-Control Anlagenregister (Strom + Gas, all Bundesländer) via the website search endpoint and NUTS3 aggregation ([#198](https://github.com/AGGM-AG/pypsa-at/pull/198))
 - NUTS2 and NUTS3 administrative clustering with 1H/3H temporal resolution in the myopic workflow ([#55](https://github.com/AGGM-AG/pypsa-at/pull/55))

@@ -437,10 +437,14 @@ rule overwrite_powerplants_at:
         catchment_corrections="data/pypsa-at/hydro_catchment_corrections_AT.csv",
         diversion_overrides="data/pypsa-at/hydro_diversion_overrides_AT.csv",
         regions_onshore=resources("onshore_regions.geojson"),
+        anlagenregister_nuts3=f"{ANLAGENREGISTER['folder']}/anlagenregister_nuts3.csv",
+        gas_overrides="data/pypsa-at/gas_powerplant_overrides_AT.csv",
+        gas_targets=resources("gas_calibration_targets_AT.csv"),
     output:
         powerplants=resources("powerplants.csv"),
         biogas_plants=resources("biogas_plants_at.csv"),
         residual_plants=resources("hydro_residual_plants.csv"),
+        gas_deviations=resources("gas_brownfield_deviations.csv"),
     log:
         logs("overwrite_powerplants.log"),
     threads: 1
@@ -455,6 +459,9 @@ rule overwrite_powerplants_at:
         ),
         klien_residual_plants=config_provider(
             "mods", "update_hydro_capacities_AT", "klien_residual_plants"
+        ),
+        update_gas_capacities_AT=config_provider(
+            "mods", "update_gas_capacities_AT", "enable"
         ),
         threshold_capacity=config_provider("existing_capacities", "threshold_capacity"),
         clustering=config_provider("mods", "modify_nuts3_shapes"),
@@ -758,6 +765,25 @@ if ANLAGENREGISTER["source"] in ("build", "archive"):
             "Aggregating E-Control Anlagenregister plants to NUTS3"
         script:
             scripts("pypsa-at/build_anlagenregister_at.py")
+
+
+rule build_gas_calibration_targets_at:
+    input:
+        bestandsstatistik=f"{ECONTROL['folder']}/BeStGes-JR_KWEPL.xlsx",
+        betriebsstatistik=f"{ECONTROL['folder']}/BStGes-JR1_Bilanz.xlsx",
+    output:
+        targets=resources("gas_calibration_targets_AT.csv"),
+    log:
+        logs("build_gas_calibration_targets_at.log"),
+    benchmark:
+        benchmarks("build_gas_calibration_targets_at")
+    threads: 1
+    resources:
+        mem_mb=1000,
+    message:
+        "Building the E-Control calibration targets for the Austrian gas power plants"
+    script:
+        scripts("pypsa-at/build_gas_calibration_targets_at.py")
 
 
 rule build_onwind_brownfield_at:

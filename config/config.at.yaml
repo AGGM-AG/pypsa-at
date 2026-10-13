@@ -4,7 +4,7 @@
 # For license information, see the LICENSE.txt file in the project root.
 
 run:
-  prefix: hydro-capacities-update-complete
+  prefix: gas-power-plants-brownfield-update
   name:
   - AT_KN2040
   scenarios:
@@ -372,6 +372,11 @@ mods:
   existing_capacities:
     add_biogas_to_power_plants_AT: true # add Austrian biogas-to-power plants from Anlagenregister
                                         # in addition to powerplantmatching
+
+  # calibrate the Austrian gas power plant brownfield against the E-Control
+  # Anlagenregister and statistics; consumed by overwrite_powerplants_at
+  update_gas_capacities_AT:
+    enable: true
 
   # calibrate Austrian hydro power plant capacities per technology and NUTS3
   # region to the deduplicated E-Control Anlagenregister totals
