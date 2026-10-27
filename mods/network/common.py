@@ -289,14 +289,13 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
 
     investment_year = int(snakemake.wildcards.horizon)
     temporal = cfg["clustering"]["temporal"]
-    is_segmented = bool(temporal.get("segmentation"))
-    averaging = temporal.get("averaging")
-    if is_segmented:
+    if is_segmented := temporal.get("segmentation"):
         resolution = None
-    elif averaging:
+    elif averaging := temporal.get("averaging"):
         resolution = int(pd.Timedelta(averaging) / pd.Timedelta(hours=1))
     else:
-        resolution = 1
+        raise RuntimeError(f"Expected averaging or segmentation, got {temporal}")
+
     clustering = cfg["mods"]["modify_nuts3_shapes"]
     # the rebuilt Austrian base load (apply_electricity_base_load) has no
     # negative hours, so the Austrian edge cases only apply without it
