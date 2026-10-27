@@ -259,7 +259,7 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
     """
     Clip negative Loads for selected edge cases.
 
-    This is neccessary, because some electricity demands are calculated
+    This is necessary, because some electricity demands are calculated
     from heuristics. For example, ``heat for electricity`` from
     ``energy_totals`` and population share is deducted from
     regional ``base load``. This can lead to negative Loads if
@@ -281,17 +281,24 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
 
     Raises
     ------
-    RunTimeError
-        If expected edge cases could not be found.
+    RuntimeError
+        If expected edge cases could not be found, or if neither
+        temporal averaging nor segmentation is configured.
 
     """
     cfg = snakemake.config
 
     investment_year = int(snakemake.wildcards.horizon)
-    averaging = cfg["clustering"]["temporal"]["averaging"]
-    resolution = (
-        int(pd.Timedelta(averaging) / pd.Timedelta(hours=1)) if averaging else 1
-    )
+    temporal = cfg["clustering"]["temporal"]
+    if is_segmented := bool(temporal.get("segmentation")):
+        resolution = None
+    elif averaging := temporal.get("averaging"):
+        resolution = int(pd.Timedelta(averaging) / pd.Timedelta(hours=1))
+    else:
+        raise RuntimeError(
+            f"Load clipping supports averaging or segmentation only, got {temporal}"
+        )
+
     clustering = cfg["mods"]["modify_nuts3_shapes"]
     # the rebuilt Austrian base load (apply_electricity_base_load) has no
     # negative hours, so the Austrian edge cases only apply without it
@@ -318,11 +325,31 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
             raise RuntimeError(f"Expected negative electricity Loads for {location}.")
         p_set[columns] = p_set[columns].clip(lower=0)
 
+    def _clip_all_electricity() -> None:
+        is_split = n.loads["carrier"].isin(BASE_LOAD_CARRIERS)
+        if skip_at:
+            is_split &= ~n.loads.index.str.startswith("AT")
+        p_set = n.loads_t["p_set"]
+        columns = p_set.columns.intersection(n.loads.index[is_split])
+        negatives = columns[p_set[columns].lt(0).any()]
+        if negatives.empty:
+            return
+        locations = sorted({name.split(" ")[0] for name in negatives})
+        logger.warning(
+            f"Clipping negative electricity Loads in segmented run at {locations}."
+        )
+        p_set[negatives] = p_set[negatives].clip(lower=0)
+
     # In the reduced at10 test network a few "H2 for industry" negative
     if cfg["run"]["prefix"] == "test-sector-myopic-at10":
         if investment_year < 2030:
             _clip_static("H2 for industry")
         return  # skip any other clipping
+
+    # Segment boundaries follow the input data, so the locations with
+    # negative Loads are not known up front: clip wherever they occur
+    if is_segmented:
+        _clip_all_electricity()
 
     # Edge case: electricity for heat is larger than base load in AT126
     if resolution == 365 and clustering.startswith("AT35"):

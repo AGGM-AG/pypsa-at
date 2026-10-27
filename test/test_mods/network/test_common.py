@@ -141,11 +141,19 @@ def _network_with_negative_loads() -> pypsa.Network:
     return n
 
 
-def _clipping_snakemake(base_load_enabled: bool) -> SimpleNamespace:
+def _clipping_snakemake(
+    base_load_enabled: bool,
+    segmentation: int | bool = False,
+    averaging: str | bool = "24h",
+) -> SimpleNamespace:
+    if segmentation:
+        averaging = False
     return SimpleNamespace(
         config={
             "run": {"prefix": "unit-test"},
-            "clustering": {"temporal": {"averaging": "24h"}},
+            "clustering": {
+                "temporal": {"averaging": averaging, "segmentation": segmentation}
+            },
             "mods": {
                 "modify_nuts3_shapes": "AT35DE5",
                 "electricity_base_load": {"enable": base_load_enabled},
@@ -175,3 +183,37 @@ def test_clipping_raises_without_expected_negative_loads():
         clip_negative_loads_for_edge_cases(
             n, _clipping_snakemake(base_load_enabled=True)
         )
+
+
+def test_clipping_segmented_clips_all_negative_loads():
+    n = _network_with_negative_loads()
+    clip_negative_loads_for_edge_cases(
+        n, _clipping_snakemake(base_load_enabled=False, segmentation=2920)
+    )
+    assert (n.loads_t.p_set >= 0).all().all()
+
+
+def test_clipping_segmented_skips_austrian_loads_with_base_load_override():
+    n = _network_with_negative_loads()
+    clip_negative_loads_for_edge_cases(
+        n, _clipping_snakemake(base_load_enabled=True, segmentation=2920)
+    )
+    assert n.loads_t.p_set["AT126 electricity for residential"].min() == -5.0
+    assert n.loads_t.p_set["IT1 electricity for residential"].min() == 0.0
+
+
+def test_clipping_raises_without_averaging_or_segmentation():
+    n = _network_with_negative_loads()
+    with pytest.raises(RuntimeError, match="averaging or segmentation"):
+        clip_negative_loads_for_edge_cases(
+            n, _clipping_snakemake(base_load_enabled=False, averaging=False)
+        )
+
+
+def test_clipping_segmented_tolerates_no_negative_loads():
+    n = _network_with_negative_loads()
+    n.loads_t.p_set = n.loads_t.p_set.clip(lower=0)
+    clip_negative_loads_for_edge_cases(
+        n, _clipping_snakemake(base_load_enabled=False, segmentation=2920)
+    )
+    assert (n.loads_t.p_set >= 0).all().all()
