@@ -142,9 +142,12 @@ def _network_with_negative_loads() -> pypsa.Network:
 
 
 def _clipping_snakemake(
-    base_load_enabled: bool, segmentation: int | bool = False
+    base_load_enabled: bool,
+    segmentation: int | bool = False,
+    averaging: str | bool = "24h",
 ) -> SimpleNamespace:
-    averaging = False if segmentation else "24h"
+    if segmentation:
+        averaging = False
     return SimpleNamespace(
         config={
             "run": {"prefix": "unit-test"},
@@ -197,6 +200,14 @@ def test_clipping_segmented_skips_austrian_loads_with_base_load_override():
     )
     assert n.loads_t.p_set["AT126 electricity for residential"].min() == -5.0
     assert n.loads_t.p_set["IT1 electricity for residential"].min() == 0.0
+
+
+def test_clipping_raises_without_averaging_or_segmentation():
+    n = _network_with_negative_loads()
+    with pytest.raises(RuntimeError, match="averaging or segmentation"):
+        clip_negative_loads_for_edge_cases(
+            n, _clipping_snakemake(base_load_enabled=False, averaging=False)
+        )
 
 
 def test_clipping_segmented_tolerates_no_negative_loads():

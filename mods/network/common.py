@@ -259,7 +259,7 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
     """
     Clip negative Loads for selected edge cases.
 
-    This is neccessary, because some electricity demands are calculated
+    This is necessary, because some electricity demands are calculated
     from heuristics. For example, ``heat for electricity`` from
     ``energy_totals`` and population share is deducted from
     regional ``base load``. This can lead to negative Loads if
@@ -281,20 +281,23 @@ def clip_negative_loads_for_edge_cases(n: pypsa.Network, snakemake: Snakemake) -
 
     Raises
     ------
-    RunTimeError
-        If expected edge cases could not be found.
+    RuntimeError
+        If expected edge cases could not be found, or if neither
+        temporal averaging nor segmentation is configured.
 
     """
     cfg = snakemake.config
 
     investment_year = int(snakemake.wildcards.horizon)
     temporal = cfg["clustering"]["temporal"]
-    if is_segmented := temporal.get("segmentation"):
+    if is_segmented := bool(temporal.get("segmentation")):
         resolution = None
     elif averaging := temporal.get("averaging"):
         resolution = int(pd.Timedelta(averaging) / pd.Timedelta(hours=1))
     else:
-        raise RuntimeError(f"Expected averaging or segmentation, got {temporal}")
+        raise RuntimeError(
+            f"Load clipping supports averaging or segmentation only, got {temporal}"
+        )
 
     clustering = cfg["mods"]["modify_nuts3_shapes"]
     # the rebuilt Austrian base load (apply_electricity_base_load) has no
