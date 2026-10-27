@@ -20,7 +20,7 @@ run:
     manual_file: config/scenarios.sysgf.yaml
     file: config/scenarios.automated.yaml
   shared_resources:
-    policy: base #stops recalculating
+    policy: false
     exclude:
     - existing_heating.csv   # specify files which should not be shared between scenarios
     - costs
@@ -50,7 +50,7 @@ scenario:
 
 clustering:
   temporal:
-    resolution_sector: 365H
+    averaging: 365h
 
 adjustments:
   electricity: false

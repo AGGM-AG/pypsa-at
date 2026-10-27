@@ -163,7 +163,7 @@ def make_snakemake(table: pd.DataFrame, tmp_path, year=2030, factor=1.2, use_nea
             use_nea_transport_demand=use_nea,
         ),
         input=SimpleNamespace(electricity_base_load_at=str(path)),
-        wildcards=SimpleNamespace(planning_horizons=str(year)),
+        wildcards=SimpleNamespace(horizon=str(year)),
     )
 
 

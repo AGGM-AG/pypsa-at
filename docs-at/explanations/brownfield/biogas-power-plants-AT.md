@@ -41,4 +41,4 @@ In the network this shows as vintage 2005 (the next grouping year) with a remain
 ## Configuration
 
 Enabled via `mods.existing_capacities.add_biogas_to_power_plants_AT` in `config.at.yaml`.
-When disabled, `biogas_plants_at_{clusters}.csv` is empty and no Links are added.
+When disabled, `biogas_plants_at.csv` is empty and no Links are added.

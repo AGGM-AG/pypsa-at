@@ -12,9 +12,18 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import pandas as pd
 import pypsa
-from pypsa.plot import add_legend_circles, add_legend_lines, add_legend_patches
+from pypsa.plot.maps.static import (
+    add_legend_circles,
+    add_legend_lines,
+    add_legend_patches,
+)
 
-from scripts._helpers import configure_logging, retry, set_scenario_config
+from scripts._helpers import (
+    configure_logging,
+    create_placeholder_plot,
+    retry,
+    set_scenario_config,
+)
 from scripts.make_summary import assign_locations
 from scripts.plot_power_network import load_projection
 
@@ -23,8 +32,15 @@ logger = logging.getLogger(__name__)
 
 @retry
 def plot_ch4_map(n):
-    # if "gas pipeline" not in n.links.carrier.unique():
-    #     return
+    # Check if gas infrastructure exists in the network
+    if "gas pipeline" not in n.links.carrier.unique():
+        logger.warning(
+            "No gas pipeline carriers in network. Skipping gas network plot."
+        )
+        create_placeholder_plot(
+            snakemake.output[0], "No gas network\nin model", figsize=(1, 1)
+        )
+        return
 
     assign_locations(n)
 
@@ -240,13 +256,9 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "plot_gas_network",
-            opts="",
-            clusters="adm",
-            # ll="vopt",
-            sector_opts="none",
-            planning_horizons="2030",
-            run="KN2045_Mix",
-            configfiles="config/config.at.yaml",
+            horizon="2030",
+            run="AT_KN2040",
+            configfiles=["config/test/config.at10.yaml"],
         )
 
     configure_logging(snakemake)

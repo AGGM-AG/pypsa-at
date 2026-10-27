@@ -503,10 +503,10 @@ def add_national_co2_budgets(n, snakemake, national_co2_budgets, investment_year
 
         # Aviation demand
         domestic_aviation = energy_totals.loc[
-            (ct, snakemake.params.energy_year), "total domestic aviation"
+            (ct, snakemake.params.energy_totals_year), "total domestic aviation"
         ]
         international_aviation = energy_totals.loc[
-            (ct, snakemake.params.energy_year), "total international aviation"
+            (ct, snakemake.params.energy_totals_year), "total international aviation"
         ]
         domestic_aviation_factor = domestic_aviation / (
             domestic_aviation + international_aviation
@@ -528,10 +528,10 @@ def add_national_co2_budgets(n, snakemake, national_co2_budgets, investment_year
 
         # Shipping oil
         domestic_navigation = energy_totals.loc[
-            (ct, snakemake.params.energy_year), "total domestic navigation"
+            (ct, snakemake.params.energy_totals_year), "total domestic navigation"
         ]
         international_navigation = energy_totals.loc[
-            (ct, snakemake.params.energy_year), "total international navigation"
+            (ct, snakemake.params.energy_totals_year), "total international navigation"
         ]
         domestic_navigation_factor = domestic_navigation / (
             domestic_navigation + international_navigation
@@ -955,7 +955,7 @@ def add_decentral_heat_budgets(n, decentral_heat_budgets, investment_year):
 def additional_functionality(n, snapshots, snakemake):
     logger.info("Adding Ariadne-specific functionality")
 
-    investment_year = int(snakemake.wildcards.planning_horizons[-4:])
+    investment_year = int(snakemake.wildcards.horizon)
     constraints = snakemake.params.solving["constraints"]
 
     add_capacity_limits(
@@ -976,7 +976,7 @@ def additional_functionality(n, snapshots, snakemake):
 
     add_power_limits(n, investment_year, constraints["limits_power_max"])
 
-    if snakemake.wildcards.clusters != "1":
+    if snakemake.params.n_clusters != 1:
         h2_import_limits(n, investment_year, constraints["limits_volume_max"])
 
         electricity_import_limits(n, investment_year, constraints["limits_volume_max"])

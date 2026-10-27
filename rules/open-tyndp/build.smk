@@ -39,12 +39,12 @@ rule build_pemmdb_data:
         pemmdb_dir=rules.retrieve_open_tyndp.output.pemmdb,
         carrier_mapping="data/pypsa-at/tyndp_technology_map.csv",
     output:
-        pemmdb_capacities=resources("pemmdb_capacities_{planning_horizons}.csv"),
-        pemmdb_profiles=resources("pemmdb_profiles_{planning_horizons}.nc"),
+        pemmdb_capacities=resources("pemmdb_capacities_{horizon}.csv"),
+        pemmdb_profiles=resources("pemmdb_profiles_{horizon}.nc"),
     log:
-        logs("build_pemmdb_data_{planning_horizons}.log"),
+        logs("build_pemmdb_data_{horizon}.log"),
     benchmark:
-        benchmarks("build_pemmdb_data/{planning_horizons}")
+        benchmarks("build_pemmdb_data/{horizon}")
     threads: config_provider("electricity", "pemmdb_capacities", "nprocesses", default=4)
     resources:
         mem_mb=16000,
@@ -58,7 +58,7 @@ rule build_pemmdb_data:
         tyndp_scenario=config_provider("mods", "PEMMDB_trajectories", "tyndp_scenario"),
         countries=config_provider("countries"),
     message:
-        "Building PEMMDB v2.4 capacity table and hourly profiles for {wildcards.planning_horizons}"
+        "Building PEMMDB v2.4 capacity table and hourly profiles for {wildcards.horizon}"
     script:
         scripts("open-tyndp/build_pemmdb_data.py")
 
@@ -67,19 +67,19 @@ rule build_tyndp_gas_demand:
     input:
         supply_tool=rules.retrieve_open_tyndp.output.supply_tool,
     output:
-        gas_demand=resources("gas_demand_tyndp_{planning_horizons}.csv"),
+        gas_demand=resources("gas_demand_tyndp_{horizon}.csv"),
     log:
-        logs("build_tyndp_gas_demand_{planning_horizons}.log"),
+        logs("build_tyndp_gas_demand_{horizon}.log"),
     benchmark:
-        benchmarks("build_tyndp_gas_demand/{planning_horizons}")
+        benchmarks("build_tyndp_gas_demand/{horizon}")
     threads: 1
     resources:
         mem_mb=1000,
     params:
         scenario=config_provider("mods", "tyndp_scenario"),
-        planning_horizons=config_provider("scenario", "planning_horizons"),
+        planning_horizons=config_provider("planning_horizons"),
     message:
-        "Building TYNDP gas demand for {wildcards.planning_horizons}"
+        "Building TYNDP gas demand for {wildcards.horizon}"
     script:
         scripts("open-tyndp/build_tyndp_gas_demand.py")
 
@@ -88,11 +88,11 @@ rule build_tyndp_h2_demand:
     input:
         h2_demand=rules.retrieve_open_tyndp.output.demand_profiles,
     output:
-        h2_demand=resources("h2_demand_tyndp_{planning_horizons}.csv"),
+        h2_demand=resources("h2_demand_tyndp_{horizon}.csv"),
     log:
-        logs("build_tyndp_h2_demand_{planning_horizons}.log"),
+        logs("build_tyndp_h2_demand_{horizon}.log"),
     benchmark:
-        benchmarks("build_tyndp_h2_demand/{planning_horizons}")
+        benchmarks("build_tyndp_h2_demand/{horizon}")
     threads: 1
     resources:
         mem_mb=1000,
@@ -101,7 +101,7 @@ rule build_tyndp_h2_demand:
         drop_leap_day=config_provider("enable", "drop_leap_day"),
         scenario=config_provider("mods", "tyndp_scenario"),
     message:
-        "Building TYNDP H2 demand for {wildcards.planning_horizons}"
+        "Building TYNDP H2 demand for {wildcards.horizon}"
     script:
         scripts("open-tyndp/build_tyndp_h2_demand.py")
 
@@ -114,7 +114,7 @@ def _input_hydro_inflows(w):
     technologies = config_provider(
         "electricity", "pemmdb_hydro_profiles", "technologies"
     )(w)
-    planning_horizons = config_provider("scenario", "planning_horizons")(w)
+    planning_horizons = config_provider("planning_horizons")(w)
     safe_years = {safe_pyear(int(y), available_years) for y in planning_horizons}
     return {
         f"hydro_inflows_{tech}_{year}": resources(
@@ -130,11 +130,11 @@ rule clean_tyndp_hydro_inflows:
         hydro_inflows_dir=rules.retrieve_open_tyndp.output.hydro_inflows,
         busmap=resources("busmap_base_s_all.csv"),
     output:
-        hydro_inflows_tyndp="resources/hydro_inflows_tyndp_{tech}_{planning_horizons}.csv",
+        hydro_inflows_tyndp="resources/hydro_inflows_tyndp_{tech}_{horizon}.csv",
     log:
-        "logs/clean_tyndp_hydro_inflows_{tech}_{planning_horizons}.log",
+        "logs/clean_tyndp_hydro_inflows_{tech}_{horizon}.log",
     benchmark:
-        "benchmarks/clean_tyndp_hydro_inflows/{tech}_{planning_horizons}"
+        "benchmarks/clean_tyndp_hydro_inflows/{tech}_{horizon}"
     threads: 1
     resources:
         mem_mb=2000,
@@ -145,7 +145,7 @@ rule clean_tyndp_hydro_inflows:
             "electricity", "pemmdb_hydro_profiles", "available_years"
         ),
     message:
-        "Preprocessing TYNDP hydro inflows for {wildcards.tech} / {wildcards.planning_horizons}"
+        "Preprocessing TYNDP hydro inflows for {wildcards.tech} / {wildcards.horizon}"
     script:
         scripts("open-tyndp/clean_tyndp_hydro_inflows.py")
 
@@ -165,7 +165,7 @@ rule build_tyndp_hydro_profile:
     params:
         snapshots=config_provider("snapshots"),
         drop_leap_day=config_provider("enable", "drop_leap_day"),
-        planning_horizons=config_provider("scenario", "planning_horizons"),
+        planning_horizons=config_provider("planning_horizons"),
         available_years=config_provider(
             "electricity", "pemmdb_hydro_profiles", "available_years"
         ),
@@ -184,12 +184,12 @@ rule build_tyndp_transmission_projects:
         buses_h2=rules.build_tyndp_network.output.substations_h2_geojson,
         invest_grid=rules.retrieve_open_tyndp.output.invest_grid,
     output:
-        new_links_elec=resources("tyndp/new_links_{planning_horizons}.csv"),
-        new_links_h2=resources("tyndp/new_links_h2_{planning_horizons}.csv"),
+        new_links_elec=resources("tyndp/new_links_{horizon}.csv"),
+        new_links_h2=resources("tyndp/new_links_h2_{horizon}.csv"),
     log:
-        logs("build_tyndp_transmission_projects_{planning_horizons}.log"),
+        logs("build_tyndp_transmission_projects_{horizon}.log"),
     benchmark:
-        benchmarks("build_tyndp_transmission_projects/{planning_horizons}")
+        benchmarks("build_tyndp_transmission_projects/{horizon}")
     threads: 1
     resources:
         mem_mb=1000,
@@ -197,7 +197,7 @@ rule build_tyndp_transmission_projects:
         build_years_elec=config_provider("tyndp_investment_candidates", "elec_projects"),
         build_years_h2=config_provider("tyndp_investment_candidates", "h2_projects"),
     message:
-        "Building TYNDP transmission investment projects for {wildcards.planning_horizons}"
+        "Building TYNDP transmission investment projects for {wildcards.horizon}"
     script:
         scripts("open-tyndp/build_tyndp_transmission_projects.py")
 
@@ -230,12 +230,12 @@ if config.get("sector", {}).get("h2_topology_tyndp", False):
         input:
             h2_reference_grid=rules.retrieve_open_tyndp.output.h2_reference_grid,
         output:
-            h2_grid_prepped=resources("h2_reference_grid_tyndp_{planning_horizons}.csv"),
-            interzonal_prepped=resources("h2_interzonal_tyndp_{planning_horizons}.csv"),
+            h2_grid_prepped=resources("h2_reference_grid_tyndp_{horizon}.csv"),
+            interzonal_prepped=resources("h2_interzonal_tyndp_{horizon}.csv"),
         log:
-            logs("build_tyndp_h2_network_{planning_horizons}.log"),
+            logs("build_tyndp_h2_network_{horizon}.log"),
         benchmark:
-            benchmarks("build_tyndp_h2_network/{planning_horizons}")
+            benchmarks("build_tyndp_h2_network/{horizon}")
         threads: 1
         resources:
             mem_mb=4000,
@@ -243,7 +243,7 @@ if config.get("sector", {}).get("h2_topology_tyndp", False):
             snapshots=config_provider("snapshots"),
             scenario=config_provider("mods", "tyndp_scenario"),
         message:
-            "Building TYNDP H2 network for {wildcards.planning_horizons}"
+            "Building TYNDP H2 network for {wildcards.horizon}"
         script:
             scripts("open-tyndp/build_tyndp_h2_network.py")
 
@@ -251,16 +251,16 @@ if config.get("sector", {}).get("h2_topology_tyndp", False):
         input:
             h2_storages=rules.retrieve_open_tyndp.output.h2_storages,
         output:
-            h2_storages_prepped=resources("h2_storages_prepped_{planning_horizons}.csv"),
+            h2_storages_prepped=resources("h2_storages_prepped_{horizon}.csv"),
         log:
-            logs("clean_tyndp_h2_storages_{planning_horizons}.log"),
+            logs("clean_tyndp_h2_storages_{horizon}.log"),
         benchmark:
-            benchmarks("clean_tyndp_h2_storages/{planning_horizons}")
+            benchmarks("clean_tyndp_h2_storages/{horizon}")
         threads: 1
         resources:
             mem_mb=2000,
         message:
-            "Preprocessing TYNDP H2 storages for {wildcards.planning_horizons}"
+            "Preprocessing TYNDP H2 storages for {wildcards.horizon}"
         script:
             scripts("open-tyndp/clean_tyndp_h2_storages.py")
 
@@ -285,15 +285,13 @@ if config.get("sector", {}).get("h2_topology_tyndp", False):
     rule build_tyndp_h2_imports:
         input:
             import_potentials_prepped=rules.clean_tyndp_h2_imports.output.import_potentials_prepped,
-            busmap=resources("busmap_base_s_{clusters}.csv"),
+            busmap=resources("busmap_cluster_network.csv"),
         output:
-            h2_import_potentials=resources(
-                "h2_import_potentials_{clusters}_{planning_horizons}.csv"
-            ),
+            h2_import_potentials=resources("h2_import_potentials_{horizon}.csv"),
         log:
-            logs("build_tyndp_h2_imports_{clusters}_{planning_horizons}.log"),
+            logs("build_tyndp_h2_imports_{horizon}.log"),
         benchmark:
-            benchmarks("build_tyndp_h2_imports/{clusters}_{planning_horizons}")
+            benchmarks("build_tyndp_h2_imports/{horizon}")
         threads: 1
         resources:
             mem_mb=2000,
@@ -302,7 +300,7 @@ if config.get("sector", {}).get("h2_topology_tyndp", False):
             countries=config_provider("countries"),
             admin_levels=config_provider("clustering", "administrative"),
         message:
-            "Building TYNDP H2 import capacities for {wildcards.planning_horizons}"
+            "Building TYNDP H2 import capacities for {wildcards.horizon}"
         script:
             scripts("open-tyndp/build_tyndp_h2_imports.py")
 
@@ -310,11 +308,11 @@ if config.get("sector", {}).get("h2_topology_tyndp", False):
         input:
             smr=rules.retrieve_open_tyndp.output.smr,
         output:
-            smr_prepped=resources("smr_data_prepped_{planning_horizons}.csv"),
+            smr_prepped=resources("smr_data_prepped_{horizon}.csv"),
         log:
-            logs("clean_tyndp_smr_{planning_horizons}.log"),
+            logs("clean_tyndp_smr_{horizon}.log"),
         benchmark:
-            benchmarks("clean_tyndp_smr/{planning_horizons}")
+            benchmarks("clean_tyndp_smr/{horizon}")
         threads: 1
         resources:
             mem_mb=2000,
@@ -323,7 +321,7 @@ if config.get("sector", {}).get("h2_topology_tyndp", False):
                 "mods", "PEMMDB_trajectories", "tyndp_scenario"
             ),
         message:
-            "Preprocessing TYNDP SMR data for {wildcards.planning_horizons}"
+            "Preprocessing TYNDP SMR data for {wildcards.horizon}"
         script:
             scripts("open-tyndp/clean_tyndp_smr.py")
 
@@ -350,7 +348,7 @@ if config.get("sector", {}).get("offshore_hubs_tyndp", False):
         resources:
             mem_mb=4000,
         params:
-            planning_horizons=config_provider("scenario", "planning_horizons"),
+            planning_horizons=config_provider("planning_horizons"),
             scenario=config_provider("mods", "tyndp_scenario"),
             countries=config_provider("countries"),
             offshore_hubs_tyndp=config_provider("sector", "offshore_hubs_tyndp"),

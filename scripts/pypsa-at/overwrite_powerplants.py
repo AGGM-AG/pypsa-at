@@ -3,10 +3,14 @@
 # SPDX-License-Identifier: MIT
 # For license information, see the LICENSE.txt file in the project root.
 """
-Snakemake script: patch the powerplants table and prepare Austrian biogas plants.
+Snakemake script: overwrite attributes in the matched powerplants table.
 
-Reads the matched powerplants table, applies the CH nuclear DateOut override
-and writes the patched table consumed (only) by ``add_existing_baseyear``.
+Applies the CH nuclear ``DateOut`` override and optionally corrects the
+Austrian hydro plants (``mods.update_hydro_capacities_AT``) and calibrates the
+Austrian gas fleet (``mods.update_gas_capacities_AT``). The patched table is
+consumed by ``add_electricity``, ``add_existing_baseyear`` and by the mods
+layer (``prepare_sector_network`` -> ``process_hydro``).
+
 The Austrian biogas plants from the Anlagenregister are written to a separate
 table consumed by ``mods.network.biogas`` in ``modify_prenetwork_at``; they
 must not enter the powerplants table, where ``add_existing_baseyear`` would
@@ -15,7 +19,19 @@ model them as solid biomass CHPs.
 
 import logging
 
+import build_hydro_inflow_targets as bhit
+import geopandas as gpd
+import numpy as np
 import pandas as pd
+from build_anlagenregister_at import (
+    GAS_TECHCODES,
+    MAX_UNMAPPED_CAPACITY_SHARE,
+    add_first_feedin_year,
+    clean_plz,
+    feedin_columns,
+    load_postal_to_nuts,
+    normalise_techcode,
+)
 
 from mods.clustering.utils import map_at_nuts3_to_nuts2
 from scripts._helpers import configure_logging
@@ -32,6 +48,141 @@ CH_NUCLEAR_DATEOUT = {
     "Goesgen": 2035,  # operation to ~2040; dropped at 2040 horizon
     "Leibstadt": 2040,  # operation to ~2045
 }
+
+# Anlagenregister technology code (whitespace-stripped) of the small hydro
+# class added per plant; powerplantmatching run-of-river plants below the
+# class limit are replaced to avoid double counting.
+KLEINWASSERKRAFT_TECHCODE = "Kleinwasserkraft bis 10 MW"
+KLEINWASSERKRAFT_MAX_MW = 10.0
+
+# The register publishes no commissioning dates and feed-in only for a six
+# year window. Plants whose first feed-in year lies inside the window use it
+# as DateIn proxy; older plants get this assumed build year.
+KLEINWASSERKRAFT_DEFAULT_DATEIN = 2000
+
+# Name prefix of the synthetic register plants; used by the rescaling step
+# to identify them.
+KLEINWASSERKRAFT_NAME_PREFIX = "Kleinwasserkraft AT "
+
+# Tolerated relative deviation between the register Kleinwasserkraft class
+# capacity and the E-Control Bestandsstatistik total below 10 MW. The known
+# class-definition gap is ~12.5 %; anything larger indicates changed or
+# broken source data.
+KLEINWASSERKRAFT_MAX_SCALE_DEVIATION = 0.15
+
+
+def _new_powerplant_rows(
+    names: "pd.Series | str",
+    fueltype: str,
+    technology: str,
+    date_in: "pd.Series | float",
+    capacity_mw: "pd.Series | float",
+    bus: "pd.Series | str",
+    country: "pd.Series | str" = "AT",
+) -> pd.DataFrame:
+    """
+    Build power plant rows in the ``build_powerplants`` output schema.
+
+    Parameters accept scalars or aligned array-likes; ``Set`` is always
+    ``"PP"``.
+    """
+    return pd.DataFrame(
+        {
+            "Name": names,
+            "Fueltype": fueltype,
+            "Technology": technology,
+            "Set": "PP",
+            "Country": country,
+            "DateIn": date_in,
+            "Capacity": capacity_mw,
+            "bus": bus,
+        }
+    )
+
+
+def _match_single_hydro_plant(
+    ppl: pd.DataFrame,
+    name: str,
+    country: str,
+    expected_capacity_mw: float,
+    expected_bus: str,
+    source_file: str,
+    technology: str | None = None,
+) -> "int | str":
+    """
+    Locate exactly one hydro plant of a curated list entry and validate it.
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table with ``Name``, ``Country``, ``Fueltype``,
+        ``Technology``, ``Capacity`` and ``bus`` columns.
+    name
+        Plant name to match.
+    country
+        Two-letter country code to match.
+    expected_capacity_mw
+        Capacity the curated list expects; deviations above 1 MW raise.
+    expected_bus
+        Bus the curated list expects; mismatches only warn because differing
+        clustering resolutions relabel buses.
+    source_file
+        Curated CSV referenced in error messages.
+    technology
+        Optional ``Technology`` the plant must additionally match; ``NaN``
+        matches plants listed without a technology.
+
+    Returns
+    -------
+    :
+        The matched index label.
+
+    Raises
+    ------
+    ValueError
+        If the plant does not match exactly once or its capacity deviates by
+        more than 1 MW — both indicate a changed upstream dataset.
+    """
+    query = "Country == @country and Fueltype == 'Hydro' and Name == @name"
+    if technology is not None and pd.isna(technology):
+        # curated rows may target plants powerplantmatching lists without a
+        # technology (which would otherwise drop out of the model, because
+        # the hydro carrier is derived from the technology)
+        query += " and Technology.isna()"
+    elif technology is not None:
+        query += " and Technology == @technology"
+    matches = ppl.query(query).index
+    if len(matches) > 1:
+        # powerplantmatching lists some plants several times under one name
+        # (e.g. two "Kaprun Limberg" entries); the curated capacity picks one
+        matches = matches[
+            (ppl.loc[matches, "Capacity"] - expected_capacity_mw).abs() <= 1.0
+        ]
+    if len(matches) != 1:
+        with_technology = (
+            f" with Technology {technology!r}"
+            if technology is not None and pd.notna(technology)
+            else ""
+        )
+        raise ValueError(
+            f"Expected exactly one {country} hydro plant {name!r}"
+            f"{with_technology} at {expected_capacity_mw:.1f} MW, found "
+            f"{len(matches)}. Powerplants data changed upstream; re-check "
+            f"{source_file}."
+        )
+    idx = matches[0]
+    if abs(ppl.at[idx, "Capacity"] - expected_capacity_mw) > 1.0:
+        raise ValueError(
+            f"Capacity mismatch for {name!r} ({country}): powerplants table "
+            f"has {ppl.at[idx, 'Capacity']:.1f} MW, the curated list expects "
+            f"{expected_capacity_mw:.1f} MW. Re-check {source_file}."
+        )
+    if ppl.at[idx, "bus"] != expected_bus:
+        logger.warning(
+            f"{name!r} sits at bus {ppl.at[idx, 'bus']!r} but {source_file} "
+            f"expects {expected_bus!r} (differing clustering?). Applying anyway."
+        )
+    return idx
 
 
 RENEWABLE_GAS_TECHNOLOGIES = ("Biogas", "Klärgas", "Deponiegas")
@@ -75,7 +226,8 @@ def overwrite_nuclear_dateout(ppl: pd.DataFrame, dateout: dict) -> pd.DataFrame:
 
     Returns
     -------
-    A copy of ``ppl`` with ``DateOut`` overridden on the matched CH nuclear rows.
+    :
+        A copy of ``ppl`` with ``DateOut`` overridden on the matched CH nuclear rows.
 
     Raises
     ------
@@ -140,13 +292,14 @@ def build_biogas_plants_AT(
         the small Austrian biogas plants would be filtered out again.
     clustering
         clustering identifier, either AT10 (NUTS2) or AT35 (NUTS3). Needed for
-        AT10, maps powerplants accordingly using _map_at_nuts3_to_nuts2.
+        AT10, maps powerplants accordingly using map_at_nuts3_to_nuts2.
 
     Returns
     -------
-    One row per Anlagenregister plant with ``Name``, ``Country``, ``Fueltype``,
-    ``Technology``, ``DateIn``, ``Capacity`` (MW) and ``bus`` (node), consumed
-    by ``mods.network.biogas.add_existing_biogas_chp_at``.
+    :
+        One row per Anlagenregister plant with ``Name``, ``Country``,
+        ``Fueltype``, ``Technology``, ``DateIn``, ``Capacity`` (MW) and ``bus``
+        (node), consumed by ``mods.network.biogas.add_existing_biogas_chp_at``.
 
     Raises
     ------
@@ -203,10 +356,8 @@ def build_biogas_plants_AT(
 
     # the register holds free-text postal codes ("4600 ", "5431 Kuchl", ...);
     # take the first run of exactly four digits, like build_anlagenregister_at
-    anlreg["Plz"] = (
-        anlreg["plz"].fillna("").astype(str).str.extract(r"(?<!\d)(\d{4})(?!\d)")[0]
-    )
-    without_plz = anlreg["Plz"].isna()
+    anlreg["plz"] = clean_plz(anlreg["plz"])
+    without_plz = anlreg["plz"].isna()
     if without_plz.any():
         logger.warning(
             f"Dropped {int(without_plz.sum())} renewable-gas plants "
@@ -214,9 +365,9 @@ def build_biogas_plants_AT(
             "without a postal code."
         )
         anlreg = anlreg[~without_plz]
-    anlreg["nuts"] = anlreg["Plz"].map(postal_to_nuts)
+    anlreg["nuts"] = anlreg["plz"].map(postal_to_nuts)
 
-    missing_plz = anlreg.loc[anlreg["nuts"].isna(), "Plz"].unique()
+    missing_plz = anlreg.loc[anlreg["nuts"].isna(), "plz"].unique()
     if len(missing_plz) > 0:
         raise ValueError(
             f"Postal codes {sorted(missing_plz)} from Anlagenregister not found in"
@@ -247,13 +398,1163 @@ def build_biogas_plants_AT(
     return plants
 
 
-def overwrite_powerplants() -> pd.DataFrame:
-    """Patch the powerplants table."""
-    _ppl = pd.read_csv(snakemake.input.powerplants, index_col=0)
-    return overwrite_nuclear_dateout(_ppl, CH_NUCLEAR_DATEOUT)
+GAS_OVERRIDE_ACTIONS = ("update", "add", "drop")
+"""Actions understood in ``gas_powerplant_overrides_AT.csv``."""
+
+GAS_TECHNOLOGIES = ("OCGT", "CCGT")
+"""``Technology`` values ``add_existing_baseyear`` accepts for natural gas.
+
+``scripts/add_existing_baseyear.py`` selects gas brownfield rows on
+``Technology`` rather than ``Fueltype`` and silently drops the third
+powerplantmatching value ``"CCGT, Thermal"``, so every row this module writes
+must carry one of these two.
+"""
+
+GAS_CALIBRATION_BASE_YEAR = 2025
+"""Year the Austrian gas fleet is calibrated against E-Control statistics."""
+
+GAS_NATIONAL_TOLERANCE = 0.02
+"""Relative overshoot of the national Bestandsstatistik total tolerated.
+
+The test is one-sided: the modelled fleet must not *exceed* the statistic.
+A shortfall is expected and itemised, because plants that never supply the
+public grid are deliberately out of scope.
+"""
+
+GAS_FULL_LOAD_HOUR_BAND = (1500.0, 2500.0)
+"""Plausible range [h] for the Austrian gas fleet's annual full load hours.
+
+Brackets every year of the E-Control series in
+``resources/gas_calibration_targets_AT.csv`` from 2015 to 2025 (minimum
+1 540.6 h in 2015, maximum 2 482.5 h in 2019, mean 1 994 h). 2013 and 2014 sit
+below it at 1 249 h and 1 057 h, when gas was pushed out of the merit order by
+cheap coal and CO2 prices; those two years are excluded deliberately, so a
+modelled fleet that lands there is flagged rather than accepted.
+"""
+
+GAS_PLANT_TOLERANCE = 0.10
+"""Relative per-region deviation from the register reported without comment."""
+
+GAS_PLANT_TOLERANCE_MW = 50.0
+"""Absolute per-region deviation [MW] reported without comment.
+
+A region is flagged when it exceeds *both* this and
+:data:`GAS_PLANT_TOLERANCE`, i.e. the looser of the two applies.
+"""
 
 
-def biogas_plants(ppl: pd.DataFrame) -> pd.DataFrame:
+def _required(row: pd.Series, fields: tuple[str, ...], action: str) -> None:
+    """Raise if an override row leaves a field required by its action empty."""
+    missing = [f for f in fields if pd.isna(row.get(f)) or row.get(f) == ""]
+    if missing:
+        raise ValueError(
+            f"Gas override row {row['name']!r} with action {action!r} is missing "
+            f"required field(s) {missing}. Every added or updated value needs a "
+            "figure and a source; see data/pypsa-at/gas_powerplant_overrides_AT.csv."
+        )
+
+
+def apply_gas_overrides_at(
+    ppl: pd.DataFrame,
+    overrides_file: str,
+    clustering: str,
+) -> pd.DataFrame:
+    """
+    Apply the curated Austrian gas corrections to the powerplants table.
+
+    Reads ``data/pypsa-at/gas_powerplant_overrides_AT.csv``, whose every row
+    carries the source and the evidence behind the value it sets, and applies
+    the three actions:
+
+    ``update``
+        Overwrite the listed fields on the matched powerplantmatching row.
+    ``add``
+        Append a unit powerplantmatching does not carry.
+    ``drop``
+        Remove a row that does not belong in the natural gas fleet.
+
+    Multi-unit sites are split into one row per unit so that
+    ``add_existing_baseyear`` bins each unit into its own vintage instead of
+    assigning the whole site the vintage of one of its units.
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table as produced by ``build_powerplants``, with at least
+        ``Name``, ``Country``, ``Fueltype``, ``Technology``, ``Capacity``,
+        ``DateIn``, ``DateOut``, ``Set`` and ``bus`` columns.
+    overrides_file
+        Path to the curated override CSV.
+    clustering
+        Clustering identifier, either ``AT10`` (NUTS2) or ``AT35`` (NUTS3). At
+        NUTS2 the NUTS3 bus of an added row is mapped up, mirroring
+        :func:`build_biogas_plants_AT`.
+
+    Returns
+    -------
+    :
+        A copy of ``ppl`` with the Austrian natural gas fleet corrected.
+
+    Raises
+    ------
+    ValueError
+        If the Austrian gas fleet is absent, if an override references a plant
+        powerplantmatching does not carry or carries more than once, if an
+        action is unknown, if a required field is empty, or if a technology is
+        not one of :data:`GAS_TECHNOLOGIES`. Every case means the override file
+        and the upstream dataset drifted apart.
+    """
+    overrides = pd.read_csv(overrides_file)
+
+    is_at_gas = (ppl["Country"] == "AT") & (ppl["Fueltype"] == "Natural Gas")
+    if not is_at_gas.any():
+        raise ValueError(
+            "No Austrian natural gas plants found in the powerplants table; "
+            "cannot apply the gas overrides. Has powerplantmatching changed the "
+            "Country or Fueltype spelling, or did powerplants_filter remove them?"
+        )
+
+    unknown = sorted(set(overrides["action"]) - set(GAS_OVERRIDE_ACTIONS))
+    if unknown:
+        raise ValueError(
+            f"Unknown action(s) {unknown} in {overrides_file}; expected one of "
+            f"{list(GAS_OVERRIDE_ACTIONS)}."
+        )
+
+    referenced = overrides.loc[overrides["ppm_name"].notna(), "ppm_name"]
+    counts = ppl.loc[is_at_gas, "Name"].value_counts()
+    for ppm_name in referenced:
+        if counts.get(ppm_name, 0) != 1:
+            raise ValueError(
+                f"Gas override references powerplantmatching plant "
+                f"{ppm_name!r}, which matches {counts.get(ppm_name, 0)} Austrian "
+                "natural gas rows, expected exactly 1. The dataset renamed, "
+                "split or dropped it; re-identify the plant before updating "
+                "data/pypsa-at/gas_powerplant_overrides_AT.csv."
+            )
+
+    ppl = ppl.copy()
+    if "autoproducer" not in ppl.columns:
+        ppl["autoproducer"] = False
+
+    before = ppl.loc[is_at_gas, "Capacity"].sum()
+    added, updated, dropped = [], [], []
+
+    for _, row in overrides.iterrows():
+        action = row["action"]
+
+        if action == "drop":
+            match = ppl.index[is_at_gas & (ppl["Name"] == row["ppm_name"])]
+            ppl = ppl.drop(index=match)
+            # prevent length misalignments between the mask and the data frame
+            is_at_gas = is_at_gas.drop(index=match)
+            dropped.append(row["name"])
+
+        elif action == "update":
+            idx = ppl.index[is_at_gas & (ppl["Name"] == row["ppm_name"])][0]
+            for field, column in (
+                ("name", "Name"),
+                ("technology", "Technology"),
+                ("capacity_mw_net", "Capacity"),
+                ("date_in", "DateIn"),
+                ("date_out", "DateOut"),
+                ("set", "Set"),
+                ("autoproducer", "autoproducer"),
+            ):
+                value = row.get(field)
+                if pd.isna(value) or value == "":
+                    continue
+                ppl.loc[idx, column] = value
+            updated.append(row["name"])
+
+        elif action == "add":
+            _required(
+                row, ("technology", "capacity_mw_net", "date_in", "bus", "set"), action
+            )
+            bus = row["bus"]
+            if clustering.startswith("AT10"):
+                bus = map_at_nuts3_to_nuts2(bus)
+            ppl.loc[row["name"]] = pd.Series(
+                {
+                    "Name": row["name"],
+                    "Country": "AT",
+                    "Fueltype": "Natural Gas",
+                    "Technology": row["technology"],
+                    "Set": row["set"],
+                    "Capacity": float(row["capacity_mw_net"]),
+                    "DateIn": float(row["date_in"]),
+                    "DateOut": float(row["date_out"])
+                    if pd.notna(row["date_out"])
+                    else float("nan"),
+                    "bus": bus,
+                    "autoproducer": row.get("autoproducer", False),
+                }
+            )
+            added.append(row["name"])
+
+    is_at_gas = (ppl["Country"] == "AT") & (ppl["Fueltype"] == "Natural Gas")
+    bad_tech = sorted(set(ppl.loc[is_at_gas, "Technology"]) - set(GAS_TECHNOLOGIES))
+    if bad_tech:
+        raise ValueError(
+            f"Austrian natural gas rows carry Technology {bad_tech}, but "
+            f"add_existing_baseyear only keeps {list(GAS_TECHNOLOGIES)} and drops "
+            "everything else, including 'CCGT, Thermal'. Set an explicit "
+            "technology in data/pypsa-at/gas_powerplant_overrides_AT.csv."
+        )
+
+    after = ppl.loc[is_at_gas, "Capacity"].sum()
+    logger.info(
+        f"Applied Austrian gas overrides: {len(updated)} updated, {len(added)} "
+        f"added, {len(dropped)} dropped. Fleet {before:,.1f} MW -> {after:,.1f} MW "
+        f"({after - before:+,.1f} MW). Added: {added}. Dropped: {dropped}."
+    )
+    return ppl
+
+
+def build_gas_deviations_at(
+    ppl: pd.DataFrame,
+    ppl_raw: pd.DataFrame,
+    anlagenregister_nuts3_file: str,
+    clustering: str,
+) -> pd.DataFrame:
+    """
+    Compare the corrected fleet with powerplantmatching and the register.
+
+    Builds the three-way deviation table per model region: the raw
+    powerplantmatching capacity, the corrected model capacity and the
+    deduplicated E-Control Anlagenregister capacity. Regions whose model and
+    register capacities differ by more than the looser of
+    :data:`GAS_PLANT_TOLERANCE` and :data:`GAS_PLANT_TOLERANCE_MW` are logged
+    as warnings.
+
+    The comparison is per region rather than per plant because the register
+    publishes no plant names, only postal codes.
+
+    This is a diagnostic: the register keeps dormant registrations that no
+    mechanical rule can separate from operating plants, so a deviation is
+    information, not a failure.
+
+    Parameters
+    ----------
+    ppl
+        Corrected powerplants table.
+    ppl_raw
+        Powerplants table before the gas overrides.
+    anlagenregister_nuts3_file
+        Deduplicated, NUTS3-aggregated Anlagenregister CSV written by
+        ``build_anlagenregister_at``.
+    clustering
+        Clustering identifier, either ``AT10`` (NUTS2) or ``AT35`` (NUTS3). At
+        NUTS2 the register's NUTS3 regions are mapped up so that they share
+        the model's bus keys, as in :func:`apply_gas_overrides_at`.
+
+    Returns
+    -------
+    :
+        One row per region with Austrian gas capacity in any of the sources.
+    """
+    register = pd.read_csv(anlagenregister_nuts3_file)
+    if clustering.startswith("AT10"):
+        register["nuts3"] = register["nuts3"].map(map_at_nuts3_to_nuts2)
+    # For typ Strom, the technology column holds the register's techcode.
+    techcode = normalise_techcode(register["technology"])
+    register = register[(register["typ"] == "Strom") & techcode.isin(GAS_TECHCODES)]
+    # The latest register year is only partially populated at publication, so
+    # the feed-in column is the calibration base year where the register has it.
+    feedin = f"feedin_gwh_{GAS_CALIBRATION_BASE_YEAR}"
+    if feedin not in register.columns:
+        feedin = sorted(c for c in register.columns if c.startswith("feedin_gwh_"))[-1]
+
+    per_region = register.groupby("nuts3").agg(
+        capacity_mw_register=("capacity_mw", "sum"),
+        plants_register=("n_plants", "sum"),
+        feedin_gwh_register=(feedin, lambda s: s.fillna(0).sum()),
+    )
+
+    def _fleet(df: pd.DataFrame, column: str) -> pd.DataFrame:
+        gas = df[(df["Country"] == "AT") & (df["Fueltype"] == "Natural Gas")]
+        return gas.groupby("bus").agg(
+            **{
+                column: ("Capacity", "sum"),
+                column.replace("capacity_mw", "plants"): ("Capacity", "size"),
+            }
+        )
+
+    out = (
+        _fleet(ppl_raw, "capacity_mw_ppm")
+        .join(_fleet(ppl, "capacity_mw_model"), how="outer")
+        .join(per_region, how="outer")
+        .fillna(0.0)
+    )
+    out.index.name = "region"
+    out["delta_model_minus_register_mw"] = (
+        out["capacity_mw_model"] - out["capacity_mw_register"]
+    )
+    out["delta_model_minus_register_pct"] = np.where(
+        out["capacity_mw_register"] > 0,
+        100.0 * out["delta_model_minus_register_mw"] / out["capacity_mw_register"],
+        GAS_PLANT_TOLERANCE * 100 + 1,
+    )
+
+    flagged = out[
+        (out["delta_model_minus_register_mw"].abs() > GAS_PLANT_TOLERANCE_MW)
+        & (out["delta_model_minus_register_pct"].abs() > GAS_PLANT_TOLERANCE * 100)
+    ]
+    if not flagged.empty:
+        logger.warning(
+            f"{len(flagged)} region(s) deviate from the deduplicated "
+            f"Anlagenregister by more than {GAS_PLANT_TOLERANCE:.0%} and "
+            f"{GAS_PLANT_TOLERANCE_MW:.0f} MW:\n"
+            + flagged[
+                [
+                    "capacity_mw_model",
+                    "capacity_mw_register",
+                    "delta_model_minus_register_mw",
+                    "delta_model_minus_register_pct",
+                ]
+            ]
+            .round(1)
+            .to_string()
+        )
+
+    return out.round(3).reset_index()
+
+
+def check_gas_calibration_at(
+    ppl: pd.DataFrame,
+    targets_file: str,
+    base_year: int = GAS_CALIBRATION_BASE_YEAR,
+) -> None:
+    """
+    Calibrate the Austrian gas fleet against the E-Control statistics.
+
+    Two checks against the targets ``build_gas_calibration_targets_at`` derives
+    from the E-Control year series:
+
+    Capacity, one-sided
+        The modelled fleet must not exceed the Bestandsstatistik
+        Brutto-Engpassleistung by more than :data:`GAS_NATIONAL_TOLERANCE`.
+        A shortfall only warrants an entry in the log: industrial plants that
+        never supply the public grid are out of scope by design, so the
+        modelled fleet is expected to sit below the statistic.
+
+    Full load hours, two-sided
+        The Betriebsstatistik gross generation of the base year divided by the
+        modelled fleet must fall inside :data:`GAS_FULL_LOAD_HOUR_BAND`. This
+        is the check that a capacity error in either direction shows up in:
+        too little capacity inflates the implied utilisation, too much
+        deflates it.
+
+    Only units operating in ``base_year`` are summed: a unit whose ``DateOut``
+    precedes it, or whose ``DateIn`` follows it, is not in the statistic either.
+
+    The ``Capacity`` column is summed, which the override file fills from
+    ``capacity_mw_net``, while the Bestandsstatistik publishes
+    Brutto-Engpassleistung. Where a source gives only one figure the override
+    file records it as both net and gross, so the modelled total is biased
+    slightly low; see ``docs-at/explanations/brownfield/gas-power-plants-AT.md``.
+
+    Parameters
+    ----------
+    ppl
+        Corrected powerplants table.
+    targets_file
+        Path to the E-Control calibration targets CSV written by
+        ``build_gas_calibration_targets_at``.
+    base_year
+        Year to calibrate against.
+
+    Raises
+    ------
+    ValueError
+        If ``base_year`` is absent from the targets file, if the fleet exceeds
+        the Bestandsstatistik by more than :data:`GAS_NATIONAL_TOLERANCE`, or
+        if the implied full load hours fall outside
+        :data:`GAS_FULL_LOAD_HOUR_BAND`.
+    """
+    targets = pd.read_csv(targets_file).set_index("year")
+    if base_year not in targets.index:
+        raise ValueError(
+            f"Calibration base year {base_year} is not in {targets_file}; it "
+            f"covers {targets.index.min()}-{targets.index.max()}."
+        )
+    target = targets.loc[base_year]
+
+    is_at_gas = (ppl["Country"] == "AT") & (ppl["Fueltype"] == "Natural Gas")
+    # The statistic counts the plants operating in the base year, so units that
+    # retired before it or are commissioned after it must not be summed here.
+    # add_existing_baseyear applies the same two cuts when it builds the fleet.
+    operating = is_at_gas & ~(ppl["DateOut"] < base_year) & ~(ppl["DateIn"] > base_year)
+    fleet_mw = ppl.loc[operating, "Capacity"].sum()
+    retired = ppl.loc[is_at_gas & (ppl["DateOut"] < base_year)]
+    if not retired.empty:
+        logger.info(
+            f"Excluded {len(retired)} retired Austrian gas unit(s) "
+            f"({retired['Capacity'].sum():,.1f} MW) from the {base_year} "
+            f"calibration: {sorted(retired['Name'])}."
+        )
+
+    deviation = (fleet_mw - target["capacity_mw_gross"]) / target["capacity_mw_gross"]
+    message = (
+        f"Austrian gas fleet {fleet_mw:,.1f} MW vs E-Control Bestandsstatistik "
+        f"{target['capacity_mw_gross']:,.1f} MW ({base_year}): "
+        f"{fleet_mw - target['capacity_mw_gross']:+,.1f} MW ({deviation:+.1%})."
+    )
+    if deviation > GAS_NATIONAL_TOLERANCE:
+        raise ValueError(
+            f"{message} The fleet exceeds the national statistic by more than "
+            f"{GAS_NATIONAL_TOLERANCE:.0%}, which the register cannot explain: "
+            "check data/pypsa-at/gas_powerplant_overrides_AT.csv for a double "
+            "count."
+        )
+    logger.info(message)
+
+    full_load_hours = target["generation_gwh_gross"] * 1e3 / fleet_mw
+    low, high = GAS_FULL_LOAD_HOUR_BAND
+    if not low <= full_load_hours <= high:
+        raise ValueError(
+            f"Austrian gas fleet of {fleet_mw:,.1f} MW implies "
+            f"{full_load_hours:,.0f} full load hours against the E-Control "
+            f"{base_year} gross generation of "
+            f"{target['generation_gwh_gross']:,.1f} GWh, outside the plausible "
+            f"band {low:,.0f}-{high:,.0f} h. E-Control reports "
+            f"{target['full_load_hours']:,.0f} h for the same year, so the "
+            "modelled capacity is wrong by roughly "
+            f"{abs(1 - full_load_hours / target['full_load_hours']):.0%}."
+        )
+    logger.info(
+        f"Austrian gas fleet implies {full_load_hours:,.0f} full load hours in "
+        f"{base_year} (E-Control: {target['full_load_hours']:,.0f} h, band "
+        f"{low:,.0f}-{high:,.0f} h)."
+    )
+
+
+GAS_DEVIATION_COLUMNS = [
+    "region",
+    "capacity_mw_ppm",
+    "plants_ppm",
+    "capacity_mw_model",
+    "plants_model",
+    "capacity_mw_register",
+    "plants_register",
+    "feedin_gwh_register",
+    "delta_model_minus_register_mw",
+    "delta_model_minus_register_pct",
+]
+"""Columns of the gas deviations table, also used for the empty table."""
+
+
+def _read_small_hydro_anchor_mw(bestandsstatistik_typ_file: str) -> float:
+    """
+    Read the total hydro Engpassleistung below 10 MW from the Bestandsstatistik.
+
+    Sums the two ``bis 10 MW`` rows (Laufkraftwerke and Speicherkraftwerke) of
+    sheet ``EPL_KWTyp`` in E-Control's ``BeStGes-{year}_KW2EPLTyp.xlsx``.
+    """
+    epl = pd.read_excel(bestandsstatistik_typ_file, sheet_name="EPL_KWTyp", header=None)
+    below_10 = epl[epl.iloc[:, 2].astype(str).str.strip() == "bis 10 MW"]
+    anchor_mw = pd.to_numeric(below_10.iloc[:, 5], errors="coerce").sum()
+    if len(below_10) != 2 or not 500 < anchor_mw < 5000:
+        raise ValueError(
+            f"Unexpected layout in {bestandsstatistik_typ_file}: found "
+            f"{len(below_10)} 'bis 10 MW' rows summing to {anchor_mw:.0f} MW. "
+            "Has the E-Control file format changed?"
+        )
+    return float(anchor_mw)
+
+
+def gas_powerplants_AT(
+    ppl: pd.DataFrame, snakemake
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Calibrate the Austrian gas fleet, or pass the table through when disabled.
+
+    The deviation table is written either way, so that the Snakemake DAG does
+    not depend on the configuration.
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table after the CH nuclear ``DateOut`` patch and the
+        Austrian hydro corrections.
+    snakemake
+        Snakemake object providing inputs and params.
+
+    Returns
+    -------
+    :
+        The corrected powerplants table, or ``ppl`` unchanged when the feature
+        is disabled, and the three-way deviation table, empty when disabled.
+    """
+    if not snakemake.params.update_gas_capacities_AT:
+        logger.info(
+            "Skipping the Austrian gas brownfield calibration. config option "
+            "mods: update_gas_capacities_AT: enable is false."
+        )
+        return ppl, pd.DataFrame(columns=GAS_DEVIATION_COLUMNS)
+
+    corrected = apply_gas_overrides_at(
+        ppl,
+        overrides_file=snakemake.input.gas_overrides,
+        clustering=snakemake.params.clustering,
+    )
+    check_gas_calibration_at(corrected, targets_file=snakemake.input.gas_targets)
+    deviations = build_gas_deviations_at(
+        corrected,
+        ppl,
+        anlagenregister_nuts3_file=snakemake.input.anlagenregister_nuts3,
+        clustering=snakemake.params.clustering,
+    )
+    return corrected, deviations
+
+
+GEONAMES_COLUMNS = [
+    "country",
+    "plz",
+    "place",
+    "admin1",
+    "admin1_code",
+    "admin2",
+    "admin2_code",
+    "admin3",
+    "admin3_code",
+    "lat",
+    "lon",
+    "accuracy",
+]
+
+
+def load_postal_centroids(path: str) -> pd.DataFrame:
+    """
+    Load postal code centroids from the GeoNames postal code table.
+
+    GeoNames lists one row per locality; a postal code with several
+    localities gets the mean of their coordinates. The register plants have
+    no coordinates of their own, and placing them at their postal code lets
+    the inflow allocation locate them in the right river catchment instead
+    of spreading them over the whole region by area.
+
+    Parameters
+    ----------
+    path
+        Tab-separated GeoNames postal code file (``AT.txt``, no header).
+
+    Returns
+    -------
+    :
+        Frame indexed by 4-digit postal code with ``lat`` and ``lon``
+        columns (EPSG:4326).
+    """
+    geonames = pd.read_csv(
+        path, sep="\t", header=None, names=GEONAMES_COLUMNS, dtype={"plz": str}
+    )
+    geonames["plz"] = geonames["plz"].str.strip().str.zfill(4)
+    return geonames.groupby("plz")[["lat", "lon"]].mean()
+
+
+def add_kleinwasserkraft_to_power_plants_at(
+    ppl: pd.DataFrame,
+    anlagenregister_plants_file: str,
+    postal_to_nuts_file: str,
+    clustering: str,
+    postal_centroids_file: str | None = None,
+) -> pd.DataFrame:
+    """
+    Replace the small hydro fleet with Anlagenregister Kleinwasserkraft plants.
+
+    powerplantmatching covers only ~70 MW of Austrian run-of-river plants
+    below 10 MW, while the E-Control Anlagenregister lists the full
+    ``Kleinwasserkraft bis 10 MW`` class (~3600 plants, ~1.8 GW; E-Control
+    Bestandsstatistik: 1.4 GW Laufkraft below 10 MW). This function drops the
+    incidental powerplantmatching run-of-river plants up to
+    ``KLEINWASSERKRAFT_MAX_MW`` and adds every register plant of the class
+    individually, mapped to its NUTS3 bus via postal code
+    (see pypsa-at-planning#312).
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table with ``Name``, ``Country``, ``Fueltype``,
+        ``Technology``, ``Capacity`` and ``bus`` columns
+        (as produced by ``build_powerplants``).
+    anlagenregister_plants_file
+        Plant-level Anlagenregister CSV (``anlagenregister_plants.csv``).
+    postal_to_nuts_file
+        file that maps all Austrian postal codes (PLZ) to NUTS3 region codes.
+    clustering
+        clustering identifier, either AT10 (NUTS2) or AT35 (NUTS3). Needed for
+        AT10, maps powerplants accordingly using map_at_nuts3_to_nuts2.
+    postal_centroids_file
+        Optional GeoNames postal code table; when given, every register
+        plant receives the coordinates of its postal code centroid.
+
+    Returns
+    -------
+    :
+        A copy of ``ppl`` with the register small hydro fleet instead of the
+        powerplantmatching one.
+
+    Raises
+    ------
+    ValueError
+        If the register contains no Kleinwasserkraft plants or too much
+        capacity has unmappable postal codes (both indicate changed source
+        data).
+    """
+    plants = pd.read_csv(
+        anlagenregister_plants_file, dtype={"plz": str}, low_memory=False
+    )
+    kwk = plants.assign(techcode=plants["techcode"].fillna("").str.strip()).query(
+        "typ == 'Strom' and techcode == @KLEINWASSERKRAFT_TECHCODE"
+    )
+    if kwk.empty:
+        raise ValueError(
+            f"No {KLEINWASSERKRAFT_TECHCODE!r} plants found in "
+            f"{anlagenregister_plants_file}. Has the register format changed?"
+        )
+
+    kwk["plz"] = clean_plz(kwk["plz"])
+    kwk["nuts"] = kwk["plz"].map(load_postal_to_nuts(postal_to_nuts_file))
+    unmapped = kwk["nuts"].isna()
+    unmapped_share = (
+        kwk.loc[unmapped, "engpassleistung_kw"].sum() / kwk["engpassleistung_kw"].sum()
+    )
+    if unmapped_share > MAX_UNMAPPED_CAPACITY_SHARE:
+        raise ValueError(
+            f"{unmapped.sum()} Kleinwasserkraft plants ({unmapped_share:.2%} of "
+            "class capacity) have no NUTS3 mapping. Update the postal-to-nuts "
+            "file or check the register data."
+        )
+    if unmapped.any():
+        logger.warning(
+            f"Dropped {unmapped.sum()} Kleinwasserkraft plants "
+            f"({unmapped_share:.3%} of class capacity) with unmappable postal codes."
+        )
+    kwk = kwk[~unmapped]
+
+    # DateIn proxy: first feed-in year, only meaningful for plants first
+    # feeding in after the earliest published year (older plants -> default).
+    kwk = add_first_feedin_year(kwk)
+    _earliest_year = min(int(c.rsplit("_", 1)[1]) for c in feedin_columns(kwk))
+    date_in = (
+        kwk["first_feedin_year"]
+        .where(kwk["first_feedin_year"] > _earliest_year)
+        .fillna(KLEINWASSERKRAFT_DEFAULT_DATEIN)
+        .astype(float)
+    )
+
+    # Relabel NUTS3 codes to NUTS2 if run has lower resolution
+    if clustering.startswith("AT10"):
+        kwk["nuts"] = kwk["nuts"].map(map_at_nuts3_to_nuts2)
+
+    small_ror = ppl.query(
+        "Country == 'AT' "
+        "and Fueltype == 'Hydro' "
+        "and Technology == 'Run-Of-River' "
+        "and Capacity <= @KLEINWASSERKRAFT_MAX_MW"
+    )
+    logger.info(
+        f"Replaced {len(small_ror)} powerplantmatching run-of-river plants <= "
+        f"{KLEINWASSERKRAFT_MAX_MW:.0f} MW ({small_ror['Capacity'].sum():.1f} MW) "
+        "with the Anlagenregister Kleinwasserkraft fleet."
+    )
+    ppl = ppl.drop(index=small_ror.index)
+
+    # register ids are only unique within (typ, bundesland)
+    new_ppls = _new_powerplant_rows(
+        names=(
+            KLEINWASSERKRAFT_NAME_PREFIX
+            + kwk["bundesland"].astype(str)
+            + "-"
+            + kwk["id"].astype(int).astype(str)
+        ),
+        fueltype="Hydro",
+        technology="Run-Of-River",
+        date_in=date_in.values,
+        capacity_mw=kwk["engpassleistung_kw"].values / 1e3,
+        bus=kwk["nuts"].values,
+    ).assign(plz=kwk["plz"].values)
+    # postal codes are carried over to simplify locating plants
+    if postal_centroids_file is not None:
+        centroids = load_postal_centroids(postal_centroids_file)
+        new_ppls["lat"] = new_ppls["plz"].map(centroids["lat"]).values
+        new_ppls["lon"] = new_ppls["plz"].map(centroids["lon"]).values
+        located = new_ppls["lat"].notna()
+        logger.info(
+            f"Located {located.sum()} of {len(new_ppls)} Kleinwasserkraft plants "
+            f"({new_ppls.loc[located, 'Capacity'].sum() / new_ppls['Capacity'].sum():.2%} "
+            "of their capacity) at their postal code centroid."
+        )
+
+    logger.info(
+        f"Added {len(new_ppls)} Austrian Kleinwasserkraft plants with "
+        f"{new_ppls['Capacity'].sum():.1f} MW from Anlagenregister."
+    )
+    return pd.concat([ppl, new_ppls], ignore_index=True)
+
+
+def scale_kleinwasserkraft_to_bestandsstatistik_at(
+    ppl: pd.DataFrame, bestandsstatistik_typ_file: str
+) -> pd.DataFrame:
+    """
+    Scale the added Kleinwasserkraft fleet to the E-Control capacity total.
+
+    The E-Control Bestandsstatistik is used as ground truth for the
+    Austria-wide capacity per technology. The register Kleinwasserkraft
+    class and E-Control's size-class accounting differ by ~200 MW
+    (~12.5 %), so the plants added by
+    ``add_kleinwasserkraft_to_power_plants_at`` (identified by
+    ``KLEINWASSERKRAFT_NAME_PREFIX``) are scaled uniformly to the
+    Bestandsstatistik total below 10 MW, preserving the register's
+    regional distribution.
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table including the added Kleinwasserkraft plants.
+    bestandsstatistik_typ_file
+        E-Control Bestandsstatistik Kraftwerkstypen xlsx.
+
+    Returns
+    -------
+    :
+        A copy of ``ppl`` with scaled Kleinwasserkraft capacities.
+
+    Raises
+    ------
+    ValueError
+        If no Kleinwasserkraft plants are present, or if the scale factor
+        deviates by more than ``KLEINWASSERKRAFT_MAX_SCALE_DEVIATION`` from
+        1 (both indicate changed or broken source data).
+    """
+    ppl = ppl.copy()
+    kwk_rows = ppl["Name"].str.startswith(KLEINWASSERKRAFT_NAME_PREFIX, na=False)
+    if not kwk_rows.any():
+        raise ValueError(
+            f"No plants with name prefix {KLEINWASSERKRAFT_NAME_PREFIX!r} "
+            "found; run add_kleinwasserkraft_to_power_plants_at first."
+        )
+    class_mw = ppl.loc[kwk_rows, "Capacity"].sum()
+
+    anchor_mw = _read_small_hydro_anchor_mw(bestandsstatistik_typ_file)
+    scale = anchor_mw / class_mw
+    if abs(1 - scale) > KLEINWASSERKRAFT_MAX_SCALE_DEVIATION:
+        raise ValueError(
+            f"Kleinwasserkraft scale factor {scale:.3f} deviates more than "
+            f"{KLEINWASSERKRAFT_MAX_SCALE_DEVIATION:.0%} from 1: register class "
+            f"capacity {class_mw:.0f} MW vs. E-Control Bestandsstatistik "
+            f"anchor {anchor_mw:.0f} MW. Check both datasets for changed "
+            "content or format."
+        )
+    ppl.loc[kwk_rows, "Capacity"] *= scale
+    logger.info(
+        f"Scaled {int(kwk_rows.sum())} Kleinwasserkraft plants by {scale:.3f} "
+        f"to the E-Control Bestandsstatistik total below 10 MW of "
+        f"{anchor_mw:.0f} MW."
+    )
+    return ppl
+
+
+def apply_grenzkraftwerke_shares_at(
+    ppl: pd.DataFrame, grenzkraftwerke_file: str
+) -> pd.DataFrame:
+    """
+    Scale the AT/DE border hydro plants to their treaty shares.
+
+    The Inn and Danube Grenzkraftwerke are jointly owned 50/50 with Bavaria
+    (OeBK and Donaukraftwerk Jochenstein AG). powerplantmatching lists four
+    of them twice (once per country) and every entry at full capacity, so
+    both the Austrian and the German bus double count the same machines
+    (see pypsa-at-planning#92). Scaling each listed entry by its treaty
+    ``share`` assigns every country its energy-rights half.
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table with ``Name``, ``Country``, ``Fueltype``,
+        ``Capacity`` and ``bus`` columns.
+    grenzkraftwerke_file
+        CSV with columns ``Name``, ``country``, ``bus``, ``capacity_mw``,
+        ``share``, ``action``, ``date_in``, ``river`` and ``note``.
+        ``action`` is either ``scale`` (scale an existing entry to
+        ``capacity_mw * share``) or ``add`` (insert a missing run-of-river
+        twin at ``capacity_mw * share`` with build year ``date_in``, for
+        border plants powerplantmatching lists on one side only).
+
+    Returns
+    -------
+    :
+        A copy of ``ppl`` with border plant capacities scaled to treaty shares.
+
+    Raises
+    ------
+    ValueError
+        If a ``scale`` entry does not match exactly one plant, if the
+        matched capacity deviates by more than 1 MW, or if an ``add`` entry
+        already exists in the table (changed upstream dataset).
+    """
+    gkw = pd.read_csv(grenzkraftwerke_file)
+    ppl = ppl.copy()
+
+    for row in gkw.query("action == 'scale'").itertuples():
+        idx = _match_single_hydro_plant(
+            ppl,
+            row.Name,
+            row.country,
+            row.capacity_mw,
+            row.bus,
+            grenzkraftwerke_file,
+        )
+        ppl.at[idx, "Capacity"] = row.capacity_mw * row.share
+
+    add_rows = gkw.query("action == 'add'")
+    for row in add_rows.itertuples():
+        matches = ppl.query(
+            "Country == @row.country and Fueltype == 'Hydro' and Name == @row.Name"
+        ).index
+        if len(matches):
+            raise ValueError(
+                f"{row.country} hydro plant {row.Name!r} already exists in the "
+                f"powerplants table; change its action to 'scale' in "
+                f"{grenzkraftwerke_file}."
+            )
+    if not add_rows.empty:
+        new_ppls = _new_powerplant_rows(
+            names=add_rows["Name"].to_numpy(),
+            fueltype="Hydro",
+            technology="Run-Of-River",
+            date_in=add_rows["date_in"].astype(float).to_numpy(),
+            capacity_mw=(add_rows["capacity_mw"] * add_rows["share"]).to_numpy(),
+            bus=add_rows["bus"].to_numpy(),
+            country=add_rows["country"].to_numpy(),
+        )
+        ppl = pd.concat([ppl, new_ppls], ignore_index=True)
+        logger.info(
+            f"Added {len(new_ppls)} missing Grenzkraftwerke treaty halves with "
+            f"{new_ppls['Capacity'].sum():.0f} MW."
+        )
+
+    _scaled = gkw.query("action == 'scale'")
+    _removed = (
+        _scaled.assign(removed=_scaled["capacity_mw"] * (1 - _scaled["share"]))
+        .groupby("country")["removed"]
+        .sum()
+    )
+    for country, mw in _removed.items():
+        logger.info(
+            f"Scaled {int((_scaled['country'] == country).sum())} Grenzkraftwerke "
+            f"to treaty shares: removed {mw:.0f} MW from {country}."
+        )
+    return ppl
+
+
+def _buses_for_clustering(buses: pd.Series, clustering: str | None) -> pd.Series:
+    """Map curated NUTS3 bus codes to NUTS2 when the run clusters Austria at AT10."""
+    if clustering and clustering.startswith("AT10"):
+        return buses.map(map_at_nuts3_to_nuts2, na_action="ignore")
+    return buses
+
+
+def add_missing_hydro_plants_at(
+    ppl: pd.DataFrame, missing_plants_file: str, clustering: str | None = None
+) -> pd.DataFrame:
+    """
+    Add curated Austrian hydro plants absent from powerplantmatching.
+
+    Some large Austrian hydro plants are missing from the powerplantmatching
+    fleet — notably the EVN Kamp storage chain (Ottenstein, Dobra-Krumau,
+    Thurnberg-Wegscheid), which left the AT124 (Waldviertel) region without
+    the reservoir capacity that carries its river energy (see
+    pypsa-at-planning#312). Each curated plant is added with its coordinates
+    so downstream catchment lookups place it on the correct river section.
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table with ``Name``, ``Country``, ``Fueltype`` and
+        ``Capacity`` columns (as produced by ``build_powerplants``).
+    missing_plants_file
+        CSV with columns ``Name``, ``bus``, ``technology``, ``capacity_mw``,
+        ``date_in``, ``lat``, ``lon`` and ``note``; ``bus`` is the NUTS3 code.
+    clustering
+        Clustering identifier (``AT10...`` maps the NUTS3 buses to NUTS2).
+
+    Returns
+    -------
+    :
+        A copy of ``ppl`` with the curated plants appended.
+
+    Raises
+    ------
+    ValueError
+        If a curated plant already exists among the Austrian hydro rows
+        (changed upstream dataset — switch it to a reclassification instead).
+    """
+    missing = pd.read_csv(missing_plants_file)
+    existing = set(ppl.query("Country == 'AT' and Fueltype == 'Hydro'")["Name"])
+    clash = sorted(set(missing["Name"]) & existing)
+    if clash:
+        raise ValueError(
+            f"Curated missing plant(s) {clash} already exist in the "
+            f"powerplants table; remove them from {missing_plants_file} or "
+            "handle them via reclassification instead."
+        )
+
+    new_ppls = _new_powerplant_rows(
+        names=missing["Name"].to_numpy(),
+        fueltype="Hydro",
+        technology=missing["technology"].to_numpy(),
+        date_in=missing["date_in"].astype(float).to_numpy(),
+        capacity_mw=missing["capacity_mw"].astype(float).to_numpy(),
+        bus=_buses_for_clustering(missing["bus"], clustering).to_numpy(),
+    ).assign(lat=missing["lat"].to_numpy(), lon=missing["lon"].to_numpy())
+
+    summary = missing.groupby("technology")["capacity_mw"].agg(["size", "sum"]).round(1)
+    for tech, r in summary.iterrows():
+        logger.info(
+            f"Added {r['size']:.0f} missing Austrian {tech} plants "
+            f"({r['sum']:.1f} MW) from {missing_plants_file}."
+        )
+    return pd.concat([ppl, new_ppls], ignore_index=True)
+
+
+def drop_duplicate_hydro_plants_at(
+    ppl: pd.DataFrame, duplicates_file: str
+) -> pd.DataFrame:
+    """
+    Drop Austrian hydro plants powerplantmatching lists twice.
+
+    powerplantmatching merges several source databases and keeps a second
+    entry when the names differ only in language (``Kaprun Haupstufe`` and
+    ``Kaprun Main Stage``, ``Malta Hauptstufe`` and ``Malta Main Stage``) or
+    when a foreign plant is geocoded into Austria (the Bavarian Inn plant
+    Feldkirchen). The curated list names the entry to remove by name and
+    capacity and the surviving twin by name and country; the twin must exist,
+    otherwise the drop would lose the plant. Austrian twins are corrected in
+    the reclassification step.
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table with ``Name``, ``Country``, ``Fueltype`` and
+        ``Capacity`` columns.
+    duplicates_file
+        CSV with columns ``Name``, ``bus``, ``capacity_mw``, ``keeps`` (the
+        surviving entry), optional ``keeps_country`` (default ``AT``) and
+        ``note``.
+
+    Returns
+    -------
+    :
+        A copy of ``ppl`` without the listed entries.
+
+    Raises
+    ------
+    ValueError
+        If an entry does not match exactly one Austrian hydro plant or its
+        kept twin is missing (changed upstream dataset).
+    """
+    duplicates = pd.read_csv(duplicates_file)
+    if "keeps_country" not in duplicates:
+        duplicates["keeps_country"] = "AT"
+    duplicates["keeps_country"] = duplicates["keeps_country"].fillna("AT")
+    ppl = ppl.copy()
+    for row in duplicates.itertuples():
+        idx = _match_single_hydro_plant(
+            ppl, row.Name, "AT", row.capacity_mw, row.bus, duplicates_file
+        )
+        keeps, keeps_country = row.keeps, row.keeps_country
+        twins = ppl.drop(index=idx).query(
+            "Country == @keeps_country and Fueltype == 'Hydro' and Name == @keeps"
+        )
+        if twins.empty:
+            raise ValueError(
+                f"Duplicate {row.Name!r} would be dropped, but its kept twin "
+                f"{keeps!r} ({keeps_country}) is not in the powerplants table. "
+                f"Powerplants data changed upstream; re-check {duplicates_file}."
+            )
+        logger.info(
+            f"Dropped duplicate {row.Name!r} ({ppl.at[idx, 'Capacity']:.0f} MW); "
+            f"the plant is kept as {keeps!r} ({keeps_country}, "
+            f"{twins['Capacity'].sum():.0f} MW)."
+        )
+        ppl = ppl.drop(index=idx)
+    return ppl
+
+
+def reclassify_hydro_technologies_at(
+    ppl: pd.DataFrame, reclassification_file: str, clustering: str | None = None
+) -> pd.DataFrame:
+    """
+    Correct the ``Technology`` of misclassified Austrian hydro plants.
+
+    powerplantmatching labels the large Austrian river chains (Danube, Drau,
+    Mur, Inn, Salzach, Ill) as ``Reservoir`` although they are run-of-river
+    plants, which starves the ``ror`` carrier and inflates ``hydro`` in the
+    model. The curated plant list in
+    ``data/pypsa-at/hydro_technology_reclassification_AT.csv`` (verified
+    against operator data, see pypsa-at-planning#312) moves each plant to its
+    correct technology.
+
+    Parameters
+    ----------
+    ppl
+        Powerplants table with ``Name``, ``Country``, ``Fueltype``,
+        ``Technology``, ``Capacity`` and ``bus`` columns
+        (as produced by ``build_powerplants``).
+    reclassification_file
+        CSV with columns ``Name``, ``bus``, ``capacity_mw``,
+        ``technology_old``, ``technology_new``, ``group``, ``note`` and
+        optional correction columns applied where set: ``capacity_new``
+        (nameplate capacity in MW) and ``bus_new`` / ``lat_new`` /
+        ``lon_new`` (relocation of a plant powerplantmatching geocoded to
+        the wrong place, e.g. a same-named village).
+
+    Returns
+    -------
+    :
+        A copy of ``ppl`` with corrected ``Technology`` values.
+
+    Raises
+    ------
+    ValueError
+        If a list entry does not match exactly one Austrian hydro plant, or
+        if the matched capacity deviates by more than 1 MW. Both indicate a
+        changed upstream dataset that warrants re-checking the list.
+    """
+    reclassification = pd.read_csv(reclassification_file)
+    for column in ("bus", "bus_new"):
+        if column in reclassification:
+            reclassification[column] = _buses_for_clustering(
+                reclassification[column], clustering
+            )
+    ppl = ppl.copy()
+
+    for row in reclassification.itertuples():
+        idx = _match_single_hydro_plant(
+            ppl,
+            row.Name,
+            "AT",
+            row.capacity_mw,
+            row.bus,
+            reclassification_file,
+            technology=row.technology_old,
+        )
+        ppl.at[idx, "Technology"] = row.technology_new
+        if pd.notna(getattr(row, "capacity_new", None)):
+            logger.info(
+                f"Corrected nameplate capacity of {row.Name!r}: "
+                f"{ppl.at[idx, 'Capacity']:.1f} -> {row.capacity_new:.1f} MW."
+            )
+            ppl.at[idx, "Capacity"] = row.capacity_new
+        for column in ("bus", "lat", "lon"):
+            new_value = getattr(row, f"{column}_new", None)
+            if pd.notna(new_value):
+                logger.info(
+                    f"Relocated {row.Name!r}: {column} "
+                    f"{ppl.at[idx, column]!r} -> {new_value!r}."
+                )
+                ppl.at[idx, column] = new_value
+
+    summary = (
+        reclassification.fillna({"technology_old": "<none>"})
+        .groupby(["technology_old", "technology_new"])["capacity_mw"]
+        .agg(["size", "sum"])
+    )
+    for (old, new), r in summary.iterrows():
+        logger.info(
+            f"Reclassified {r['size']:.0f} Austrian hydro plants "
+            f"({r['sum']:.0f} MW) from {old} to {new}."
+        )
+    return ppl
+
+
+KLIEN_RESIDUAL_NAME_PREFIX = "KLIEN residual "
+KLIEN_RESIDUAL_DATEIN = 2000.0
+KLIEN_RESIDUAL_COLUMNS = ["section", "bus", "capacity_mw", "energy_gwh", "lat", "lon"]
+
+
+def add_klien_residual_plants_at(
+    ppl: pd.DataFrame,
+    klien_catchments_file: str,
+    catchment_corrections_file: str,
+    regions_file: str,
+    diversion_overrides_file: str,
+    grenzkraftwerke_file: str,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Add synthetic run-of-river plants for the KLIEN capacity the fleet lacks.
+
+    Runs the KLIEN catchment allocation on the calibrated fleet exactly as
+    ``build_hydro_inflow_targets_at`` does, converts the energy that stays
+    unallocated per catchment back into capacity at the catchment's own
+    full-load hours and appends one ``Run-Of-River`` plant per catchment,
+    placed inside the catchment. The inflow targets built afterwards then
+    match the study's long-term energy in every catchment. The added plants
+    represent capacity the study asserts and no public source confirms; they
+    are listed in a separate table for transparency, and every later curation
+    that adds a real plant shrinks its residual automatically.
+
+    Parameters
+    ----------
+    ppl
+        Calibrated powerplants table (after all other Austrian hydro steps).
+    klien_catchments_file
+        KLIEN catchment GeoJSON (``catchments_hydro.geojson``).
+    catchment_corrections_file
+        Curated catchment corrections CSV.
+    regions_file
+        Onshore model regions GeoJSON of the clustering.
+    diversion_overrides_file
+        Curated catchment pins CSV.
+    grenzkraftwerke_file
+        Border plants CSV (names the German twins that join the allocation).
+
+    Returns
+    -------
+    :
+        Tuple of the powerplants table with the residual plants appended and
+        the residual plant table (``KLIEN_RESIDUAL_COLUMNS``).
+    """
+    plants = bhit.select_hydro_plants(ppl, pd.read_csv(grenzkraftwerke_file))
+    sections = gpd.read_file(klien_catchments_file)
+    sections.columns = sections.columns.str.strip()
+    sections = (
+        sections[sections["E_current"].notna()].set_index("id").to_crs(bhit.KLIEN_CRS)
+    )
+    sections = bhit.apply_catchment_corrections(
+        sections, pd.read_csv(catchment_corrections_file)
+    )
+    regions = gpd.read_file(regions_file).set_index("name").to_crs(bhit.KLIEN_CRS)
+    overrides = pd.read_csv(diversion_overrides_file)
+    _, diagnostics = bhit.build_inflow_targets(
+        plants, sections, regions, overrides=overrides, capacity_col="C_current"
+    )
+    residual = bhit.residual_plants(sections, diagnostics["unallocated"], regions)
+    if residual.empty:
+        logger.info("KLIEN residual plants: the fleet matches every catchment.")
+        return ppl, residual[KLIEN_RESIDUAL_COLUMNS]
+    new_ppls = _new_powerplant_rows(
+        names=KLIEN_RESIDUAL_NAME_PREFIX + residual["section"],
+        fueltype="Hydro",
+        technology="Run-Of-River",
+        date_in=KLIEN_RESIDUAL_DATEIN,
+        capacity_mw=residual["capacity_mw"].to_numpy(),
+        bus=residual["bus"].to_numpy(),
+    ).assign(lat=residual["lat"].to_numpy(), lon=residual["lon"].to_numpy())
+    logger.info(
+        f"Added {len(new_ppls)} KLIEN residual run-of-river plants with "
+        f"{residual['capacity_mw'].sum():.0f} MW carrying "
+        f"{residual['energy_gwh'].sum():.0f} GWh/a of KLIEN energy that the "
+        "curated fleet does not hold; largest: "
+        f"{residual.nlargest(5, 'capacity_mw').set_index('section')['capacity_mw'].round(1).to_dict()}."
+    )
+    return pd.concat([ppl, new_ppls], ignore_index=True), residual[
+        KLIEN_RESIDUAL_COLUMNS
+    ]
+
+
+def biogas_plants(ppl: pd.DataFrame, snakemake) -> pd.DataFrame:
     """Prepare the Austrian biogas plants, or an empty table when disabled."""
     if not snakemake.params.add_biogas_to_power_plants_AT:
         logger.info(
@@ -269,23 +1570,77 @@ def biogas_plants(ppl: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def overwrite_powerplants(snakemake):
+    """Patch the powerplants table and write the KLIEN residual plants."""
+    _ppl = pd.read_csv(snakemake.input.powerplants, index_col=0)
+    ppl_overwrite = overwrite_nuclear_dateout(_ppl, CH_NUCLEAR_DATEOUT)
+    residual = pd.DataFrame(columns=KLIEN_RESIDUAL_COLUMNS)
+
+    if snakemake.params.update_hydro_capacities_AT:
+        ppl_overwrite = drop_duplicate_hydro_plants_at(
+            ppl_overwrite, snakemake.input.hydro_duplicates
+        )
+        ppl_overwrite = reclassify_hydro_technologies_at(
+            ppl_overwrite,
+            snakemake.input.hydro_reclassification,
+            clustering=snakemake.params.clustering,
+        )
+        ppl_overwrite = apply_grenzkraftwerke_shares_at(
+            ppl_overwrite, snakemake.input.grenzkraftwerke
+        )
+        # the register replacement drops every Austrian run-of-river plant of
+        # 10 MW or less, so curated plants must be appended after it
+        ppl_overwrite = add_kleinwasserkraft_to_power_plants_at(
+            ppl_overwrite,
+            anlagenregister_plants_file=snakemake.input.anlagenregister,
+            postal_to_nuts_file=snakemake.input.postal_to_nuts,
+            clustering=snakemake.params.clustering,
+            postal_centroids_file=snakemake.input.postal_centroids,
+        )
+        ppl_overwrite = scale_kleinwasserkraft_to_bestandsstatistik_at(
+            ppl_overwrite, snakemake.input.bestandsstatistik_typ
+        )
+        ppl_overwrite = add_missing_hydro_plants_at(
+            ppl_overwrite,
+            snakemake.input.missing_hydro_plants,
+            clustering=snakemake.params.clustering,
+        )
+        if snakemake.params.klien_residual_plants:
+            ppl_overwrite, residual = add_klien_residual_plants_at(
+                ppl_overwrite,
+                klien_catchments_file=snakemake.input.klien_catchments,
+                catchment_corrections_file=snakemake.input.catchment_corrections,
+                regions_file=snakemake.input.regions_onshore,
+                diversion_overrides_file=snakemake.input.diversion_overrides,
+                grenzkraftwerke_file=snakemake.input.grenzkraftwerke,
+            )
+        else:
+            logger.info(
+                "Skipping KLIEN residual plants. config option "
+                "mods.update_hydro_capacities_AT.klien_residual_plants is false."
+            )
+    else:
+        logger.info(
+            "Skipping Austrian hydro technology reclassification. config option mods.update_hydro_capacities_AT.enable is false."
+        )
+    # written even when disabled so that the DAG does not depend on the config
+    residual.to_csv(snakemake.output.residual_plants, index=False)
+    return ppl_overwrite
+
+
 if __name__ == "__main__":
     if "snakemake" not in globals():
         from scripts._helpers import mock_snakemake
 
         snakemake = mock_snakemake(
             "overwrite_powerplants_at",
-            simpl="",
-            clusters="adm",
-            opts="",
-            ll="v1.25",
-            sector_opts="none",
-            planning_horizons="2025",
             run="AT_KN2040",
         )
 
     configure_logging(snakemake)
 
-    result = overwrite_powerplants()
+    result = overwrite_powerplants(snakemake)
+    result, gas_deviations = gas_powerplants_AT(result, snakemake)
     result.to_csv(snakemake.output.powerplants)
-    biogas_plants(result).to_csv(snakemake.output.biogas_plants, index=False)
+    gas_deviations.to_csv(snakemake.output.gas_deviations, index=False)
+    biogas_plants(result, snakemake).to_csv(snakemake.output.biogas_plants, index=False)

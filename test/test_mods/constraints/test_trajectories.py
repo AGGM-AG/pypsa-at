@@ -106,3 +106,66 @@ def test_constraint_generic_trajectories(
                 trajectories_var[~trajectories_var["result"]].index
             ]
             assert violations.empty, f"Violated constraints {violations}"
+
+
+class TestBuildModelExpression:
+    """Rows without an extendable component are dropped, not turned into constant constraints."""
+
+    def _network(self):
+        import pypsa
+
+        n = pypsa.Network()
+        n.set_snapshots(pd.date_range("2013-01-01", periods=2, freq="h"))
+        n.add("Bus", "AT130", carrier="AC")
+        n.add("Bus", "AT121", carrier="AC")
+        n.add(
+            "Generator",
+            "AT130 ror",
+            bus="AT130",
+            carrier="ror",
+            p_nom=100.0,
+            marginal_cost=1.0,
+        )
+        n.add(
+            "Generator",
+            "AT130 ror-2030",
+            bus="AT130",
+            carrier="ror",
+            p_nom_extendable=True,
+            p_nom_max=10.0,
+            capital_cost=1.0,
+        )
+        n.add(
+            "Generator",
+            "AT121 ror",
+            bus="AT121",
+            carrier="ror",
+            p_nom=300.0,
+            marginal_cost=1.0,
+        )
+        n.optimize.create_model()
+        return n
+
+    def test_rows_without_variables_are_dropped(self):
+        from mods.constraints.trajectories import build_model_expression
+
+        n = self._network()
+        names = pd.DataFrame(
+            {
+                "index": [0, 0, 1],
+                "name": ["AT130 ror", "AT130 ror-2030", "AT121 ror"],
+            }
+        )
+
+        expr = build_model_expression(n, names, "Generator-p_nom")
+
+        assert expr.coords["index"].to_numpy().tolist() == [0]
+        assert expr.nterm == 1
+
+    def test_returns_none_when_nothing_is_extendable(self):
+        from mods.constraints.trajectories import build_model_expression
+
+        n = self._network()
+        names = pd.DataFrame({"index": [1], "name": ["AT121 ror"]})
+
+        assert build_model_expression(n, names, "Generator-p_nom") is None

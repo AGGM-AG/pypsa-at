@@ -15,21 +15,22 @@ import yaml
 HOURS_PER_YEAR = 8760
 
 
-def parse_resolution(resolution: str) -> tuple[str, float]:
+def parse_resolution(resolution: str) -> tuple[str, str | int, float]:
     """
-    Parse a temporal resolution into its config value and mean step length.
+    Parse a temporal resolution into its config method, value and step length.
 
     Parameters
     ----------
     resolution
-        Either a fixed resolution in hours (e.g. '3H' or '3') or a
+        Either a fixed resolution in hours (e.g. '3h' or '3') or a
         number of tsam segments (e.g. '1460seg').
 
     Returns
     -------
     :
-        The value for `clustering.temporal.resolution_sector` and the
-        mean snapshot length in hours.
+        The `clustering.temporal` method ('averaging' or 'segmentation'),
+        its config value (pandas offset string or number of segments) and
+        the mean snapshot length in hours.
     """
     if resolution.lower().endswith("seg"):
         segments = int(resolution[:-3])
@@ -38,10 +39,10 @@ def parse_resolution(resolution: str) -> tuple[str, float]:
                 f"'{resolution}' is not valid. The number of segments must be "
                 f"between 1 and {HOURS_PER_YEAR - 1}."
             )
-        return f"{segments}seg", HOURS_PER_YEAR / segments
+        return "segmentation", segments, HOURS_PER_YEAR / segments
 
-    hours = int(resolution.rstrip("H"))
-    return f"{hours}H", hours
+    hours = int(resolution.lower().rstrip("h"))
+    return "averaging", f"{hours}h", hours
 
 
 @click.command(short_help="Overwrite existing values in config/config.at.yaml")
@@ -64,8 +65,9 @@ def configure(
     clustering : {'AT10DE5', 'AT35DE5', 'AT10DE16', 'AT35DE16'}
         The name of the administrative custom clustering.
     resolution
-        The temporal resolution to set as the `resolution_sector`. Either
-        hours (e.g. '3H') or a number of tsam segments (e.g. '1460seg').
+        The temporal resolution to set under `clustering.temporal`. Either
+        hours (e.g. '3h', sets `averaging`) or a number of tsam segments
+        (e.g. '1460seg', sets `segmentation`).
     solver : {'highs', 'gurobi'}
         The solver to use. Sets `solver_name` and `solver-options` in the configuration.
     scenario {'AT_KN2040'}
@@ -97,7 +99,7 @@ def configure(
         )
 
     # sanitize temporal resolution
-    resolution, mean_hours = parse_resolution(resolution)
+    method, value, mean_hours = parse_resolution(resolution)
     if mean_hours < 24 and solver != "gurobi":
         raise ValueError(
             f"Denying to run model with resolution {resolution} and solver '{solver}'."
@@ -143,8 +145,11 @@ def configure(
     )
     config["clustering"]["administrative"]["DE"] = nuts_de
 
-    logger.info(f"Setting temporary resolution to '{resolution}'")
-    config["clustering"]["temporal"]["resolution_sector"] = resolution
+    logger.info(f"Setting temporal {method} to '{value}'")
+    # the temporal methods are mutually exclusive; reset the others
+    temporal = {"averaging": False, "segmentation": False, "representative": False}
+    temporal[method] = value
+    config["clustering"]["temporal"] = temporal
 
     logger.info(f"Setting scenario name to '{scenario}'")
     config["run"]["name"] = [scenario]

@@ -20,7 +20,7 @@ Prefer shared helpers, clear pandas vectorization, and `pypsa.statistics` where 
 
 Code must be concise and easy to follow. If a function has multiple responsibilities, propose a split and name the responsibilities.
 
-Functions must have typed parameters and return values. Public or non-obvious functions need short NumPy-style docstrings with parameter descriptions and no duplicated type information.
+Functions must have typed parameters and return values. Public or non-obvious functions need short NumPy-style docstrings with parameter descriptions, no type information (types come from the signature), and the bare-colon `Returns` layout described in the *Docstrings* section of `CLAUDE.md`.
 
 ## 4. Keep project documentation current
 

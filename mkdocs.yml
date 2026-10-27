@@ -84,18 +84,18 @@ nav:
     - Open-TYNDP Trajectories: explanations/brownfield/open-tyndp.md
     - Gas Storage Capacities: explanations/brownfield/gas-storage-capacities.md
     - Austrian Biogas-to-Power Plants: explanations/brownfield/biogas-power-plants-AT.md
+    - Austrian Gas Power Plants: explanations/brownfield/gas-power-plants-AT.md
     - Austrian Onshore-Wind Capacities: explanations/brownfield/onwind-capacities-AT.md
   - Renewable Energy Potentials:
     - KLIEN Potentials: explanations/renewable-energy-potentials/klien-potentials.md
     - Photovoltaic Potentials: explanations/renewable-energy-potentials/pv-potentials.md
     - Wind Power Potentials: explanations/renewable-energy-potentials/wind-potentials.md
-  - Hydroelectric Resources:
-    - Inflow Calculation and Application: explanations/hydro-inflow.md
-    - Hydro Capacity Trajectories: explanations/hydro-capacity-trajectories.md
+  - Hydropower Capacities and Inflows: explanations/hydro-capacity-trajectories.md
   - Generic Capacity Trajectories: explanations/capacity-trajectories.md
   - Regulatory Requirements:
     - explanations/regulatory-requirements/index.md
     - EAG Net-Zero Electricity: explanations/regulatory-requirements/eag-net-zero-electricity.md
+    - EAG Renewable Expansion Targets: explanations/regulatory-requirements/eag-renewable-expansion-targets.md
   - Biogas-to-gas and Biogas-to-power: explanations/biogas.md
 
 theme:

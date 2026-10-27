@@ -8,12 +8,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Planned]
 
 ### Added
-- `patch_powerplants_set_at` rule restoring `Set="PP"` on the large German lignite condensing units, which powerplantmatching 0.8.x tags `Set="CHP"` and the inherited PyPSA-DE `powerplants_filter` then drops (19,965 MW → 0 MW of German lignite)
+- Scenarios can use different custom clusterings (`mods.modify_nuts3_shapes`, `clustering.administrative`) in one workflow: the KLIEN-weighted onwind profiles apply per run when Austria is clustered at NUTS2, and the clustering config reaches the scripts as rule params
+- CO2 pipelines carry dense-phase CO2 (`sector.co2_network_liquefaction: true`): compression costs and electricity (0.1051 MWh/t) are counted. The cost entry `CO2 dense phase compression` comes from technology-data v0.15.0 (AIT CO2Netz study), converted to EUR2020 in `data/custom_costs.csv` until technology-data is bumped
+- `patch_powerplants_set_at` rule restoring `Set="PP"` on the large German lignite condensing units
 
 ### Fixed
 - Retrofitted H2 pipelines no longer double-count Austrian gas pipeline capacity: from 2030 up to the threshold year, gas plus retrofitted H2 capacity per corridor stays at the AGGM target ([#294](https://github.com/AGGM-AG/pypsa-at-planning/issues/294))
 
 ### Changed
+- Merged the restructured PyPSA-DE/PyPSA-Eur workflow: one `compose_network` rule replaces `prepare_sector_network`, `add_existing_baseyear`, `add_brownfield` and `modify_prenetwork`; the `clusters`, `opts`, `sector_opts`, `ll` and `planning_horizons` wildcards are gone (only `{horizon}`), and solved networks are `networks/solved_{horizon}.nc`. AT modifications run last in `compose_network`, after the PyPSA-DE modifications. PyPSA-AT does not support perfect foresight
+- `run.shared_resources.policy` is `false`: all resources are built per run
+- `electricity.transmission_limit` is `vopt`; fixed `v1.xx` limits are infeasible from the second myopic horizon on after the merge
 - Bumped `powerplantmatching` to 0.8.0 and the `powerplants` dataset to 0.8.1. 0.8.0 fixes the IRENASTAT download, which previously fetched a Zenodo 403 HTML page and failed in `add_existing_baseyear`; 0.8.1 is not usable as a package because it caps `pandas <3`
 - Differentiation of open- and closed-loop PHS, reservoirs with and without inflows; improved Austrian hydro inflow time series
 - Carbon cycle model coupling for improved biomass sector accuracy
@@ -30,6 +35,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Alpha]
 
 ### Added
+- Austrian gas-fired power plant brownfield calibrated against the E-Control Anlagenregister, Bestandsstatistik and Betriebsstatistik ([#214](https://github.com/AGGM-AG/pypsa-at/pull/214))
 - Austrian base electricity load (households, services, agriculture, rail) calibrated to the Statistik Austria NEA (NUTS2) to NUTS3 regions using Energiemosaik ([#213](https://github.com/AGGM-AG/pypsa-at/pull/213))
 - Retrieval of the E-Control Anlagenregister (Strom + Gas, all Bundesländer) via the website search endpoint and NUTS3 aggregation ([#198](https://github.com/AGGM-AG/pypsa-at/pull/198))
 - NUTS2 and NUTS3 administrative clustering with 1H/3H temporal resolution in the myopic workflow ([#55](https://github.com/AGGM-AG/pypsa-at/pull/55))
@@ -55,6 +61,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added Austrian regional vehicle-stock and NEA-based road transport demand data ([#188](https://github.com/AGGM-AG/pypsa-at/pull/188))
 - Heat demand totals based on NEA data and spatial disaggregation based on austrian heatmap ([#182](https://github.com/AGGM-AG/pypsa-at/pull/182))
 - Added Austrian onshore-wind brownfield capacity vintages based on historical generation and KLIEN potentials ([#208](https://github.com/AGGM-AG/pypsa-at/pull/208))
+- Calibrated Austrian hydro fleet: powerplantmatching duplicates dropped, technology reclassification of the large river chains, operator-sourced capacity corrections and relocations, Grenzkraftwerke treaty shares, missing plants above 10 MW (Kamp, Lech, Salzach, Sill, Traun, Enns, Große Mühl, Großarl, Kleinarl, Rauris, Trisanna, Defereggen, Stubai, Ill, Lutz, Alfenz and Stubach, incl. the ÖBB railway plants and industrial self-suppliers), and the Anlagenregister *Kleinwasserkraft* fleet scaled to the E-Control Bestandsstatistik
+- Major hydropower upgrade: potentials and trajectories from KLIEN study, small plants from Anlagenregister, calibration targets from yearly e-control statistics, profile stay ERA5
 
 ### Fixed
 - Switzerland now follows split of biomass into un-/sustainable biomass potential [#217](https://github.com/AGGM-AG/pypsa-at/pull/217)

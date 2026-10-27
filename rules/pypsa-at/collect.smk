@@ -10,9 +10,8 @@ PyPSA-AT main rule to run the workflow.
 rule export_evaluation_pypsa_at:
     input:
         networks=expand(
-            RESULTS
-            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
-            **config["scenario"],
+            RESULTS + "networks/solved_{horizon}.nc",
+            horizon=config["planning_horizons"],
             allow_missing=True,
         ),
     output:
@@ -32,9 +31,8 @@ rule export_evaluation_pypsa_at:
 rule validate_pypsa_at:
     input:
         networks=expand(
-            RESULTS
-            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
-            **config["scenario"],
+            RESULTS + "networks/solved_{horizon}.nc",
+            horizon=config["planning_horizons"],
             allow_missing=True,
         ),
     output:
@@ -50,8 +48,20 @@ rule validate_pypsa_at:
         'pixi run -e test pytest -m "AT" --html {params.rdir}/test_report.html --result-path={params.rdir}'
 
 
+# CI runs (config/test/config.at10.yaml) skip the evaluations to save time.
+# Exact match on purpose: a renamed CI prefix runs the evaluations again
+# instead of silently skipping them for other runs.
+SKIP_EVALUATION = config["run"]["prefix"] == "test-sector-myopic-at10"
+
+
 rule all_at:
     default_target: True
     input:
         expand(RESULTS + "test_report.html", run=config["run"]["name"]),
-        expand(RESULTS + "evaluation/.run_by_snakemake", run=config["run"]["name"]),
+        (
+            []
+            if SKIP_EVALUATION
+            else expand(
+                RESULTS + "evaluation/.run_by_snakemake", run=config["run"]["name"]
+            )
+        ),

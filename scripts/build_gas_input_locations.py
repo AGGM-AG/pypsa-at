@@ -148,11 +148,6 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "build_gas_input_locations",
-            clusters="adm",
-            opts="",
-            ll="v1.25",
-            sector_opts="none",
-            planning_horizons="2025",
             run="AT_KN2040",
             configfiles=["config/test/config.at10.yaml"],
         )
@@ -161,7 +156,7 @@ if __name__ == "__main__":
     set_scenario_config(snakemake)
 
     regions = load_bus_regions(
-        snakemake.input.regions_onshore, snakemake.input.regions_offshore
+        snakemake.input.onshore_regions, snakemake.input.offshore_regions
     )
 
     # add a buffer to eastern countries because some

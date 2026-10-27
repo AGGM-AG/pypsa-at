@@ -10,6 +10,7 @@ import pandas as pd
 import pypsa
 
 from mods.constants import UNITS
+from mods.utils import inflow_turbine_weights
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,9 @@ def _production_expression(n: pypsa.Network, source: str, region: str):
 
     Notes
     -----
-    Time-varying link efficiencies are ignored.
+    Time-varying link efficiencies are ignored. Generators on store buses
+    (the hydro inflow generators) are weighted by the efficiency of the
+    turbine link of that store, see :func:`inflow_turbine_weights`.
     """
     weightings = n.snapshot_weightings.generators
 
@@ -57,7 +60,18 @@ def _production_expression(n: pypsa.Network, source: str, region: str):
             & n.generators.carrier.isin(GENERATOR_CARRIERS[source])
             & n.generators.active
         ].index
-        return n.model["Generator-p"].loc[:, generators].mul(weightings).sum()
+        weights = inflow_turbine_weights(n, generators)
+        expr = n.model["Generator-p"].loc[:, generators].mul(weights).mul(weightings)
+        # the weights must align on the generator dimension; a misaligned index
+        # name makes linopy broadcast and multiplies the production by the
+        # number of generators
+        if expr.nterm != 1:
+            raise ValueError(
+                f"The {source} production expression has {expr.nterm} terms per "
+                "generator and snapshot instead of one; the weights do not align "
+                "with the 'name' dimension of the Generator-p variable."
+            )
+        return expr.sum()
     elif source in LINK_CARRIERS:
         from_carriers, to_carriers = LINK_CARRIERS[source]
         from_buses = n.buses[

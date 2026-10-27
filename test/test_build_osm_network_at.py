@@ -6,21 +6,11 @@
 Tests the functionalities of scripts/pypsa-at/build_osm_network_at.py.
 """
 
-import importlib.util
 import json
-import pathlib
 
+import build_osm_network_at
 import pandas as pd
 import pytest
-
-# The script lives in a directory with a dash in its name, so it cannot be
-# imported as a normal module path.
-_SPEC = importlib.util.spec_from_file_location(
-    "build_osm_network_at",
-    pathlib.Path(__file__).parents[1] / "scripts/pypsa-at/build_osm_network_at.py",
-)
-build_osm_network_at = importlib.util.module_from_spec(_SPEC)
-_SPEC.loader.exec_module(build_osm_network_at)
 
 add_operator_columns = build_osm_network_at.add_operator_columns
 canonical_operator = build_osm_network_at.canonical_operator

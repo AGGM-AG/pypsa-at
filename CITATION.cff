@@ -44,7 +44,7 @@ references:
       orcid: https://orcid.org/0000-0001-5898-1911
   - title: "PyPSA-Eur: An open sector-coupled optimisation model of the European energy system"
     repository: https://github.com/pypsa/pypsa-eur
-    version: v2026.08.0
+    version: v2026.09.0
     license: MIT
     authors:
     - family-names: Brown
