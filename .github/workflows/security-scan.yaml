@@ -109,7 +109,7 @@ jobs:
     # All PRs gate on new CVEs vs the main baseline
     - name: Download main baseline
       if: github.event_name == 'pull_request'
-      uses: dawidd6/action-download-artifact@v27
+      uses: dawidd6/action-download-artifact@v28
       with:
         workflow: security-scan.yaml
         name: main-sbom
