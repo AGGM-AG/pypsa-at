@@ -1,0 +1,35 @@
+name: zizmor
+
+on:
+  push:
+    branches: [main]
+  # No path filter, a required check must report on every PR
+  pull_request:
+    branches: [main]
+  # Online audits (known-vulnerable-actions, stale-action-refs) change over
+  # time, so re-audit main weekly even without workflow changes
+  schedule:
+  - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+
+    # Configuration lives in .github/zizmor.yml. The gate fails on medium+
+    # severity findings with high confidence; lower ones only annotate.
+    - name: Audit GitHub Actions workflows
+      uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+      with:
+        min-severity: medium
+        min-confidence: high
+        advanced-security: false   # gate only, no SARIF upload to code scanning
+        annotations: true
