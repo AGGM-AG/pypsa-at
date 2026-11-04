@@ -10,11 +10,17 @@ on:
   - cron: "0 6 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   changes:
     name: Detect pixi.lock changes
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read   # gh api lists PR files
     outputs:
       pixi: ${{ steps.diff.outputs.pixi }}
     steps:
@@ -109,7 +115,7 @@ jobs:
     # All PRs gate on new CVEs vs the main baseline
     - name: Download main baseline
       if: github.event_name == 'pull_request'
-      uses: dawidd6/action-download-artifact@v27
+      uses: dawidd6/action-download-artifact@eab87c9830c39eff17e5a6eadb20bfb4bc880477 # v27
       with:
         workflow: security-scan.yaml
         name: main-sbom

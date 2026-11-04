@@ -14,6 +14,9 @@ env:
   IMAGE_NAME: aggm-ag/at-dev-env
   BASE_ENV: envs/linux-64.lock.yaml
 
+permissions:
+  contents: read
+
 jobs:
   push-image:
     name: dev-env
@@ -42,7 +45,7 @@ jobs:
         docker push ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
         # Add latest tag if on main branch
-        if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+        if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
           docker tag ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} ghcr.io/${{ env.IMAGE_NAME }}:latest
           docker push ghcr.io/${{ env.IMAGE_NAME }}:latest
         fi
