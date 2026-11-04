@@ -1,0 +1,22 @@
+# Grype configuration for the SBOM vulnerability scan (.github/workflows/security-scan.yaml).
+# Grype loads this file automatically from the repository root.
+ignore:
+  # --- Temporary: vulnerable `zip` Rust crate vendored in the ruff 0.17.3 binary.
+  # ruff only uses `zip` to read its own embedded typeshed archive, never user input.
+  # ruff main switched to zip 9.x on 2026-10-28 (astral-sh/ruff#29808); drop this block
+  # once the lockfile moves to a ruff release that includes that bump (> 0.17.3).
+- vulnerability: CVE-2026-115905
+  package: {name: zip, type: rust-crate}
+- vulnerability: CVE-2026-115906
+  package: {name: zip, type: rust-crate}
+- vulnerability: CVE-2026-115907
+  package: {name: zip, type: rust-crate}
+- vulnerability: CVE-2026-115908
+  package: {name: zip, type: rust-crate}
+- vulnerability: CVE-2026-115909
+  package: {name: zip, type: rust-crate}
+  # --- Permanent: conda packages carry no ecosystem, so grype matches them by bare name
+  # against npm and RubyGems advisories (e.g. "Malware in networkx" for npm:networkx).
+  # The environment contains no JavaScript or Ruby packages, so these are name collisions.
+- namespace: github:language:javascript
+- namespace: github:language:ruby
