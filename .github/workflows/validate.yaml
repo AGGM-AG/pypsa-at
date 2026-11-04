@@ -9,11 +9,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   run-validation:
     name: Run validation
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: self-hosted
+    permissions:
+      contents: read
+      pull-requests: read   # pypsa-validator reads PR metadata
     outputs:
       validation_failed: ${{ steps.check_validation.outputs.failed }}
     steps:
@@ -44,6 +50,9 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       needs.run-validation.outputs.validation_failed != 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write   # pypsa-validator posts the report comment
     steps:
     - uses: PyPSA/pypsa-validator@v0.2.5
       with:

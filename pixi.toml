@@ -58,6 +58,11 @@ workflow = "snakemake all_at -call"
 sync-locks = """
     echo "Skipping task because PyPSA-AT does not support conda."
 """
+
+# Audit GitHub Actions workflows for supply-chain weaknesses. Mirrors the
+# thresholds of the zizmor CI gate (.github/workflows/zizmor.yaml) and runs
+# offline so no GitHub token is needed.
+zizmor = "zizmor --offline --min-severity medium --min-confidence high ."
 # --- END: Block Maintained by PyPSA-AT ----------
 
 [dependencies]
@@ -98,7 +103,7 @@ netcdf4 = ">=1.7.2,!=1.7.4"
 networkx = ">=3.5"
 numpy = ">=1.26.4"
 openpyxl = ">=3.1.5"
-pandas = ">=3"
+pandas = ">=3,<3.1"  # 3.1 breaks country_converter (read_csv converters no longer keep "NA" as str, IndEcol/country_converter#180); lift once a fixed country_converter is released
 plotly = ">=6.4.0"
 powerplantmatching = "==0.8.0"  # 0.8.1 caps pandas <3; 0.8.0 is the newest release compatible with pandas 3 and already carries the IRENASTAT download fix
 pydantic = ">=2"
@@ -141,6 +146,7 @@ snakemake-executor-plugin-slurm = ">=1.9.2"
 pre-commit = ">=4.3.0"
 pylint = ">=4.0.2"
 ruff = ">=0.14.3"
+zizmor = ">=1.31"
 
 [feature.doc.tasks.build-docs]
 cmd = "mkdocs build -d public/html"

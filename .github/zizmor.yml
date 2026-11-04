@@ -1,0 +1,31 @@
+# zizmor configuration, see https://docs.zizmor.sh/configuration/
+# The CI gate (.github/workflows/zizmor.yaml) fails on findings of medium
+# severity and above with high confidence. Run `pixi run zizmor` locally.
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # Trusted first-party and vendor namespaces may stay tag-pinned so the
+        # workflow files stay close to upstream pypsa-de; everything else must
+        # be hash-pinned (Dependabot keeps the hash and version comment current).
+        "actions/*": ref-pin
+        "github/*": ref-pin
+        "prefix-dev/*": ref-pin
+        "anchore/*": ref-pin
+        "PyPSA/*": ref-pin
+        "docker/*": ref-pin
+        "*": hash-pin
+    ignore:
+    - release.yaml   # TODO(0.1): remove, release.yaml is unused until the 0.1 release
+  template-injection:
+    ignore:
+    - release.yaml   # TODO(0.1): remove
+  github-app:
+    ignore:
+    - release.yaml   # TODO(0.1): remove
+  excessive-permissions:
+    ignore:
+    - release.yaml   # TODO(0.1): remove
+  artipacked:
+    ignore:
+    - release.yaml   # TODO(0.1): remove

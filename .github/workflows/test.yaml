@@ -18,6 +18,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   unit-tests:
     name: Unit
@@ -44,6 +47,9 @@ jobs:
     name: Integration
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ${{ matrix.os }}-latest
+    permissions:
+      contents: read
+      pull-requests: read   # dorny/paths-filter lists PR files
     strategy:
       fail-fast: false
       matrix:
@@ -57,7 +63,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    - uses: dorny/paths-filter@v4
+    - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
       id: filter
       with:
         filters: |
