@@ -70,13 +70,15 @@ jobs:
         by-cve: true
         output-format: sarif
 
-    # Set uri=pixi.lock for a readable location, and fingerprint each alert by
-    # CVE id so code scanning matches against the main baseline by CVE, not line.
-    - name: Normalize SARIF (pixi.lock location + CVE fingerprint)
+    # Keep one result per CVE and point it at pixi.lock. Grype reports a CVE once
+    # per matched package (conda and pip metadata of the same install), and GitHub
+    # only honours the primaryLocationLineHash fingerprint, so without this every
+    # CVE would surface as two code scanning alerts.
+    - name: Normalize SARIF (one result per CVE, pixi.lock location)
       run: |
-        jq '.runs[].results[] |= (
-              .locations[].physicalLocation.artifactLocation.uri = "pixi.lock"
-              | .partialFingerprints = {"grypeCve/v1": .ruleId}
+        jq '.runs[].results |= (
+              unique_by(.ruleId)
+              | map(.locations[].physicalLocation.artifactLocation.uri = "pixi.lock")
             )' "${{ steps.scan.outputs.sarif }}" > normalized.sarif
         mv normalized.sarif "${{ steps.scan.outputs.sarif }}"
 
@@ -96,11 +98,19 @@ jobs:
           rows | awk -F'\t' '{ gsub(/\|/, "\\|", $3); printf "| %s | %s | %s |\n", $1, $2, $3 }'
         } >> "$GITHUB_STEP_SUMMARY"
 
+    # Code scanning only receives high and critical findings; medium and low stay
+    # visible in the job log and step summary above.
+    - name: Keep high+ findings for code scanning
+      if: github.ref == 'refs/heads/main'
+      env:
+        SARIF: ${{ steps.scan.outputs.sarif }}
+      run: jq '.runs[].results |= map(select(.level == "error"))' "$SARIF" > code-scanning.sarif
+
     - name: Upload SARIF
       if: github.ref == 'refs/heads/main'
       uses: github/codeql-action/upload-sarif@v4
       with:
-        sarif_file: ${{ steps.scan.outputs.sarif }}
+        sarif_file: code-scanning.sarif
         category: pixi-vuln-scan
 
     # Baseline for the PR CVE diff. PR runs rescan it with their own vuln DB.
