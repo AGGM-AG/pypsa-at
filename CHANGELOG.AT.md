@@ -13,6 +13,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `patch_powerplants_set_at` rule restoring `Set="PP"` on the large German lignite condensing units
 
 ### Fixed
+- `retrieve_co2_prices` writes `date` as the first CSV column, so `build_co2_prices` no longer fails with `KeyError: 'price'` after the Instrat API reordered its fields
 - Retrofitted H2 pipelines no longer double-count Austrian gas pipeline capacity: from 2030 up to the threshold year, gas plus retrofitted H2 capacity per corridor stays at the AGGM target ([#294](https://github.com/AGGM-AG/pypsa-at-planning/issues/294))
 
 ### Changed
