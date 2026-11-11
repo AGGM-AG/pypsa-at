@@ -1191,7 +1191,12 @@ if (INSTRAT_CO2_PRICES_DATASET := dataset_version("instrat_co2_prices"))["source
             r = requests.get(url, headers=headers)
             r.raise_for_status()
             df = pd.read_json(StringIO(r.text))
-            df.to_csv(output["csv"], index=False)
+            # --- START: Block Maintained by PyPSA-AT ---
+            # The Instrat API changed its JSON field order (2026-11) so "price"
+            # came first; build_co2_prices reads index_col=0 and failed with
+            # KeyError 'price'. Write "date" as the first column explicitly.
+            df.set_index("date").to_csv(output["csv"])
+            # --- END: Block Maintained by PyPSA-AT ---
 
 
 if (
